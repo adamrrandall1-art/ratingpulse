@@ -29,11 +29,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.success) {
+      console.error('Resend API Error:', result.error);
       return NextResponse.json(
         { error: result.error || 'Failed to dispatch email' },
         { status: 500 }
       );
     }
+
+    console.log('Resend Success Data:', result);
 
     // 2. Insert into Supabase review_invites table
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;

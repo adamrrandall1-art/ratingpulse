@@ -1,4 +1,4 @@
-﻿import { Resend } from 'resend';
+import { Resend } from 'resend';
 
 const apiKey = process.env.RESEND_API_KEY;
 
@@ -99,21 +99,24 @@ export async function sendEmailInvite({
   `;
 
   try {
+    const fromAddress = `RatingPulse <${resendFromEmail}>`;
+
     const { data, error } = await resend.emails.send({
-      from: `"${businessName}" <${resendFromEmail}>`,
+      from: fromAddress,
       to: [toEmail],
       subject: `How was your experience with ${businessName}?`,
       html,
     });
 
     if (error) {
-      console.error('[Resend Error]', error);
+      console.error('Resend API Error:', error);
       return { success: false, error: error.message };
     }
 
+    console.log('Resend Success Data:', data);
     return { success: true, id: data?.id };
   } catch (err: any) {
-    console.error('[Resend Exception]', err);
+    console.error('Resend API Exception:', err);
     return { success: false, error: err?.message || 'Failed to dispatch email' };
   }
 }
