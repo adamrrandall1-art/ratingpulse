@@ -1,0 +1,231 @@
+'use client';
+
+import React, { useState } from 'react';
+import {
+  Send,
+  Bell,
+  CheckCircle,
+  Database,
+  RotateCcw,
+  Sparkles,
+  Search,
+  LogOut,
+  User,
+  Settings,
+  Zap,
+  ShieldCheck,
+  Check,
+  X
+} from 'lucide-react';
+import Link from 'next/link';
+import { useRatingPulseStore } from '@/lib/store';
+import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import SendInviteModal from './SendInviteModal';
+import confetti from 'canvas-confetti';
+
+export default function Header() {
+  const {
+    profile,
+    resetDemoData,
+    isDemoMode,
+    toggleDemoMode,
+    simulateIncomingGoogleReview,
+    searchQuery,
+    setSearchQuery
+  } = useRatingPulseStore();
+  const { user, signOut } = useAuth();
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const displayName = user?.user_metadata?.full_name || profile.full_name || 'Dr. Marcus Vance';
+  const displayEmail = user?.email || profile.email;
+
+  const handleToggleDemoMode = () => {
+    const nextState = !isDemoMode;
+    toggleDemoMode(nextState);
+
+    if (nextState) {
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 60,
+          origin: { y: 0.2 },
+          colors: ['#3b82f6', '#10b981', '#fbbf24'],
+        });
+      } catch {
+        // ignore
+      }
+      setToastMessage('⚡ Demo Mode Enabled: Populated realistic reviews & SMS history');
+    } else {
+      setToastMessage('🔒 Live Mode Enabled: Clean production state');
+    }
+
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  };
+
+  return (
+    <>
+      <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between z-20 sticky top-0">
+        
+        {/* Left: Search & Location indicator */}
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100/80 border border-slate-200/80 text-xs text-slate-500 transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-500 focus-within:bg-white">
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search reviews or customers..."
+              className="bg-transparent border-none text-xs text-slate-800 focus:outline-none w-48 sm:w-64 placeholder:text-slate-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200/70 transition-colors"
+                title="Clear search"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+
+          {/* Google Connected Badge */}
+          <div className="hidden sm:flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+              <CheckCircle className="w-3 h-3 text-emerald-600" />
+              Google Sync Active
+            </span>
+          </div>
+        </div>
+
+        {/* Right Actions */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          
+          {/* Interactive Demo Mode Toggle Switch */}
+          <div className="flex items-center gap-2 bg-slate-100/90 hover:bg-slate-200/70 p-1.5 rounded-2xl border border-slate-200 transition-colors">
+            <button
+              onClick={handleToggleDemoMode}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                isDemoMode
+                  ? 'bg-amber-500 text-white shadow-xs'
+                  : 'bg-white text-slate-700 shadow-2xs'
+              }`}
+              title="Toggle interactive mock reviews, SMS history, and simulator data"
+            >
+              <Zap className={`w-3.5 h-3.5 ${isDemoMode ? 'text-amber-200 fill-amber-200 animate-pulse' : 'text-slate-400'}`} />
+              <span className="hidden sm:inline">Demo Mode:</span>
+              <span className="uppercase text-[10px] tracking-wider font-extrabold">
+                {isDemoMode ? 'ON' : 'OFF'}
+              </span>
+            </button>
+
+            {isDemoMode && (
+              <button
+                onClick={resetDemoData}
+                title="Reset mock reviews & SMS invites to default state"
+                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/80 transition-colors cursor-pointer"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Quick Trigger SMS Button */}
+          <button
+            onClick={() => setInviteModalOpen(true)}
+            className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Send Review SMS</span>
+            <span className="sm:hidden">Send</span>
+          </button>
+
+          {/* User Profile Dropdown */}
+          <div className="relative pl-2 border-l border-slate-200">
+            <button
+              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+              className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=100&h=100&fit=crop&crop=face"
+                alt={displayName}
+                className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100"
+              />
+              <div className="hidden xl:block text-left">
+                <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
+                  {displayName}
+                </div>
+                <div className="text-[10px] text-slate-500 truncate max-w-[120px]">
+                  {profile.business_name}
+                </div>
+              </div>
+            </button>
+
+            {/* Dropdown Menu */}
+            {profileDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                <div className="p-2 border-b border-slate-100">
+                  <div className="text-xs font-bold text-slate-900 truncate">{displayName}</div>
+                  <div className="text-[11px] text-slate-500 truncate">{displayEmail}</div>
+                </div>
+
+                <Link
+                  href="/dashboard/settings"
+                  onClick={() => setProfileDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <Settings className="w-4 h-4 text-slate-400" />
+                  Account Settings
+                </Link>
+
+                <Link
+                  href="/onboarding"
+                  onClick={() => setProfileDropdownOpen(false)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4 text-blue-500" />
+                  Onboarding Wizard
+                </Link>
+
+                <button
+                  onClick={() => {
+                    setProfileDropdownOpen(false);
+                    signOut();
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </div>
+
+        </div>
+
+      </header>
+
+      {/* Floating Mode Switch Toast Notification */}
+      {toastMessage && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white px-4 py-3 rounded-2xl shadow-2xl border border-slate-800 flex items-center gap-3 text-xs font-semibold animate-in slide-in-from-bottom-5 duration-200">
+          <div className="w-6 h-6 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold">
+            ⚡
+          </div>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Modal */}
+      <SendInviteModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+      />
+    </>
+  );
+}
