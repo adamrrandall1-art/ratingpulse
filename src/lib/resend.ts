@@ -1,11 +1,16 @@
 import { Resend } from 'resend';
 
-const apiKey = process.env.RESEND_API_KEY;
-
-export const resend = apiKey ? new Resend(apiKey) : null;
 export const resendFromEmail = process.env.RESEND_FROM_EMAIL || 'notifications@ratingpulse.co';
 
-export const isResendConfigured = Boolean(apiKey && apiKey.startsWith('re_'));
+export function getResendClient(): Resend | null {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey || !apiKey.startsWith('re_')) return null;
+  return new Resend(apiKey);
+}
+
+export const isResendConfigured = Boolean(
+  process.env.RESEND_API_KEY && process.env.RESEND_API_KEY.startsWith('re_')
+);
 
 export interface EmailInviteParams {
   toEmail: string;
@@ -33,7 +38,9 @@ export async function sendEmailInvite({
   businessName,
   reviewGateUrl,
 }: EmailInviteParams) {
-  if (!resend || !isResendConfigured) {
+  const resend = getResendClient();
+
+  if (!resend) {
     console.log('[Resend Simulated] Email invite sent to:', toEmail, 'for business:', businessName);
     return {
       success: true,
@@ -133,7 +140,9 @@ export async function sendFeedbackAlert({
   feedbackText,
   businessName = 'RatingPulse Business',
 }: FeedbackAlertParams) {
-  if (!resend || !isResendConfigured) {
+  const resend = getResendClient();
+
+  if (!resend) {
     console.log('[Resend Alert Simulated] Alert to:', businessOwnerEmail, 'Rating:', rating, 'Feedback:', feedbackText);
     return {
       success: true,
