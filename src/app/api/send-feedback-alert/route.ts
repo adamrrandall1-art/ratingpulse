@@ -1,25 +1,21 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { sendFeedbackAlert } from '@/lib/resend';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      businessOwnerEmail,
+      rating,
+      feedbackText,
       customerName,
       customerPhone,
       customerEmail,
-      rating,
-      feedbackText,
+      ownerEmail,
+      businessOwnerEmail,
       businessName,
     } = body;
 
-    if (!businessOwnerEmail) {
-      return NextResponse.json(
-        { error: 'Business owner email address (businessOwnerEmail) is required' },
-        { status: 400 }
-      );
-    }
+    const recipientEmail = ownerEmail || businessOwnerEmail || 'notifications@ratingpulse.co';
 
     if (rating === undefined || rating === null) {
       return NextResponse.json(
@@ -29,7 +25,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = await sendFeedbackAlert({
-      businessOwnerEmail,
+      businessOwnerEmail: recipientEmail,
       customerName: customerName || 'A customer',
       customerPhone,
       customerEmail,
