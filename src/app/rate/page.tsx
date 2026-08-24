@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import {
   Star,
@@ -8,16 +8,92 @@ import {
   MessageSquare,
   ShieldCheck,
   Send,
-  ExternalLink
+  ExternalLink,
+  MapPin,
+  Building2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 
 function ReviewGateContent() {
+  const params = useParams();
   const searchParams = useSearchParams();
 
-  const businessName = searchParams.get('business') || 'Apex Dental & Aesthetics';
-  const placeId = searchParams.get('placeId') || 'ChIJN1t_tDeuEmsRUsoyG83frY4';
-  const ownerEmail = searchParams.get('ownerEmail') || 'notifications@ratingpulse.co';
+  const idParam = (params?.id as string) || '';
+  const businessParam = searchParams.get('business');
+  const placeIdParam = searchParams.get('placeId');
+  const reviewUrlParam = searchParams.get('reviewUrl');
+  const ownerEmailParam = searchParams.get('ownerEmail');
+
+  const [businessName, setBusinessName] = useState<string>(
+    businessParam || 'Apex Dental & Aesthetics'
+  );
+  const [placeId, setPlaceId] = useState<string>(
+    placeIdParam || ''
+  );
+  const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(
+    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : '')
+  );
+  const [ownerEmail, setOwnerEmail] = useState<string>(
+    ownerEmailParam || 'notifications@ratingpulse.co'
+  );
+  const [address, setAddress] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 1. Fetch business record from Supabase if invite ID or business ID is provided
+  useEffect(() => {
+    async function resolveBusiness() {
+      if (!isSupabaseConfigured || !supabase || !idParam || idParam === 'demo') {
+        return;
+      }
+
+      setIsLoading(true);
+      try {
+        // Try looking up review_invites table
+        const { data: inviteData } = await supabase
+          .from('review_invites')
+          .select('user_id')
+          .eq('id', idParam)
+          .maybeSingle();
+
+        const targetUserId = inviteData?.user_id || idParam;
+
+        if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('business_name, google_place_id, review_url, email, formatted_address')
+            .eq('id', targetUserId)
+            .maybeSingle();
+
+          if (profileData) {
+            if (profileData.business_name && !businessParam) {
+              setBusinessName(profileData.business_name);
+            }
+            if (profileData.google_place_id && !placeIdParam) {
+              setPlaceId(profileData.google_place_id);
+            }
+            if (profileData.review_url && !reviewUrlParam) {
+              setGoogleReviewUrl(profileData.review_url);
+            } else if (profileData.google_place_id && !reviewUrlParam) {
+              setGoogleReviewUrl(`https://search.google.com/local/writereview?placeid=${profileData.google_place_id}`);
+            }
+            if (profileData.email && !ownerEmailParam) {
+              setOwnerEmail(profileData.email);
+            }
+            if (profileData.formatted_address) {
+              setAddress(profileData.formatted_address);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Error resolving business on review gate:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    resolveBusiness();
+  }, [idParam, businessParam, placeIdParam, reviewUrlParam, ownerEmailParam]);
 
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
@@ -30,7 +106,12 @@ function ReviewGateContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const directGoogleUrl = `https://search.google.com/local/writereview?placeid=${placeId}`;
+  // Derive final 5-star Google review URL without hardcoded Sydney fallback
+  const resolvedGoogleUrl =
+    googleReviewUrl ||
+    (placeId
+      ? `https://search.google.com/local/writereview?placeid=${placeId}`
+      : `https://www.google.com/search?q=${encodeURIComponent(businessName + ' write a review')}`);
 
   const handleRatingClick = (rating: number) => {
     setSelectedRating(rating);
@@ -84,7 +165,7 @@ function ReviewGateContent() {
       <header className="max-w-md mx-auto w-full pt-4 pb-6 flex items-center justify-center">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 font-bold text-sm">
-            ⭐
+            <Building2 className="w-4 h-4" />
           </div>
           <span className="font-bold text-base text-slate-100 tracking-tight">
             {businessName}
@@ -106,6 +187,12 @@ function ReviewGateContent() {
               <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">
                 How was your experience with {businessName}?
               </h1>
+              {address && (
+                <p className="text-xs text-slate-400 mt-1.5 flex items-center justify-center gap-1">
+                  <MapPin className="w-3 h-3 text-slate-500" />
+                  <span>{address}</span>
+                </p>
+              )}
               <p className="text-xs text-slate-400 mt-2">
                 Tap a star below to rate your overall visit:
               </p>
@@ -162,7 +249,7 @@ function ReviewGateContent() {
 
             <div className="pt-2">
               <a
-                href={directGoogleUrl}
+                href={resolvedGoogleUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all transform active:scale-98 cursor-pointer"
@@ -173,7 +260,7 @@ function ReviewGateContent() {
             </div>
 
             <p className="text-[11px] text-slate-500">
-              Directly opens the Google 5-star review dialog.
+              Directly opens the Google review dialog for {businessName}.
             </p>
           </div>
         ) : (
@@ -188,7 +275,7 @@ function ReviewGateContent() {
                   Thank you for your candid feedback
                 </h3>
                 <p className="text-xs text-slate-300">
-                  Your message has been sent directly to the business management team. We will review your notes and reach out shortly to make this right.
+                  Your message has been sent directly to the management team at {businessName}. We will review your notes and reach out shortly to make this right.
                 </p>
               </div>
             ) : (

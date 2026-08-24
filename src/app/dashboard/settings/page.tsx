@@ -27,10 +27,10 @@ export default function SettingsPage() {
   const { profile, settings, updateSettings, updateProfile } = useRatingPulseStore();
 
   const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
-  const [placeId, setPlaceId] = useState(profile.google_place_id || 'ChIJN1t_tDeuEmsRUsoyG83frY4');
+  const [placeId, setPlaceId] = useState(profile.google_place_id || '');
   const [formattedAddress, setFormattedAddress] = useState(profile.formatted_address || '1400 Broadway, New York, NY 10018');
   const [reviewUrl, setReviewUrl] = useState(
-    profile.review_url || generateGoogleReviewUrl(profile.google_place_id || 'ChIJN1t_tDeuEmsRUsoyG83frY4')
+    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
   );
   const [rating, setRating] = useState(profile.google_rating || 4.9);
   const [reviewCount, setReviewCount] = useState(profile.google_review_count || 284);
@@ -47,7 +47,7 @@ export default function SettingsPage() {
     const bName = data.name || data.businessName || '';
     const addr = data.address || data.formattedAddress || '';
     const pId = data.placeId || '';
-    const rUrl = data.reviewUrl || '';
+    const rUrl = data.reviewUrl || (pId ? `https://search.google.com/local/writereview?placeid=${pId}` : '');
 
     if (bName) setBusinessName(bName);
     if (pId) setPlaceId(pId);
@@ -88,7 +88,7 @@ export default function SettingsPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const directReviewUrl = reviewUrl || generateGoogleReviewUrl(placeId);
+    const directReviewUrl = (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '') || reviewUrl;
 
     await updateProfile({
       business_name: businessName,
@@ -97,7 +97,7 @@ export default function SettingsPage() {
       review_url: directReviewUrl,
       google_rating: rating,
       google_review_count: reviewCount,
-      google_connected: true,
+      google_connected: Boolean(placeId),
     });
     await updateSettings({
       brand_voice: brandVoice as any,

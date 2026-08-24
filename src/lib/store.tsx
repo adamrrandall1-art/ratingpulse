@@ -381,16 +381,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persistState(reviews, updatedInvites, settings, profile);
 
     try {
-      const reviewUrl =
-        profile.review_url ||
-        (profile.google_place_id
-          ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}`
-          : 'https://ratingpulse.co');
+      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+      const reviewGateUrl = `${appUrl}/rate/${inviteId}?business=${encodeURIComponent(profile.business_name || 'Our Business')}${profile.google_place_id ? `&placeId=${encodeURIComponent(profile.google_place_id)}` : ''}&ownerEmail=${encodeURIComponent(profile.email || '')}`;
 
       const customMessage = settings.sms_template
         .replace(/{{customer_name}}/g, customerName)
         .replace(/{{business_name}}/g, profile.business_name)
-        .replace(/{{review_link}}/g, reviewUrl);
+        .replace(/{{review_link}}/g, reviewGateUrl);
 
       const resp = await fetch('/api/sms/send', {
         method: 'POST',
@@ -399,7 +396,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           to: customerPhone,
           customerName,
           businessName: profile.business_name,
-          reviewLink: reviewUrl,
+          reviewLink: reviewGateUrl,
           message: customMessage,
           serviceType,
         }),
@@ -470,11 +467,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
-      const reviewUrl =
-        profile.review_url ||
-        (profile.google_place_id
-          ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}`
-          : `${appUrl}/rate/demo`);
+      const reviewGateUrl = `${appUrl}/rate/${inviteId}?business=${encodeURIComponent(profile.business_name || 'Our Business')}${profile.google_place_id ? `&placeId=${encodeURIComponent(profile.google_place_id)}` : ''}&ownerEmail=${encodeURIComponent(profile.email || '')}`;
 
       const resp = await fetch('/api/send-email-invite', {
         method: 'POST',
@@ -483,7 +476,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           customerEmail,
           customerName,
           businessName: profile.business_name || 'Our Business',
-          reviewUrl,
+          reviewUrl: reviewGateUrl,
           userId: user?.id,
           serviceType,
         }),
