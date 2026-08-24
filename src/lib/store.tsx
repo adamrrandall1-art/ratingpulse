@@ -364,8 +364,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     serviceType: string = 'General Service'
   ) => {
     setIsSaving(true);
+    const inviteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
     const newInvite: Invite = {
-      id: `inv-${Date.now()}`,
+      id: inviteId,
       user_id: profile.id,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -421,8 +422,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured && supabase) {
       void (async () => {
         try {
-          const { error } = await supabase.from('review_invites').insert([newInvite]);
-          if (error) console.error('Supabase insert invite error:', error.message, error.code);
+          const payload: Record<string, unknown> = {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            service_type: serviceType,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          };
+          const uid = user?.id || profile.id;
+          if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+            payload.user_id = uid;
+          }
+          const { error } = await supabase.from('review_invites').insert([payload]);
+          if (error) console.error('Supabase insert invite error:', error.message);
         } catch (err: unknown) {
           console.error('Supabase insert invite exception:', err);
         }
@@ -439,9 +451,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     serviceType: string = 'General Service'
   ): Promise<Invite> => {
     setIsSaving(true);
+    const inviteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
     const newInvite: Invite = {
-      id: `inv_${Date.now()}`,
-      user_id: user?.id || 'demo_user',
+      id: inviteId,
+      user_id: user?.id || profile.id || '00000000-0000-0000-0000-000000000000',
       customer_name: customerName,
       customer_phone: customerEmail,
       service_type: serviceType,
@@ -467,10 +480,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          toEmail: customerEmail,
+          customerEmail,
           customerName,
           businessName: profile.business_name || 'Our Business',
-          reviewGateUrl: reviewUrl,
+          reviewUrl,
           userId: user?.id,
           serviceType,
         }),
@@ -493,7 +506,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured && supabase) {
       void (async () => {
         try {
-          const { error } = await supabase.from('review_invites').insert([newInvite]);
+          const payload: Record<string, unknown> = {
+            customer_name: customerName,
+            customer_phone: customerEmail,
+            service_type: serviceType,
+            status: 'sent',
+            sent_at: new Date().toISOString(),
+          };
+          const uid = user?.id || profile.id;
+          if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+            payload.user_id = uid;
+          }
+          const { error } = await supabase.from('review_invites').insert([payload]);
           if (error) console.error('Supabase insert email invite error:', error.message);
         } catch (err: unknown) {
           console.error('Supabase insert email invite exception:', err);
