@@ -62,6 +62,7 @@ export interface RatingPulseStoreContextType {
   updateDraftText: (reviewId: string, text: string) => void;
   simulateIncomingGoogleReview: () => Review;
   sendSmsInvite: (customerName: string, customerPhone: string, serviceType?: string) => Promise<Invite>;
+  sendEmailInvite: (customerName: string, customerEmail: string, serviceType?: string) => Promise<Invite>;
   updateSettings: (newSettings: Partial<BusinessSettings>) => Promise<void>;
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
   resetDemoData: () => void;
@@ -432,6 +433,78 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return newInvite;
   };
 
+  const sendEmailInvite = async (
+    customerName: string,
+    customerEmail: string,
+    serviceType: string = 'General Service'
+  ): Promise<Invite> => {
+    setIsSaving(true);
+    const newInvite: Invite = {
+      id: `inv_${Date.now()}`,
+      user_id: user?.id || 'demo_user',
+      customer_name: customerName,
+      customer_phone: customerEmail,
+      service_type: serviceType,
+      status: 'sent',
+      sent_at: new Date().toISOString(),
+      rating_received: null,
+    };
+
+    const updated = [newInvite, ...invites];
+    setInvites(updated);
+    globalInvitesCache = updated;
+    persistState(reviews, updated, settings, profile);
+
+    try {
+      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+      const reviewUrl =
+        profile.review_url ||
+        (profile.google_place_id
+          ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}`
+          : `${appUrl}/rate/demo`);
+
+      const resp = await fetch('/api/send-email-invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          toEmail: customerEmail,
+          customerName,
+          businessName: profile.business_name || 'Our Business',
+          reviewGateUrl: reviewUrl,
+          userId: user?.id,
+          serviceType,
+        }),
+      });
+
+      const data = await resp.json();
+      if (data?.success) {
+        setTimeout(() => {
+          setInvites((prev) =>
+            prev.map((inv) =>
+              inv.id === newInvite.id ? { ...inv, status: 'delivered' } : inv
+            )
+          );
+        }, 1500);
+      }
+    } catch (err) {
+      console.warn('Email dispatch network warning:', err);
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      void (async () => {
+        try {
+          const { error } = await supabase.from('review_invites').insert([newInvite]);
+          if (error) console.error('Supabase insert email invite error:', error.message);
+        } catch (err: unknown) {
+          console.error('Supabase insert email invite exception:', err);
+        }
+      })();
+    }
+
+    setIsSaving(false);
+    return newInvite;
+  };
+
   const updateSettings = async (newSettings: Partial<BusinessSettings>) => {
     const updated = { ...settings, ...newSettings };
     setSettings(updated);
@@ -503,6 +576,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateDraftText,
     simulateIncomingGoogleReview,
     sendSmsInvite,
+    sendEmailInvite,
     updateSettings,
     updateProfile,
     resetDemoData,
@@ -540,6 +614,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     updateDraftText: () => {},
     simulateIncomingGoogleReview: () => initialReviews[0],
     sendSmsInvite: async () => initialInvites[0],
+    sendEmailInvite: async () => initialInvites[0],
     updateSettings: async () => {},
     updateProfile: async () => {},
     resetDemoData: () => {},
