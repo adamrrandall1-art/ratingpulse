@@ -103,14 +103,13 @@ export async function POST(req: NextRequest) {
 
         // Insert standard fields into feedback table without manual ID
         const feedbackDirectRow: Record<string, unknown> = {
-          business_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
-          user_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
-          customer_name: customerName || 'Anonymous Customer',
-          customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
-          customer_phone: customerPhone || null,
           rating: Number(effectiveRating),
           feedback_text: effectiveText,
+          customer_name: customerName || 'Anonymous',
+          customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
           status: 'unresolved',
+          user_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
+          business_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
         };
 
         const { data: fbData, error: fbError } = await supabaseAdmin
@@ -119,11 +118,11 @@ export async function POST(req: NextRequest) {
           .select();
 
         if (fbError) {
-          console.error('[DB Insert feedback error]:', fbError.message, fbError.details);
+          console.error('Failed to save feedback to Supabase:', fbError);
         } else {
           dbSuccess = true;
           if (fbData && fbData[0]?.id) recordId = fbData[0].id;
-          console.log('[Direct feedback insert success]:', fbData);
+          console.log('Saved feedback to Supabase successfully:', fbData);
         }
 
         // Check if there is an explicit notification_email, notification_phone, or sms_alerts_enabled configured
