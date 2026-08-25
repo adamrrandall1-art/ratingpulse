@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -11,8 +11,7 @@ import {
   ExternalLink,
   MapPin,
   Building2,
-  CheckCircle2,
-  HeartHandshake
+  CheckCircle2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -335,7 +334,7 @@ function ReviewGateContent() {
             </p>
           </div>
         ) : (
-          /* Step 2B: 1-3 Stars -> Intercept Privately with Resend Alert */
+          /* Step 2B: 1-3 Stars -> Private Feedback Form with Compliant Public Google Option */
           <div className="space-y-4 animate-in fade-in zoom-in-95">
             {isSubmitted ? (
               <div className="text-center space-y-4 py-4">
@@ -348,9 +347,21 @@ function ReviewGateContent() {
                 <p className="text-xs text-slate-300 leading-relaxed">
                   Your message has been sent directly to the management team at <strong>{businessName}</strong>. We appreciate your honesty and will review your notes promptly to make this right.
                 </p>
-                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-700/60 text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  <span>Private feedback received • Kept confidential</span>
+                
+                {/* Secondary Public Option after Submission */}
+                <div className="pt-3 border-t border-slate-700/60 text-center">
+                  <p className="text-[11px] text-slate-400">
+                    Prefer to share your feedback publicly?{' '}
+                    <a
+                      href={resolvedGoogleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 font-semibold underline inline-flex items-center gap-1 transition-colors"
+                    >
+                      <span>Leave a review on Google instead</span>
+                      <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                  </p>
                 </div>
               </div>
             ) : (
@@ -430,6 +441,22 @@ function ReviewGateContent() {
                     </>
                   )}
                 </button>
+
+                {/* Google & FTC Compliant Secondary Public Option */}
+                <div className="pt-3 border-t border-slate-700/60 text-center">
+                  <p className="text-[11px] text-slate-400">
+                    Prefer to share your feedback publicly?{' '}
+                    <a
+                      href={resolvedGoogleUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-blue-400 hover:text-blue-300 font-semibold underline inline-flex items-center gap-1 transition-colors"
+                    >
+                      <span>Leave a review on Google instead</span>
+                      <ExternalLink className="w-3 h-3 inline" />
+                    </a>
+                  </p>
+                </div>
               </form>
             )}
           </div>
