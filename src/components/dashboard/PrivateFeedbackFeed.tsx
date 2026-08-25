@@ -1,36 +1,38 @@
 ﻿'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  AlertOctagon,
   Star,
   Phone,
   Mail,
   CheckCircle2,
   AlertTriangle,
   Clock,
-  ExternalLink,
   ShieldAlert
 } from 'lucide-react';
 import { useRatingPulseStore, isLowStarOrFeedback } from '@/lib/store';
+import { Invite } from '@/lib/supabase/types';
 
 export default function PrivateFeedbackFeed() {
   const { invites, updateInviteResolution, searchQuery, unresolvedFeedbackCount } = useRatingPulseStore();
-  const [filter, setFilter] = useState<'all' | 'needs_follow_up' | 'resolved'>('all');
+  const [filter, setFilter] = useState<'needs_follow_up' | 'all' | 'resolved'>('needs_follow_up');
 
   // Filter for invites that have private feedback or low ratings
-  const feedbackItems = invites.filter((inv) => {
+  const feedbackItems = invites.filter((inv: Invite) => {
     if (!isLowStarOrFeedback(inv)) return false;
+
+    const isResolved = inv.resolution_status === 'resolved' || inv.status === 'resolved';
 
     // Apply resolution filter
     if (filter === 'needs_follow_up') {
-      return inv.resolution_status !== 'resolved';
+      // Include any record where rating <= 3 and it is not explicitly marked as resolved or archived
+      return !isResolved && inv.status !== 'archived';
     }
     if (filter === 'resolved') {
-      return inv.resolution_status === 'resolved';
+      return isResolved;
     }
-    return true;
-  }).filter((inv) => {
+    return true; // 'all' tab shows all records with rating <= 3 regardless of status
+  }).filter((inv: Invite) => {
     // Apply global dashboard search query filter
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
@@ -40,6 +42,10 @@ export default function PrivateFeedbackFeed() {
     const textMatch = inv.feedback_text?.toLowerCase().includes(q);
     return Boolean(nameMatch || phoneMatch || emailMatch || textMatch);
   });
+
+  useEffect(() => {
+    console.log('Fetched Urgent Feedback:', feedbackItems);
+  }, [feedbackItems]);
 
   return (
     <div className="bg-white rounded-2xl border-2 border-rose-100 shadow-sm overflow-hidden">
@@ -74,17 +80,6 @@ export default function PrivateFeedbackFeed() {
         <div className="flex items-center gap-1 p-1 bg-white border border-rose-200/80 rounded-xl text-xs font-bold self-start sm:self-auto shadow-2xs">
           <button
             type="button"
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              filter === 'all'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All
-          </button>
-          <button
-            type="button"
             onClick={() => setFilter('needs_follow_up')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'needs_follow_up'
@@ -94,6 +89,17 @@ export default function PrivateFeedbackFeed() {
           >
             <AlertTriangle className="w-3.5 h-3.5" />
             <span>Needs Follow-up</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilter('all')}
+            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+              filter === 'all'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            All Feedback
           </button>
           <button
             type="button"
@@ -127,7 +133,7 @@ export default function PrivateFeedbackFeed() {
         <div className="divide-y divide-slate-100 bg-white">
           {feedbackItems.map((item) => {
             const rating = Number(item.rating_received) || 2;
-            const isResolved = item.resolution_status === 'resolved';
+            const isResolved = item.resolution_status === 'resolved' || item.status === 'resolved';
 
             return (
               <div
@@ -184,13 +190,13 @@ export default function PrivateFeedbackFeed() {
                     <button
                       type="button"
                       onClick={() => updateInviteResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs ${
                         isResolved
                           ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
                           : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
                       }`}
                     >
-                      {isResolved ? 'Re-open Issue' : '✓ Mark Resolved'}
+                      {isResolved ? 'Re-open' : '✓ Mark as Resolved'}
                     </button>
                   </div>
                 </div>

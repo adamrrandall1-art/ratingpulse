@@ -69,7 +69,7 @@ let globalReviewsCache = initialReviews;
 let globalInvitesCache = initialInvites;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile>(globalProfileCache);
   const [settings, setSettings] = useState<BusinessSettings>(globalSettingsCache);
   const [reviews, setReviews] = useState<Review[]>(globalReviewsCache);
@@ -80,6 +80,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   useEffect(() => {
+    if (authLoading) return; // Guard: Wait until auth has fully resolved to prevent double-fetch overwrite
+
     async function loadData() {
       // 1. Check Demo Mode Preference from localStorage
       let currentDemoMode = true;
@@ -127,6 +129,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
             const invs = invitesRes.value.data as Invite[];
+            console.log('Fetched Urgent Feedback / Review Invites:', invs);
             setInvites(invs);
             globalInvitesCache = invs;
           }
