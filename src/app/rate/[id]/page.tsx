@@ -170,22 +170,26 @@ function ReviewGateContent() {
 
     // 1. Submit feedback via server-side API (bypasses RLS, inserts to feedback, patches review_invites & dispatches alerts)
     try {
-      await fetch('/api/submit-feedback', {
+      const response = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          inviteId: idParam,
-          businessId: targetUserId,
-          userId: targetUserId,
-          customerName: customerName || 'Anonymous Customer',
-          customerPhone,
-          customerEmail,
+          customer_name: customerName || 'Anonymous',
+          customer_email: customerEmail || null,
+          customer_phone: customerPhone || null,
           rating: effectiveRating,
-          feedbackText,
+          feedback_text: feedbackText,
+          status: 'unresolved',
+          user_id: targetUserId || null,
+          business_id: targetUserId || null,
+          invite_id: idParam || null,
           businessName,
           ownerEmail,
         }),
       });
+
+      const res = await response.json();
+      console.log('Feedback submitted response:', res);
     } catch (err) {
       console.warn('Feedback submit dispatch warning:', err);
     }
