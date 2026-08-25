@@ -91,6 +91,16 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        if ((!resolvedUserId || !isUuid.test(resolvedUserId)) && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
+          const { data: profByEmail } = await supabaseAdmin
+            .from('profiles')
+            .select('id')
+            .or(`email.eq.${effectiveOwnerEmail},notification_email.eq.${effectiveOwnerEmail}`)
+            .maybeSingle();
+
+          if (profByEmail?.id) resolvedUserId = profByEmail.id;
+        }
+
         // Insert standard fields into feedback table without manual ID
         const feedbackDirectRow: Record<string, unknown> = {
           business_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,

@@ -45,21 +45,26 @@ export default function DashboardOverview() {
   useEffect(() => {
     async function fetchLiveUrgentCount() {
       const uid = user?.id || profile.id;
-      if (!isSupabaseConfigured || !supabase || !uid || isDemoMode) {
+      if (!isSupabaseConfigured || !supabase || isDemoMode) {
         return;
       }
 
       try {
-        const { count, data, error } = await supabase
+        let query = supabase
           .from('feedback')
           .select('*', { count: 'exact' })
-          .eq('user_id', uid)
-          .lte('rating', 3)
           .eq('status', 'unresolved');
 
-        console.log('Live Urgent Count:', count);
-        if (!error && count !== null && count !== undefined) {
-          setLiveUrgentCount(count);
+        if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+          query = query.eq('user_id', uid);
+        }
+
+        const { count, data, error } = await query;
+
+        const liveCount = count !== null && count !== undefined ? count : (data?.length ?? 0);
+        console.log('Live Urgent Count:', liveCount);
+        if (!error) {
+          setLiveUrgentCount(liveCount);
         }
       } catch (e) {
         console.warn('Error fetching live urgent count:', e);
