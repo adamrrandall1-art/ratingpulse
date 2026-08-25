@@ -63,11 +63,13 @@ export interface RatingPulseStoreContextType {
   simulateIncomingGoogleReview: () => Review;
   sendSmsInvite: (customerName: string, customerPhone: string, serviceType?: string) => Promise<Invite>;
   sendEmailInvite: (customerName: string, customerEmail: string, serviceType?: string) => Promise<Invite>;
+  updateInviteResolution: (inviteId: string, resolution: 'unresolved' | 'resolved' | 'needs_follow_up') => Promise<void>;
   updateSettings: (newSettings: Partial<BusinessSettings>) => Promise<void>;
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
   resetDemoData: () => void;
   pendingReviewsCount: number;
   publishedReviewsCount: number;
+  privateFeedbackCount: number;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -565,6 +567,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateInviteResolution = async (
+    inviteId: string,
+    resolution: 'unresolved' | 'resolved' | 'needs_follow_up'
+  ) => {
+    const updated = invites.map((inv) =>
+      inv.id === inviteId ? { ...inv, resolution_status: resolution } : inv
+    );
+    setInvites(updated);
+    globalInvitesCache = updated;
+    persistState(reviews, updated, settings, profile);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from('review_invites')
+          .update({ resolution_status: resolution })
+          .eq('id', inviteId);
+      } catch (err) {
+        console.warn('Error updating invite resolution in Supabase:', err);
+      }
+    }
+  };
+
   const resetDemoData = () => {
     setProfile(initialProfile);
     setSettings(initialSettings);
@@ -594,11 +619,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     simulateIncomingGoogleReview,
     sendSmsInvite,
     sendEmailInvite,
+    updateInviteResolution,
     updateSettings,
     updateProfile,
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: reviews.filter((r) => r.status === 'published').length,
+    privateFeedbackCount: invites.filter((inv) => Boolean(inv.feedback_text || (inv.rating_received && inv.rating_received <= 3))).length,
     searchQuery,
     setSearchQuery,
   };
@@ -632,11 +659,13 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     simulateIncomingGoogleReview: () => initialReviews[0],
     sendSmsInvite: async () => initialInvites[0],
     sendEmailInvite: async () => initialInvites[0],
+    updateInviteResolution: async () => {},
     updateSettings: async () => {},
     updateProfile: async () => {},
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: globalReviewsCache.filter((r) => r.status === 'published').length,
+    privateFeedbackCount: globalInvitesCache.filter((inv) => Boolean(inv.feedback_text || (inv.rating_received && inv.rating_received <= 3))).length,
     searchQuery: '',
     setSearchQuery: () => {},
   };

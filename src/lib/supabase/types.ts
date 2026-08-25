@@ -61,10 +61,14 @@ export interface Invite {
   user_id: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string | null;
   service_type: string;
-  status: 'sent' | 'delivered' | 'opened' | 'reviewed';
+  status: 'sent' | 'delivered' | 'opened' | 'reviewed' | 'feedback_submitted' | string;
   sent_at: string;
   review_received_at?: string | null;
   rating_received?: number | null;
+  feedback_text?: string | null;
+  resolution_status?: 'unresolved' | 'resolved' | 'needs_follow_up' | string;
   review_id?: string | null;
 }
+

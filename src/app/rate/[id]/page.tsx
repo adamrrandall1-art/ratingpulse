@@ -10,7 +10,9 @@ import {
   Send,
   ExternalLink,
   MapPin,
-  Building2
+  Building2,
+  CheckCircle2,
+  HeartHandshake
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -38,6 +40,7 @@ function ReviewGateContent() {
     ownerEmailParam || 'notifications@ratingpulse.co'
   );
   const [address, setAddress] = useState<string>('');
+  const [targetUserId, setTargetUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
 
   // 1. Fetch business record from Supabase if invite ID or business ID is provided
@@ -52,17 +55,28 @@ function ReviewGateContent() {
         // Try looking up review_invites table
         const { data: inviteData } = await supabase
           .from('review_invites')
-          .select('user_id')
+          .select('id, user_id, customer_name, customer_phone')
           .eq('id', idParam)
           .maybeSingle();
 
-        const targetUserId = inviteData?.user_id || idParam;
+        const resolvedUserId = inviteData?.user_id || idParam;
+        if (inviteData?.customer_name) {
+          setCustomerName(inviteData.customer_name);
+        }
+        if (inviteData?.customer_phone) {
+          if (inviteData.customer_phone.includes('@')) {
+            setCustomerEmail(inviteData.customer_phone);
+          } else {
+            setCustomerPhone(inviteData.customer_phone);
+          }
+        }
 
-        if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+        if (resolvedUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId)) {
+          setTargetUserId(resolvedUserId);
           const { data: profileData } = await supabase
             .from('profiles')
             .select('business_name, google_place_id, review_url, email, formatted_address')
-            .eq('id', targetUserId)
+            .eq('id', resolvedUserId)
             .maybeSingle();
 
           if (profileData) {
@@ -113,7 +127,7 @@ function ReviewGateContent() {
       ? `https://search.google.com/local/writereview?placeid=${placeId}`
       : `https://www.google.com/search?q=${encodeURIComponent(businessName + ' write a review')}`);
 
-  const handleRatingClick = (rating: number) => {
+  const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);
 
     if (rating >= 4) {
@@ -127,6 +141,22 @@ function ReviewGateContent() {
       } catch {
         // ignore
       }
+
+      // If user left 4-5 stars, update invite status in Supabase
+      if (isSupabaseConfigured && supabase && idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
+        try {
+          await supabase
+            .from('review_invites')
+            .update({
+              status: 'reviewed',
+              rating_received: rating,
+              review_received_at: new Date().toISOString(),
+            })
+            .eq('id', idParam);
+        } catch (dbErr) {
+          console.warn('DB update on 5-star rating warning:', dbErr);
+        }
+      }
     }
   };
 
@@ -136,6 +166,47 @@ function ReviewGateContent() {
 
     setIsSubmitting(true);
 
+    const effectiveRating = selectedRating || 3;
+    const effectiveContact = customerEmail || customerPhone || 'Not provided';
+
+    // 1. Update Supabase record
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
+          await supabase
+            .from('review_invites')
+            .update({
+              customer_name: customerName || 'Valued Customer',
+              customer_phone: customerPhone || customerEmail || '',
+              rating_received: effectiveRating,
+              feedback_text: feedbackText,
+              status: 'feedback_submitted',
+              resolution_status: 'needs_follow_up',
+              review_received_at: new Date().toISOString(),
+            })
+            .eq('id', idParam);
+        } else if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+          await supabase
+            .from('review_invites')
+            .insert({
+              user_id: targetUserId,
+              customer_name: customerName || 'A Customer',
+              customer_phone: effectiveContact,
+              service_type: 'Private Feedback',
+              status: 'feedback_submitted',
+              rating_received: effectiveRating,
+              feedback_text: feedbackText,
+              resolution_status: 'needs_follow_up',
+              sent_at: new Date().toISOString(),
+              review_received_at: new Date().toISOString(),
+            });
+        }
+      } catch (dbErr) {
+        console.warn('Supabase feedback save warning:', dbErr);
+      }
+    }
+
+    // 2. Dispatch Email alert to business owner via Resend
     try {
       await fetch('/api/send-feedback-alert', {
         method: 'POST',
@@ -145,7 +216,7 @@ function ReviewGateContent() {
           customerName: customerName || 'A Customer',
           customerPhone,
           customerEmail,
-          rating: selectedRating || 3,
+          rating: effectiveRating,
           feedbackText,
           businessName,
         }),
@@ -268,15 +339,19 @@ function ReviewGateContent() {
           <div className="space-y-4 animate-in fade-in zoom-in-95">
             {isSubmitted ? (
               <div className="text-center space-y-4 py-4">
-                <div className="w-14 h-14 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 flex items-center justify-center mx-auto text-xl">
-                  💌
+                <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-2xl">
+                  <CheckCircle2 className="w-7 h-7 text-emerald-400" />
                 </div>
                 <h3 className="text-lg font-bold text-white">
-                  Thank you for your candid feedback
+                  Thank You for Your Feedback
                 </h3>
-                <p className="text-xs text-slate-300">
-                  Your message has been sent directly to the management team at {businessName}. We will review your notes and reach out shortly to make this right.
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Your message has been sent directly to the management team at <strong>{businessName}</strong>. We appreciate your honesty and will review your notes promptly to make this right.
                 </p>
+                <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-700/60 text-[11px] text-slate-400 flex items-center justify-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Private feedback received • Kept confidential</span>
+                </div>
               </div>
             ) : (
               <form onSubmit={handleFeedbackSubmit} className="space-y-4">
