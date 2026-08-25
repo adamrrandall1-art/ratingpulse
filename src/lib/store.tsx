@@ -127,19 +127,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
             const invs = invitesRes.value.data as Invite[];
-            if (invs.length > 0) {
-              // If in demo mode and fetched items don't have feedback samples, preserve demo feedback
-              const hasFeedback = invs.some((i) => isLowStarOrFeedback(i));
-              if (!hasFeedback && currentDemoMode) {
-                const feedbackSamples = initialInvites.filter((i) => isLowStarOrFeedback(i));
-                const merged = [...feedbackSamples, ...invs.filter((i) => !feedbackSamples.some((f) => f.id === i.id))];
-                setInvites(merged);
-                globalInvitesCache = merged;
-              } else {
-                setInvites(invs);
-                globalInvitesCache = invs;
-              }
-            }
+            setInvites(invs);
+            globalInvitesCache = invs;
           }
 
           globalHasLoaded = true;
@@ -150,7 +139,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 3. Local storage fallback & demo data migration
+      // 3. Local storage fallback
       try {
         const storedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
         const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -174,17 +163,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         if (storedInvites) {
           const parsed: Invite[] = JSON.parse(storedInvites);
-          // Preserve sample feedback items if localStorage had old cache without feedback
-          const hasFeedback = parsed.some((inv) => isLowStarOrFeedback(inv));
-          if (!hasFeedback && currentDemoMode) {
-            const feedbackSamples = initialInvites.filter((inv) => isLowStarOrFeedback(inv));
-            const merged = [...feedbackSamples, ...parsed.filter((p) => !feedbackSamples.some((f) => f.id === p.id))];
-            setInvites(merged);
-            globalInvitesCache = merged;
-          } else {
-            setInvites(parsed);
-            globalInvitesCache = parsed;
-          }
+          setInvites(parsed);
+          globalInvitesCache = parsed;
         } else {
           setInvites(initialInvites);
           globalInvitesCache = initialInvites;

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
@@ -172,17 +172,20 @@ function ReviewGateContent() {
     if (isSupabaseConfigured && supabase) {
       try {
         if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
+          const updatePayload: Record<string, unknown> = {
+            rating_received: effectiveRating,
+            feedback_text: feedbackText,
+            status: 'feedback_submitted',
+            resolution_status: 'needs_follow_up',
+            review_received_at: new Date().toISOString(),
+          };
+          if (customerName) updatePayload.customer_name = customerName;
+          if (customerPhone) updatePayload.customer_phone = customerPhone;
+          if (customerEmail) updatePayload.customer_email = customerEmail;
+
           await supabase
             .from('review_invites')
-            .update({
-              customer_name: customerName || 'Valued Customer',
-              customer_phone: customerPhone || customerEmail || '',
-              rating_received: effectiveRating,
-              feedback_text: feedbackText,
-              status: 'feedback_submitted',
-              resolution_status: 'needs_follow_up',
-              review_received_at: new Date().toISOString(),
-            })
+            .update(updatePayload)
             .eq('id', idParam);
         } else if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
           await supabase
@@ -190,8 +193,9 @@ function ReviewGateContent() {
             .insert({
               user_id: targetUserId,
               customer_name: customerName || 'A Customer',
-              customer_phone: effectiveContact,
-              service_type: 'Private Feedback',
+              customer_phone: customerPhone || (effectiveContact.includes('@') ? '' : effectiveContact),
+              customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : undefined),
+              service_type: 'Urgent Feedback',
               status: 'feedback_submitted',
               rating_received: effectiveRating,
               feedback_text: feedbackText,
