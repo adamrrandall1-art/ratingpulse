@@ -45,28 +45,26 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     async function loadFeedback() {
-      const uid = user?.id || profile.id;
       if (!isSupabaseConfigured || !supabase || isDemoMode) {
         return;
       }
 
       try {
-        let query = supabase
+        const { data: feedbackData, error: feedbackError } = await supabase
           .from('feedback')
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
-          query = query.or(`user_id.eq.${uid},business_id.eq.${uid}`);
-        }
+        console.log('Direct Supabase feedback fetch:', feedbackData, feedbackError);
 
-        const { data, error } = await query;
-
-        if (!error && data) {
-          setFeedbackList(data);
-          const urgentCount = data.filter((f: any) => f.status === 'unresolved' || !f.status).length;
+        if (!feedbackError && feedbackData) {
+          setFeedbackList(feedbackData);
+          const unresolvedItems = feedbackData.filter(
+            (item: any) => item.status === 'unresolved' || !item.status
+          );
+          const urgentCount = unresolvedItems.length;
           setLiveUrgentCount(urgentCount);
-          console.log('Feedback Query Results:', data, 'Live Urgent Count:', urgentCount);
+          console.log('Feedback Query Results:', feedbackData, 'Live Urgent Count:', urgentCount);
         }
       } catch (e) {
         console.warn('Error loading feedback list:', e);
@@ -368,7 +366,7 @@ export default function DashboardOverview() {
 
       {/* Dedicated Section: Urgent Customer Inquiries & Low-Star Feedback Table */}
       <section id="urgent-feedback" className="pt-2 scroll-mt-6">
-        <PrivateFeedbackFeed />
+        <PrivateFeedbackFeed liveFeedback={feedbackList} />
       </section>
 
       <SendInviteModal
