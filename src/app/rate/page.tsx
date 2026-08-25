@@ -176,7 +176,8 @@ function ReviewGateContent() {
         body: JSON.stringify({
           inviteId: idParam,
           businessId: targetUserId,
-          customerName: customerName || 'Valued Customer',
+          userId: targetUserId,
+          customerName: customerName || 'Anonymous Customer',
           customerPhone,
           customerEmail,
           rating: effectiveRating,
@@ -196,8 +197,8 @@ function ReviewGateContent() {
           const updatePayload: Record<string, unknown> = {
             rating_received: effectiveRating,
             feedback_text: feedbackText,
-            status: 'feedback_submitted',
-            resolution_status: 'needs_follow_up',
+            status: 'unresolved',
+            resolution_status: 'unresolved',
             review_received_at: new Date().toISOString(),
           };
           if (customerName) updatePayload.customer_name = customerName;
@@ -208,6 +209,19 @@ function ReviewGateContent() {
             .from('review_invites')
             .update(updatePayload)
             .eq('id', idParam);
+        }
+
+        if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
+          await supabase.from('feedback').insert([{
+            user_id: targetUserId,
+            business_id: targetUserId,
+            customer_name: customerName || 'Anonymous Customer',
+            customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
+            customer_phone: customerPhone || null,
+            rating: effectiveRating,
+            feedback_text: feedbackText,
+            status: 'unresolved',
+          }]);
         }
       } catch (dbErr) {
         console.warn('Direct client feedback update warning:', dbErr);

@@ -83,42 +83,39 @@ export async function POST(req: NextRequest) {
             .select();
 
           if (error) {
-            console.error('[DB Update feedback error]', error);
+            console.error('[DB Update review_invites feedback error]', error);
           } else {
             dbSuccess = true;
             if (data && data[0]?.user_id) {
               resolvedUserId = data[0].user_id;
             }
-            console.log('[DB Update feedback success]', data);
           }
-        } else if (effectiveUserId && isUuid.test(effectiveUserId)) {
-          // Insert new feedback record for this business/user
-          const insertPayload: Record<string, unknown> = {
-            user_id: effectiveUserId,
-            customer_name: customerName || 'Valued Customer',
-            customer_phone: customerPhone || customerEmail || '',
-            customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
-            service_type: 'Urgent Customer Feedback',
-            status: 'unresolved',
-            rating_received: effectiveRating,
-            feedback_text: effectiveText,
-            resolution_status: 'unresolved',
-            sent_at: new Date().toISOString(),
-            review_received_at: new Date().toISOString(),
-          };
+        }
 
-          const { data, error } = await supabaseAdmin
-            .from('review_invites')
-            .insert([insertPayload])
-            .select();
+        // Insert directly into the public.feedback table
+        const feedbackDirectRow: Record<string, unknown> = {
+          business_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
+          user_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
+          customer_name: customerName || 'Anonymous Customer',
+          customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
+          customer_phone: customerPhone || null,
+          rating: Number(effectiveRating),
+          feedback_text: effectiveText,
+          status: 'unresolved',
+          created_at: new Date().toISOString(),
+        };
 
-          if (error) {
-            console.error('[DB Insert feedback error]', error);
-          } else {
-            dbSuccess = true;
-            if (data && data[0]?.id) recordId = data[0].id;
-            console.log('[DB Insert feedback success]', data);
-          }
+        const { data: fbData, error: fbError } = await supabaseAdmin
+          .from('feedback')
+          .insert([feedbackDirectRow])
+          .select();
+
+        if (fbError) {
+          console.error('Failed to insert feedback:', fbError);
+        } else {
+          dbSuccess = true;
+          if (fbData && fbData[0]?.id) recordId = fbData[0].id;
+          console.log('[Direct feedback insert success]:', fbData);
         }
 
         // Check if there is an explicit notification_email, notification_phone, or sms_alerts_enabled configured
