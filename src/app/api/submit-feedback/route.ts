@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -28,6 +28,8 @@ export async function POST(req: NextRequest) {
     const effectiveTargetId = inviteId || id || '';
     const effectiveOwnerEmail = ownerEmail || businessOwnerEmail || 'notifications@ratingpulse.co';
     const effectiveUserId = businessId || userId || '';
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let destinationEmail = effectiveOwnerEmail;
 
     // 1. Supabase Database Write using Service Role Key (bypasses RLS for public review gate)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,7 +46,7 @@ export async function POST(req: NextRequest) {
           auth: { persistSession: false },
         });
 
-        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        let resolvedUserId = effectiveUserId;
 
         if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
           // Update existing review invite record
@@ -69,6 +71,9 @@ export async function POST(req: NextRequest) {
             console.error('[DB Update feedback error]', error);
           } else {
             dbSuccess = true;
+            if (data && data[0]?.user_id) {
+              resolvedUserId = data[0].user_id;
+            }
             console.log('[DB Update feedback success]', data);
           }
         } else if (effectiveUserId && isUuid.test(effectiveUserId)) {
@@ -100,6 +105,26 @@ export async function POST(req: NextRequest) {
             console.log('[DB Insert feedback success]', data);
           }
         }
+
+        // Check if there is an explicit notification_email configured
+        if (resolvedUserId && isUuid.test(resolvedUserId)) {
+          const [profRes, settRes] = await Promise.allSettled([
+            supabaseAdmin.from('profiles').select('email, notification_email').eq('id', resolvedUserId).maybeSingle(),
+            supabaseAdmin.from('business_settings').select('notification_email').eq('user_id', resolvedUserId).maybeSingle(),
+          ]);
+
+          let foundNotificationEmail = '';
+          if (settRes.status === 'fulfilled' && settRes.value.data?.notification_email) {
+            foundNotificationEmail = settRes.value.data.notification_email;
+          }
+          if (!foundNotificationEmail && profRes.status === 'fulfilled') {
+            foundNotificationEmail = profRes.value.data?.notification_email || profRes.value.data?.email || '';
+          }
+
+          if (foundNotificationEmail) {
+            destinationEmail = foundNotificationEmail;
+          }
+        }
       } catch (dbErr) {
         console.error('[DB feedback exception]', dbErr);
       }
@@ -109,7 +134,7 @@ export async function POST(req: NextRequest) {
     let emailSuccess = false;
     try {
       const emailResult = await sendFeedbackAlert({
-        businessOwnerEmail: effectiveOwnerEmail,
+        businessOwnerEmail: destinationEmail,
         customerName: customerName || 'A customer',
         customerPhone,
         customerEmail,

@@ -14,7 +14,8 @@ import {
   Database,
   ExternalLink,
   Plus,
-  X
+  X,
+  Mail
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
@@ -34,6 +35,9 @@ export default function SettingsPage() {
   );
   const [rating, setRating] = useState(profile.google_rating || 4.9);
   const [reviewCount, setReviewCount] = useState(profile.google_review_count || 284);
+  const [notificationEmail, setNotificationEmail] = useState(
+    settings.notification_email || profile.notification_email || profile.email || ''
+  );
 
   const [brandVoice, setBrandVoice] = useState(settings.brand_voice);
   const [autoPublish, setAutoPublish] = useState(settings.auto_publish_5_star);
@@ -62,6 +66,7 @@ export default function SettingsPage() {
         google_place_id: pId || placeId,
         formatted_address: addr || formattedAddress,
         review_url: rUrl || reviewUrl,
+        notification_email: notificationEmail,
         google_connected: true,
       });
       await updateSettings({
@@ -69,6 +74,7 @@ export default function SettingsPage() {
         auto_publish_5_star: autoPublish,
         sms_template: smsTemplate,
         custom_keywords: keywords,
+        notification_email: notificationEmail,
       });
     } catch (err) {
       console.warn('Auto-save place error:', err);
@@ -97,6 +103,7 @@ export default function SettingsPage() {
       review_url: directReviewUrl,
       google_rating: rating,
       google_review_count: reviewCount,
+      notification_email: notificationEmail,
       google_connected: Boolean(placeId),
     });
     await updateSettings({
@@ -104,6 +111,7 @@ export default function SettingsPage() {
       auto_publish_5_star: autoPublish,
       sms_template: smsTemplate,
       custom_keywords: keywords,
+      notification_email: notificationEmail,
     });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
@@ -198,7 +206,34 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 2. AI Response Engine & SEO Keywords */}
+        {/* 2. Owner Notification Email & Urgent Alert Routing */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
+          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+            <Mail className="w-5 h-5 text-blue-600" />
+            <div>
+              <h3 className="text-sm font-bold text-slate-900">Owner Notification Email &amp; Alert Routing</h3>
+              <p className="text-xs text-slate-500">Destination email address for urgent low-star (1–3 star) feedback alerts</p>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              Notification Email Address
+            </label>
+            <input
+              type="email"
+              placeholder="e.g. owner@yourbusiness.com"
+              value={notificationEmail}
+              onChange={(e) => setNotificationEmail(e.target.value)}
+              className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+            />
+            <p className="text-[11px] text-slate-500 mt-1.5">
+              When a customer rates 1–3 stars and submits internal feedback, an immediate Resend alert is dispatched to this inbox. If left empty, alerts default to your login email ({profile.email || 'your account email'}).
+            </p>
+          </div>
+        </div>
+
+        {/* 3. AI Response Engine & SEO Keywords */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
           <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
             <Sparkles className="w-5 h-5 text-blue-600" />

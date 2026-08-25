@@ -19,6 +19,7 @@ export interface Profile {
   google_review_count: number;
   google_connected: boolean;
   phone: string | null;
+  notification_email?: string | null;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
@@ -34,6 +35,7 @@ export interface BusinessSettings {
   auto_publish_5_star: boolean;
   custom_keywords: string[];
   sms_template: string;
+  notification_email?: string | null;
   notify_email: boolean;
   notify_sms: boolean;
   created_at: string;

@@ -630,6 +630,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           auto_publish_5_star: settings.auto_publish_5_star ?? false,
           custom_keywords: settings.custom_keywords || ['gentle care', 'emergency dentist', 'friendly staff', 'painless dentistry'],
           sms_template: settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}',
+          notification_email: updated.notification_email || settings.notification_email || null,
           notify_email: settings.notify_email ?? true,
           notify_sms: settings.notify_sms ?? true,
           updated_at: new Date().toISOString(),
