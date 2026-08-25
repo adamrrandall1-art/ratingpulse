@@ -61,7 +61,8 @@ export async function POST(req: NextRequest) {
   // 4. Build SMS body
   const customerName = (body.customerName as string) || 'Valued Customer';
   const businessName = (body.businessName as string) || 'Our Business';
-  const reviewLink   = (body.reviewLink   as string) || 'https://ratingpulse.co';
+  const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+  const reviewLink   = (body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || `${appUrl}/rate`;
   const serviceType  = (body.serviceType  as string) || 'General Service';
   const userId       = (body.userId       as string) || '';
 

@@ -376,8 +376,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalInvitesCache = updated;
     persistState(reviews, updated, settings, profile);
 
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+    const qParams = new URLSearchParams();
+    if (profile.business_name) qParams.set('business', profile.business_name);
+    if (profile.google_place_id) qParams.set('placeId', profile.google_place_id);
+    if (profile.review_url) qParams.set('reviewUrl', profile.review_url);
+    if (profile.email) qParams.set('ownerEmail', profile.email);
+    const reviewGateUrl = `${appUrl}/rate/${validUuid}?${qParams.toString()}`;
+
     const businessId = profile.google_place_id || profile.id;
-    const reviewUrl = profile.review_url || (profile.google_place_id ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}` : '');
     const ownerEmail = profile.email || 'notifications@ratingpulse.co';
 
     try {
@@ -390,7 +397,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           businessName: profile.business_name,
           businessId,
           placeId: profile.google_place_id,
-          reviewUrl,
+          reviewLink: reviewGateUrl,
+          reviewUrl: reviewGateUrl,
+          reviewGateUrl,
+          inviteId: validUuid,
           ownerEmail,
         }),
       });
@@ -458,8 +468,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalInvitesCache = updated;
     persistState(reviews, updated, settings, profile);
 
+    const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+    const qParams = new URLSearchParams();
+    if (profile.business_name) qParams.set('business', profile.business_name);
+    if (profile.google_place_id) qParams.set('placeId', profile.google_place_id);
+    if (profile.review_url) qParams.set('reviewUrl', profile.review_url);
+    if (profile.email) qParams.set('ownerEmail', profile.email);
+    const reviewGateUrl = `${appUrl}/rate/${validUuid}?${qParams.toString()}`;
+
     const businessId = profile.google_place_id || profile.id;
-    const reviewUrl = profile.review_url || (profile.google_place_id ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}` : '');
     const ownerEmail = profile.email || 'notifications@ratingpulse.co';
 
     try {
@@ -472,7 +489,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           businessName: profile.business_name,
           businessId,
           placeId: profile.google_place_id,
-          reviewUrl,
+          reviewUrl: reviewGateUrl,
+          reviewGateUrl,
+          inviteId: validUuid,
           ownerEmail,
         }),
       });

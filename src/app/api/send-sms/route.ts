@@ -5,10 +5,11 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const rawTo = body.to || body.phoneNumber || body.customerPhone || body.recipient || body.phone;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
     const {
       customerName = 'Valued Customer',
       businessName = 'Our Business',
-      reviewLink = 'https://ratingpulse.co',
+      reviewLink = body.reviewGateUrl || body.reviewUrl || `${appUrl}/rate`,
       message,
       serviceType,
     } = body;

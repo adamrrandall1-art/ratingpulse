@@ -11,8 +11,24 @@ export async function POST(req: Request) {
     const customerEmail = body.customerEmail || body.toEmail;
     const customerName = body.customerName || 'there';
     const businessName = body.businessName || 'our team';
+    const inviteId = body.inviteId || body.id || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const reviewUrl = body.reviewUrl || body.reviewGateUrl || `${appUrl}/rate/demo`;
+    
+    // Construct the RatingPulse Review Gate URL (NOT direct Google link)
+    let reviewGateUrl = body.reviewGateUrl || body.reviewUrl || '';
+    if (!reviewGateUrl || reviewGateUrl.includes('google.com') || reviewGateUrl.includes('writereview')) {
+      const qParams = new URLSearchParams();
+      if (businessName) qParams.set('business', businessName);
+      if (body.placeId) qParams.set('placeId', body.placeId);
+      if (body.ownerEmail || body.businessOwnerEmail) qParams.set('ownerEmail', body.ownerEmail || body.businessOwnerEmail);
+      if (body.reviewUrl && (body.reviewUrl.includes('google.com') || body.reviewUrl.includes('writereview'))) {
+        qParams.set('reviewUrl', body.reviewUrl);
+      }
+      const queryStr = qParams.toString() ? `?${qParams.toString()}` : '';
+      reviewGateUrl = inviteId
+        ? `${appUrl}/rate/${inviteId}${queryStr}`
+        : `${appUrl}/rate${queryStr}`;
+    }
     const userId = body.userId;
     const serviceType = body.serviceType || 'General Service';
 
@@ -25,17 +41,17 @@ export async function POST(req: Request) {
       to: customerEmail,
       subject: `How was your experience with ${businessName || 'us'}?`,
       html: `
-        <div style="font-family: sans-serif; max-width: 600px; margin: auto; padding: 24px; border: 1px solid #e2e8f0; border-radius: 12px;">
-          <h2 style="color: #0f172a;">Hi ${customerName || 'there'},</h2>
-          <p style="color: #475569; font-size: 16px; line-height: 1.5;">
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: auto; padding: 32px 24px; border: 1px solid #e2e8f0; border-radius: 16px; background-color: #ffffff;">
+          <h2 style="color: #0f172a; font-size: 20px; font-weight: 700; margin: 0 0 16px 0;">Hi ${customerName || 'there'},</h2>
+          <p style="color: #475569; font-size: 15px; line-height: 1.6; margin: 0 0 24px 0;">
             Thank you for choosing <strong>${businessName || 'our team'}</strong>! We would love to hear your feedback so we can continue providing the best possible service.
           </p>
           <div style="margin: 32px 0; text-align: center;">
-            <a href="${reviewUrl}" style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">
-              Leave a Quick Review
+            <a href="${reviewGateUrl}" target="_blank" style="background-color: #2563eb; color: #ffffff; padding: 14px 32px; text-decoration: none; border-radius: 10px; font-weight: bold; font-size: 16px; display: inline-block;">
+              ⭐ Rate Your Experience
             </a>
           </div>
-          <p style="color: #94a3b8; font-size: 13px; text-align: center;">
+          <p style="color: #94a3b8; font-size: 13px; text-align: center; margin: 24px 0 0 0;">
             Takes less than 30 seconds. Thank you!
           </p>
         </div>
