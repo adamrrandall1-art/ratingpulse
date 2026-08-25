@@ -119,6 +119,22 @@ alter table public.subscriptions add column if not exists updated_at timestamp w
 create or replace view public.invites as
   select * from public.review_invites;
 
+-- View: businesses -> profiles
+create or replace view public.businesses as
+  select * from public.profiles;
+
+-- View: feedbacks -> review_invites
+create or replace view public.feedbacks as
+  select * from public.review_invites;
+
+-- View: customer_feedback -> review_invites
+create or replace view public.customer_feedback as
+  select * from public.review_invites;
+
+-- View: inquiries -> review_invites
+create or replace view public.inquiries as
+  select * from public.review_invites;
+
 create or replace function public.invites_insert_redirect()
 returns trigger language plpgsql as $$
 begin

@@ -49,6 +49,17 @@ export async function POST(req: NextRequest) {
         let resolvedUserId = effectiveUserId;
 
         if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
+          // Fetch existing invite record first to resolve user_id / business_id
+          const { data: existingInvite } = await supabaseAdmin
+            .from('review_invites')
+            .select('*')
+            .eq('id', effectiveTargetId)
+            .maybeSingle();
+
+          if (existingInvite?.user_id) {
+            resolvedUserId = existingInvite.user_id;
+          }
+
           // Update existing review invite record
           const updatePayload: Record<string, unknown> = {
             rating_received: effectiveRating,
@@ -60,6 +71,7 @@ export async function POST(req: NextRequest) {
           if (customerName) updatePayload.customer_name = customerName;
           if (customerPhone) updatePayload.customer_phone = customerPhone;
           if (customerEmail) updatePayload.customer_email = customerEmail;
+          if (resolvedUserId && !existingInvite?.user_id) updatePayload.user_id = resolvedUserId;
 
           const { data, error } = await supabaseAdmin
             .from('review_invites')
