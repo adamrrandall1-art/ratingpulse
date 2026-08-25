@@ -20,6 +20,8 @@ export interface Profile {
   google_connected: boolean;
   phone: string | null;
   notification_email?: string | null;
+  notification_phone?: string | null;
+  sms_alerts_enabled?: boolean;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
@@ -36,6 +38,8 @@ export interface BusinessSettings {
   custom_keywords: string[];
   sms_template: string;
   notification_email?: string | null;
+  notification_phone?: string | null;
+  sms_alerts_enabled?: boolean;
   notify_email: boolean;
   notify_sms: boolean;
   created_at: string;

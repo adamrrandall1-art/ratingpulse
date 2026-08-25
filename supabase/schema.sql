@@ -50,6 +50,8 @@ alter table public.profiles add column if not exists google_review_count integer
 alter table public.profiles add column if not exists google_connected boolean default true;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists notification_email text;
+alter table public.profiles add column if not exists notification_phone text;
+alter table public.profiles add column if not exists sms_alerts_enabled boolean default true;
 alter table public.profiles add column if not exists stripe_customer_id text;
 alter table public.profiles add column if not exists stripe_subscription_id text;
 alter table public.profiles add column if not exists plan_status text default 'trialing';
@@ -64,6 +66,8 @@ alter table public.business_settings add column if not exists auto_publish_5_sta
 alter table public.business_settings add column if not exists custom_keywords text[] default array['gentle care', 'emergency dentist', 'friendly staff', 'painless dentistry'];
 alter table public.business_settings add column if not exists sms_template text default 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}';
 alter table public.business_settings add column if not exists notification_email text;
+alter table public.business_settings add column if not exists notification_phone text;
+alter table public.business_settings add column if not exists sms_alerts_enabled boolean default true;
 alter table public.business_settings add column if not exists notify_email boolean default true;
 alter table public.business_settings add column if not exists notify_sms boolean default true;
 alter table public.business_settings add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());

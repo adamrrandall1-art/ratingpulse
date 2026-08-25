@@ -38,6 +38,12 @@ export default function SettingsPage() {
   const [notificationEmail, setNotificationEmail] = useState(
     settings.notification_email || profile.notification_email || profile.email || ''
   );
+  const [notificationPhone, setNotificationPhone] = useState(
+    settings.notification_phone || profile.notification_phone || profile.phone || ''
+  );
+  const [smsAlertsEnabled, setSmsAlertsEnabled] = useState(
+    settings.sms_alerts_enabled ?? profile.sms_alerts_enabled ?? true
+  );
 
   const [brandVoice, setBrandVoice] = useState(settings.brand_voice);
   const [autoPublish, setAutoPublish] = useState(settings.auto_publish_5_star);
@@ -67,6 +73,8 @@ export default function SettingsPage() {
         formatted_address: addr || formattedAddress,
         review_url: rUrl || reviewUrl,
         notification_email: notificationEmail,
+        notification_phone: notificationPhone,
+        sms_alerts_enabled: smsAlertsEnabled,
         google_connected: true,
       });
       await updateSettings({
@@ -75,6 +83,8 @@ export default function SettingsPage() {
         sms_template: smsTemplate,
         custom_keywords: keywords,
         notification_email: notificationEmail,
+        notification_phone: notificationPhone,
+        sms_alerts_enabled: smsAlertsEnabled,
       });
     } catch (err) {
       console.warn('Auto-save place error:', err);
@@ -104,6 +114,8 @@ export default function SettingsPage() {
       google_rating: rating,
       google_review_count: reviewCount,
       notification_email: notificationEmail,
+      notification_phone: notificationPhone,
+      sms_alerts_enabled: smsAlertsEnabled,
       google_connected: Boolean(placeId),
     });
     await updateSettings({
@@ -112,6 +124,8 @@ export default function SettingsPage() {
       sms_template: smsTemplate,
       custom_keywords: keywords,
       notification_email: notificationEmail,
+      notification_phone: notificationPhone,
+      sms_alerts_enabled: smsAlertsEnabled,
     });
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
@@ -206,30 +220,71 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 2. Owner Notification Email & Urgent Alert Routing */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-          <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-            <Mail className="w-5 h-5 text-blue-600" />
+        {/* 2. Notification Preferences (Email & Text Alerts) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2">
+              <Mail className="w-5 h-5 text-blue-600" />
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Notification Preferences (Email &amp; Text Alerts)</h3>
+                <p className="text-xs text-slate-500">Configure where you want instant alerts delivered when a customer leaves 1–3 star feedback</p>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+              Real-time Alert Engine Active
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* Notification Email */}
             <div>
-              <h3 className="text-sm font-bold text-slate-900">Owner Notification Email &amp; Alert Routing</h3>
-              <p className="text-xs text-slate-500">Destination email address for urgent low-star (1–3 star) feedback alerts</p>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Notification Email
+              </label>
+              <input
+                type="email"
+                placeholder="owner@business.com"
+                value={notificationEmail}
+                onChange={(e) => setNotificationEmail(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Immediate email notifications are delivered to this inbox (defaults to {profile.email || 'your account email'}).
+              </p>
+            </div>
+
+            {/* Notification Mobile Phone */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                Notification Mobile Number
+              </label>
+              <input
+                type="tel"
+                placeholder="(555) 000-0000"
+                value={notificationPhone}
+                onChange={(e) => setNotificationPhone(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              />
+              <p className="text-[11px] text-slate-500 mt-1.5">
+                Receive an instant text message when a customer leaves 1-3 star feedback.
+              </p>
             </div>
           </div>
 
-          <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
-              Notification Email Address
-            </label>
+          {/* SMS Alerts Enabled Toggle */}
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold text-slate-800">Enable SMS Text Alerts</div>
+              <div className="text-[11px] text-slate-500">
+                Instantly dispatch an urgent text message to your mobile number as soon as low-star feedback is intercepted.
+              </div>
+            </div>
             <input
-              type="email"
-              placeholder="e.g. owner@yourbusiness.com"
-              value={notificationEmail}
-              onChange={(e) => setNotificationEmail(e.target.value)}
-              className="w-full sm:w-96 px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              type="checkbox"
+              checked={smsAlertsEnabled}
+              onChange={(e) => setSmsAlertsEnabled(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
-            <p className="text-[11px] text-slate-500 mt-1.5">
-              When a customer rates 1–3 stars and submits internal feedback, an immediate Resend alert is dispatched to this inbox. If left empty, alerts default to your login email ({profile.email || 'your account email'}).
-            </p>
           </div>
         </div>
 
