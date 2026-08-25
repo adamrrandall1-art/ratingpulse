@@ -7,11 +7,10 @@ import {
   TrendingUp,
   MessageSquareCheck,
   Send,
-  Sparkles,
   CheckCircle2,
   Smartphone,
   PhoneCall,
-  ShieldAlert
+  HeartHandshake
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
@@ -135,22 +134,22 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        {/* Review Protection Shield / Intercepted */}
+        {/* Customer Care / Direct Inquiries */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Review Shield</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <ShieldAlert className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-wider">Customer Care</span>
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <HeartHandshake className="w-4 h-4" />
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 flex items-baseline gap-2">
             {privateFeedbackCount}
-            <span className="text-xs font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded">
-              Intercepted
+            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+              Direct Inquiries
             </span>
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            1-3 star issues kept private
+            Customer feedback for team follow-up
           </div>
         </div>
 
@@ -284,9 +283,9 @@ export default function DashboardOverview() {
 
                   <div>
                     {inv.status === 'feedback_submitted' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-                        <ShieldAlert className="w-3 h-3 text-rose-500" />
-                        Private Alert
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                        <HeartHandshake className="w-3 h-3 text-blue-500" />
+                        Direct Feedback
                       </span>
                     )}
                     {inv.status === 'reviewed' && (
@@ -320,7 +319,7 @@ export default function DashboardOverview() {
 
       </div>
 
-      {/* Dedicated Section: Private Customer Feedback Protection Table */}
+      {/* Dedicated Section: Customer Care & Direct Feedback Table */}
       <section className="pt-2">
         <PrivateFeedbackFeed />
       </section>

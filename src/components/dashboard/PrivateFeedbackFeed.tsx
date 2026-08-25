@@ -2,12 +2,13 @@
 
 import React, { useState } from 'react';
 import {
-  ShieldAlert,
+  HeartHandshake,
   Star,
   Phone,
   Mail,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  MessageSquare
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 
@@ -46,18 +47,18 @@ export default function PrivateFeedbackFeed() {
       <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm">
-              <ShieldAlert className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+              <HeartHandshake className="w-4 h-4" />
             </div>
             <h2 className="text-base font-bold text-slate-900 tracking-tight">
-              Private Customer Feedback
+              Customer Care & Direct Feedback
             </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200">
-              Protected Shield
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+              Direct Resolution
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Ratings of 1-3 stars intercepted privately on your review gate. These are <strong>never</strong> posted to your public Google Business Profile.
+            Direct feedback and private inquiries submitted by customers for internal team follow-up and resolution.
           </p>
         </div>
 
@@ -105,13 +106,13 @@ export default function PrivateFeedbackFeed() {
       {feedbackItems.length === 0 ? (
         <div className="p-10 text-center space-y-3">
           <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
-            Shield
+            <MessageSquare className="w-5 h-5 text-slate-400" />
           </div>
           <h3 className="text-sm font-bold text-slate-800">
-            No private feedback received yet.
+            No direct feedback received yet.
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            Your review protection shield is fully active. Any 1-3 star ratings will be intercepted privately here so you can address issues before they hit Google.
+            When customers submit internal feedback or service inquiries, they will appear here so you can resolve issues quickly.
           </p>
         </div>
       ) : (
@@ -200,7 +201,7 @@ export default function PrivateFeedbackFeed() {
                   )}
 
                   <span className="text-[11px] text-slate-400 ml-auto">
-                    Intercepted securely via Review Gate
+                    Submitted directly via customer review gate
                   </span>
                 </div>
 
