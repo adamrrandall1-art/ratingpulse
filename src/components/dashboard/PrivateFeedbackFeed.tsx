@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -44,7 +44,7 @@ export default function PrivateFeedbackFeed() {
   });
 
   useEffect(() => {
-    console.log('Fetched Urgent Feedback:', feedbackItems);
+    console.log('Feedback Query Results:', feedbackItems);
   }, [feedbackItems]);
 
   return (
@@ -132,8 +132,14 @@ export default function PrivateFeedbackFeed() {
       ) : (
         <div className="divide-y divide-slate-100 bg-white">
           {feedbackItems.map((item) => {
-            const rating = Number(item.rating_received) || 2;
+            const rawRating = item.rating_received !== undefined && item.rating_received !== null ? item.rating_received : (item as any).rating;
+            const rating = Number(rawRating) || 2;
             const isResolved = item.resolution_status === 'resolved' || item.status === 'resolved';
+            const customerName = item.customer_name || (item as any).name || 'Valued Customer';
+            const customerPhone = item.customer_phone || (item as any).phone;
+            const customerEmail = item.customer_email || (item as any).email || (customerPhone?.includes('@') ? customerPhone : undefined);
+            const feedbackText = item.feedback_text || (item as any).feedback || (item as any).notes;
+            const dateStr = item.review_received_at || item.sent_at || (item as any).created_at || (item as any).updated_at || new Date().toISOString();
 
             return (
               <div
@@ -162,13 +168,13 @@ export default function PrivateFeedbackFeed() {
 
                     <div>
                       <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <span>{item.customer_name}</span>
+                        <span>{customerName}</span>
                         {!isResolved && (
                           <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                         )}
                       </h4>
                       <p className="text-[11px] text-slate-500">
-                        {item.service_type || 'Customer Inquiry'} • {new Date(item.sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        {item.service_type || 'Customer Inquiry'} • {new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
@@ -208,29 +214,29 @@ export default function PrivateFeedbackFeed() {
                     : 'bg-white border-rose-200 text-slate-800 shadow-2xs'
                 }`}>
                   <p className="italic">
-                    &quot;{item.feedback_text || 'Customer left a low-star rating on the review gate without additional comment text.'}&quot;
+                    &quot;{feedbackText || 'Customer left a low-star rating on the review gate without additional comment text.'}&quot;
                   </p>
                 </div>
 
                 {/* Direct Action Contact Buttons */}
                 <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
-                  {item.customer_phone && !item.customer_phone.includes('@') && (
+                  {customerPhone && !customerPhone.includes('@') && (
                     <a
-                      href={`tel:${item.customer_phone}`}
+                      href={`tel:${customerPhone}`}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-xs transform active:scale-95"
                     >
                       <Phone className="w-3.5 h-3.5" />
-                      <span>Call Customer Now ({item.customer_phone})</span>
+                      <span>Call Customer Now ({customerPhone})</span>
                     </a>
                   )}
 
-                  {(item.customer_email || (item.customer_phone && item.customer_phone.includes('@'))) && (
+                  {customerEmail && (
                     <a
-                      href={`mailto:${item.customer_email || item.customer_phone}?subject=Urgent: Following up on your recent visit with our team`}
+                      href={`mailto:${customerEmail}?subject=Urgent: Following up on your recent visit with our team`}
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all shadow-xs transform active:scale-95"
                     >
                       <Mail className="w-3.5 h-3.5" />
-                      <span>Email Customer ({item.customer_email || item.customer_phone})</span>
+                      <span>Email Customer ({customerEmail})</span>
                     </a>
                   )}
 
