@@ -35,6 +35,7 @@ export default function DashboardOverview() {
   } = useRatingPulseStore();
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [liveUrgentCount, setLiveUrgentCount] = useState<number | null>(null);
 
   // Quick inline phone state for the sidebar card
@@ -43,7 +44,7 @@ export default function DashboardOverview() {
   const [sidebarSuccess, setSidebarSuccess] = useState(false);
 
   useEffect(() => {
-    async function fetchLiveUrgentCount() {
+    async function loadFeedback() {
       const uid = user?.id || profile.id;
       if (!isSupabaseConfigured || !supabase || isDemoMode) {
         return;
@@ -52,26 +53,27 @@ export default function DashboardOverview() {
       try {
         let query = supabase
           .from('feedback')
-          .select('*', { count: 'exact' })
-          .eq('status', 'unresolved');
+          .select('*')
+          .order('created_at', { ascending: false });
 
         if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
-          query = query.eq('user_id', uid);
+          query = query.or(`user_id.eq.${uid},business_id.eq.${uid}`);
         }
 
-        const { count, data, error } = await query;
+        const { data, error } = await query;
 
-        const liveCount = count !== null && count !== undefined ? count : (data?.length ?? 0);
-        console.log('Live Urgent Count:', liveCount);
-        if (!error) {
-          setLiveUrgentCount(liveCount);
+        if (!error && data) {
+          setFeedbackList(data);
+          const urgentCount = data.filter((f: any) => f.status === 'unresolved' || !f.status).length;
+          setLiveUrgentCount(urgentCount);
+          console.log('Feedback Query Results:', data, 'Live Urgent Count:', urgentCount);
         }
       } catch (e) {
-        console.warn('Error fetching live urgent count:', e);
+        console.warn('Error loading feedback list:', e);
       }
     }
 
-    fetchLiveUrgentCount();
+    loadFeedback();
   }, [user?.id, profile.id, isDemoMode, invites]);
 
   const displayUrgentCount = (!isDemoMode && liveUrgentCount !== null) ? liveUrgentCount : unresolvedFeedbackCount;

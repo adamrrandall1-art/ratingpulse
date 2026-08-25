@@ -11,29 +11,63 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useRatingPulseStore, isLowStarOrFeedback } from '@/lib/store';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { Invite } from '@/lib/supabase/types';
 
-export default function PrivateFeedbackFeed() {
-  const { invites, updateInviteResolution, searchQuery, unresolvedFeedbackCount } = useRatingPulseStore();
+interface PrivateFeedbackFeedProps {
+  liveFeedback?: any[];
+  onFeedbackUpdated?: () => void;
+}
+
+export default function PrivateFeedbackFeed({ liveFeedback = [] }: PrivateFeedbackFeedProps) {
+  const { invites, updateInviteResolution, searchQuery, unresolvedFeedbackCount, isDemoMode } = useRatingPulseStore();
   const [filter, setFilter] = useState<'needs_follow_up' | 'all' | 'resolved'>('needs_follow_up');
 
-  // Filter for invites that have private feedback or low ratings
-  const feedbackItems = invites.filter((inv: Invite) => {
-    if (!isLowStarOrFeedback(inv)) return false;
+  // Merge store invites and live feedback items from Supabase
+  const mergedItems = React.useMemo(() => {
+    const inviteItems = invites.filter((inv: Invite) => isLowStarOrFeedback(inv));
+    
+    // Map live feedback items into unified format
+    const formattedLiveItems = liveFeedback.map((f: any) => ({
+      id: f.id,
+      user_id: f.user_id,
+      customer_name: f.customer_name || 'Anonymous',
+      customer_phone: f.customer_phone || '',
+      customer_email: f.customer_email || '',
+      service_type: 'Customer Feedback',
+      status: f.status || 'unresolved',
+      resolution_status: f.status === 'resolved' ? 'resolved' : 'needs_follow_up',
+      rating_received: Number(f.rating) || 3,
+      rating: Number(f.rating) || 3,
+      feedback_text: f.feedback_text || '',
+      created_at: f.created_at || new Date().toISOString(),
+      sent_at: f.created_at || new Date().toISOString(),
+      review_received_at: f.created_at || new Date().toISOString(),
+    }));
 
+    // Deduplicate by ID
+    const map = new Map<string, any>();
+    formattedLiveItems.forEach((item) => map.set(item.id, item));
+    inviteItems.forEach((item) => {
+      if (!map.has(item.id)) map.set(item.id, item);
+    });
+
+    return Array.from(map.values());
+  }, [invites, liveFeedback]);
+
+  // Filter for invites that have private feedback or low ratings
+  const feedbackItems = mergedItems.filter((inv: any) => {
     const isResolved = inv.resolution_status === 'resolved' || inv.status === 'resolved';
 
     // Apply resolution filter
     if (filter === 'needs_follow_up') {
-      // Include any record where rating <= 3 and it is not explicitly marked as resolved or archived
       return !isResolved && inv.status !== 'archived';
     }
     if (filter === 'resolved') {
       return isResolved;
     }
-    return true; // 'all' tab shows all records with rating <= 3 regardless of status
-  }).filter((inv: Invite) => {
-    // Apply global dashboard search query filter
+    return true; // 'all' tab shows all records
+  }).filter((inv: any) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
     const nameMatch = inv.customer_name?.toLowerCase().includes(q);
@@ -42,6 +76,25 @@ export default function PrivateFeedbackFeed() {
     const textMatch = inv.feedback_text?.toLowerCase().includes(q);
     return Boolean(nameMatch || phoneMatch || emailMatch || textMatch);
   });
+
+  const activeUnresolvedCount = mergedItems.filter(
+    (item: any) => item.status !== 'resolved' && item.resolution_status !== 'resolved'
+  ).length;
+
+  const handleToggleResolution = async (itemId: string, newResolution: 'needs_follow_up' | 'resolved') => {
+    updateInviteResolution(itemId, newResolution);
+
+    if (isSupabaseConfigured && supabase && itemId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(itemId)) {
+      try {
+        await Promise.allSettled([
+          supabase.from('feedback').update({ status: newResolution === 'resolved' ? 'resolved' : 'unresolved' }).eq('id', itemId),
+          supabase.from('review_invites').update({ resolution_status: newResolution, status: newResolution === 'resolved' ? 'resolved' : 'unresolved' }).eq('id', itemId),
+        ]);
+      } catch (err) {
+        console.warn('Error updating feedback status in database:', err);
+      }
+    }
+  };
 
   useEffect(() => {
     console.log('Feedback Query Results:', feedbackItems);
@@ -61,9 +114,9 @@ export default function PrivateFeedbackFeed() {
               <span>⚠️ Urgent Customer Inquiries & Low-Star Feedback</span>
             </h2>
 
-            {unresolvedFeedbackCount > 0 ? (
+            {activeUnresolvedCount > 0 ? (
               <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
-                [ {unresolvedFeedbackCount} Needs Attention ]
+                [ {activeUnresolvedCount} Needs Attention ]
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
@@ -195,7 +248,7 @@ export default function PrivateFeedbackFeed() {
 
                     <button
                       type="button"
-                      onClick={() => updateInviteResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
+                      onClick={() => handleToggleResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
                       className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs ${
                         isResolved
                           ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
