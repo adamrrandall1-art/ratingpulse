@@ -27,6 +27,10 @@ create table if not exists public.review_invites (
   id uuid default uuid_generate_v4() primary key
 );
 
+create table if not exists public.feedback (
+  id uuid default uuid_generate_v4() primary key
+);
+
 create table if not exists public.subscriptions (
   id uuid default uuid_generate_v4() primary key
 );
@@ -94,11 +98,16 @@ alter table public.reviews add column if not exists updated_at timestamp with ti
 alter table public.review_invites add column if not exists user_id uuid references public.profiles(id) on delete cascade;
 alter table public.review_invites add column if not exists customer_name text default 'Customer';
 alter table public.review_invites add column if not exists customer_phone text default '';
+alter table public.review_invites add column if not exists customer_email text;
 alter table public.review_invites add column if not exists service_type text default 'General Service';
 alter table public.review_invites add column if not exists status text default 'sent';
+alter table public.review_invites add column if not exists resolution_status text default 'needs_follow_up';
+alter table public.review_invites add column if not exists feedback_text text default '';
+alter table public.review_invites add column if not exists rating_received integer;
+alter table public.review_invites add column if not exists rating integer;
+alter table public.review_invites add column if not exists business_id uuid references public.profiles(id) on delete cascade;
 alter table public.review_invites add column if not exists sent_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.review_invites add column if not exists review_received_at timestamp with time zone;
-alter table public.review_invites add column if not exists rating_received integer;
 alter table public.review_invites add column if not exists review_id uuid references public.reviews(id) on delete set null;
 alter table public.review_invites add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.review_invites add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());

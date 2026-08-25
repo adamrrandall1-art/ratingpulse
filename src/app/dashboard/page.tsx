@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Star,
@@ -13,6 +13,8 @@ import {
   ShieldAlert
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
 import confetti from 'canvas-confetti';
 import SendInviteModal from '@/components/dashboard/SendInviteModal';
 import QuickReviewSender from '@/components/dashboard/QuickReviewSender';
@@ -20,22 +22,54 @@ import ReviewsFeed from '@/components/dashboard/ReviewsFeed';
 import PrivateFeedbackFeed from '@/components/dashboard/PrivateFeedbackFeed';
 
 export default function DashboardOverview() {
+  const { user } = useAuth();
   const {
     profile,
     reviews,
     invites,
     sendSmsInvite,
+    isDemoMode,
     pendingReviewsCount,
     publishedReviewsCount,
     unresolvedFeedbackCount
   } = useRatingPulseStore();
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [liveUrgentCount, setLiveUrgentCount] = useState<number | null>(null);
 
   // Quick inline phone state for the sidebar card
   const [sidebarPhone, setSidebarPhone] = useState('');
   const [sidebarSending, setSidebarSending] = useState(false);
   const [sidebarSuccess, setSidebarSuccess] = useState(false);
+
+  useEffect(() => {
+    async function fetchLiveUrgentCount() {
+      const uid = user?.id || profile.id;
+      if (!isSupabaseConfigured || !supabase || !uid || isDemoMode) {
+        return;
+      }
+
+      try {
+        const { count, data, error } = await supabase
+          .from('feedback')
+          .select('*', { count: 'exact' })
+          .eq('user_id', uid)
+          .lte('rating', 3)
+          .eq('status', 'unresolved');
+
+        console.log('Live Urgent Count:', count);
+        if (!error && count !== null && count !== undefined) {
+          setLiveUrgentCount(count);
+        }
+      } catch (e) {
+        console.warn('Error fetching live urgent count:', e);
+      }
+    }
+
+    fetchLiveUrgentCount();
+  }, [user?.id, profile.id, isDemoMode, invites]);
+
+  const displayUrgentCount = (!isDemoMode && liveUrgentCount !== null) ? liveUrgentCount : unresolvedFeedbackCount;
 
   const recentInvites = invites.slice(0, 6);
 
@@ -143,8 +177,8 @@ export default function DashboardOverview() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 flex items-baseline gap-2">
-            {unresolvedFeedbackCount}
-            {unresolvedFeedbackCount > 0 ? (
+            {displayUrgentCount}
+            {displayUrgentCount > 0 ? (
               <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">
                 Needs Action
               </span>
