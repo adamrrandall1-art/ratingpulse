@@ -135,9 +135,9 @@ export default function DashboardOverview() {
         </div>
 
         {/* Urgent Inquiries / Unresolved Low Star Feedback */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
+        <a href="#urgent-feedback" className="block bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs hover:border-rose-300 hover:shadow-md transition-all group">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Urgent Inquiries</span>
+            <span className="text-xs font-bold uppercase tracking-wider group-hover:text-rose-600 transition-colors">Urgent Inquiries</span>
             <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
               <ShieldAlert className="w-4 h-4" />
             </div>
@@ -157,7 +157,7 @@ export default function DashboardOverview() {
           <div className="text-xs text-slate-500 mt-1">
             1–3 star feedback awaiting resolution
           </div>
-        </div>
+        </a>
 
         {/* Pending Approvals */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
@@ -326,7 +326,7 @@ export default function DashboardOverview() {
       </div>
 
       {/* Dedicated Section: Urgent Customer Inquiries & Low-Star Feedback Table */}
-      <section className="pt-2">
+      <section id="urgent-feedback" className="pt-2 scroll-mt-6">
         <PrivateFeedbackFeed />
       </section>
 

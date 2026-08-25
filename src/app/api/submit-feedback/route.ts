@@ -67,8 +67,8 @@ export async function POST(req: NextRequest) {
           const updatePayload: Record<string, unknown> = {
             rating_received: effectiveRating,
             feedback_text: effectiveText,
-            status: 'feedback_submitted',
-            resolution_status: 'needs_follow_up',
+            status: 'unresolved',
+            resolution_status: 'unresolved',
             review_received_at: new Date().toISOString(),
           };
           if (customerName) updatePayload.customer_name = customerName;
@@ -99,10 +99,10 @@ export async function POST(req: NextRequest) {
             customer_phone: customerPhone || customerEmail || '',
             customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
             service_type: 'Urgent Customer Feedback',
-            status: 'feedback_submitted',
+            status: 'unresolved',
             rating_received: effectiveRating,
             feedback_text: effectiveText,
-            resolution_status: 'needs_follow_up',
+            resolution_status: 'unresolved',
             sent_at: new Date().toISOString(),
             review_received_at: new Date().toISOString(),
           };
