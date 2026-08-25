@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const effectiveText = feedbackText || comment || '';
     const effectiveRating = Number(rating) || 3;
     const effectiveTargetId = inviteId || id || '';
-    const effectiveOwnerEmail = ownerEmail || businessOwnerEmail || 'notifications@ratingpulse.co';
+    const effectiveOwnerEmail = ownerEmail || businessOwnerEmail || process.env.ADMIN_ALERT_EMAIL || process.env.RESEND_ALERT_EMAIL || '';
     const effectiveUserId = businessId || userId || '';
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let destinationEmail = effectiveOwnerEmail;
