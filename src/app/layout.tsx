@@ -4,6 +4,7 @@ import Script from "next/script";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { StoreProvider } from "@/lib/store";
+import { Toaster } from "sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -51,7 +52,10 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-[#0B0F17] text-white font-sans">
         <AuthProvider>
-          <StoreProvider>{children}</StoreProvider>
+          <StoreProvider>
+            {children}
+            <Toaster position="top-right" richColors />
+          </StoreProvider>
         </AuthProvider>
       </body>
     </html>

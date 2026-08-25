@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Settings,
@@ -18,13 +18,16 @@ import {
   Mail
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
-import { isSupabaseConfigured } from '@/lib/supabase/client';
+import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { useAuth } from '@/lib/auth-context';
+import { toast } from 'sonner';
 import CheckoutButton from '@/components/stripe/CheckoutButton';
 import BillingSection from '@/components/dashboard/BillingSection';
 import GooglePlacesAutocomplete from '@/components/google/GooglePlacesAutocomplete';
 import { SelectedPlaceData, generateGoogleReviewUrl } from '@/lib/google-places';
 
 export default function SettingsPage() {
+  const { user } = useAuth();
   const { profile, settings, updateSettings, updateProfile } = useRatingPulseStore();
 
   const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
@@ -52,6 +55,56 @@ export default function SettingsPage() {
   const [newKeyword, setNewKeyword] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+
+  // Hydrate settings on mount from Supabase
+  useEffect(() => {
+    async function loadSettingsFromDatabase() {
+      const uid = user?.id || profile.id;
+      if (!isSupabaseConfigured || !supabase || !uid || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+        return;
+      }
+
+      try {
+        const [settingsRes, profileRes] = await Promise.allSettled([
+          supabase.from('business_settings').select('*').eq('user_id', uid).maybeSingle(),
+          supabase.from('profiles').select('*').eq('id', uid).maybeSingle(),
+        ]);
+
+        if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
+          const s = settingsRes.value.data;
+          if (s.notification_email) setNotificationEmail(s.notification_email);
+          if (s.notification_phone) setNotificationPhone(s.notification_phone);
+          if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+            setSmsAlertsEnabled(Boolean(s.sms_alerts_enabled));
+          }
+          if (s.brand_voice) setBrandVoice(s.brand_voice);
+          if (s.auto_publish_5_star !== undefined && s.auto_publish_5_star !== null) {
+            setAutoPublish(Boolean(s.auto_publish_5_star));
+          }
+          if (s.sms_template) setSmsTemplate(s.sms_template);
+          if (Array.isArray(s.custom_keywords) && s.custom_keywords.length > 0) {
+            setKeywords(s.custom_keywords);
+          }
+        }
+
+        if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+          const p = profileRes.value.data;
+          if (p.business_name) setBusinessName(p.business_name);
+          if (p.google_place_id) setPlaceId(p.google_place_id);
+          if (p.formatted_address) setFormattedAddress(p.formatted_address);
+          if (p.review_url) setReviewUrl(p.review_url);
+          if (p.google_rating) setRating(p.google_rating);
+          if (p.google_review_count !== undefined) setReviewCount(p.google_review_count);
+          if (p.notification_email && !notificationEmail) setNotificationEmail(p.notification_email);
+          if (p.notification_phone && !notificationPhone) setNotificationPhone(p.notification_phone);
+        }
+      } catch (err) {
+        console.warn('Error loading settings from Supabase:', err);
+      }
+    }
+
+    loadSettingsFromDatabase();
+  }, [user?.id, profile.id]);
 
   const handlePlaceSelect = async (data: any) => {
     const bName = data.name || data.businessName || '';
@@ -86,6 +139,9 @@ export default function SettingsPage() {
         notification_phone: notificationPhone,
         sms_alerts_enabled: smsAlertsEnabled,
       });
+      toast.success('Business location updated', {
+        description: `Connected to ${bName || 'Google Business Profile'}.`
+      });
     } catch (err) {
       console.warn('Auto-save place error:', err);
     }
@@ -106,29 +162,39 @@ export default function SettingsPage() {
     e.preventDefault();
     const directReviewUrl = (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '') || reviewUrl;
 
-    await updateProfile({
-      business_name: businessName,
-      google_place_id: placeId,
-      formatted_address: formattedAddress,
-      review_url: directReviewUrl,
-      google_rating: rating,
-      google_review_count: reviewCount,
-      notification_email: notificationEmail,
-      notification_phone: notificationPhone,
-      sms_alerts_enabled: smsAlertsEnabled,
-      google_connected: Boolean(placeId),
-    });
-    await updateSettings({
-      brand_voice: brandVoice as any,
-      auto_publish_5_star: autoPublish,
-      sms_template: smsTemplate,
-      custom_keywords: keywords,
-      notification_email: notificationEmail,
-      notification_phone: notificationPhone,
-      sms_alerts_enabled: smsAlertsEnabled,
-    });
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+    try {
+      await updateProfile({
+        business_name: businessName,
+        google_place_id: placeId,
+        formatted_address: formattedAddress,
+        review_url: directReviewUrl,
+        google_rating: rating,
+        google_review_count: reviewCount,
+        notification_email: notificationEmail,
+        notification_phone: notificationPhone,
+        sms_alerts_enabled: smsAlertsEnabled,
+        google_connected: Boolean(placeId),
+      });
+      await updateSettings({
+        brand_voice: brandVoice as any,
+        auto_publish_5_star: autoPublish,
+        sms_template: smsTemplate,
+        custom_keywords: keywords,
+        notification_email: notificationEmail,
+        notification_phone: notificationPhone,
+        sms_alerts_enabled: smsAlertsEnabled,
+      });
+
+      setIsSaved(true);
+      toast.success('Settings saved successfully!', {
+        description: 'Your profile and notification routing preferences have been updated.'
+      });
+      setTimeout(() => setIsSaved(false), 2500);
+    } catch (err: any) {
+      toast.error('Failed to save settings', {
+        description: err?.message || 'Please check your connection and try again.'
+      });
+    }
   };
 
   const handleSyncGoogle = () => {
@@ -136,6 +202,9 @@ export default function SettingsPage() {
     setTimeout(() => {
       setIsSyncing(false);
       setIsSaved(true);
+      toast.success('Google reviews synced', {
+        description: 'Your review count and average rating are now up to date.'
+      });
       setTimeout(() => setIsSaved(false), 2000);
     }, 1500);
   };
