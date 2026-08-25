@@ -94,18 +94,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [isSaving, setIsSaving] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const hasFetchedRef = useRef(false);
-
   useEffect(() => {
-    if (hasFetchedRef.current) return;
-    hasFetchedRef.current = true;
-
     async function loadData() {
       // 1. Check Demo Mode Preference from localStorage
+      let currentDemoMode = true;
       try {
         const storedDemoMode = localStorage.getItem(STORAGE_KEYS.DEMO_MODE);
         if (storedDemoMode !== null) {
-          setIsDemoMode(storedDemoMode === 'true');
+          currentDemoMode = storedDemoMode === 'true';
+          setIsDemoMode(currentDemoMode);
         }
       } catch {
         // ignore
@@ -116,7 +113,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 2. Try Supabase fetch if authenticated user exists
       if (isSupabaseConfigured && supabase && currentUserId) {
         try {
-          // Standardized on 'business_settings' using maybeSingle() to safely handle empty tables without 406 errors
           const [profileRes, settingsRes, reviewsRes, invitesRes] = await Promise.allSettled([
             supabase.from('profiles').select('*').eq('id', currentUserId).maybeSingle(),
             supabase.from('business_settings').select('*').eq('user_id', currentUserId).maybeSingle(),
@@ -128,28 +124,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const prof = profileRes.value.data as Profile;
             setProfile(prof);
             globalProfileCache = prof;
-          } else {
-            setProfile(initialProfile);
-            globalProfileCache = initialProfile;
           }
 
           if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
             const sett = settingsRes.value.data as BusinessSettings;
             setSettings(sett);
             globalSettingsCache = sett;
-          } else {
-            setSettings(initialSettings);
-            globalSettingsCache = initialSettings;
           }
 
-          if (reviewsRes.status === 'fulfilled' && reviewsRes.value.data && reviewsRes.value.data.length > 0) {
-            setReviews(reviewsRes.value.data as Review[]);
-            globalReviewsCache = reviewsRes.value.data as Review[];
+          if (reviewsRes.status === 'fulfilled' && reviewsRes.value.data) {
+            const revs = reviewsRes.value.data as Review[];
+            if (revs.length > 0) {
+              setReviews(revs);
+              globalReviewsCache = revs;
+            }
           }
 
-          if (invitesRes.status === 'fulfilled' && invitesRes.value.data && invitesRes.value.data.length > 0) {
-            setInvites(invitesRes.value.data as Invite[]);
-            globalInvitesCache = invitesRes.value.data as Invite[];
+          if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
+            const invs = invitesRes.value.data as Invite[];
+            if (invs.length > 0) {
+              setInvites(invs);
+              globalInvitesCache = invs;
+            }
           }
 
           globalHasLoaded = true;
@@ -160,7 +156,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      // 3. Local storage fallback
+      // 3. Local storage fallback & demo data migration
       try {
         const storedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
         const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -183,9 +179,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           globalReviewsCache = parsed;
         }
         if (storedInvites) {
-          const parsed = JSON.parse(storedInvites);
-          setInvites(parsed);
-          globalInvitesCache = parsed;
+          const parsed: Invite[] = JSON.parse(storedInvites);
+          // Preserve sample feedback items if localStorage had old cache without feedback
+          const hasFeedback = parsed.some((inv) => Boolean(inv.feedback_text || inv.status === 'feedback_submitted' || (inv.rating_received && inv.rating_received <= 3)));
+          if (!hasFeedback && currentDemoMode) {
+            const feedbackSamples = initialInvites.filter((inv) => Boolean(inv.feedback_text || inv.status === 'feedback_submitted' || (inv.rating_received && inv.rating_received <= 3)));
+            const merged = [...feedbackSamples, ...parsed.filter((p) => !feedbackSamples.some((f) => f.id === p.id))];
+            setInvites(merged);
+            globalInvitesCache = merged;
+          } else {
+            setInvites(parsed);
+            globalInvitesCache = parsed;
+          }
+        } else {
+          setInvites(initialInvites);
+          globalInvitesCache = initialInvites;
         }
       } catch (e) {
         console.error('Failed reading localStorage:', e);
@@ -196,7 +204,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadData();
-  }, []);
+  }, [user?.id]);
 
   const persistState = (
     newReviews: Review[],

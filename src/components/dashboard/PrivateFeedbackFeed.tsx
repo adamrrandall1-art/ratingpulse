@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import {
@@ -18,12 +18,16 @@ export default function PrivateFeedbackFeed() {
 
   // Filter for invites that have private feedback or low ratings
   const feedbackItems = invites.filter((inv) => {
-    const hasFeedback = Boolean(inv.feedback_text || (inv.rating_received && inv.rating_received <= 3));
+    const hasFeedback = Boolean(
+      inv.feedback_text ||
+      inv.status === 'feedback_submitted' ||
+      (inv.rating_received !== null && inv.rating_received !== undefined && inv.rating_received <= 3)
+    );
     if (!hasFeedback) return false;
 
     // Apply resolution filter
     if (filter === 'needs_follow_up') {
-      return inv.resolution_status === 'needs_follow_up' || (!inv.resolution_status && (inv.rating_received ?? 0) <= 3);
+      return inv.resolution_status !== 'resolved';
     }
     if (filter === 'resolved') {
       return inv.resolution_status === 'resolved';
