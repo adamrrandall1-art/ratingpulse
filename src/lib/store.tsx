@@ -603,15 +603,35 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSettings(updated);
     globalSettingsCache = updated;
     persistState(reviews, invites, updated, profile);
-    if (isSupabaseConfigured && supabase) {
+
+    const uid = user?.id || profile.id;
+    const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
+
+    if (isSupabaseConfigured && supabase && isUidValid) {
       try {
-        await supabase.from('business_settings').upsert({
-          ...updated,
-          user_id: profile.id,
+        const payload: Record<string, unknown> = {
+          user_id: uid,
+          brand_voice: updated.brand_voice || 'friendly_professional',
+          auto_publish_5_star: Boolean(updated.auto_publish_5_star),
+          custom_keywords: Array.isArray(updated.custom_keywords) ? updated.custom_keywords : ['gentle care', 'emergency dentist'],
+          sms_template: updated.sms_template || '',
+          notification_email: updated.notification_email || null,
+          notification_phone: updated.notification_phone || null,
+          sms_alerts_enabled: updated.sms_alerts_enabled ?? true,
+          notify_email: updated.notify_email ?? true,
+          notify_sms: updated.notify_sms ?? true,
           updated_at: new Date().toISOString(),
-        });
+        };
+
+        const { error } = await supabase
+          .from('business_settings')
+          .upsert(payload, { onConflict: 'user_id' });
+
+        if (error) {
+          console.error('Supabase save error details (business_settings):', error.message, error.details, error.hint);
+        }
       } catch (err) {
-        console.warn('Supabase update business_settings warning:', err);
+        console.warn('Supabase update business_settings exception:', err);
       }
     }
   };
@@ -621,24 +641,62 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setProfile(updated);
     globalProfileCache = updated;
     persistState(reviews, invites, settings, updated);
-    if (isSupabaseConfigured && supabase) {
+
+    const uid = user?.id || updated.id;
+    const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
+
+    if (isSupabaseConfigured && supabase && isUidValid) {
       try {
-        await supabase.from('profiles').upsert(updated);
-        await supabase.from('business_settings').upsert({
-          user_id: updated.id,
+        const cleanProfilePayload: Record<string, unknown> = {
+          id: uid,
+          email: updated.email || user?.email || '',
+          full_name: updated.full_name || null,
+          business_name: updated.business_name || 'Apex Dental & Aesthetics',
+          business_category: updated.business_category || 'Healthcare / Dental',
+          google_place_id: updated.google_place_id || '',
+          formatted_address: updated.formatted_address || null,
+          review_url: updated.review_url || null,
+          google_rating: Number(updated.google_rating) || 4.9,
+          google_review_count: Number(updated.google_review_count) || 0,
+          google_connected: Boolean(updated.google_connected),
+          phone: updated.phone || null,
+          notification_email: updated.notification_email || null,
+          notification_phone: updated.notification_phone || null,
+          sms_alerts_enabled: updated.sms_alerts_enabled ?? true,
+          updated_at: new Date().toISOString(),
+        };
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(cleanProfilePayload, { onConflict: 'id' });
+
+        if (profileError) {
+          console.error('Supabase save error details (profiles):', profileError.message, profileError.details, profileError.hint);
+        }
+
+        const cleanSettingsPayload: Record<string, unknown> = {
+          user_id: uid,
           brand_voice: settings.brand_voice || 'friendly_professional',
-          auto_publish_5_star: settings.auto_publish_5_star ?? false,
-          custom_keywords: settings.custom_keywords || ['gentle care', 'emergency dentist', 'friendly staff', 'painless dentistry'],
-          sms_template: settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}',
+          auto_publish_5_star: Boolean(settings.auto_publish_5_star),
+          custom_keywords: Array.isArray(settings.custom_keywords) ? settings.custom_keywords : ['gentle care', 'emergency dentist'],
+          sms_template: settings.sms_template || '',
           notification_email: updated.notification_email || settings.notification_email || null,
           notification_phone: updated.notification_phone || settings.notification_phone || null,
           sms_alerts_enabled: updated.sms_alerts_enabled ?? settings.sms_alerts_enabled ?? true,
           notify_email: settings.notify_email ?? true,
           notify_sms: settings.notify_sms ?? true,
           updated_at: new Date().toISOString(),
-        });
+        };
+
+        const { error: settingsError } = await supabase
+          .from('business_settings')
+          .upsert(cleanSettingsPayload, { onConflict: 'user_id' });
+
+        if (settingsError) {
+          console.error('Supabase save error details (business_settings):', settingsError.message, settingsError.details, settingsError.hint);
+        }
       } catch (err) {
-        console.warn('Supabase update profile warning:', err);
+        console.warn('Supabase update profile exception:', err);
       }
     }
   };
