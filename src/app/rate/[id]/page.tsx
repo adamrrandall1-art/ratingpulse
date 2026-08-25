@@ -74,7 +74,7 @@ function ReviewGateContent() {
           setTargetUserId(resolvedUserId);
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('business_name, google_place_id, review_url, email, formatted_address')
+            .select('business_name, google_place_id, review_url, email, notification_email, formatted_address')
             .eq('id', resolvedUserId)
             .maybeSingle();
 
@@ -90,8 +90,8 @@ function ReviewGateContent() {
             } else if (profileData.google_place_id && !reviewUrlParam) {
               setGoogleReviewUrl(`https://search.google.com/local/writereview?placeid=${profileData.google_place_id}`);
             }
-            if (profileData.email && !ownerEmailParam) {
-              setOwnerEmail(profileData.email);
+            if ((profileData.notification_email || profileData.email) && !ownerEmailParam) {
+              setOwnerEmail(profileData.notification_email || profileData.email);
             }
             if (profileData.formatted_address) {
               setAddress(profileData.formatted_address);

@@ -229,10 +229,16 @@ export async function sendFeedbackAlert({
     </html>
   `;
 
+  const fallbackRecipient = process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
+  let targetRecipient = businessOwnerEmail;
+  if (!targetRecipient || targetRecipient === 'notifications@ratingpulse.co' || targetRecipient === 'reviews@ratingpulse.co') {
+    targetRecipient = fallbackRecipient;
+  }
+
   try {
     const { data, error } = await resend.emails.send({
-      from: `RatingPulse Alerts <${resendFromEmail}>`,
-      to: [businessOwnerEmail],
+      from: 'RatingPulse Alerts <notifications@ratingpulse.co>',
+      to: [targetRecipient],
       subject: `⚠️ Negative Feedback Alert: ${customerName || 'A customer'} left a ${rating}-star rating`,
       html,
     });
