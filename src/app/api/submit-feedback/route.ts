@@ -63,18 +63,17 @@ export async function POST(req: NextRequest) {
             resolvedUserId = existingInvite.user_id;
           }
 
-          // Update existing review invite record
+          // Update existing review invite record cleanly
           const updatePayload: Record<string, unknown> = {
             rating_received: effectiveRating,
+            rating: effectiveRating,
             feedback_text: effectiveText,
-            status: 'unresolved',
-            resolution_status: 'unresolved',
-            review_received_at: new Date().toISOString(),
+            status: 'completed',
+            updated_at: new Date().toISOString(),
           };
           if (customerName) updatePayload.customer_name = customerName;
           if (customerPhone) updatePayload.customer_phone = customerPhone;
           if (customerEmail) updatePayload.customer_email = customerEmail;
-          if (resolvedUserId && !existingInvite?.user_id) updatePayload.user_id = resolvedUserId;
 
           const { data, error } = await supabaseAdmin
             .from('review_invites')
@@ -83,7 +82,7 @@ export async function POST(req: NextRequest) {
             .select();
 
           if (error) {
-            console.error('[DB Update review_invites feedback error]', error);
+            console.error('[DB Update review_invites error]', error.message, error.details);
           } else {
             dbSuccess = true;
             if (data && data[0]?.user_id) {
@@ -92,7 +91,7 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Insert directly into the public.feedback table
+        // Insert standard fields into feedback table without manual ID
         const feedbackDirectRow: Record<string, unknown> = {
           business_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
           user_id: resolvedUserId && isUuid.test(resolvedUserId) ? resolvedUserId : null,
@@ -102,7 +101,6 @@ export async function POST(req: NextRequest) {
           rating: Number(effectiveRating),
           feedback_text: effectiveText,
           status: 'unresolved',
-          created_at: new Date().toISOString(),
         };
 
         const { data: fbData, error: fbError } = await supabaseAdmin
@@ -111,7 +109,7 @@ export async function POST(req: NextRequest) {
           .select();
 
         if (fbError) {
-          console.error('Failed to insert feedback:', fbError);
+          console.error('[DB Insert feedback error]:', fbError.message, fbError.details);
         } else {
           dbSuccess = true;
           if (fbData && fbData[0]?.id) recordId = fbData[0].id;

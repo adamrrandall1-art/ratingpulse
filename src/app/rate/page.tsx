@@ -168,7 +168,7 @@ function ReviewGateContent() {
     const effectiveRating = selectedRating || 3;
     const effectiveContact = customerEmail || customerPhone || 'Not provided';
 
-    // 1. Submit feedback via server-side API (bypasses RLS & dispatches email alert)
+    // 1. Submit feedback via server-side API (bypasses RLS, inserts to feedback, patches review_invites & dispatches alerts)
     try {
       await fetch('/api/submit-feedback', {
         method: 'POST',
@@ -188,44 +188,6 @@ function ReviewGateContent() {
       });
     } catch (err) {
       console.warn('Feedback submit dispatch warning:', err);
-    }
-
-    // 2. Direct client fallback update if Supabase client is active
-    if (isSupabaseConfigured && supabase) {
-      try {
-        if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
-          const updatePayload: Record<string, unknown> = {
-            rating_received: effectiveRating,
-            feedback_text: feedbackText,
-            status: 'unresolved',
-            resolution_status: 'unresolved',
-            review_received_at: new Date().toISOString(),
-          };
-          if (customerName) updatePayload.customer_name = customerName;
-          if (customerPhone) updatePayload.customer_phone = customerPhone;
-          if (customerEmail) updatePayload.customer_email = customerEmail;
-
-          await supabase
-            .from('review_invites')
-            .update(updatePayload)
-            .eq('id', idParam);
-        }
-
-        if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
-          await supabase.from('feedback').insert([{
-            user_id: targetUserId,
-            business_id: targetUserId,
-            customer_name: customerName || 'Anonymous Customer',
-            customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
-            customer_phone: customerPhone || null,
-            rating: effectiveRating,
-            feedback_text: feedbackText,
-            status: 'unresolved',
-          }]);
-        }
-      } catch (dbErr) {
-        console.warn('Direct client feedback update warning:', dbErr);
-      }
     }
 
     setIsSubmitting(false);
