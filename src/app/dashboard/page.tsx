@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Smartphone,
   PhoneCall,
-  HeartHandshake
+  ShieldAlert
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
@@ -27,7 +27,7 @@ export default function DashboardOverview() {
     sendSmsInvite,
     pendingReviewsCount,
     publishedReviewsCount,
-    privateFeedbackCount
+    unresolvedFeedbackCount
   } = useRatingPulseStore();
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
@@ -134,22 +134,28 @@ export default function DashboardOverview() {
           </div>
         </div>
 
-        {/* Customer Care / Direct Inquiries */}
+        {/* Urgent Inquiries / Unresolved Low Star Feedback */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
           <div className="flex items-center justify-between text-slate-500 mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider">Customer Care</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <HeartHandshake className="w-4 h-4" />
+            <span className="text-xs font-bold uppercase tracking-wider">Urgent Inquiries</span>
+            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <ShieldAlert className="w-4 h-4" />
             </div>
           </div>
           <div className="text-3xl font-extrabold text-slate-900 flex items-baseline gap-2">
-            {privateFeedbackCount}
-            <span className="text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-              Direct Inquiries
-            </span>
+            {unresolvedFeedbackCount}
+            {unresolvedFeedbackCount > 0 ? (
+              <span className="text-xs font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 animate-pulse">
+                Needs Action
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                All Cleared
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-500 mt-1">
-            Customer feedback for team follow-up
+            1–3 star feedback awaiting resolution
           </div>
         </div>
 
@@ -283,9 +289,9 @@ export default function DashboardOverview() {
 
                   <div>
                     {inv.status === 'feedback_submitted' && (
-                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                        <HeartHandshake className="w-3 h-3 text-blue-500" />
-                        Direct Feedback
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                        <ShieldAlert className="w-3 h-3 text-rose-600" />
+                        Urgent Alert
                       </span>
                     )}
                     {inv.status === 'reviewed' && (
@@ -319,7 +325,7 @@ export default function DashboardOverview() {
 
       </div>
 
-      {/* Dedicated Section: Customer Care & Direct Feedback Table */}
+      {/* Dedicated Section: Urgent Customer Inquiries & Low-Star Feedback Table */}
       <section className="pt-2">
         <PrivateFeedbackFeed />
       </section>

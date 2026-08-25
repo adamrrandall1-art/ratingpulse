@@ -1,10 +1,28 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Review, Invite, BusinessSettings, Profile } from './supabase/types';
-import { initialProfile, initialSettings, initialReviews, initialInvites } from './data';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
+import {
+  Profile,
+  BusinessSettings,
+  Review,
+  Invite,
+} from './supabase/types';
+import {
+  initialProfile,
+  initialSettings,
+  initialReviews,
+  initialInvites,
+} from './data';
 import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useAuth } from './auth-context';
+
+export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
+  const rating = inv.rating_received;
+  const hasLowRating = rating !== null && rating !== undefined && Number(rating) <= 3 && Number(rating) > 0;
+  const hasFeedbackText = Boolean(inv.feedback_text && inv.feedback_text.trim().length > 0);
+  const isFeedbackStatus = inv.status === 'feedback_submitted' || inv.status === 'needs_follow_up';
+  return hasLowRating || hasFeedbackText || isFeedbackStatus;
+};
 
 const STORAGE_KEYS = {
   PROFILE: 'ratingpulse_profile_v1',
@@ -13,40 +31,6 @@ const STORAGE_KEYS = {
   INVITES: 'ratingpulse_invites_v1',
   DEMO_MODE: 'ratingpulse_demo_mode_v1',
 };
-
-// Gemini AI reply generation helper
-export function generateGeminiReply(
-  authorName: string,
-  businessName: string,
-  rating: number,
-  reviewText: string,
-  keywords: string[] = ['gentle care', 'painless dentistry', 'friendly team']
-): { reply: string; keywordsUsed: string[] } {
-  const selectedKeywords = keywords.slice(0, 2);
-  const keywordPhrase = selectedKeywords.length > 0 ? selectedKeywords.join(' and ') : 'high-quality care';
-
-  if (rating === 5) {
-    const templates = [
-      `Thank you so much for the 5-star review, ${authorName}! We are thrilled you experienced our ${keywordPhrase} at ${businessName}. Our team looks forward to welcoming you back for your next visit!`,
-      `Hi ${authorName}! We truly appreciate your glowing feedback. Delivering exceptional, ${keywordPhrase} is what drives our team at ${businessName} every day. See you next time!`,
-      `Dear ${authorName}, your wonderful review made our entire team smile! Thank you for trusting ${businessName} for your ${selectedKeywords[0] || 'visit'}. We look forward to serving you again soon!`
-    ];
-    return {
-      reply: templates[Math.floor(Math.random() * templates.length)],
-      keywordsUsed: selectedKeywords
-    };
-  } else if (rating === 4) {
-    return {
-      reply: `Hi ${authorName}, thank you for your kind 4-star review and valuable feedback for ${businessName}! We are glad you enjoyed our ${keywordPhrase}. We strive for 5-star excellence every visit and look forward to seeing you again soon!`,
-      keywordsUsed: selectedKeywords
-    };
-  } else {
-    return {
-      reply: `Hello ${authorName}, thank you for sharing your experience. At ${businessName}, patient satisfaction and ${keywordPhrase} are our highest priorities. We would love the opportunity to connect with you directly to ensure your next visit is nothing short of exceptional.`,
-      keywordsUsed: selectedKeywords
-    };
-  }
-}
 
 export interface RatingPulseStoreContextType {
   profile: Profile;
@@ -70,6 +54,7 @@ export interface RatingPulseStoreContextType {
   pendingReviewsCount: number;
   publishedReviewsCount: number;
   privateFeedbackCount: number;
+  unresolvedFeedbackCount: number;
   searchQuery: string;
   setSearchQuery: (query: string) => void;
 }
@@ -143,8 +128,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
             const invs = invitesRes.value.data as Invite[];
             if (invs.length > 0) {
-              setInvites(invs);
-              globalInvitesCache = invs;
+              // If in demo mode and fetched items don't have feedback samples, preserve demo feedback
+              const hasFeedback = invs.some((i) => isLowStarOrFeedback(i));
+              if (!hasFeedback && currentDemoMode) {
+                const feedbackSamples = initialInvites.filter((i) => isLowStarOrFeedback(i));
+                const merged = [...feedbackSamples, ...invs.filter((i) => !feedbackSamples.some((f) => f.id === i.id))];
+                setInvites(merged);
+                globalInvitesCache = merged;
+              } else {
+                setInvites(invs);
+                globalInvitesCache = invs;
+              }
             }
           }
 
@@ -181,9 +175,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (storedInvites) {
           const parsed: Invite[] = JSON.parse(storedInvites);
           // Preserve sample feedback items if localStorage had old cache without feedback
-          const hasFeedback = parsed.some((inv) => Boolean(inv.feedback_text || inv.status === 'feedback_submitted' || (inv.rating_received && inv.rating_received <= 3)));
+          const hasFeedback = parsed.some((inv) => isLowStarOrFeedback(inv));
           if (!hasFeedback && currentDemoMode) {
-            const feedbackSamples = initialInvites.filter((inv) => Boolean(inv.feedback_text || inv.status === 'feedback_submitted' || (inv.rating_received && inv.rating_received <= 3)));
+            const feedbackSamples = initialInvites.filter((inv) => isLowStarOrFeedback(inv));
             const merged = [...feedbackSamples, ...parsed.filter((p) => !feedbackSamples.some((f) => f.id === p.id))];
             setInvites(merged);
             globalInvitesCache = merged;
@@ -264,119 +258,128 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     persistState(updatedReviews, invites, settings, profile);
 
     if (isSupabaseConfigured && supabase) {
-      try {
-        const rev = updatedReviews.find((r) => r.id === reviewId);
-        if (rev) {
-          await supabase
-            .from('reviews')
-            .update({
-              published_reply: rev.published_reply,
-              status: 'published',
-              published_at: rev.published_at,
-            })
-            .eq('id', reviewId);
+      const target = updatedReviews.find((r) => r.id === reviewId);
+      if (target) {
+        try {
+          await supabase.from('reviews').upsert({
+            id: target.id,
+            user_id: profile.id,
+            author_name: target.author_name,
+            rating: target.rating,
+            review_text: target.review_text,
+            published_reply: target.published_reply,
+            status: target.status,
+            published_at: target.published_at,
+          });
+        } catch (err) {
+          console.warn('Supabase approveReview sync warning:', err);
         }
-      } catch (err) {
-        console.error('Supabase update review error:', err);
       }
     }
+
     setIsSaving(false);
   };
 
   const regenerateAiReply = async (reviewId: string, customKeywords?: string[]) => {
-    const rev = reviews.find((r) => r.id === reviewId);
-    if (!rev) return;
+    setIsSaving(true);
+    const target = reviews.find((r) => r.id === reviewId);
+    if (!target) {
+      setIsSaving(false);
+      return;
+    }
 
-    const gemini = generateGeminiReply(
-      rev.author_name,
-      profile.business_name,
-      rev.rating,
-      rev.review_text,
-      customKeywords || settings.custom_keywords
-    );
+    const keywords = customKeywords || settings.custom_keywords || [];
+    const tone = settings.brand_voice || 'friendly_professional';
 
-    const updatedReviews = reviews.map((r) =>
-      r.id === reviewId
-        ? { ...r, ai_draft_reply: gemini.reply, keywords_used: gemini.keywordsUsed }
-        : r
-    );
-    setReviews(updatedReviews);
-    globalReviewsCache = updatedReviews;
-    persistState(updatedReviews, invites, settings, profile);
+    try {
+      const response = await fetch('/api/reviews/generate-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewText: target.review_text,
+          authorName: target.author_name,
+          rating: target.rating,
+          businessName: profile.business_name,
+          tone,
+          keywords,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const updated = reviews.map((r) =>
+          r.id === reviewId ? { ...r, ai_draft_reply: data.reply } : r
+        );
+        setReviews(updated);
+        globalReviewsCache = updated;
+        persistState(updated, invites, settings, profile);
+      }
+    } catch (e) {
+      console.error('Failed to regenerate AI reply:', e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const updateDraftText = (reviewId: string, text: string) => {
-    const updatedReviews = reviews.map((r) =>
+    const updated = reviews.map((r) =>
       r.id === reviewId ? { ...r, ai_draft_reply: text } : r
     );
-    setReviews(updatedReviews);
-    globalReviewsCache = updatedReviews;
-    persistState(updatedReviews, invites, settings, profile);
+    setReviews(updated);
+    globalReviewsCache = updated;
+    persistState(updated, invites, settings, profile);
   };
 
-  const simulateIncomingGoogleReview = () => {
-    const mockReviewers = [
-      {
-        name: 'Emily Watson',
-        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=120&h=120&fit=crop&crop=face',
-        text: 'Incredible experience at Apex Dental! From the friendly greeting at the front desk to the gentle checkup, everything was effortless and fast.',
-        rating: 5,
-      },
-      {
-        name: 'Jordan Rivera',
-        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=120&h=120&fit=crop&crop=face',
-        text: 'Dr. Marcus explained every step of my procedure clearly. Very clean facility and zero pain during the procedure. Will definitely be my go-to clinic!',
-        rating: 5,
-      },
-      {
-        name: 'Claire Beauchamp',
-        avatar: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=120&h=120&fit=crop&crop=face',
-        text: 'Top notch staff and cutting-edge equipment. Scheduled online easily and was seen right on time.',
-        rating: 5,
-      },
+  const simulateIncomingGoogleReview = (): Review => {
+    const names = ['David K.', 'Sarah M.', 'Rachel B.', 'Carlos G.', 'Emily W.'];
+    const comments = [
+      'Outstanding experience today! The doctor took time to explain every detail clearly. 10/10 recommend!',
+      'Fast, gentle, and extremely professional team. So grateful to have found this clinic!',
+      'Dr. Marcus and staff are unbelievable. Zero pain during my appointment and spotless office.',
+      'Super clean facility and virtually no wait time. Truly the highest standard in town.',
     ];
 
-    const pick = mockReviewers[Math.floor(Math.random() * mockReviewers.length)];
-    const gemini = generateGeminiReply(
-      pick.name,
-      profile.business_name,
-      pick.rating,
-      pick.text,
-      settings.custom_keywords
-    );
+    const randomName = names[Math.floor(Math.random() * names.length)];
+    const randomComment = comments[Math.floor(Math.random() * comments.length)];
+    const newId = `rev-${Date.now()}`;
 
     const newReview: Review = {
-      id: `rev-${Date.now()}`,
+      id: newId,
       user_id: profile.id,
-      author_name: pick.name,
-      author_avatar: pick.avatar,
-      rating: pick.rating,
-      review_text: pick.text,
-      review_date: new Date().toISOString(),
-      ai_draft_reply: gemini.reply,
-      published_reply: null,
-      status: 'pending_approval',
-      sentiment: pick.rating >= 4 ? 'positive' : 'neutral',
-      keywords_used: gemini.keywordsUsed,
+      author_name: randomName,
+      author_avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 50)}?w=150&auto=format&fit=crop&q=80`,
+      rating: 5,
+      review_text: randomComment,
+      review_date: 'Just now',
+      sentiment: 'positive',
+      keywords_used: ['gentle care', 'professional'],
       created_at: new Date().toISOString(),
+      status: settings.auto_publish_5_star ? 'published' : 'pending_approval',
+      ai_draft_reply: `Thank you so much, ${randomName}! We truly appreciate you taking the time to share your feedback. Our team is dedicated to gentle, personalized care, and we look forward to seeing you again soon!`,
+      published_reply: settings.auto_publish_5_star
+        ? `Thank you so much, ${randomName}! We truly appreciate you taking the time to share your feedback. Our team is dedicated to gentle, personalized care, and we look forward to seeing you again soon!`
+        : undefined,
+      published_at: settings.auto_publish_5_star ? new Date().toISOString() : undefined,
     };
 
-    const updatedReviews = [newReview, ...reviews];
-    setReviews(updatedReviews);
-    globalReviewsCache = updatedReviews;
-    persistState(updatedReviews, invites, settings, profile);
+    const updated = [newReview, ...reviews];
+    setReviews(updated);
+    globalReviewsCache = updated;
+    persistState(updated, invites, settings, profile);
+
     return newReview;
   };
 
   const sendSmsInvite = async (
     customerName: string,
     customerPhone: string,
-    serviceType: string = 'General Service'
-  ) => {
+    serviceType: string = 'General Consultation'
+  ): Promise<Invite> => {
     setIsSaving(true);
-    const inviteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
+    const validUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
+
     const newInvite: Invite = {
-      id: inviteId,
+      id: validUuid,
       user_id: profile.id,
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -385,35 +388,31 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       sent_at: new Date().toISOString(),
     };
 
-    const updatedInvites = [newInvite, ...invites];
-    setInvites(updatedInvites);
-    globalInvitesCache = updatedInvites;
-    persistState(reviews, updatedInvites, settings, profile);
+    const updated = [newInvite, ...invites];
+    setInvites(updated);
+    globalInvitesCache = updated;
+    persistState(reviews, updated, settings, profile);
+
+    const businessId = profile.google_place_id || profile.id;
+    const reviewUrl = profile.review_url || (profile.google_place_id ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}` : '');
+    const ownerEmail = profile.email || 'notifications@ratingpulse.co';
 
     try {
-      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
-      const reviewGateUrl = `${appUrl}/rate/${inviteId}?business=${encodeURIComponent(profile.business_name || 'Our Business')}${profile.google_place_id ? `&placeId=${encodeURIComponent(profile.google_place_id)}` : ''}&ownerEmail=${encodeURIComponent(profile.email || '')}`;
-
-      const customMessage = settings.sms_template
-        .replace(/{{customer_name}}/g, customerName)
-        .replace(/{{business_name}}/g, profile.business_name)
-        .replace(/{{review_link}}/g, reviewGateUrl);
-
-      const resp = await fetch('/api/sms/send', {
+      const resp = await fetch('/api/send-sms', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          to: customerPhone,
+          toPhone: customerPhone,
           customerName,
           businessName: profile.business_name,
-          reviewLink: reviewGateUrl,
-          message: customMessage,
-          serviceType,
+          businessId,
+          placeId: profile.google_place_id,
+          reviewUrl,
+          ownerEmail,
         }),
       });
 
-      const data = await resp.json();
-      if (data?.success) {
+      if (resp.ok) {
         setTimeout(() => {
           setInvites((prev) =>
             prev.map((inv) =>
@@ -455,19 +454,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sendEmailInvite = async (
     customerName: string,
     customerEmail: string,
-    serviceType: string = 'General Service'
+    serviceType: string = 'General Consultation'
   ): Promise<Invite> => {
     setIsSaving(true);
-    const inviteId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `00000000-0000-4000-8000-${Date.now().toString(16).padStart(12, '0')}`;
+    const validUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
+
     const newInvite: Invite = {
-      id: inviteId,
-      user_id: user?.id || profile.id || '00000000-0000-0000-0000-000000000000',
+      id: validUuid,
+      user_id: profile.id,
       customer_name: customerName,
       customer_phone: customerEmail,
+      customer_email: customerEmail,
       service_type: serviceType,
       status: 'sent',
       sent_at: new Date().toISOString(),
-      rating_received: null,
     };
 
     const updated = [newInvite, ...invites];
@@ -475,25 +475,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalInvitesCache = updated;
     persistState(reviews, updated, settings, profile);
 
-    try {
-      const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
-      const reviewGateUrl = `${appUrl}/rate/${inviteId}?business=${encodeURIComponent(profile.business_name || 'Our Business')}${profile.google_place_id ? `&placeId=${encodeURIComponent(profile.google_place_id)}` : ''}&ownerEmail=${encodeURIComponent(profile.email || '')}`;
+    const businessId = profile.google_place_id || profile.id;
+    const reviewUrl = profile.review_url || (profile.google_place_id ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}` : '');
+    const ownerEmail = profile.email || 'notifications@ratingpulse.co';
 
+    try {
       const resp = await fetch('/api/send-email-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerEmail,
           customerName,
-          businessName: profile.business_name || 'Our Business',
-          reviewUrl: reviewGateUrl,
-          userId: user?.id,
-          serviceType,
+          businessName: profile.business_name,
+          businessId,
+          placeId: profile.google_place_id,
+          reviewUrl,
+          ownerEmail,
         }),
       });
 
-      const data = await resp.json();
-      if (data?.success) {
+      if (resp.ok) {
         setTimeout(() => {
           setInvites((prev) =>
             prev.map((inv) =>
@@ -512,6 +513,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const payload: Record<string, unknown> = {
             customer_name: customerName,
             customer_phone: customerEmail,
+            customer_email: customerEmail,
             service_type: serviceType,
             status: 'sent',
             sent_at: new Date().toISOString(),
@@ -530,6 +532,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     setIsSaving(false);
     return newInvite;
+  };
+
+  const updateInviteResolution = async (
+    inviteId: string,
+    resolution: 'unresolved' | 'resolved' | 'needs_follow_up'
+  ) => {
+    const updated = invites.map((inv) =>
+      inv.id === inviteId ? { ...inv, resolution_status: resolution } : inv
+    );
+    setInvites(updated);
+    globalInvitesCache = updated;
+    persistState(reviews, updated, settings, profile);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        await supabase
+          .from('review_invites')
+          .update({ resolution_status: resolution })
+          .eq('id', inviteId);
+      } catch (err) {
+        console.warn('Error updating invite resolution in Supabase:', err);
+      }
+    }
   };
 
   const updateSettings = async (newSettings: Partial<BusinessSettings>) => {
@@ -558,7 +583,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (isSupabaseConfigured && supabase) {
       try {
         await supabase.from('profiles').upsert(updated);
-        // Automatically ensure an initial business_settings record exists
         await supabase.from('business_settings').upsert({
           user_id: updated.id,
           brand_voice: settings.brand_voice || 'friendly_professional',
@@ -571,29 +595,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         });
       } catch (err) {
         console.warn('Supabase update profile warning:', err);
-      }
-    }
-  };
-
-  const updateInviteResolution = async (
-    inviteId: string,
-    resolution: 'unresolved' | 'resolved' | 'needs_follow_up'
-  ) => {
-    const updated = invites.map((inv) =>
-      inv.id === inviteId ? { ...inv, resolution_status: resolution } : inv
-    );
-    setInvites(updated);
-    globalInvitesCache = updated;
-    persistState(reviews, updated, settings, profile);
-
-    if (isSupabaseConfigured && supabase) {
-      try {
-        await supabase
-          .from('review_invites')
-          .update({ resolution_status: resolution })
-          .eq('id', inviteId);
-      } catch (err) {
-        console.warn('Error updating invite resolution in Supabase:', err);
       }
     }
   };
@@ -633,7 +634,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: reviews.filter((r) => r.status === 'published').length,
-    privateFeedbackCount: invites.filter((inv) => Boolean(inv.feedback_text || (inv.rating_received && inv.rating_received <= 3))).length,
+    privateFeedbackCount: invites.filter((inv) => isLowStarOrFeedback(inv)).length,
+    unresolvedFeedbackCount: invites.filter((inv) => isLowStarOrFeedback(inv) && inv.resolution_status !== 'resolved').length,
     searchQuery,
     setSearchQuery,
   };
@@ -673,7 +675,8 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: globalReviewsCache.filter((r) => r.status === 'published').length,
-    privateFeedbackCount: globalInvitesCache.filter((inv) => Boolean(inv.feedback_text || (inv.rating_received && inv.rating_received <= 3))).length,
+    privateFeedbackCount: globalInvitesCache.filter((inv) => isLowStarOrFeedback(inv)).length,
+    unresolvedFeedbackCount: globalInvitesCache.filter((inv) => isLowStarOrFeedback(inv) && inv.resolution_status !== 'resolved').length,
     searchQuery: '',
     setSearchQuery: () => {},
   };

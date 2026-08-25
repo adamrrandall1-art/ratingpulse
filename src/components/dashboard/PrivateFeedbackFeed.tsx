@@ -1,29 +1,26 @@
-'use client';
+﻿'use client';
 
 import React, { useState } from 'react';
 import {
-  HeartHandshake,
+  AlertOctagon,
   Star,
   Phone,
   Mail,
   CheckCircle2,
   AlertTriangle,
-  MessageSquare
+  Clock,
+  ExternalLink,
+  ShieldAlert
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isLowStarOrFeedback } from '@/lib/store';
 
 export default function PrivateFeedbackFeed() {
-  const { invites, updateInviteResolution, searchQuery } = useRatingPulseStore();
+  const { invites, updateInviteResolution, searchQuery, unresolvedFeedbackCount } = useRatingPulseStore();
   const [filter, setFilter] = useState<'all' | 'needs_follow_up' | 'resolved'>('all');
 
   // Filter for invites that have private feedback or low ratings
   const feedbackItems = invites.filter((inv) => {
-    const hasFeedback = Boolean(
-      inv.feedback_text ||
-      inv.status === 'feedback_submitted' ||
-      (inv.rating_received !== null && inv.rating_received !== undefined && inv.rating_received <= 3)
-    );
-    if (!hasFeedback) return false;
+    if (!isLowStarOrFeedback(inv)) return false;
 
     // Apply resolution filter
     if (filter === 'needs_follow_up') {
@@ -45,36 +42,43 @@ export default function PrivateFeedbackFeed() {
   });
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+    <div className="bg-white rounded-2xl border-2 border-rose-100 shadow-sm overflow-hidden">
       
-      {/* Header */}
-      <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Urgent Header */}
+      <div className="p-6 bg-gradient-to-r from-rose-50/90 via-red-50/50 to-white border-b border-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
-              <HeartHandshake className="w-4 h-4" />
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-rose-600/20">
+              <ShieldAlert className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight">
-              Customer Care & Direct Feedback
+            <h2 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>⚠️ Urgent Customer Inquiries & Low-Star Feedback</span>
             </h2>
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              Direct Resolution
-            </span>
+
+            {unresolvedFeedbackCount > 0 ? (
+              <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
+                [ {unresolvedFeedbackCount} Needs Attention ]
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                [ All Resolved ]
+              </span>
+            )}
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Direct feedback and private inquiries submitted by customers for internal team follow-up and resolution.
+          <p className="text-xs font-medium text-slate-600 mt-1.5">
+            Direct feedback from customers rating 1–3 stars. Immediate follow-up recommended to resolve issues quickly.
           </p>
         </div>
 
         {/* Filter Tabs */}
-        <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl text-xs font-semibold self-start sm:self-auto">
+        <div className="flex items-center gap-1 p-1 bg-white border border-rose-200/80 rounded-xl text-xs font-bold self-start sm:self-auto shadow-2xs">
           <button
             type="button"
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'all'
-                ? 'bg-white text-slate-900 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
             All
@@ -84,11 +88,11 @@ export default function PrivateFeedbackFeed() {
             onClick={() => setFilter('needs_follow_up')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'needs_follow_up'
-                ? 'bg-white text-amber-700 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-rose-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-rose-600'
             }`}
           >
-            <AlertTriangle className="w-3 h-3 text-amber-500" />
+            <AlertTriangle className="w-3.5 h-3.5" />
             <span>Needs Follow-up</span>
           </button>
           <button
@@ -96,11 +100,11 @@ export default function PrivateFeedbackFeed() {
             onClick={() => setFilter('resolved')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'resolved'
-                ? 'bg-white text-emerald-700 shadow-xs'
-                : 'text-slate-500 hover:text-slate-900'
+                ? 'bg-emerald-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-emerald-600'
             }`}
           >
-            <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+            <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Resolved</span>
           </button>
         </div>
@@ -108,104 +112,124 @@ export default function PrivateFeedbackFeed() {
 
       {/* Feedback List Body */}
       {feedbackItems.length === 0 ? (
-        <div className="p-10 text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto text-xl">
-            <MessageSquare className="w-5 h-5 text-slate-400" />
+        <div className="p-10 text-center space-y-3 bg-slate-50/50">
+          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl font-bold border border-emerald-200">
+            <CheckCircle2 className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            No direct feedback received yet.
+          <h3 className="text-sm font-extrabold text-slate-800">
+            All clear. No urgent customer issues pending resolution.
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            When customers submit internal feedback or service inquiries, they will appear here so you can resolve issues quickly.
+            Your customer feedback monitor is active. Any 1–3 star ratings will alert you here immediately for direct follow-up.
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100">
+        <div className="divide-y divide-slate-100 bg-white">
           {feedbackItems.map((item) => {
-            const rating = item.rating_received || 2;
+            const rating = Number(item.rating_received) || 2;
             const isResolved = item.resolution_status === 'resolved';
 
             return (
-              <div key={item.id} className="p-5 sm:p-6 hover:bg-slate-50/70 transition-colors space-y-3.5">
+              <div
+                key={item.id}
+                className={`p-5 sm:p-6 transition-colors space-y-3.5 ${
+                  isResolved
+                    ? 'bg-slate-50/50 hover:bg-slate-50'
+                    : 'bg-rose-50/20 hover:bg-rose-50/40'
+                }`}
+              >
                 
                 {/* Top Row: Customer info, rating badge & resolution status */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     {/* Star Rating Badge */}
-                    <div className={`px-2.5 py-1 rounded-xl font-bold text-xs flex items-center gap-1 border ${
+                    <div className={`px-3 py-1 rounded-xl font-extrabold text-xs flex items-center gap-1.5 border shadow-2xs ${
                       rating <= 2
-                        ? 'bg-rose-50 border-rose-200 text-rose-700'
+                        ? 'bg-rose-600 text-white border-rose-700'
                         : rating === 3
-                        ? 'bg-amber-50 border-amber-200 text-amber-700'
-                        : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                        ? 'bg-amber-500 text-white border-amber-600'
+                        : 'bg-emerald-600 text-white border-emerald-700'
                     }`}>
                       <Star className="w-3.5 h-3.5 fill-current" />
-                      <span>{rating}.0 Stars</span>
+                      <span>{rating}.0 / 5 Stars</span>
                     </div>
 
                     <div>
-                      <h4 className="text-sm font-bold text-slate-900">
-                        {item.customer_name}
+                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
+                        <span>{item.customer_name}</span>
+                        {!isResolved && (
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                        )}
                       </h4>
-                      <p className="text-[11px] text-slate-400">
-                        {item.service_type || 'General Visit'} • {new Date(item.sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      <p className="text-[11px] text-slate-500">
+                        {item.service_type || 'Customer Inquiry'} • {new Date(item.sent_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </p>
                     </div>
                   </div>
 
-                  {/* Resolution Status Dropdown / Action */}
+                  {/* Resolution Action Pill */}
                   <div className="flex items-center gap-2 self-start sm:self-auto">
                     {isResolved ? (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                         <span>Resolved</span>
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                        <span>Needs Follow-up</span>
+                      <span className="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                        <AlertTriangle className="w-3.5 h-3.5 text-rose-600" />
+                        <span>Action Required</span>
                       </span>
                     )}
 
                     <button
                       type="button"
                       onClick={() => updateInviteResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
-                      className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs ${
+                        isResolved
+                          ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                      }`}
                     >
-                      {isResolved ? 'Re-open' : 'Mark Resolved'}
+                      {isResolved ? 'Re-open Issue' : '✓ Mark Resolved'}
                     </button>
                   </div>
                 </div>
 
-                {/* Feedback Message */}
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 leading-relaxed italic">
-                  &quot;{item.feedback_text || 'No comment text was provided with this rating.'}&quot;
+                {/* Feedback Quote Block */}
+                <div className={`p-4 rounded-xl border text-xs leading-relaxed font-medium ${
+                  isResolved
+                    ? 'bg-slate-100/70 border-slate-200 text-slate-600'
+                    : 'bg-white border-rose-200 text-slate-800 shadow-2xs'
+                }`}>
+                  <p className="italic">
+                    &quot;{item.feedback_text || 'Customer left a low-star rating on the review gate without additional comment text.'}&quot;
+                  </p>
                 </div>
 
-                {/* Customer Contact Action Buttons */}
-                <div className="flex flex-wrap items-center gap-3 pt-1 text-xs">
+                {/* Direct Action Contact Buttons */}
+                <div className="flex flex-wrap items-center gap-2.5 pt-1 text-xs">
                   {item.customer_phone && !item.customer_phone.includes('@') && (
                     <a
                       href={`tel:${item.customer_phone}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 font-semibold transition-colors"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-xs transform active:scale-95"
                     >
-                      <Phone className="w-3 h-3" />
-                      <span>Call {item.customer_phone}</span>
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Call Customer Now ({item.customer_phone})</span>
                     </a>
                   )}
 
                   {(item.customer_email || (item.customer_phone && item.customer_phone.includes('@'))) && (
                     <a
-                      href={`mailto:${item.customer_email || item.customer_phone}?subject=Following up on your visit with our team`}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-semibold transition-colors"
+                      href={`mailto:${item.customer_email || item.customer_phone}?subject=Urgent: Following up on your recent visit with our team`}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all shadow-xs transform active:scale-95"
                     >
-                      <Mail className="w-3 h-3" />
-                      <span>Email {item.customer_email || item.customer_phone}</span>
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Email Customer ({item.customer_email || item.customer_phone})</span>
                     </a>
                   )}
 
-                  <span className="text-[11px] text-slate-400 ml-auto">
-                    Submitted directly via customer review gate
+                  <span className="text-[11px] text-slate-400 ml-auto hidden sm:inline">
+                    Direct low-star review gate interception
                   </span>
                 </div>
 
