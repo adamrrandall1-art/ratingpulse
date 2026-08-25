@@ -86,27 +86,30 @@ export async function POST(req: NextRequest) {
             .eq('id', targetInviteId);
 
           if (!updErr) dbSuccess = true;
-        } else if (resolvedUid && isUuid.test(resolvedUid)) {
-          // Insert new negative feedback record into review_invites
-          const insertPayload: Record<string, unknown> = {
-            user_id: resolvedUid,
-            customer_name: customerName || 'Valued Customer',
-            customer_phone: customerPhone || customerEmail || '',
-            customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
-            service_type: 'Urgent Customer Feedback',
-            status: 'unresolved',
-            rating_received: effectiveRating,
-            feedback_text: effectiveText,
-            resolution_status: 'unresolved',
-            sent_at: new Date().toISOString(),
-            review_received_at: new Date().toISOString(),
-          };
+        }
 
-          const { error: insErr } = await supabase
-            .from('review_invites')
-            .insert([insertPayload]);
+        // Insert directly into the public.feedback table
+        const feedbackDirectRow: Record<string, unknown> = {
+          rating: Number(effectiveRating),
+          feedback_text: effectiveText,
+          customer_name: customerName || 'Anonymous',
+          customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
+          customer_phone: customerPhone || null,
+          status: 'unresolved',
+          user_id: resolvedUid && isUuid.test(resolvedUid) ? resolvedUid : null,
+          business_id: resolvedUid && isUuid.test(resolvedUid) ? resolvedUid : null,
+        };
 
-          if (!insErr) dbSuccess = true;
+        const { data: fbData, error: fbErr } = await supabase
+          .from('feedback')
+          .insert([feedbackDirectRow])
+          .select();
+
+        if (fbErr) {
+          console.error('Failed to save feedback to Supabase:', fbErr);
+        } else {
+          dbSuccess = true;
+          console.log('Saved feedback to Supabase successfully:', fbData);
         }
 
         // Fetch owner email and phone for notifications
