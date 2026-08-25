@@ -168,7 +168,28 @@ function ReviewGateContent() {
     const effectiveRating = selectedRating || 3;
     const effectiveContact = customerEmail || customerPhone || 'Not provided';
 
-    // 1. Update Supabase record
+    // 1. Submit feedback via server-side API (bypasses RLS & dispatches email alert)
+    try {
+      await fetch('/api/submit-feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          inviteId: idParam,
+          businessId: targetUserId,
+          customerName: customerName || 'Valued Customer',
+          customerPhone,
+          customerEmail,
+          rating: effectiveRating,
+          feedbackText,
+          businessName,
+          ownerEmail,
+        }),
+      });
+    } catch (err) {
+      console.warn('Feedback submit dispatch warning:', err);
+    }
+
+    // 2. Direct client fallback update if Supabase client is active
     if (isSupabaseConfigured && supabase) {
       try {
         if (idParam && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idParam)) {
@@ -187,45 +208,10 @@ function ReviewGateContent() {
             .from('review_invites')
             .update(updatePayload)
             .eq('id', idParam);
-        } else if (targetUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(targetUserId)) {
-          await supabase
-            .from('review_invites')
-            .insert({
-              user_id: targetUserId,
-              customer_name: customerName || 'A Customer',
-              customer_phone: customerPhone || (effectiveContact.includes('@') ? '' : effectiveContact),
-              customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : undefined),
-              service_type: 'Urgent Feedback',
-              status: 'feedback_submitted',
-              rating_received: effectiveRating,
-              feedback_text: feedbackText,
-              resolution_status: 'needs_follow_up',
-              sent_at: new Date().toISOString(),
-              review_received_at: new Date().toISOString(),
-            });
         }
       } catch (dbErr) {
-        console.warn('Supabase feedback save warning:', dbErr);
+        console.warn('Direct client feedback update warning:', dbErr);
       }
-    }
-
-    // 2. Dispatch Email alert to business owner via Resend
-    try {
-      await fetch('/api/send-feedback-alert', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          businessOwnerEmail: ownerEmail,
-          customerName: customerName || 'A Customer',
-          customerPhone,
-          customerEmail,
-          rating: effectiveRating,
-          feedbackText,
-          businessName,
-        }),
-      });
-    } catch (err) {
-      console.warn('Feedback alert dispatch warning:', err);
     }
 
     setIsSubmitting(false);

@@ -82,6 +82,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (authLoading) return; // Guard: Wait until auth has fully resolved to prevent double-fetch overwrite
 
+    const currentUserId = user?.id || null;
+
     async function loadData() {
       // 1. Check Demo Mode Preference from localStorage
       let currentDemoMode = true;
@@ -94,8 +96,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       } catch {
         // ignore
       }
-
-      const currentUserId = user?.id || null;
 
       // 2. Try Supabase fetch if authenticated user exists
       if (isSupabaseConfigured && supabase && currentUserId) {
@@ -181,7 +181,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
 
     loadData();
-  }, [user?.id]);
+
+    // 4. Set up Realtime listener on review_invites for immediate live sync
+    let subscription: any = null;
+    const client = supabase;
+    if (isSupabaseConfigured && client && currentUserId) {
+      const channel = client
+        .channel(`realtime_invites_${currentUserId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'review_invites',
+            filter: `user_id=eq.${currentUserId}`,
+          },
+          async () => {
+            console.log('[Realtime] review_invites change detected, refetching...');
+            const { data } = await client
+              .from('review_invites')
+              .select('*')
+              .eq('user_id', currentUserId)
+              .order('sent_at', { ascending: false });
+
+            if (data) {
+              setInvites(data as Invite[]);
+              globalInvitesCache = data as Invite[];
+            }
+          }
+        )
+        .subscribe();
+
+      subscription = channel;
+    }
+
+    return () => {
+      if (subscription && client) {
+        client.removeChannel(subscription);
+      }
+    };
+  }, [user?.id, authLoading]);
 
   const persistState = (
     newReviews: Review[],
