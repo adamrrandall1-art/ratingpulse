@@ -20,7 +20,7 @@ export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
   const rating = inv.rating_received;
   const hasLowRating = rating !== null && rating !== undefined && Number(rating) <= 3 && Number(rating) > 0;
   const hasFeedbackText = Boolean(inv.feedback_text && inv.feedback_text.trim().length > 0);
-  const isFeedbackStatus = inv.status === 'feedback_submitted' || inv.status === 'needs_follow_up';
+  const isFeedbackStatus = inv.status === 'feedback_submitted' || inv.status === 'needs_follow_up' || inv.status === 'unresolved';
   return hasLowRating || hasFeedbackText || isFeedbackStatus;
 };
 

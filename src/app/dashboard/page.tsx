@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -288,7 +288,7 @@ export default function DashboardOverview() {
                   </div>
 
                   <div>
-                    {inv.status === 'feedback_submitted' && (
+                    {(inv.status === 'feedback_submitted' || inv.status === 'unresolved' || (inv.rating_received && inv.rating_received <= 3)) && (
                       <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
                         <ShieldAlert className="w-3 h-3 text-rose-600" />
                         Urgent Alert

@@ -127,6 +127,10 @@ create or replace view public.invites as
 create or replace view public.businesses as
   select * from public.profiles;
 
+-- View: feedback -> review_invites
+create or replace view public.feedback as
+  select * from public.review_invites;
+
 -- View: feedbacks -> review_invites
 create or replace view public.feedbacks as
   select * from public.review_invites;

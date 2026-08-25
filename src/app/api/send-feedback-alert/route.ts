@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendFeedbackAlert } from '@/lib/resend';
+import { sendTwilioSms, formatE164 } from '@/lib/twilio';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +41,11 @@ export async function POST(req: NextRequest) {
       process.env.RESEND_ALERT_EMAIL ||
       '';
 
-    // 1. If recipientEmail is not provided or user id / invite id is provided, fetch owner email from Supabase
+    let destinationPhone = '';
+    let smsAlertsEnabled = true;
+    let dbSuccess = false;
+
+    // 1. Supabase Database Write & Recipient Resolution using Service Role Key
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -54,77 +59,139 @@ export async function POST(req: NextRequest) {
 
         let resolvedUid = targetUserId;
 
-        // If invite ID is given, find its user_id
-        if (!resolvedUid && targetInviteId && isUuid.test(targetInviteId)) {
+        // If invite ID is given, resolve user_id and update invite record
+        if (targetInviteId && isUuid.test(targetInviteId)) {
           const { data: inv } = await supabase
             .from('review_invites')
-            .select('user_id')
+            .select('*')
             .eq('id', targetInviteId)
             .maybeSingle();
 
           if (inv?.user_id) resolvedUid = inv.user_id;
+
+          const updatePayload: Record<string, unknown> = {
+            rating_received: effectiveRating,
+            feedback_text: effectiveText,
+            status: 'unresolved',
+            resolution_status: 'unresolved',
+            review_received_at: new Date().toISOString(),
+          };
+          if (customerName) updatePayload.customer_name = customerName;
+          if (customerPhone) updatePayload.customer_phone = customerPhone;
+          if (customerEmail) updatePayload.customer_email = customerEmail;
+
+          const { error: updErr } = await supabase
+            .from('review_invites')
+            .update(updatePayload)
+            .eq('id', targetInviteId);
+
+          if (!updErr) dbSuccess = true;
+        } else if (resolvedUid && isUuid.test(resolvedUid)) {
+          // Insert new negative feedback record into review_invites
+          const insertPayload: Record<string, unknown> = {
+            user_id: resolvedUid,
+            customer_name: customerName || 'Valued Customer',
+            customer_phone: customerPhone || customerEmail || '',
+            customer_email: customerEmail || (customerPhone?.includes('@') ? customerPhone : null),
+            service_type: 'Urgent Customer Feedback',
+            status: 'unresolved',
+            rating_received: effectiveRating,
+            feedback_text: effectiveText,
+            resolution_status: 'unresolved',
+            sent_at: new Date().toISOString(),
+            review_received_at: new Date().toISOString(),
+          };
+
+          const { error: insErr } = await supabase
+            .from('review_invites')
+            .insert([insertPayload]);
+
+          if (!insErr) dbSuccess = true;
         }
 
+        // Fetch owner email and phone for notifications
         if (resolvedUid && isUuid.test(resolvedUid)) {
           const [profRes, settRes] = await Promise.allSettled([
-            supabase.from('profiles').select('email, notification_email').eq('id', resolvedUid).maybeSingle(),
-            supabase.from('business_settings').select('notification_email').eq('user_id', resolvedUid).maybeSingle(),
+            supabase.from('profiles').select('email, phone, notification_email, notification_phone, sms_alerts_enabled').eq('id', resolvedUid).maybeSingle(),
+            supabase.from('business_settings').select('notification_email, notification_phone, sms_alerts_enabled').eq('user_id', resolvedUid).maybeSingle(),
           ]);
 
           let foundNotificationEmail = '';
-          if (settRes.status === 'fulfilled' && settRes.value.data?.notification_email) {
-            foundNotificationEmail = settRes.value.data.notification_email;
+          let foundNotificationPhone = '';
+
+          if (settRes.status === 'fulfilled' && settRes.value.data) {
+            const s = settRes.value.data;
+            if (s.notification_email) foundNotificationEmail = s.notification_email;
+            if (s.notification_phone) foundNotificationPhone = s.notification_phone;
+            if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+              smsAlertsEnabled = Boolean(s.sms_alerts_enabled);
+            }
           }
-          if (!foundNotificationEmail && profRes.status === 'fulfilled') {
-            foundNotificationEmail = profRes.value.data?.notification_email || profRes.value.data?.email || '';
+          if (profRes.status === 'fulfilled' && profRes.value.data) {
+            const p = profRes.value.data;
+            if (!foundNotificationEmail) foundNotificationEmail = p.notification_email || p.email || '';
+            if (!foundNotificationPhone) foundNotificationPhone = p.notification_phone || p.phone || '';
+            if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null && settRes.status !== 'fulfilled') {
+              smsAlertsEnabled = Boolean(p.sms_alerts_enabled);
+            }
           }
 
-          if (foundNotificationEmail) {
-            recipientEmail = foundNotificationEmail;
-          }
+          if (foundNotificationEmail) recipientEmail = foundNotificationEmail;
+          if (foundNotificationPhone) destinationPhone = foundNotificationPhone;
         }
       } catch (dbErr) {
-        console.warn('[DB Error fetching owner email for alert]', dbErr);
+        console.warn('[DB Error recording feedback or fetching owner details]', dbErr);
       }
     }
 
-    if (!recipientEmail || recipientEmail === 'notifications@ratingpulse.co') {
+    if (!recipientEmail || recipientEmail === 'notifications@ratingpulse.co' || recipientEmail === 'reviews@ratingpulse.co') {
       recipientEmail =
         process.env.ADMIN_ALERT_EMAIL ||
         process.env.RESEND_ALERT_EMAIL ||
-        '';
+        'arandall79@gmail.com';
     }
 
-    if (!recipientEmail) {
-      console.warn('[Warning] No owner notification email found for feedback alert.');
-      return NextResponse.json({
-        success: false,
-        error: 'No valid recipient email address could be resolved for business owner.',
-      }, { status: 400 });
+    // 2. Dispatch Email alert to business owner via Resend
+    let emailSuccess = false;
+    let alertId = '';
+    try {
+      const result = await sendFeedbackAlert({
+        businessOwnerEmail: recipientEmail,
+        customerName: customerName || 'A customer',
+        customerPhone,
+        customerEmail,
+        rating: effectiveRating,
+        feedbackText: effectiveText,
+        businessName: businessName || 'RatingPulse Business',
+      });
+      emailSuccess = result.success;
+      alertId = result.id || '';
+    } catch (e) {
+      console.warn('[Resend alert warning]', e);
     }
 
-    const result = await sendFeedbackAlert({
-      businessOwnerEmail: recipientEmail,
-      customerName: customerName || 'A customer',
-      customerPhone,
-      customerEmail,
-      rating: effectiveRating,
-      feedbackText: effectiveText,
-      businessName: businessName || 'RatingPulse Business',
-    });
-
-    if (!result.success) {
-      return NextResponse.json(
-        { error: result.error || 'Failed to dispatch feedback alert' },
-        { status: 500 }
-      );
+    // 3. Dispatch Instant SMS text alert to business owner if mobile is configured
+    let smsSuccess = false;
+    if (destinationPhone && smsAlertsEnabled) {
+      try {
+        const formattedPhone = formatE164(destinationPhone);
+        if (formattedPhone) {
+          const smsText = `⚠️ RatingPulse Alert: A customer (${customerName || 'Customer'}) left a ${effectiveRating}-star review with note: '${effectiveText}'. Log into your dashboard to respond.`;
+          const smsResult = await sendTwilioSms(formattedPhone, smsText);
+          smsSuccess = smsResult.success;
+        }
+      } catch (smsErr) {
+        console.warn('[SMS alert warning]', smsErr);
+      }
     }
 
     return NextResponse.json({
       success: true,
-      alertId: result.id,
+      alertId,
+      dbUpdated: dbSuccess,
+      emailSent: emailSuccess,
+      smsSent: smsSuccess,
       recipient: recipientEmail,
-      simulated: result.simulated ?? false,
     });
   } catch (error: any) {
     console.error('[API send-feedback-alert error]', error);
