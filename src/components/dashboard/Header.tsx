@@ -74,7 +74,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="h-16 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between z-20 sticky top-0">
+      <header className="min-h-16 py-2 bg-white border-b border-slate-200 px-4 sm:px-6 flex items-center justify-between z-20 sticky top-0">
         
         {/* Left: Search & Location indicator */}
         <div className="flex items-center gap-3 sm:gap-4">
@@ -122,25 +122,17 @@ export default function Header() {
               }`}
               title="Toggle interactive mock reviews, SMS history, and simulator data"
             >
-              <Zap className={`w-3.5 h-3.5 ${isDemoMode ? 'text-amber-200 fill-amber-200 animate-pulse' : 'text-slate-400'}`} />
-              <span className="hidden sm:inline">Demo Mode:</span>
-              <span className="uppercase text-[10px] tracking-wider font-extrabold">
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+              <span className="hidden sm:inline">Demo Mode</span>
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                isDemoMode ? 'bg-amber-700 text-white' : 'bg-slate-200 text-slate-700'
+              }`}>
                 {isDemoMode ? 'ON' : 'OFF'}
               </span>
             </button>
-
-            {isDemoMode && (
-              <button
-                onClick={resetDemoData}
-                title="Reset mock reviews & SMS invites to default state"
-                className="p-1 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-200/80 transition-colors cursor-pointer"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
-          {/* Quick Trigger SMS Button */}
+          {/* Send Review Invite Modal CTA */}
           <button
             onClick={() => setInviteModalOpen(true)}
             className="inline-flex items-center gap-2 px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
@@ -154,27 +146,25 @@ export default function Header() {
           <div className="relative pl-2 border-l border-slate-200">
             <button
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
+              className="flex items-center gap-3 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
             >
               <img
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=100&h=100&fit=crop&crop=face"
                 alt={displayName}
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-slate-100 self-center shrink-0"
               />
-              <div className="hidden sm:block text-left">
-                <div className="flex items-center">
-                  <span className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[140px]">
-                    {displayName}
-                  </span>
-                  {isPro && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm ml-2">
-                      ⚡ PRO
-                    </span>
-                  )}
-                </div>
-                <div className="text-[10px] text-slate-500 truncate max-w-[140px]">
+              <div className="hidden sm:flex flex-col items-start text-left">
+                <span className="text-xs font-bold text-slate-800 leading-tight">
+                  {displayName}
+                </span>
+                <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
                   {profile.business_name}
-                </div>
+                </span>
+                {isPro && (
+                  <div className="mt-1.5 inline-flex items-center gap-1 px-3 py-1 rounded-md text-xs font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm w-fit">
+                    ⚡ PRO
+                  </div>
+                )}
               </div>
             </button>
 
