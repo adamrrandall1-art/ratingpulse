@@ -36,8 +36,22 @@ export async function GET(request: NextRequest) {
         },
       });
 
-      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
+        // Trigger welcome onboarding email in background
+        if (data?.user?.email && type !== 'recovery') {
+          try {
+            const { sendWelcomeEmail } = await import('@/lib/email/templates/welcome');
+            sendWelcomeEmail({
+              to: data.user.email,
+              name: data.user.user_metadata?.full_name,
+              userId: data.user.id,
+            }).catch((emailErr) => console.warn('[Welcome email dispatch error]:', emailErr));
+          } catch {
+            // ignore
+          }
+        }
+
         return NextResponse.redirect(new URL(next, request.url));
       }
     }

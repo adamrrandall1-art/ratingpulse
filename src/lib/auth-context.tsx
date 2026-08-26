@@ -133,6 +133,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
 
+      if (!error && email) {
+        // Non-blocking welcome email trigger
+        fetch('/api/auth/welcome', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email,
+            name: fullName,
+            userId: data?.user?.id,
+          }),
+        }).catch((e) => console.warn('[Welcome email fetch error]:', e));
+      }
+
       setIsLoading(false);
       return {
         error: error ? error.message : null,
