@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Smartphone, Mail, Send, Sparkles, CheckCircle2, User, PhoneCall, ShieldCheck } from 'lucide-react';
+import { Smartphone, Mail, Send, Sparkles, CheckCircle2, User, PhoneCall, Layers } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
 export default function QuickReviewSender() {
   const { profile, settings, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
-  const [channel, setChannel] = useState<'sms' | 'email'>('sms');
+  const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms');
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
@@ -45,6 +45,16 @@ export default function QuickReviewSender() {
       toast.error('Please enter a valid customer email address');
       return;
     }
+    if (channel === 'both') {
+      if (!phoneNumber.trim()) {
+        toast.error('Please enter a mobile phone number for SMS delivery');
+        return;
+      }
+      if (!emailAddress.trim()) {
+        toast.error('Please enter an email address for Email delivery');
+        return;
+      }
+    }
 
     setIsSending(true);
 
@@ -54,10 +64,19 @@ export default function QuickReviewSender() {
         toast.success('Review invite sent successfully via SMS!', {
           description: `Delivered to ${phoneNumber}`,
         });
-      } else {
+      } else if (channel === 'email') {
         await sendEmailInvite(finalName, emailAddress, serviceType);
         toast.success('Review invite sent successfully to email!', {
           description: `Delivered to ${emailAddress}`,
+        });
+      } else {
+        // Mode 'both': send concurrently
+        await Promise.allSettled([
+          sendSmsInvite(finalName, phoneNumber, serviceType),
+          sendEmailInvite(finalName, emailAddress, serviceType),
+        ]);
+        toast.success('Invites successfully dispatched via SMS and Email!', {
+          description: `Delivered to ${phoneNumber} and ${emailAddress}`,
         });
       }
 
@@ -103,25 +122,37 @@ export default function QuickReviewSender() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            {channel === 'sms' ? <Smartphone className="w-5 h-5" /> : <Mail className="w-5 h-5" />}
+            {channel === 'sms' ? (
+              <Smartphone className="w-5 h-5" />
+            ) : channel === 'email' ? (
+              <Mail className="w-5 h-5" />
+            ) : (
+              <Layers className="w-5 h-5" />
+            )}
           </div>
           <div>
             <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
               Send Review Request
               <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded-full">
-                {channel === 'sms' ? 'Instant SMS' : 'Branded Email (Resend)'}
+                {channel === 'sms'
+                  ? 'Instant SMS'
+                  : channel === 'email'
+                  ? 'Branded Email (Resend)'
+                  : 'SMS + Email Multi-Channel'}
               </span>
             </h2>
             <p className="text-xs text-slate-400">
               {channel === 'sms'
                 ? 'Enter customer mobile number to trigger an automated 1-tap Google review SMS.'
-                : 'Enter customer email address to send a high-converting branded review invite.'}
+                : channel === 'email'
+                ? 'Enter customer email address to send a high-converting branded review invite.'
+                : 'Deliver through both SMS and Email simultaneously for maximum customer conversion.'}
             </p>
           </div>
         </div>
 
-        {/* Channel Switcher Pills */}
-        <div className="flex items-center gap-1.5 p-1 bg-slate-800/90 rounded-2xl border border-slate-700">
+        {/* 3-Way Channel Switcher Pills: [ SMS | Email | Both ] */}
+        <div className="flex items-center gap-1 p-1 bg-slate-800/90 rounded-2xl border border-slate-700">
           <button
             type="button"
             onClick={() => setChannel('sms')}
@@ -147,99 +178,206 @@ export default function QuickReviewSender() {
             <Mail className="w-3.5 h-3.5" />
             <span>Email</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setChannel('both')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              channel === 'both'
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>Both</span>
+          </button>
         </div>
       </div>
 
       {/* Interactive Form */}
       <form onSubmit={handleSend} className="mt-5 space-y-4">
-        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
-          
-          {/* Target Input: Phone or Email */}
-          <div className="sm:col-span-5">
-            <label className="block text-xs font-bold text-slate-300 mb-1">
-              {channel === 'sms' ? 'Customer Mobile Number *' : 'Customer Email Address *'}
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                {channel === 'sms' ? (
-                  <PhoneCall className="w-4 h-4 text-blue-400" />
-                ) : (
-                  <Mail className="w-4 h-4 text-blue-400" />
-                )}
+        {channel === 'both' ? (
+          /* Multi-Channel 'Both' Grid Layout */
+          <div className="space-y-3.5">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              {/* Customer Mobile Number */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Customer Mobile Number *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <PhoneCall className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="(555) 000-0000"
+                    value={phoneNumber}
+                    onChange={handlePhoneChange}
+                    maxLength={14}
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
               </div>
-              {channel === 'sms' ? (
-                <input
-                  type="tel"
-                  required
-                  placeholder="(555) 000-0000"
-                  value={phoneNumber}
-                  onChange={handlePhoneChange}
-                  maxLength={14}
-                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              ) : (
-                <input
-                  type="email"
-                  required
-                  placeholder="customer@example.com"
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                />
-              )}
-            </div>
-          </div>
 
-          {/* Customer Name */}
-          <div className="sm:col-span-4">
-            <label className="block text-xs font-bold text-slate-300 mb-1">
-              Customer Name (Optional)
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                <User className="w-4 h-4 text-slate-400" />
+              {/* Customer Email Address */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Customer Email Address *
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <Mail className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <input
+                    type="email"
+                    required
+                    placeholder="customer@example.com"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
               </div>
-              <input
-                type="text"
-                placeholder="e.g. Jessica Parker"
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-              />
-            </div>
-          </div>
 
-          {/* Action Button */}
-          <div className="sm:col-span-3 flex flex-col justify-end">
+              {/* Customer Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-300 mb-1">
+                  Customer Name (Optional)
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                    <User className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="e.g. Jessica Parker"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button for Both */}
             <button
               type="submit"
-              disabled={isSending || (channel === 'sms' ? !phoneNumber : !emailAddress)}
-              className={`w-full py-3 px-5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
+              disabled={isSending || !phoneNumber || !emailAddress}
+              className={`w-full py-3 px-5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
                 sentSuccess
                   ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                  : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
               }`}
             >
               {isSending ? (
                 <>
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>Dispatching...</span>
+                  <span>Dispatching Multi-Channel Invites...</span>
                 </>
               ) : sentSuccess ? (
                 <>
                   <CheckCircle2 className="w-4 h-4 text-white" />
-                  <span>{channel === 'sms' ? 'SMS Sent!' : 'Email Sent!'}</span>
+                  <span>SMS & Email Invites Sent!</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>{channel === 'sms' ? 'Send SMS Request' : 'Send Email Invite'}</span>
+                  <span>Send SMS & Email Invite</span>
                 </>
               )}
             </button>
           </div>
+        ) : (
+          /* Single Channel (SMS or Email) Grid Layout */
+          <div className="grid grid-cols-1 sm:grid-cols-12 gap-3.5">
+            {/* Target Input: Phone or Email */}
+            <div className="sm:col-span-5">
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                {channel === 'sms' ? 'Customer Mobile Number *' : 'Customer Email Address *'}
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  {channel === 'sms' ? (
+                    <PhoneCall className="w-4 h-4 text-blue-400" />
+                  ) : (
+                    <Mail className="w-4 h-4 text-blue-400" />
+                  )}
+                </div>
+                {channel === 'sms' ? (
+                  <input
+                    type="tel"
+                    required
+                    placeholder="(555) 000-0000"
+                    value={phoneNumber}
+                    onChange={handlePhoneChange}
+                    maxLength={14}
+                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                ) : (
+                  <input
+                    type="email"
+                    required
+                    placeholder="customer@example.com"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  />
+                )}
+              </div>
+            </div>
 
-        </div>
+            {/* Customer Name */}
+            <div className="sm:col-span-4">
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                Customer Name (Optional)
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <User className="w-4 h-4 text-slate-400" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="e.g. Jessica Parker"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="sm:col-span-3 flex flex-col justify-end">
+              <button
+                type="submit"
+                disabled={isSending || (channel === 'sms' ? !phoneNumber : !emailAddress)}
+                className={`w-full py-3 px-5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
+                  sentSuccess
+                    ? 'bg-emerald-500 text-white shadow-emerald-500/30'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+                }`}
+              >
+                {isSending ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Dispatching...</span>
+                  </>
+                ) : sentSuccess ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-white" />
+                    <span>{channel === 'sms' ? 'SMS Sent!' : 'Email Sent!'}</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>{channel === 'sms' ? 'Send SMS Request' : 'Send Email Invite'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Live Preview Strip */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pt-2 text-xs text-slate-400">
@@ -248,11 +386,17 @@ export default function QuickReviewSender() {
             <span className="text-slate-300 font-mono text-[11px] truncate">
               {channel === 'sms'
                 ? `SMS Preview: "${previewMessage}"`
-                : `Email Subject: "How was your experience with ${profile.business_name}?"`}
+                : channel === 'email'
+                ? `Email Subject: "How was your experience with ${profile.business_name}?"`
+                : `SMS: "${previewMessage.slice(0, 45)}..." • Email: "How was your experience with ${profile.business_name}?"`}
             </span>
           </div>
           <span className="text-[11px] text-blue-400 font-semibold shrink-0">
-            {channel === 'sms' ? 'Estimated delivery: < 3 seconds' : 'Sent securely via Resend API'}
+            {channel === 'sms'
+              ? 'Estimated delivery: < 3 seconds'
+              : channel === 'email'
+              ? 'Sent securely via Resend API'
+              : 'Dispatched via Twilio SMS & Resend API'}
           </span>
         </div>
 
