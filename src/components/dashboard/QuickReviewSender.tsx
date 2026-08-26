@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { Smartphone, Mail, Send, Sparkles, CheckCircle2, User, PhoneCall, ShieldCheck } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
 export default function QuickReviewSender() {
@@ -36,37 +37,55 @@ export default function QuickReviewSender() {
     e.preventDefault();
     const finalName = customerName.trim() || 'Valued Customer';
 
-    if (channel === 'sms' && !phoneNumber.trim()) return;
-    if (channel === 'email' && !emailAddress.trim()) return;
+    if (channel === 'sms' && !phoneNumber.trim()) {
+      toast.error('Please enter a mobile phone number');
+      return;
+    }
+    if (channel === 'email' && !emailAddress.trim()) {
+      toast.error('Please enter a valid customer email address');
+      return;
+    }
 
     setIsSending(true);
 
-    if (channel === 'sms') {
-      await sendSmsInvite(finalName, phoneNumber, serviceType);
-    } else {
-      await sendEmailInvite(finalName, emailAddress, serviceType);
-    }
-
-    setIsSending(false);
-    setSentSuccess(true);
-
     try {
-      confetti({
-        particleCount: 60,
-        spread: 60,
-        origin: { y: 0.6 },
-        colors: ['#2563eb', '#10b981', '#fbbf24']
-      });
-    } catch {
-      // ignore
-    }
+      if (channel === 'sms') {
+        await sendSmsInvite(finalName, phoneNumber, serviceType);
+        toast.success('Review invite sent successfully via SMS!', {
+          description: `Delivered to ${phoneNumber}`,
+        });
+      } else {
+        await sendEmailInvite(finalName, emailAddress, serviceType);
+        toast.success('Review invite sent successfully to email!', {
+          description: `Delivered to ${emailAddress}`,
+        });
+      }
 
-    setTimeout(() => {
-      setSentSuccess(false);
-      setCustomerName('');
-      setPhoneNumber('');
-      setEmailAddress('');
-    }, 2800);
+      setSentSuccess(true);
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#2563eb', '#10b981', '#fbbf24']
+        });
+      } catch {
+        // ignore
+      }
+
+      setTimeout(() => {
+        setSentSuccess(false);
+        setCustomerName('');
+        setPhoneNumber('');
+        setEmailAddress('');
+      }, 2800);
+    } catch (err: any) {
+      toast.error('Failed to send invite', {
+        description: err?.message || 'Please check your connection and try again.',
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const previewMessage = settings.sms_template
@@ -214,7 +233,7 @@ export default function QuickReviewSender() {
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>{channel === 'sms' ? 'Send SMS Request' : 'Send Email Request'}</span>
+                  <span>{channel === 'sms' ? 'Send SMS Request' : 'Send Email Invite'}</span>
                 </>
               )}
             </button>
