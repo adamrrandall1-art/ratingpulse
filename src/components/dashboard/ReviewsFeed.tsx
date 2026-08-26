@@ -32,6 +32,7 @@ export default function ReviewsFeed({
   maxItems,
 }: Props) {
   const {
+    profile,
     reviews,
     approveReview,
     regenerateAiReply,
@@ -48,6 +49,7 @@ export default function ReviewsFeed({
   const [editedText, setEditedText] = useState<string>('');
   const [justApprovedId, setJustApprovedId] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
 
   const filteredReviews = reviews.filter((rev) => {
@@ -113,6 +115,40 @@ export default function ReviewsFeed({
     }, 400);
   };
 
+  const handleSyncGoogleReviews = async () => {
+    setIsSyncing(true);
+    try {
+      const placeId = profile.google_place_id;
+      const res = await fetch('/api/sync-reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          place_id: placeId,
+          business_id: profile.id,
+          user_id: profile.id,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const count = data.count || 0;
+        try {
+          const { toast } = await import('sonner');
+          toast.success('Google Reviews Synced!', {
+            description: count > 0 
+              ? `Successfully synced ${count} reviews from Google Maps.`
+              : 'Your Google reviews are up to date.',
+          });
+        } catch {
+          // ignore
+        }
+      }
+    } catch (err: any) {
+      console.warn('Sync reviews error:', err);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       
@@ -137,7 +173,7 @@ export default function ReviewsFeed({
           </div>
         </div>
 
-        {/* Right Actions: Filter Tabs + Simulate Review */}
+        {/* Right Actions: Filter Tabs + Sync + Simulate Review */}
         <div className="flex flex-wrap items-center gap-2">
           
           {/* Status Tabs */}
@@ -181,6 +217,16 @@ export default function ReviewsFeed({
             </button>
           </div>
 
+          {/* Sync Google Reviews Button */}
+          <button
+            onClick={handleSyncGoogleReviews}
+            disabled={isSyncing}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
+          </button>
+
           {/* Simulate New Google Review Button */}
           {showSimulateButton && (
             <button
@@ -189,7 +235,7 @@ export default function ReviewsFeed({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
             >
               <Plus className="w-3.5 h-3.5 text-blue-400" />
-              <span>{isSimulating ? 'Syncing...' : 'Simulate Google Review'}</span>
+              <span>{isSimulating ? 'Simulating...' : 'Simulate Review'}</span>
             </button>
           )}
 
