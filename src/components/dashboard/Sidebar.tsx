@@ -125,19 +125,28 @@ export default function Sidebar() {
 
       {/* Bottom Growth & Landing Page Links */}
       <div className="p-4 border-t border-slate-800 space-y-3">
-        {/* $25/mo Plan Status Card */}
-        <div className="p-3 rounded-xl bg-gradient-to-br from-blue-950 to-slate-900 border border-blue-800/40 text-xs">
+        {/* Dynamic Plan Status Card */}
+        <Link
+          href="/dashboard/settings"
+          className="block p-3 rounded-xl bg-gradient-to-br from-blue-950 to-slate-900 border border-blue-800/40 text-xs hover:border-blue-700/60 transition-all group"
+        >
           <div className="flex items-center justify-between text-[11px] font-bold text-blue-300 mb-1">
             <span className="flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              Growth Plan
+              {profile.plan_status === 'active'
+                ? 'Growth Plan • Active'
+                : profile.plan_status === 'trialing'
+                ? '14-Day Free Trial'
+                : 'RatingPulse Pro'}
             </span>
-            <span className="text-emerald-400">$25/mo</span>
+            <span className="text-emerald-400 font-extrabold">$25/mo</span>
           </div>
-          <p className="text-[10px] text-slate-400">
-            Unlimited SMS invites & 1-tap AI reply engine active.
+          <p className="text-[10px] text-slate-400 group-hover:text-slate-300 transition-colors">
+            {profile.plan_status === 'active'
+              ? 'Unlimited SMS & Email invites active. Manage Billing →'
+              : 'Free trial active. Upgrade for unlimited invites →'}
           </p>
-        </div>
+        </Link>
 
         {/* Back to landing page */}
         <Link

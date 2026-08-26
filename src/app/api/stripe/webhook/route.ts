@@ -1,10 +1,10 @@
+﻿export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (supabase && (userId || customerEmail || customerId)) {
+          // 1. Record / Upsert into subscriptions table
           try {
             await supabase.from('subscriptions').upsert([
               {
@@ -73,6 +74,7 @@ export async function POST(req: NextRequest) {
             console.warn('[Subscriptions table upsert warning]:', subErr);
           }
 
+          // 2. Update profiles table
           const updatePayload: Record<string, any> = {
             plan_status: 'active',
             updated_at: new Date().toISOString(),
@@ -101,7 +103,7 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const subscriptionId = subscription.id;
-        const status = subscription.status;
+        const status = subscription.status; // 'active', 'past_due', 'trialing', 'canceled', etc.
         const currentPeriodEnd = (subscription as any).current_period_end
           ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : new Date().toISOString();
