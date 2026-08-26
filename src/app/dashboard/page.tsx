@@ -48,12 +48,22 @@ export default function DashboardOverview() {
       const sessionId = urlParams.get('session_id');
 
       if (upgraded === 'true' || sessionId) {
+        localStorage.setItem('ratingpulse_is_pro', 'true');
         updateProfile({ plan_status: 'active' });
+
+        const uid = user?.id || profile.id;
+        if (isSupabaseConfigured && supabase && uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
+          supabase
+            .from('profiles')
+            .update({ plan_status: 'active', updated_at: new Date().toISOString() })
+            .eq('id', uid)
+            .then(() => console.log('Optimistic Pro plan persisted in Supabase'));
+        }
 
         try {
           confetti({
-            particleCount: 90,
-            spread: 70,
+            particleCount: 100,
+            spread: 75,
             origin: { y: 0.6 },
             colors: ['#2563eb', '#10b981', '#fbbf24', '#8b5cf6'],
           });
@@ -69,7 +79,7 @@ export default function DashboardOverview() {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-  }, [updateProfile]);
+  }, [user?.id, profile.id, updateProfile]);
 
   // Quick inline phone state for the sidebar card
   const [sidebarPhone, setSidebarPhone] = useState('');

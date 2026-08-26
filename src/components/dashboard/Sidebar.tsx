@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -15,10 +15,60 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { useAuth } from '@/lib/auth-context';
+import { toast } from 'sonner';
 
 export default function Sidebar() {
   const pathname = usePathname();
   const { profile, pendingReviewsCount } = useRatingPulseStore();
+  const { user } = useAuth();
+  const [billingLoading, setBillingLoading] = useState(false);
+
+  const isPro =
+    profile.plan_status === 'active' ||
+    profile.plan_status === 'pro' ||
+    (typeof window !== 'undefined' && localStorage.getItem('ratingpulse_is_pro') === 'true');
+
+  const handleSidebarBillingAction = async () => {
+    setBillingLoading(true);
+    try {
+      if (isPro) {
+        const res = await fetch('/api/stripe/create-portal-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id || profile.id,
+            userEmail: user?.email || profile.email,
+            customerId: profile.stripe_customer_id,
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } else {
+        const res = await fetch('/api/stripe/create-checkout-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: user?.id || profile.id,
+            email: user?.email || profile.email,
+            businessId: profile.google_place_id || profile.id,
+            priceId: 'price_1U7MZG1fc0NSzHx1a8xy48tf',
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          window.location.href = data.url;
+          return;
+        }
+      }
+    } catch (err: any) {
+      toast.error('Billing error', { description: err?.message || 'Could not connect to Stripe' });
+      setBillingLoading(false);
+    }
+  };
 
   const navItems = [
     {
@@ -130,7 +180,7 @@ export default function Sidebar() {
           <div className="flex items-center justify-between text-[11px] font-bold text-blue-300">
             <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              {profile.plan_status === 'active' || profile.plan_status === 'pro'
+              {isPro
                 ? 'RatingPulse Pro • Active'
                 : profile.plan_status === 'trialing'
                 ? '14-Day Free Trial'
@@ -140,23 +190,32 @@ export default function Sidebar() {
           </div>
 
           <p className="text-[10px] text-slate-400 leading-relaxed">
-            {profile.plan_status === 'active' || profile.plan_status === 'pro'
+            {isPro
               ? 'Unlimited review invites, AI replies & priority sync active.'
               : 'Free trial active. Unlock unlimited multi-channel invites.'}
           </p>
 
-          <Link
-            href="/dashboard/settings"
-            className={`block w-full text-center py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all ${
-              profile.plan_status === 'active' || profile.plan_status === 'pro'
+          <button
+            type="button"
+            onClick={handleSidebarBillingAction}
+            disabled={billingLoading}
+            className={`w-full text-center py-2 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 ${
+              isPro
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/30'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30'
             }`}
           >
-            {profile.plan_status === 'active' || profile.plan_status === 'pro'
-              ? 'Manage Subscription →'
-              : 'Upgrade to Pro →'}
-          </Link>
+            {billingLoading ? (
+              <>
+                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>Redirecting...</span>
+              </>
+            ) : isPro ? (
+              <span>Manage Subscription →</span>
+            ) : (
+              <span>⚡ Upgrade to Pro ($25/mo) →</span>
+            )}
+          </button>
         </div>
 
         {/* Back to landing page */}
