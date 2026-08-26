@@ -15,6 +15,7 @@ import {
 import { useRatingPulseStore } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import SendInviteModal from '@/components/dashboard/SendInviteModal';
 import QuickReviewSender from '@/components/dashboard/QuickReviewSender';
@@ -25,6 +26,7 @@ export default function DashboardOverview() {
   const { user } = useAuth();
   const {
     profile,
+    updateProfile,
     reviews,
     invites,
     sendSmsInvite,
@@ -37,6 +39,37 @@ export default function DashboardOverview() {
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [liveUrgentCount, setLiveUrgentCount] = useState<number | null>(null);
+
+  // Detect post-checkout upgrade parameters
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const upgraded = urlParams.get('upgraded');
+      const sessionId = urlParams.get('session_id');
+
+      if (upgraded === 'true' || sessionId) {
+        updateProfile({ plan_status: 'active' });
+
+        try {
+          confetti({
+            particleCount: 90,
+            spread: 70,
+            origin: { y: 0.6 },
+            colors: ['#2563eb', '#10b981', '#fbbf24', '#8b5cf6'],
+          });
+        } catch {
+          // ignore
+        }
+
+        toast.success('🎉 Welcome to RatingPulse Pro!', {
+          description: 'Your account has been upgraded with unlimited review requests, Gemini AI replies, and priority sync.',
+          duration: 6000,
+        });
+
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [updateProfile]);
 
   // Quick inline phone state for the sidebar card
   const [sidebarPhone, setSidebarPhone] = useState('');

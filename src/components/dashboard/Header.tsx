@@ -158,8 +158,15 @@ export default function Header() {
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-slate-100"
               />
               <div className="hidden xl:block text-left">
-                <div className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
-                  {displayName}
+                <div className="flex items-center">
+                  <span className="text-xs font-bold text-slate-800 leading-tight truncate max-w-[120px]">
+                    {displayName}
+                  </span>
+                  {(profile.plan_status === 'active' || profile.plan_status === 'pro') && (
+                    <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs tracking-wider">
+                      ⚡ PRO
+                    </span>
+                  )}
                 </div>
                 <div className="text-[10px] text-slate-500 truncate max-w-[120px]">
                   {profile.business_name}

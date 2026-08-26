@@ -126,27 +126,38 @@ export default function Sidebar() {
       {/* Bottom Growth & Landing Page Links */}
       <div className="p-4 border-t border-slate-800 space-y-3">
         {/* Dynamic Plan Status Card */}
-        <Link
-          href="/dashboard/settings"
-          className="block p-3 rounded-xl bg-gradient-to-br from-blue-950 to-slate-900 border border-blue-800/40 text-xs hover:border-blue-700/60 transition-all group"
-        >
-          <div className="flex items-center justify-between text-[11px] font-bold text-blue-300 mb-1">
-            <span className="flex items-center gap-1">
+        <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-950 via-slate-900 to-slate-900 border border-blue-800/40 text-xs space-y-2.5 shadow-lg">
+          <div className="flex items-center justify-between text-[11px] font-bold text-blue-300">
+            <span className="flex items-center gap-1.5">
               <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              {profile.plan_status === 'active'
-                ? 'Growth Plan • Active'
+              {profile.plan_status === 'active' || profile.plan_status === 'pro'
+                ? 'RatingPulse Pro • Active'
                 : profile.plan_status === 'trialing'
                 ? '14-Day Free Trial'
-                : 'RatingPulse Pro'}
+                : 'RatingPulse Plan'}
             </span>
             <span className="text-emerald-400 font-extrabold">$25/mo</span>
           </div>
-          <p className="text-[10px] text-slate-400 group-hover:text-slate-300 transition-colors">
-            {profile.plan_status === 'active'
-              ? 'Unlimited SMS & Email invites active. Manage Billing →'
-              : 'Free trial active. Upgrade for unlimited invites →'}
+
+          <p className="text-[10px] text-slate-400 leading-relaxed">
+            {profile.plan_status === 'active' || profile.plan_status === 'pro'
+              ? 'Unlimited review invites, AI replies & priority sync active.'
+              : 'Free trial active. Unlock unlimited multi-channel invites.'}
           </p>
-        </Link>
+
+          <Link
+            href="/dashboard/settings"
+            className={`block w-full text-center py-1.5 px-3 rounded-lg text-[11px] font-bold transition-all ${
+              profile.plan_status === 'active' || profile.plan_status === 'pro'
+                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                : 'bg-blue-600 hover:bg-blue-500 text-white shadow-sm shadow-blue-600/30'
+            }`}
+          >
+            {profile.plan_status === 'active' || profile.plan_status === 'pro'
+              ? 'Manage Subscription →'
+              : 'Upgrade to Pro →'}
+          </Link>
+        </div>
 
         {/* Back to landing page */}
         <Link
