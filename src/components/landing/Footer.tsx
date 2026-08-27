@@ -3,14 +3,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { Star, ArrowRight, ShieldCheck, Heart } from 'lucide-react';
+import Logo from '@/components/ui/Logo';
 
 export default function Footer() {
   return (
-    <footer className="bg-slate-900 text-white pt-16 pb-12 border-t border-slate-800">
+    <footer className="bg-[#0B0F19] text-white pt-16 pb-12 border-t border-slate-800/80">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Pre-footer Call to Action Banner */}
-        <div className="bg-gradient-to-br from-emerald-950/80 to-slate-900 border border-emerald-500/15 rounded-3xl p-8 sm:p-12 mb-16 shadow-2xl relative overflow-hidden text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
+        <div className="bg-gradient-to-br from-slate-900/90 via-blue-950/40 to-slate-900/90 border border-cyan-500/20 rounded-3xl p-8 sm:p-12 mb-16 shadow-2xl relative overflow-hidden text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
           <div className="max-w-xl">
             <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Ready to collect 30+ new 5-star Google reviews this month?
@@ -21,7 +22,7 @@ export default function Footer() {
           </div>
           <Link
             href="/dashboard"
-            className="px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 hover:from-emerald-400 hover:to-teal-400 transition-all shrink-0 flex items-center gap-2 transform active:scale-95"
+            className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 hover:scale-[1.02] transition-all shrink-0 flex items-center gap-2 transform active:scale-95"
           >
             Start 14-Day Free Trial
             <ArrowRight className="w-4 h-4" />
@@ -29,20 +30,15 @@ export default function Footer() {
         </div>
 
         {/* Main Footer Links */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-800 text-xs">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-800/80 text-xs">
           
           <div className="col-span-2 space-y-4">
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
-                <Star className="w-4 h-4 fill-white text-white" />
-              </div>
-              <span className="font-bold text-lg text-white">RatingPulse.co</span>
-            </Link>
+            <Logo size="md" subtitle="domain" />
             <p className="text-slate-400 text-xs max-w-sm leading-relaxed">
               The micro-SaaS platform empowering local service businesses to effortlessly capture 5-star Google reviews and publish AI-crafted SEO replies in 1 tap.
             </p>
             <div className="flex items-center gap-2 text-slate-400 pt-2">
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <ShieldCheck className="w-4 h-4 text-cyan-400" />
               <span>Official Google Places API Integration</span>
             </div>
           </div>

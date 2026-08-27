@@ -21,6 +21,7 @@ import {
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
+import Logo from '@/components/ui/Logo';
 
 export default function Sidebar({
   onClose,
@@ -122,23 +123,13 @@ export default function Sidebar({
   ];
 
   return (
-    <aside className={`w-64 bg-slate-900 text-white flex flex-col justify-between shrink-0 min-h-screen border-r border-slate-800 ${className}`}>
+    <aside className={`w-64 bg-[#0B0F19] text-white flex flex-col justify-between shrink-0 min-h-screen border-r border-slate-800/80 ${className}`}>
       
       {/* Top Brand Logo & Business Pill */}
       <div>
-        <div className="p-5 border-b border-slate-800">
+        <div className="p-4 border-b border-slate-800/80">
           <div className="flex items-center justify-between">
-            <Link href="/" onClick={onClose} className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 group-hover:scale-105 transition-transform">
-                <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-              </div>
-              <div>
-                <span className="font-bold text-lg text-white tracking-tight">RatingPulse</span>
-                <span className="block text-[10px] text-blue-400 font-semibold tracking-wider uppercase">
-                  Dashboard
-                </span>
-              </div>
-            </Link>
+            <Logo size="sm" subtitle="dashboard" href="/" onClick={onClose} />
 
             {onClose && (
               <button

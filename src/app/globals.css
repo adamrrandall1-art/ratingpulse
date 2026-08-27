@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 body {
-  background-color: #0B0F17;
+  background-color: #0B0F19;
   color: #f8fafc;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   -webkit-font-smoothing: antialiased;
@@ -19,8 +19,8 @@ body {
 }
 
 @keyframes glow-pulse {
-  0%, 100% { opacity: 0.45; }
-  50%       { opacity: 0.75; }
+  0%, 100% { opacity: 0.35; transform: scale(1); }
+  50%       { opacity: 0.65; transform: scale(1.05); }
 }
 
 @keyframes shimmer {
@@ -35,22 +35,31 @@ body {
 
 .animate-pulse-subtle { animation: pulse-subtle 3s ease-in-out infinite; }
 .animate-float        { animation: float 4s ease-in-out infinite; }
-.animate-glow-pulse   { animation: glow-pulse 3s ease-in-out infinite; }
+.animate-glow-pulse   { animation: glow-pulse 4s ease-in-out infinite; }
 .animate-fade-up      { animation: fade-up 0.6s ease-out both; }
 
-/* Gradient text shimmer */
+/* Signature Electric Cyan-to-Indigo Text Shimmer */
 .text-shimmer {
-  background: linear-gradient(90deg, #10b981, #06b6d4, #10b981);
-  background-size: 200% auto;
+  background: linear-gradient(90deg, #06b6d4, #3b82f6, #6366f1, #06b6d4);
+  background-size: 250% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: shimmer 3s linear infinite;
+  animation: shimmer 4s linear infinite;
+}
+
+/* Radiant Glass Card */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.5);
 }
 
 /* ── Dark Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: #0B0F17; }
+::-webkit-scrollbar-track { background: #0B0F19; }
 ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: #334155; }
 

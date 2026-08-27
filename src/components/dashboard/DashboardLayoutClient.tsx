@@ -89,7 +89,7 @@ export default function DashboardLayoutClient({
           />
 
           {/* Drawer Container */}
-          <div className="fixed inset-y-0 left-0 max-w-[85vw] w-72 bg-slate-900 shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 max-w-[85vw] w-72 bg-[#0B0F19] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
             <Sidebar onClose={() => setMobileMenuOpen(false)} className="w-full border-r-0 min-h-full" />
           </div>
         </div>

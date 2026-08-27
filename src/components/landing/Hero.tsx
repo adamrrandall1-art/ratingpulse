@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import Link from 'next/link';
@@ -28,18 +28,18 @@ export default function Hero() {
   };
 
   return (
-    <section className="relative pt-32 pb-24 lg:pt-44 lg:pb-36 overflow-hidden bg-[#0B0F17]">
+    <section className="relative pt-32 pb-24 lg:pt-44 lg:pb-36 overflow-hidden bg-[#0B0F19]">
 
-      {/* â”€â”€ Radial Glow Backgrounds â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/8 rounded-full blur-[120px] pointer-events-none animate-glow-pulse" />
-      <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-teal-500/8 rounded-full blur-[100px] pointer-events-none animate-glow-pulse [animation-delay:1.5s]" />
-      <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-cyan-500/5 rounded-full blur-[80px] pointer-events-none" />
+      {/* ── Radiant Mesh & Screensaver Glow Backgrounds ─────────────────── */}
+      <div className="absolute top-0 left-1/4 w-[650px] h-[650px] bg-cyan-500/10 rounded-full blur-[140px] pointer-events-none animate-glow-pulse" />
+      <div className="absolute top-1/3 right-0 w-[550px] h-[550px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none animate-glow-pulse [animation-delay:1.5s]" />
+      <div className="absolute bottom-0 left-0 w-[450px] h-[450px] bg-indigo-600/10 rounded-full blur-[100px] pointer-events-none" />
 
-      {/* â”€â”€ Grid overlay texture â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      {/* ── Grid overlay texture ────────────────────────────────────────── */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-[0.03]"
+        className="absolute inset-0 pointer-events-none opacity-[0.04]"
         style={{
-          backgroundImage: 'linear-gradient(#10b981 1px, transparent 1px), linear-gradient(90deg, #10b981 1px, transparent 1px)',
+          backgroundImage: 'linear-gradient(#06b6d4 1px, transparent 1px), linear-gradient(90deg, #06b6d4 1px, transparent 1px)',
           backgroundSize: '60px 60px',
         }}
       />
@@ -47,25 +47,25 @@ export default function Hero() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid lg:grid-cols-12 gap-12 lg:gap-8 items-center">
 
-          {/* â”€â”€ Left Column â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Left Column ──────────────────────────────────────────────── */}
           <div className="lg:col-span-7 flex flex-col items-start text-left">
 
             {/* Status Pill */}
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-bold mb-8 animate-fade-up">
-              <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-              <Zap className="w-3.5 h-3.5" />
-              âš¡ Automated SMS Review Acceleration â€” Live
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 text-xs font-bold mb-8 animate-fade-up shadow-sm shadow-cyan-500/10">
+              <span className="flex h-2 w-2 rounded-full bg-cyan-400 animate-ping" />
+              <Zap className="w-3.5 h-3.5 text-cyan-400 fill-cyan-400" />
+              <span>⚡ Automated SMS Review Acceleration — Live</span>
             </div>
 
             {/* Main Headline */}
             <h1 className="text-4xl sm:text-5xl lg:text-[3.6rem] font-extrabold tracking-tight text-white leading-[1.08] animate-fade-up [animation-delay:0.1s]">
               Turn Every Job Into a{' '}
-              <span className="text-shimmer">5-Star Google</span>
+              <span className="text-shimmer drop-shadow-[0_0_24px_rgba(6,182,212,0.4)]">5-Star Google</span>
               <br />Review. Automatically.
             </h1>
 
             {/* Subheading */}
-            <p className="mt-6 text-lg text-slate-400 max-w-xl leading-relaxed animate-fade-up [animation-delay:0.2s]">
+            <p className="mt-6 text-lg text-slate-300 max-w-xl leading-relaxed animate-fade-up [animation-delay:0.2s]">
               Send SMS review invites the moment service ends. Let AI draft SEO-optimized replies. Publish to Google in one tap. Watch your Maps ranking climb.
             </p>
 
@@ -73,16 +73,16 @@ export default function Hero() {
             <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 animate-fade-up [animation-delay:0.3s]">
               <Link
                 href="/dashboard"
-                className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-base font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all active:scale-[0.98]"
+                className="inline-flex items-center justify-center gap-2.5 px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 text-white text-base font-bold shadow-xl shadow-cyan-500/25 hover:shadow-cyan-500/40 hover:scale-[1.02] transition-all active:scale-[0.98]"
               >
-                <Zap className="w-5 h-5" />
+                <Zap className="w-5 h-5 fill-white" />
                 Start Free Trial
                 <ArrowRight className="w-5 h-5" />
               </Link>
 
               <a
                 href="#calculator"
-                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900/70 backdrop-blur-sm border border-slate-700/80 text-slate-300 text-base font-semibold hover:bg-slate-800/70 hover:border-slate-600 hover:text-white transition-all"
+                className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-slate-900/80 backdrop-blur-md border border-slate-700/80 text-slate-200 text-base font-semibold hover:bg-slate-800/90 hover:border-slate-600 hover:text-white transition-all shadow-md"
               >
                 Live Demo
               </a>
