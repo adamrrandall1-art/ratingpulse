@@ -62,7 +62,8 @@ export default function Navbar() {
                     href="/dashboard"
                     className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-[#00d2c4] hover:bg-[#161f26] rounded-xl transition-colors flex items-center gap-1.5 border border-transparent hover:border-[#00d2c4]/30"
                   >
-                    <User className="w-4 h-4" /> Dashboard
+                    <User className="w-4 h-4" />
+                    <span>Dashboard</span>
                   </Link>
                   <button
                     type="button"
@@ -75,16 +76,18 @@ export default function Navbar() {
               ) : (
                 <>
                   <Link
-                    href="/login"
-                    className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-[#161f26] rounded-xl transition-colors"
+                    href="/login?redirect=/dashboard"
+                    className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-[#161f26] rounded-xl transition-colors flex items-center gap-1.5 border border-transparent hover:border-slate-700"
                   >
-                    Sign In
+                    <User className="w-4 h-4 text-[#00d2c4]" />
+                    <span>Sign into Dashboard</span>
                   </Link>
                   <Link
                     href="/dashboard"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 text-sm font-extrabold shadow-[0_0_20px_rgba(0,210,196,0.3)] hover:shadow-[0_0_28px_rgba(0,210,196,0.5)] hover:scale-[1.02] transition-all active:scale-95 cursor-pointer"
                   >
-                    <Zap className="w-4 h-4 fill-slate-950" /> Start Free Trial
+                    <Zap className="w-4 h-4 fill-slate-950" />
+                    <span>Start Free Trial</span>
                     <ArrowRight className="w-4 h-4" />
                   </Link>
                 </>
@@ -94,10 +97,10 @@ export default function Navbar() {
             {/* Mobile menu button */}
             <div className="flex md:hidden items-center gap-2">
               <Link
-                href="/dashboard"
+                href={user ? "/dashboard" : "/login?redirect=/dashboard"}
                 className="px-3.5 py-1.5 text-xs font-extrabold bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] text-slate-950 rounded-lg shadow-md shadow-[#00d2c4]/20"
               >
-                {user ? 'Dashboard' : 'Free Trial'}
+                {user ? 'Dashboard' : 'Sign In'}
               </Link>
               <button
                 type="button"
@@ -131,7 +134,7 @@ export default function Navbar() {
               ))}
               <div className="pt-3 border-t border-slate-800 flex flex-col gap-2.5">
                 <Link
-                  href="/dashboard"
+                  href={user ? "/dashboard" : "/login?redirect=/dashboard"}
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-full text-center py-2.5 bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] text-slate-950 text-sm font-extrabold rounded-xl shadow-lg shadow-[#00d2c4]/25 active:scale-98 transition-all flex items-center justify-center gap-2"
                 >
