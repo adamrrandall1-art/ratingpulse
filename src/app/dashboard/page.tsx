@@ -21,6 +21,7 @@ import SendInviteModal from '@/components/dashboard/SendInviteModal';
 import QuickReviewSender from '@/components/dashboard/QuickReviewSender';
 import ReviewsFeed from '@/components/dashboard/ReviewsFeed';
 import PrivateFeedbackFeed from '@/components/dashboard/PrivateFeedbackFeed';
+import Logo from '@/components/ui/Logo';
 
 export default function DashboardOverview() {
   const { user } = useAuth();
@@ -151,14 +152,17 @@ export default function DashboardOverview() {
     <div className="space-y-8">
       
       {/* Top Greeting & Google Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#111820] p-4 sm:p-6 rounded-2xl border border-[#00d2c4]/20 shadow-xl">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            Welcome back, {profile.full_name || 'Dr. Marcus'}
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Connected to <strong className="text-[#00d2c4]">{profile.business_name}</strong> on Google Business Profile
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#111820] p-4 sm:p-6 rounded-2xl border border-[#00e676]/20 shadow-xl">
+        <div className="flex items-center gap-4">
+          <Logo variant="icon" size="lg" />
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+              Welcome back, {profile.full_name || 'Dr. Marcus'}
+            </h1>
+            <p className="text-xs text-slate-400 mt-1">
+              Connected to <strong className="text-[#00e676]">{profile.business_name}</strong> on Google Business Profile
+            </p>
+          </div>
         </div>
 
         <div className="flex items-center gap-3">
