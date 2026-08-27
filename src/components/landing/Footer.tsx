@@ -3,15 +3,15 @@
 import React from 'react';
 import Link from 'next/link';
 import { Star, ArrowRight, ShieldCheck, Heart } from 'lucide-react';
-import Logo from '@/components/ui/Logo';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function Footer() {
   return (
-    <footer className="bg-[#0B0F19] text-white pt-16 pb-12 border-t border-slate-800/80">
+    <footer className="bg-[#0d1317] text-white pt-16 pb-12 border-t border-[#00d2c4]/15">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
         {/* Pre-footer Call to Action Banner */}
-        <div className="bg-gradient-to-br from-slate-900/90 via-blue-950/40 to-slate-900/90 border border-cyan-500/20 rounded-3xl p-8 sm:p-12 mb-16 shadow-2xl relative overflow-hidden text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
+        <div className="bg-gradient-to-br from-[#111820] via-[#161f26] to-[#111820] border border-[#00d2c4]/25 rounded-3xl p-8 sm:p-12 mb-16 shadow-2xl relative overflow-hidden text-center sm:text-left flex flex-col sm:flex-row items-center justify-between gap-8">
           <div className="max-w-xl">
             <h3 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
               Ready to collect 30+ new 5-star Google reviews this month?
@@ -22,7 +22,7 @@ export default function Footer() {
           </div>
           <Link
             href="/dashboard"
-            className="px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 text-white font-bold text-sm shadow-xl shadow-cyan-500/25 hover:from-cyan-400 hover:via-blue-500 hover:to-indigo-500 hover:scale-[1.02] transition-all shrink-0 flex items-center gap-2 transform active:scale-95"
+            className="px-8 py-4 rounded-xl bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 font-extrabold text-sm shadow-[0_0_24px_rgba(0,210,196,0.35)] hover:shadow-[0_0_32px_rgba(0,210,196,0.55)] hover:scale-[1.02] transition-all shrink-0 flex items-center gap-2 transform active:scale-95 cursor-pointer"
           >
             Start 14-Day Free Trial
             <ArrowRight className="w-4 h-4" />
@@ -33,12 +33,12 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-5 gap-8 pb-12 border-b border-slate-800/80 text-xs">
           
           <div className="col-span-2 space-y-4">
-            <Logo size="md" subtitle="domain" />
+            <BrandLogo size="md" subtitle="default" />
             <p className="text-slate-400 text-xs max-w-sm leading-relaxed">
               The micro-SaaS platform empowering local service businesses to effortlessly capture 5-star Google reviews and publish AI-crafted SEO replies in 1 tap.
             </p>
             <div className="flex items-center gap-2 text-slate-400 pt-2">
-              <ShieldCheck className="w-4 h-4 text-cyan-400" />
+              <ShieldCheck className="w-4 h-4 text-[#00d2c4]" />
               <span>Official Google Places API Integration</span>
             </div>
           </div>

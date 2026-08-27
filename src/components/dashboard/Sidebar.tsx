@@ -21,7 +21,7 @@ import {
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
-import Logo from '@/components/ui/Logo';
+import BrandLogo from '@/components/BrandLogo';
 
 export default function Sidebar({
   onClose,
@@ -99,7 +99,7 @@ export default function Sidebar({
       href: '/dashboard/reviews',
       icon: MessageSquareCheck,
       badge: pendingReviewsCount > 0 ? `${pendingReviewsCount} New` : null,
-      badgeColor: 'bg-blue-600 text-white',
+      badgeColor: 'bg-[#00d2c4] text-slate-950',
     },
     {
       name: 'SMS Invites',
@@ -118,24 +118,24 @@ export default function Sidebar({
       href: '/onboarding',
       icon: Sparkles,
       badge: 'Setup',
-      badgeColor: 'bg-emerald-500 text-white',
+      badgeColor: 'bg-[#10b981] text-slate-950 font-bold',
     },
   ];
 
   return (
-    <aside className={`w-64 bg-[#0B0F19] text-white flex flex-col justify-between shrink-0 min-h-screen border-r border-slate-800/80 ${className}`}>
+    <aside className={`w-64 bg-[#0d1317] text-white flex flex-col justify-between shrink-0 min-h-screen border-r border-[#00d2c4]/15 ${className}`}>
       
       {/* Top Brand Logo & Business Pill */}
       <div>
-        <div className="p-4 border-b border-slate-800/80">
+        <div className="p-4 border-b border-[#00d2c4]/15 bg-[#111820]/60">
           <div className="flex items-center justify-between">
-            <Logo size="sm" subtitle="dashboard" href="/" onClick={onClose} />
+            <BrandLogo size="sm" subtitle="dashboard" href="/" onClick={onClose} />
 
             {onClose && (
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#161f26] transition-colors"
                 title="Close navigation drawer"
               >
                 <X className="w-5 h-5" />
@@ -144,17 +144,17 @@ export default function Sidebar({
           </div>
 
           {/* Business Selector Pill */}
-          <div className="mt-4 p-2.5 rounded-xl bg-slate-800/80 border border-slate-700/60 flex items-center justify-between">
+          <div className="mt-4 p-2.5 rounded-xl bg-[#161f26] border border-[#00d2c4]/20 flex items-center justify-between shadow-sm">
             <div className="truncate">
               <div className="text-xs font-bold text-slate-200 truncate">
                 {profile.business_name}
               </div>
-              <div className="text-[10px] text-emerald-400 flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="text-[10px] text-[#00d2c4] flex items-center gap-1 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#00d2c4] animate-pulse" />
                 Google Place Synced
               </div>
             </div>
-            <span className="text-xs font-bold text-amber-400 bg-slate-900/60 px-1.5 py-0.5 rounded border border-slate-700">
+            <span className="text-xs font-bold text-amber-400 bg-[#111820] px-1.5 py-0.5 rounded border border-amber-500/30">
               {profile.google_rating} ★
             </span>
           </div>
@@ -175,16 +175,16 @@ export default function Sidebar({
                 onClick={onClose}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
                   isActive
-                    ? 'bg-blue-600 text-white font-bold shadow-md shadow-blue-600/30'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-[#00d2c4]/20 via-[#06b6d4]/10 to-transparent border-l-2 border-[#00d2c4] text-[#00d2c4] font-bold shadow-sm'
+                    : 'text-slate-300 hover:bg-[#161f26] hover:text-white'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#00d2c4]' : 'text-slate-400'}`} />
                   <span>{item.name}</span>
                 </div>
                 {item.badge && (
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${item.badgeColor}`}>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.badgeColor}`}>
                     {item.badge}
                   </span>
                 )}

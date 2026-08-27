@@ -113,15 +113,15 @@ export default function QuickReviewSender() {
     .replace('{{review_link}}', 'ratingpulse.co/rate/...');
 
   return (
-    <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950 text-white rounded-3xl p-6 sm:p-7 border border-slate-800 shadow-xl relative overflow-hidden">
+    <div className="bg-gradient-to-br from-[#111820] via-[#161f26] to-[#111820] text-white rounded-3xl p-6 sm:p-7 border border-[#00d2c4]/25 shadow-2xl relative overflow-hidden">
       
       {/* Ambient background glow */}
-      <div className="absolute -top-12 -right-12 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -top-12 -right-12 w-48 h-48 bg-[#00d2c4]/10 rounded-full blur-3xl pointer-events-none" />
 
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-5 border-b border-slate-800">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+          <div className="w-10 h-10 rounded-2xl bg-[#18222a] border border-[#00d2c4]/40 flex items-center justify-center text-[#00d2c4] shadow-md shadow-[#00d2c4]/10">
             {channel === 'sms' ? (
               <Smartphone className="w-5 h-5" />
             ) : channel === 'email' ? (
@@ -133,11 +133,11 @@ export default function QuickReviewSender() {
           <div>
             <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
               Send Review Request
-              <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-800/60 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-extrabold text-[#00e676] bg-[#10b981]/15 border border-[#10b981]/30 px-2 py-0.5 rounded-full">
                 {channel === 'sms'
                   ? 'Instant SMS'
                   : channel === 'email'
-                  ? 'Branded Email (Resend)'
+                  ? 'Branded Email'
                   : 'SMS + Email Multi-Channel'}
               </span>
             </h2>
@@ -152,13 +152,13 @@ export default function QuickReviewSender() {
         </div>
 
         {/* 3-Way Channel Switcher Pills: [ SMS | Email | Both ] */}
-        <div className="flex items-center gap-1 p-1 bg-slate-800/90 rounded-2xl border border-slate-700">
+        <div className="flex items-center gap-1 p-1 bg-[#18222a] rounded-2xl border border-slate-700/60">
           <button
             type="button"
             onClick={() => setChannel('sms')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               channel === 'sms'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-gradient-to-r from-[#00d2c4] to-[#10b981] text-slate-950 font-extrabold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -171,7 +171,7 @@ export default function QuickReviewSender() {
             onClick={() => setChannel('email')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               channel === 'email'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-gradient-to-r from-[#00d2c4] to-[#10b981] text-slate-950 font-extrabold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
@@ -184,11 +184,11 @@ export default function QuickReviewSender() {
             onClick={() => setChannel('both')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
               channel === 'both'
-                ? 'bg-blue-600 text-white shadow-xs'
+                ? 'bg-gradient-to-r from-[#00d2c4] to-[#10b981] text-slate-950 font-extrabold shadow-sm'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <Sparkles className="w-3.5 h-3.5" />
             <span>Both</span>
           </button>
         </div>
@@ -207,7 +207,7 @@ export default function QuickReviewSender() {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <PhoneCall className="w-4 h-4 text-blue-400" />
+                    <PhoneCall className="w-4 h-4 text-[#00d2c4]" />
                   </div>
                   <input
                     type="tel"
@@ -216,7 +216,7 @@ export default function QuickReviewSender() {
                     value={phoneNumber}
                     onChange={handlePhoneChange}
                     maxLength={14}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                   />
                 </div>
               </div>
@@ -228,7 +228,7 @@ export default function QuickReviewSender() {
                 </label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                    <Mail className="w-4 h-4 text-blue-400" />
+                    <Mail className="w-4 h-4 text-[#00d2c4]" />
                   </div>
                   <input
                     type="email"
@@ -236,7 +236,7 @@ export default function QuickReviewSender() {
                     placeholder="customer@example.com"
                     value={emailAddress}
                     onChange={(e) => setEmailAddress(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                   />
                 </div>
               </div>
@@ -255,7 +255,7 @@ export default function QuickReviewSender() {
                     placeholder="e.g. Jessica Parker"
                     value={customerName}
                     onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-3.5 py-2.5 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                   />
                 </div>
               </div>
@@ -265,15 +265,15 @@ export default function QuickReviewSender() {
             <button
               type="submit"
               disabled={isSending || !phoneNumber || !emailAddress}
-              className={`w-full py-3 px-5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
+              className={`w-full py-3 px-5 rounded-xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
                 sentSuccess
                   ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                  : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+                  : 'bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 shadow-[0_0_20px_rgba(0,210,196,0.3)] disabled:opacity-50 disabled:cursor-not-allowed'
               }`}
             >
               {isSending ? (
                 <>
-                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
                   <span>Dispatching Multi-Channel Invites...</span>
                 </>
               ) : sentSuccess ? (
@@ -283,7 +283,7 @@ export default function QuickReviewSender() {
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
+                  <Send className="w-4 h-4 fill-slate-950" />
                   <span>Send SMS & Email Invite</span>
                 </>
               )}
@@ -300,9 +300,9 @@ export default function QuickReviewSender() {
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   {channel === 'sms' ? (
-                    <PhoneCall className="w-4 h-4 text-blue-400" />
+                    <PhoneCall className="w-4 h-4 text-[#00d2c4]" />
                   ) : (
-                    <Mail className="w-4 h-4 text-blue-400" />
+                    <Mail className="w-4 h-4 text-[#00d2c4]" />
                   )}
                 </div>
                 {channel === 'sms' ? (
@@ -313,7 +313,7 @@ export default function QuickReviewSender() {
                     value={phoneNumber}
                     onChange={handlePhoneChange}
                     maxLength={14}
-                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                   />
                 ) : (
                   <input
@@ -322,7 +322,7 @@ export default function QuickReviewSender() {
                     placeholder="customer@example.com"
                     value={emailAddress}
                     onChange={(e) => setEmailAddress(e.target.value)}
-                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm font-semibold text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                   />
                 )}
               </div>
@@ -342,7 +342,7 @@ export default function QuickReviewSender() {
                   placeholder="e.g. Jessica Parker"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-slate-800/90 border border-slate-700 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-3.5 py-3 rounded-xl bg-[#18222a] border border-[#00d2c4]/20 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-[#00d2c4] focus:border-transparent transition-all"
                 />
               </div>
             </div>
@@ -352,15 +352,15 @@ export default function QuickReviewSender() {
               <button
                 type="submit"
                 disabled={isSending || (channel === 'sms' ? !phoneNumber : !emailAddress)}
-                className={`w-full py-3 px-5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
+                className={`w-full py-3 px-5 rounded-xl font-extrabold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg transition-all transform active:scale-98 cursor-pointer ${
                   sentSuccess
                     ? 'bg-emerald-500 text-white shadow-emerald-500/30'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50 disabled:cursor-not-allowed'
+                    : 'bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 shadow-[0_0_20px_rgba(0,210,196,0.3)] disabled:opacity-50 disabled:cursor-not-allowed'
                 }`}
               >
                 {isSending ? (
                   <>
-                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span className="w-4 h-4 border-2 border-slate-950/30 border-t-slate-950 rounded-full animate-spin" />
                     <span>Dispatching...</span>
                   </>
                 ) : sentSuccess ? (
@@ -370,7 +370,7 @@ export default function QuickReviewSender() {
                   </>
                 ) : (
                   <>
-                    <Send className="w-4 h-4" />
+                    <Send className="w-4 h-4 fill-slate-950" />
                     <span>{channel === 'sms' ? 'Send SMS Request' : 'Send Email Invite'}</span>
                   </>
                 )}
