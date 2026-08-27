@@ -197,44 +197,46 @@ export default function Sidebar({
       {/* Bottom Growth & Landing Page Links */}
       <div className="p-4 border-t border-slate-800 space-y-3">
         {/* Dynamic Plan Status Card */}
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-blue-950 via-slate-900 to-slate-900 border border-blue-800/40 text-xs space-y-2.5 shadow-lg">
-          <div className="flex items-center justify-between text-[11px] font-bold text-blue-300">
-            <span className="flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-blue-400" />
-              {isPro
-                ? 'RatingPulse Pro • Active'
-                : profile.plan_status === 'trialing'
-                ? '14-Day Free Trial'
-                : 'RatingPulse Plan'}
+        <div
+          className={`p-3.5 rounded-2xl text-xs space-y-2.5 shadow-xl transition-all ${
+            isPro
+              ? 'bg-gradient-to-br from-blue-950 via-slate-900 to-slate-900 border border-blue-800/50'
+              : 'bg-gradient-to-br from-slate-900 via-blue-950/70 to-slate-900 border-2 border-amber-500/50 shadow-amber-500/10 ring-1 ring-amber-500/20'
+          }`}
+        >
+          <div className="flex items-center justify-between text-[11px] font-bold">
+            <span className="flex items-center gap-1.5 text-white">
+              <Sparkles className={`w-3.5 h-3.5 ${isPro ? 'text-blue-400' : 'text-amber-400'}`} />
+              {isPro ? 'RatingPulse Pro' : 'Free Trial Active'}
             </span>
-            <span className="text-emerald-400 font-extrabold">$25/mo</span>
+            <span className="text-emerald-400 font-extrabold text-xs">$25/mo</span>
           </div>
 
-          <p className="text-[10px] text-slate-400 leading-relaxed">
+          <p className="text-[10px] text-slate-300 leading-relaxed">
             {isPro
               ? 'Unlimited review invites, AI replies & priority sync active.'
-              : 'Free trial active. Unlock unlimited multi-channel invites.'}
+              : 'Unlock unlimited SMS & Email invites + 1-tap AI SEO replies.'}
           </p>
 
           <button
             type="button"
             onClick={handleSidebarBillingAction}
             disabled={billingLoading}
-            className={`w-full text-center py-2 px-3 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 ${
+            className={`w-full text-center py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50 ${
               isPro
                 ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-blue-600/30'
+                : 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 text-white shadow-orange-500/30 hover:scale-[1.02] active:scale-98'
             }`}
           >
             {billingLoading ? (
               <>
-                <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 <span>Redirecting...</span>
               </>
             ) : isPro ? (
               <span>Manage Subscription →</span>
             ) : (
-              <span>⚡ Upgrade to Pro ($25/mo) →</span>
+              <span>⚡ Upgrade to Pro ($25/mo)</span>
             )}
           </button>
         </div>

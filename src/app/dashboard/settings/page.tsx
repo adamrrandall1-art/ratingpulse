@@ -277,9 +277,12 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* 1. Prominent Active Subscription & Billing Card */}
+      <BillingSection />
+
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* 1. Google Business Profile & Places Connection Card */}
+        {/* 2. Google Business Profile & Places Connection Card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
           <div className="flex items-center justify-between pb-4 border-b border-slate-100">
             <div className="flex items-center gap-3">
@@ -546,9 +549,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-
-        {/* 4. Active Subscription & Billing */}
-        <BillingSection />
 
         {/* 5. Supabase Backend Connection Details */}
         <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 space-y-3">
