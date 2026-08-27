@@ -55,6 +55,41 @@ export default function SettingsPage() {
   const [newKeyword, setNewKeyword] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
+
+  const handleSendTestWelcome = async () => {
+    const targetEmail = notificationEmail || profile.email || user?.email || 'arandall79@gmail.com';
+    setSendingTestWelcome(true);
+
+    try {
+      const res = await fetch('/api/test-welcome-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: targetEmail,
+          name: profile.full_name || user?.user_metadata?.full_name || 'Valued Business Owner',
+          userId: user?.id || profile.id,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to dispatch test welcome email');
+      }
+
+      toast.success('Welcome Email Dispatched! 🚀', {
+        description: `A test onboarding welcome email has been delivered to ${targetEmail}.`,
+        duration: 5000,
+      });
+    } catch (err: any) {
+      console.error('Test welcome email error:', err);
+      toast.error('Could not send test email', {
+        description: err.message || 'Please check your connection and Resend configuration.',
+      });
+    } finally {
+      setSendingTestWelcome(false);
+    }
+  };
 
   // Hydrate settings on mount from Supabase
   useEffect(() => {
@@ -354,6 +389,37 @@ export default function SettingsPage() {
               onChange={(e) => setSmsAlertsEnabled(e.target.checked)}
               className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
             />
+          </div>
+
+          {/* Test Welcome Email Trigger Card */}
+          <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-indigo-50/40 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                Automated Onboarding Welcome Email
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                Test the 3-step quick start onboarding email sent to new users upon account registration.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleSendTestWelcome}
+              disabled={sendingTestWelcome}
+              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {sendingTestWelcome ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Sending Test Email...</span>
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5" />
+                  <span>Send Test Welcome Email</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 

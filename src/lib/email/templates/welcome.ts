@@ -1,10 +1,11 @@
-﻿import { Resend } from 'resend';
+import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
 
 export interface SendWelcomeEmailParams {
   to: string;
   name?: string;
   userId?: string;
+  force?: boolean;
 }
 
 export function generateWelcomeEmailHtml(name?: string, appUrl: string = 'https://ratingpulse.co'): string {
@@ -124,16 +125,16 @@ export function generateWelcomeEmailHtml(name?: string, appUrl: string = 'https:
   `;
 }
 
-export async function sendWelcomeEmail({ to, name, userId }: SendWelcomeEmailParams) {
+export async function sendWelcomeEmail({ to, name, userId, force }: SendWelcomeEmailParams) {
   const resendApiKey = process.env.RESEND_API_KEY;
-  const fromEmail = process.env.RESEND_FROM_EMAIL || 'RatingPulse <notifications@ratingpulse.co>';
+  const configuredFrom = process.env.RESEND_FROM_EMAIL || 'RatingPulse <notifications@ratingpulse.co>';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
 
   if (!to || !to.includes('@')) {
     return { success: false, error: 'Invalid recipient email' };
   }
 
-  // Check if welcome email has already been sent to this user in Supabase
+  // Check if welcome email has already been sent to this user in Supabase (unless force=true)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   let supabaseAdmin = null;
@@ -142,7 +143,7 @@ export async function sendWelcomeEmail({ to, name, userId }: SendWelcomeEmailPar
     try {
       supabaseAdmin = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
-      if (userId || to) {
+      if (!force && (userId || to)) {
         let query = supabaseAdmin.from('profiles').select('welcome_email_sent');
         if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
           query = query.eq('id', userId);
@@ -153,11 +154,11 @@ export async function sendWelcomeEmail({ to, name, userId }: SendWelcomeEmailPar
         const { data: profileData } = await query.maybeSingle();
         if (profileData?.welcome_email_sent) {
           console.log('[Welcome Email] Already sent previously to:', to);
-          return { success: true, skipped: true, message: 'Welcome email already sent' };
+          return { success: true, skipped: true, message: 'Welcome email already sent previously' };
         }
       }
     } catch (checkErr) {
-      console.warn('[Welcome Email check error]:', checkErr);
+      console.warn('[Welcome Email check warning]:', checkErr);
     }
   }
 
@@ -168,24 +169,39 @@ export async function sendWelcomeEmail({ to, name, userId }: SendWelcomeEmailPar
       const resend = new Resend(resendApiKey);
       const emailHtml = generateWelcomeEmailHtml(name, appUrl);
 
-      const { data, error } = await resend.emails.send({
-        from: fromEmail,
+      // Attempt primary sender
+      let sendResult = await resend.emails.send({
+        from: configuredFrom,
         to: [to],
         subject: "Welcome to RatingPulse! 🚀 Let's automate your 5-star reviews",
         html: emailHtml,
       });
 
-      if (error) {
-        console.error('[Resend Welcome Email Error]:', error);
-        return { success: false, error };
+      // If domain unverified, fallback to onboarding@resend.dev
+      if (sendResult.error && configuredFrom.includes('@ratingpulse.co')) {
+        console.warn('[Resend Primary Sender Warning, attempting fallback]:', sendResult.error);
+        sendResult = await resend.emails.send({
+          from: 'RatingPulse <onboarding@resend.dev>',
+          to: [to],
+          subject: "Welcome to RatingPulse! 🚀 Let's automate your 5-star reviews",
+          html: emailHtml,
+        });
       }
 
-      messageId = data?.id;
+      if (sendResult.error) {
+        console.error('[Resend Welcome Email Error]:', sendResult.error);
+        return { success: false, error: sendResult.error.message || 'Failed to dispatch email' };
+      }
+
+      messageId = sendResult.data?.id;
       console.log('[Resend Welcome Email Dispatched]:', messageId, 'to:', to);
     } catch (err: any) {
       console.error('[Resend Welcome Email Exception]:', err);
-      return { success: false, error: err?.message };
+      return { success: false, error: err?.message || 'Email dispatch exception' };
     }
+  } else {
+    console.log('[Demo Mode] RESEND_API_KEY is not set. Mocking successful welcome email send to:', to);
+    messageId = `mock_msg_${Date.now()}`;
   }
 
   // Mark welcome_email_sent = true in Supabase profiles
@@ -207,5 +223,5 @@ export async function sendWelcomeEmail({ to, name, userId }: SendWelcomeEmailPar
     }
   }
 
-  return { success: true, messageId };
+  return { success: true, messageId, to };
 }
