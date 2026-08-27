@@ -44,7 +44,7 @@ export default function DashboardLayoutClient({
       });
       const data = await res.json();
       if (data?.url) {
-        window.location.href = data.url;
+        window.location.assign(data.url);
         return;
       }
       throw new Error(data?.error || 'Failed to start checkout');

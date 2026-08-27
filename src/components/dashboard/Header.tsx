@@ -45,7 +45,6 @@ export default function Header({
   const [showNotification, setShowNotification] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  const [upgrading, setUpgrading] = useState(false);
 
   const displayName = user?.user_metadata?.full_name || profile.full_name || 'Dr. Marcus Vance';
   const displayEmail = user?.email || profile.email;
@@ -53,35 +52,6 @@ export default function Header({
     profile.plan_status === 'active' ||
     profile.plan_status === 'pro' ||
     (typeof window !== 'undefined' && localStorage.getItem('ratingpulse_is_pro') === 'true');
-
-  const handleUpgrade = async (e?: React.MouseEvent) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-    if (upgrading) return;
-    setUpgrading(true);
-
-    try {
-      const res = await fetch('/api/stripe/create-checkout-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user?.id || profile.id,
-          email: user?.email || profile.email,
-          businessId: profile.google_place_id || profile.id,
-          priceId: 'price_1U7MZG1fc0NSzHx1a8xy48tf',
-        }),
-      });
-      const data = await res.json();
-      if (data?.url) {
-        window.location.href = data.url;
-        return;
-      }
-      throw new Error(data?.error || 'Failed to start checkout');
-    } catch (err: any) {
-      toast.error('Checkout error', { description: err?.message || 'Could not connect to Stripe' });
-      setUpgrading(false);
-    }
-  };
 
   const handleToggleDemoMode = () => {
     const nextState = !isDemoMode;
@@ -157,30 +127,7 @@ export default function Header({
         </div>
 
         {/* Right Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          
-          {/* Prominent High-Contrast Upgrade to Pro CTA Button */}
-          {!isPro && (
-            <button
-              type="button"
-              onClick={handleUpgrade}
-              disabled={upgrading}
-              className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 text-white shadow-lg shadow-orange-500/25 hover:shadow-orange-500/40 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer disabled:opacity-50 shrink-0"
-            >
-              {upgrading ? (
-                <>
-                  <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span className="hidden sm:inline">Redirecting...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-3.5 h-3.5 fill-white text-white" />
-                  <span className="hidden sm:inline">Upgrade to Pro ($25/mo)</span>
-                  <span className="sm:hidden">Upgrade Pro</span>
-                </>
-              )}
-            </button>
-          )}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
           {/* Interactive Demo Mode Toggle Switch */}
           <div className="hidden sm:flex items-center gap-1 bg-slate-100/90 hover:bg-slate-200/70 p-1 rounded-2xl border border-slate-200 transition-colors">

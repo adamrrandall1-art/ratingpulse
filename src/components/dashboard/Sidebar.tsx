@@ -13,7 +13,9 @@ import {
   ShieldCheck,
   Sparkles,
   ArrowLeft,
-  X
+  X,
+  Zap,
+  Loader2
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
@@ -55,7 +57,7 @@ export default function Sidebar({
         });
         const data = await res.json();
         if (data?.url) {
-          window.location.href = data.url;
+          window.location.assign(data.url);
           return;
         }
         throw new Error(data?.error || 'Failed to open billing portal');
@@ -72,7 +74,7 @@ export default function Sidebar({
         });
         const data = await res.json();
         if (data?.url) {
-          window.location.href = data.url;
+          window.location.assign(data.url);
           return;
         }
         throw new Error(data?.error || 'Failed to start checkout');
@@ -197,6 +199,38 @@ export default function Sidebar({
               </Link>
             );
           })}
+
+          {/* Dedicated Main Menu Upgrade / Manage Subscription Button */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleSidebarBillingAction}
+              disabled={billingLoading}
+              className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
+                isPro
+                  ? 'bg-slate-800/90 hover:bg-slate-800 text-slate-200 border-slate-700'
+                  : 'bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 hover:from-amber-500/25 hover:via-orange-500/25 hover:to-rose-500/25 text-amber-300 border-amber-500/40 shadow-xs'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                {billingLoading ? (
+                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                ) : (
+                  <Zap className={`w-4 h-4 ${isPro ? 'text-blue-400' : 'text-amber-400 fill-amber-400'}`} />
+                )}
+                <span>{isPro ? 'Manage Subscription' : 'Upgrade to Pro'}</span>
+              </div>
+              <span
+                className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
+                  isPro
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-xs'
+                }`}
+              >
+                {isPro ? '⚡ PRO' : '⚡ $25/mo'}
+              </span>
+            </button>
+          </div>
         </nav>
       </div>
 
@@ -236,7 +270,7 @@ export default function Sidebar({
           >
             {billingLoading ? (
               <>
-                <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-white animate-spin" />
                 <span>Redirecting...</span>
               </>
             ) : isPro ? (
