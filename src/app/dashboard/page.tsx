@@ -151,9 +151,9 @@ export default function DashboardOverview() {
     <div className="space-y-8">
       
       {/* Top Greeting & Google Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-2xs">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
             Welcome back, {profile.full_name || 'Dr. Marcus'}
           </h1>
           <p className="text-xs text-slate-500 mt-1">
@@ -164,7 +164,7 @@ export default function DashboardOverview() {
         <div className="flex items-center gap-3">
           <button
             onClick={() => setInviteModalOpen(true)}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
           >
             <Send className="w-3.5 h-3.5" />
             Send Review Invite
@@ -176,7 +176,7 @@ export default function DashboardOverview() {
       <QuickReviewSender />
 
       {/* KPI Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
         
         {/* Rating Card */}
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
