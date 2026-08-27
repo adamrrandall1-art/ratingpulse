@@ -76,42 +76,44 @@ export default function Navbar() {
                     <User className="w-4 h-4" /> Dashboard
                   </Link>
                   <button
+                    type="button"
                     onClick={() => signOut()}
-                    className="text-xs font-semibold text-slate-500 hover:text-rose-400 px-2 py-1 transition-colors"
+                    className="text-xs font-semibold text-slate-500 hover:text-rose-400 px-2 py-1 transition-colors cursor-pointer"
                   >
                     Sign Out
                   </button>
                 </>
               ) : (
                 <>
-                  <button
-                    onClick={() => openAuth('signin')}
-                    className="px-4 py-2 text-sm font-semibold text-slate-400 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors cursor-pointer"
+                  <Link
+                    href="/login"
+                    className="px-4 py-2 text-sm font-semibold text-slate-300 hover:text-white hover:bg-slate-800/60 rounded-lg transition-colors"
                   >
                     Sign In
-                  </button>
-                  <button
-                    onClick={() => openAuth('signup')}
+                  </Link>
+                  <Link
+                    href="/dashboard"
                     className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 text-sm font-bold shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 transition-all active:scale-95 cursor-pointer"
                   >
                     <Zap className="w-4 h-4" /> Start Free Trial
                     <ArrowRight className="w-4 h-4" />
-                  </button>
+                  </Link>
                 </>
               )}
             </div>
 
             {/* Mobile menu button */}
             <div className="flex md:hidden items-center gap-2">
-              <button
-                onClick={() => openAuth('signup')}
-                className="px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded-lg"
+              <Link
+                href="/dashboard"
+                className="px-3 py-1.5 text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 rounded-lg shadow-sm"
               >
-                Free Trial
-              </button>
+                {user ? 'Dashboard' : 'Free Trial'}
+              </Link>
               <button
+                type="button"
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="p-2 rounded-lg text-slate-400 hover:bg-slate-800/60"
+                className="p-2 rounded-lg text-slate-400 hover:bg-slate-800/60 transition-colors cursor-pointer"
                 aria-label="Toggle Menu"
               >
                 {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
@@ -121,7 +123,7 @@ export default function Navbar() {
 
           {/* Mobile Navigation Dropdown */}
           {mobileMenuOpen && (
-            <div className="md:hidden mt-3 p-4 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl flex flex-col gap-3">
+            <div className="md:hidden mt-3 p-4 bg-slate-900/95 backdrop-blur-xl border border-slate-800 rounded-2xl shadow-2xl flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150">
               {[
                 ['#features', 'Features'],
                 ['#how-it-works', 'How It Works'],
@@ -138,30 +140,35 @@ export default function Navbar() {
                   {label}
                 </a>
               ))}
-              <div className="pt-2 border-t border-slate-800 flex flex-col gap-2">
-                {user ? (
+              <div className="pt-3 border-t border-slate-800 flex flex-col gap-2.5">
+                <Link
+                  href="/dashboard"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-sm font-bold rounded-xl shadow-md shadow-emerald-500/20 active:scale-98 transition-all flex items-center justify-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Sign into Dashboard</span>
+                </Link>
+
+                {!user ? (
                   <Link
-                    href="/dashboard"
+                    href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="w-full text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-sm font-bold rounded-xl"
+                    className="w-full text-center py-2.5 border border-slate-700 text-slate-200 text-sm font-semibold rounded-xl hover:bg-slate-800 hover:text-white transition-colors"
                   >
-                    Go to Dashboard
+                    Account Login / Register
                   </Link>
                 ) : (
-                  <>
-                    <button
-                      onClick={() => openAuth('signin')}
-                      className="w-full text-center py-2 border border-slate-700 text-slate-300 text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors"
-                    >
-                      Sign In
-                    </button>
-                    <button
-                      onClick={() => openAuth('signup')}
-                      className="w-full text-center py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 text-sm font-bold rounded-xl"
-                    >
-                      Start 14-Day Free Trial
-                    </button>
-                  </>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      signOut();
+                    }}
+                    className="w-full text-center py-2 text-xs font-semibold text-rose-400 hover:text-rose-300 transition-colors"
+                  >
+                    Sign Out
+                  </button>
                 )}
               </div>
             </div>
