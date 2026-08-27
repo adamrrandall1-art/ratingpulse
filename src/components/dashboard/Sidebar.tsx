@@ -15,7 +15,8 @@ import {
   ArrowLeft,
   X,
   Zap,
-  Loader2
+  Loader2,
+  LogOut
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
@@ -290,6 +291,29 @@ export default function Sidebar({
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to Public Site
         </Link>
+
+        {/* Sign Out Button */}
+        <button
+          type="button"
+          onClick={async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (onClose) onClose();
+            try {
+              if (user) {
+                await fetch('/api/auth/signout', { method: 'POST' }).catch(() => {});
+              }
+              toast.success('Signed out successfully');
+              window.location.assign('/login');
+            } catch {
+              window.location.assign('/login');
+            }
+          }}
+          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/30 transition-colors cursor-pointer"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          <span>Sign Out</span>
+        </button>
       </div>
 
     </aside>

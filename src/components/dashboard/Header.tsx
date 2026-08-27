@@ -181,50 +181,87 @@ export default function Header({
               </div>
             </button>
 
-            {/* Dropdown Menu */}
+            {/* Dropdown Menu & Click-away Backdrop */}
             {profileDropdownOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                <div className="p-2 border-b border-slate-100">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900 truncate">{displayName}</span>
-                    {isPro && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs">
-                        ⚡ PRO
-                      </span>
-                    )}
+              <>
+                <div
+                  className="fixed inset-0 z-20"
+                  onClick={() => setProfileDropdownOpen(false)}
+                  aria-hidden="true"
+                />
+                <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="p-2.5 border-b border-slate-100">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="text-xs font-bold text-slate-900 truncate">{displayName}</span>
+                      {isPro ? (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xs shrink-0">
+                          ⚡ PRO
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
+                          Trial
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-slate-500 truncate mt-0.5">{displayEmail}</div>
+                    <div className="text-[10px] text-blue-600 font-semibold truncate mt-0.5">{profile.business_name}</div>
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate">{displayEmail}</div>
+
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <Settings className="w-4 h-4 text-slate-500" />
+                    <span>Account Settings</span>
+                  </Link>
+
+                  <Link
+                    href="/dashboard/settings"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Zap className={`w-4 h-4 ${isPro ? 'text-blue-500' : 'text-amber-500'}`} />
+                      <span>{isPro ? 'Manage Billing' : 'Upgrade to Pro'}</span>
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-400">$25/mo</span>
+                  </Link>
+
+                  <Link
+                    href="/onboarding"
+                    onClick={() => setProfileDropdownOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors"
+                  >
+                    <Sparkles className="w-4 h-4 text-blue-500" />
+                    <span>Onboarding Wizard</span>
+                  </Link>
+
+                  <div className="pt-1 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setProfileDropdownOpen(false);
+                        try {
+                          if (signOut) {
+                            await signOut();
+                          }
+                          toast.success('Signed out successfully');
+                          window.location.assign('/login');
+                        } catch {
+                          window.location.assign('/login');
+                        }
+                      }}
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-rose-500" />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
                 </div>
-
-                <Link
-                  href="/dashboard/settings"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  <Settings className="w-4 h-4 text-slate-400" />
-                  Account Settings
-                </Link>
-
-                <Link
-                  href="/onboarding"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 transition-colors"
-                >
-                  <Sparkles className="w-4 h-4 text-blue-500" />
-                  Onboarding Wizard
-                </Link>
-
-                <button
-                  onClick={() => {
-                    setProfileDropdownOpen(false);
-                    signOut();
-                  }}
-                  className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
-              </div>
+              </>
             )}
           </div>
 
