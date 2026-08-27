@@ -36,8 +36,12 @@ export default function Sidebar({
     profile.plan_status === 'pro' ||
     (typeof window !== 'undefined' && localStorage.getItem('ratingpulse_is_pro') === 'true');
 
-  const handleSidebarBillingAction = async () => {
+  const handleSidebarBillingAction = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (billingLoading) return;
     setBillingLoading(true);
+
     try {
       if (isPro) {
         const res = await fetch('/api/stripe/create-portal-session', {
@@ -50,10 +54,11 @@ export default function Sidebar({
           }),
         });
         const data = await res.json();
-        if (data.url) {
+        if (data?.url) {
           window.location.href = data.url;
           return;
         }
+        throw new Error(data?.error || 'Failed to open billing portal');
       } else {
         const res = await fetch('/api/stripe/create-checkout-session', {
           method: 'POST',
@@ -66,10 +71,11 @@ export default function Sidebar({
           }),
         });
         const data = await res.json();
-        if (data.url) {
+        if (data?.url) {
           window.location.href = data.url;
           return;
         }
+        throw new Error(data?.error || 'Failed to start checkout');
       }
     } catch (err: any) {
       toast.error('Billing error', { description: err?.message || 'Could not connect to Stripe' });

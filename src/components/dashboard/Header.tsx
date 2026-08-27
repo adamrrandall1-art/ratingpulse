@@ -54,8 +54,12 @@ export default function Header({
     profile.plan_status === 'pro' ||
     (typeof window !== 'undefined' && localStorage.getItem('ratingpulse_is_pro') === 'true');
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (upgrading) return;
     setUpgrading(true);
+
     try {
       const res = await fetch('/api/stripe/create-checkout-session', {
         method: 'POST',
@@ -68,13 +72,13 @@ export default function Header({
         }),
       });
       const data = await res.json();
-      if (data.url) {
+      if (data?.url) {
         window.location.href = data.url;
         return;
       }
-      throw new Error(data.error || 'Failed to start checkout');
+      throw new Error(data?.error || 'Failed to start checkout');
     } catch (err: any) {
-      toast.error('Checkout error', { description: err.message || 'Could not connect to Stripe' });
+      toast.error('Checkout error', { description: err?.message || 'Could not connect to Stripe' });
       setUpgrading(false);
     }
   };

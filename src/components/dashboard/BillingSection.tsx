@@ -29,7 +29,10 @@ export default function BillingSection() {
   const isPastDue = planStatus === 'past_due';
   const isCanceled = planStatus === 'canceled';
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (loadingCheckout || loadingPortal) return;
     setLoadingCheckout(true);
     setErrorMessage(null);
 
@@ -39,9 +42,11 @@ export default function BillingSection() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: user?.id || profile.id,
+          email: user?.email || profile.email,
           userEmail: user?.email || profile.email,
           businessName: profile.business_name,
           businessId: profile.google_place_id || profile.id,
+          priceId: 'price_1U7MZG1fc0NSzHx1a8xy48tf',
           customerId: profile.stripe_customer_id,
         }),
       });
@@ -53,6 +58,8 @@ export default function BillingSection() {
 
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL returned');
       }
     } catch (err: any) {
       console.error('Checkout error:', err);
@@ -61,7 +68,10 @@ export default function BillingSection() {
     }
   };
 
-  const handleManageBilling = async () => {
+  const handleManageBilling = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
+    if (loadingPortal || loadingCheckout) return;
     setLoadingPortal(true);
     setErrorMessage(null);
 
@@ -88,6 +98,8 @@ export default function BillingSection() {
 
       if (data.url) {
         window.location.href = data.url;
+      } else {
+        throw new Error('No portal URL returned');
       }
     } catch (err: any) {
       console.error('Customer portal error:', err);
@@ -187,6 +199,7 @@ export default function BillingSection() {
         <div className="flex items-center gap-3 w-full sm:w-auto">
           {!isActive && (
             <button
+              type="button"
               onClick={handleUpgrade}
               disabled={loadingCheckout || loadingPortal}
               className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/25 transition-all transform active:scale-95 cursor-pointer disabled:opacity-60"
@@ -207,6 +220,7 @@ export default function BillingSection() {
           )}
 
           <button
+            type="button"
             onClick={handleManageBilling}
             disabled={loadingPortal || loadingCheckout}
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs border border-slate-200 transition-colors cursor-pointer disabled:opacity-60"
