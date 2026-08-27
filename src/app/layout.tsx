@@ -17,22 +17,34 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RatingPulse.co | Get More 5-Star Google Reviews. Automatically.",
-  description:
-    "Automate 5-star Google review collection with instant SMS invites and 1-tap AI-drafted replies. Boost local Google Maps rankings for $25/mo.",
-  keywords: [
-    "Google reviews automation",
-    "Google Maps SEO",
-    "AI review replies",
-    "SMS review invites",
-    "local business reviews",
-    "RatingPulse",
-  ],
+  metadataBase: new URL('https://ratingpulse.co'),
+  title: 'RatingPulse - Automated Review Management & Growth',
+  description: 'Turn customer interactions into 5-star Google reviews automatically with AI.',
   icons: {
     icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.ico' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
     ],
+    apple: [
+      { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
+    ],
+  },
+  openGraph: {
+    title: 'RatingPulse',
+    description: 'Turn customer interactions into 5-star Google reviews automatically with AI.',
+    url: 'https://ratingpulse.co',
+    siteName: 'RatingPulse',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'RatingPulse Platform Preview',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
   },
 };
 

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
 import confetti from 'canvas-confetti';
+import Logo from '@/components/ui/Logo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -133,11 +134,13 @@ export default function AuthModal({
 
         {/* Modal Header */}
         <div className="p-6 pb-4 text-center border-b border-slate-100 bg-slate-50/50">
-          <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center text-white mx-auto mb-3 shadow-md shadow-blue-500/20">
+          <div className="flex justify-center mb-3">
             {mode === 'forgot_password' ? (
-              <KeyRound className="w-6 h-6 text-amber-300" />
+              <div className="w-11 h-11 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/30">
+                <KeyRound className="w-6 h-6 text-amber-500" />
+              </div>
             ) : (
-              <Star className="w-6 h-6 fill-amber-400 text-amber-400" />
+              <Logo variant="icon" size="md" />
             )}
           </div>
           <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">

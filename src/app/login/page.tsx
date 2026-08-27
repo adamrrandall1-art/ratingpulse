@@ -16,6 +16,7 @@ import {
   ArrowLeft
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import Logo from '@/components/ui/Logo';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -273,20 +274,15 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between">
+    <div className="min-h-screen bg-[#0B0F19] text-white flex flex-col justify-between">
       {/* Top Navbar */}
-      <header className="px-6 py-5 bg-white border-b border-slate-200">
+      <header className="px-6 py-5 bg-[#111820]/90 backdrop-blur-xl border-b border-[#00e676]/20">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
-            </div>
-            <span className="font-bold text-lg text-slate-900 tracking-tight">RatingPulse.co</span>
-          </Link>
+          <Logo size="md" />
 
           <Link
             href="/signup"
-            className="text-xs font-bold text-blue-600 hover:text-blue-700"
+            className="text-xs font-extrabold text-[#00e676] hover:underline flex items-center gap-1"
           >
             Create Account →
           </Link>
@@ -301,7 +297,7 @@ export default function LoginPage() {
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-400">
+      <footer className="py-4 text-center text-xs text-slate-500">
         © {new Date().getFullYear()} RatingPulse.co • 100% Google Review Compliant
       </footer>
     </div>
