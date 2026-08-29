@@ -1,7 +1,13 @@
 ﻿<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="22" fill="#0B0F19" stroke="#00e676" stroke-width="4"/>
-  <rect x="18" y="18" width="13" height="64" rx="6.5" fill="#00e676" />
-  <path d="M 24 18 L 52 18 C 68 18 68 46 52 46 L 24 46" stroke="#00e676" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M 38 46 L 46 80 L 60 22 L 72 80 L 86 48 L 92 48" stroke="#00e676" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="92" cy="48" r="4.5" fill="#00e676" />
+  <rect width="100" height="100" rx="22" fill="#0B0F19"/>
+  <!-- White 'R' Shape -->
+  <path
+    d="M22 82V20H54C64 20 72 26 72 37C72 46 66 52 57 54L76 82H58L42 56H38V82H22ZM38 44H52C56 44 60 41 60 37C60 33 56 30 52 30H38V44Z"
+    fill="#FFFFFF"
+  />
+  <!-- Green Checkmark Accent -->
+  <path
+    d="M26 48L44 66L84 22L75 14L44 48L34 38L26 48Z"
+    fill="#22C55E"
+  />
 </svg>

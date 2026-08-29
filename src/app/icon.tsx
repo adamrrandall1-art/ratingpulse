@@ -20,30 +20,21 @@ export default function Icon() {
           justifyContent: 'center',
           background: '#0B0F19',
           borderRadius: 8,
-          border: '1.5px solid #00e676',
         }}
       >
         <svg
           viewBox="0 0 100 100"
-          style={{ width: '80%', height: '80%' }}
+          style={{ width: '85%', height: '85%' }}
           fill="none"
         >
-          <rect x="16" y="16" width="13" height="68" rx="6.5" fill="#00e676" />
           <path
-            d="M 22 16 L 52 16 C 68 16 68 46 52 46 L 22 46"
-            stroke="#00e676"
-            strokeWidth="13"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            d="M22 82V20H54C64 20 72 26 72 37C72 46 66 52 57 54L76 82H58L42 56H38V82H22ZM38 44H52C56 44 60 41 60 37C60 33 56 30 52 30H38V44Z"
+            fill="#FFFFFF"
           />
           <path
-            d="M 38 46 L 46 80 L 60 22 L 72 80 L 86 48 L 92 48"
-            stroke="#00e676"
-            strokeWidth="9"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+            d="M26 48L44 66L84 22L75 14L44 48L34 38L26 48Z"
+            fill="#22C55E"
           />
-          <circle cx="92" cy="48" r="4" fill="#00e676" />
         </svg>
       </div>
     ),
