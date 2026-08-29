@@ -10,8 +10,7 @@ import {
   Bot,
   User,
   ArrowRight,
-  Minimize2,
-  RefreshCw
+  Minimize2
 } from 'lucide-react';
 
 interface Message {
@@ -28,6 +27,82 @@ const QUICK_PROMPTS = [
   'How does Gemini AI boost SEO?',
 ];
 
+function FormattedMessage({ content, isUser }: { content: string; isUser: boolean }) {
+  if (isUser) {
+    return <p>{content}</p>;
+  }
+
+  const lines = content.split('\n');
+
+  return (
+    <div className="space-y-1.5 leading-relaxed">
+      {lines.map((line, index) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={index} className="h-0.5" />;
+
+        // Detect bullet points (• or -)
+        const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
+        const isNumbered = /^\d+\.\s/.test(trimmed);
+
+        const cleanText = isBullet
+          ? trimmed.replace(/^[•\-]\s*/, '')
+          : isNumbered
+          ? trimmed.replace(/^\d+\.\s*/, '')
+          : trimmed;
+
+        // Parse bold **text** and URLs
+        const parts = cleanText.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g);
+
+        const renderedLine = parts.map((part, i) => {
+          if (part.startsWith('**') && part.endsWith('**')) {
+            return (
+              <strong key={i} className="font-bold text-white">
+                {part.slice(2, -2)}
+              </strong>
+            );
+          }
+          if (/^https?:\/\//.test(part)) {
+            return (
+              <a
+                key={i}
+                href={part}
+                target="_blank"
+                rel="noreferrer"
+                className="text-[#22c55e] underline hover:text-[#14b8a6] transition-colors"
+              >
+                {part}
+              </a>
+            );
+          }
+          return part;
+        });
+
+        if (isBullet) {
+          return (
+            <div key={index} className="flex items-start gap-1.5 pl-0.5">
+              <span className="text-[#22c55e] font-bold shrink-0 leading-tight">•</span>
+              <span className="text-slate-200">{renderedLine}</span>
+            </div>
+          );
+        }
+
+        if (isNumbered) {
+          const numberMatch = trimmed.match(/^(\d+)\./);
+          const num = numberMatch ? numberMatch[1] : '1';
+          return (
+            <div key={index} className="flex items-start gap-1.5 pl-0.5">
+              <span className="text-[#14b8a6] font-bold shrink-0 leading-tight">{num}.</span>
+              <span className="text-slate-200">{renderedLine}</span>
+            </div>
+          );
+        }
+
+        return <p key={index} className="text-slate-200">{renderedLine}</p>;
+      })}
+    </div>
+  );
+}
+
 export default function SupportChat() {
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState('');
@@ -36,7 +111,7 @@ export default function SupportChat() {
     {
       id: 'welcome',
       role: 'assistant',
-      content: 'Hi there! 👋 I am your RatingPulse AI Assistant. How can I help you automate your 5-star Google reviews today?',
+      content: 'Hi there! 👋 I am PulseBot, your RatingPulse assistant. How can I help you automate your 5-star Google reviews today?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     },
   ]);
@@ -82,7 +157,7 @@ export default function SupportChat() {
       });
 
       const data = await res.json();
-      const replyContent = data.reply || 'Thanks for reaching out! You can start a 14-day free trial at https://ratingpulse.co/signup.';
+      const replyContent = data?.reply || 'You can reach our team directly at support@ratingpulse.co or click "Get Started" above to test the platform free.';
 
       setMessages((prev) => [
         ...prev,
@@ -99,7 +174,7 @@ export default function SupportChat() {
         {
           id: String(Date.now() + 1),
           role: 'assistant',
-          content: 'Sorry, I had trouble connecting. RatingPulse is $25/mo with a 14-day free trial. You can test it at https://ratingpulse.co/signup!',
+          content: 'You can reach our team directly at support@ratingpulse.co or click "Get Started" above to test the platform free.',
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
@@ -159,7 +234,7 @@ export default function SupportChat() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Minimize chat"
               >
                 <Minimize2 className="w-4 h-4" />
@@ -167,7 +242,7 @@ export default function SupportChat() {
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Close chat"
               >
                 <X className="w-4 h-4" />
@@ -189,13 +264,13 @@ export default function SupportChat() {
                 )}
 
                 <div
-                  className={`max-w-[82%] p-3 rounded-2xl leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[82%] p-3 rounded-2xl ${
                     m.role === 'user'
                       ? 'bg-gradient-to-r from-[#22c55e] to-[#14b8a6] text-slate-950 font-semibold rounded-tr-none shadow-md'
                       : 'bg-[#18222a] border border-slate-700/60 text-slate-200 rounded-tl-none shadow-sm'
                   }`}
                 >
-                  {m.content}
+                  <FormattedMessage content={m.content} isUser={m.role === 'user'} />
                   <div
                     className={`text-[9px] mt-1.5 ${
                       m.role === 'user' ? 'text-slate-900/70 text-right' : 'text-slate-500 text-left'
@@ -264,13 +339,13 @@ export default function SupportChat() {
             </form>
 
             <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 px-1">
-              <span>⚡ Flat $25/mo • 14-Day Free Trial</span>
+              <span>⚡ Free Plan ($0/mo) • Pro ($25/mo)</span>
               <Link
                 href="/signup"
                 onClick={() => setIsOpen(false)}
                 className="text-[#22c55e] font-bold hover:underline flex items-center gap-0.5"
               >
-                Start Free Trial →
+                Get Started Free →
               </Link>
             </div>
           </div>
