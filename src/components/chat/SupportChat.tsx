@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
@@ -27,78 +27,45 @@ const QUICK_PROMPTS = [
   'How does Gemini AI boost SEO?',
 ];
 
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
 function FormattedMessage({ content, isUser }: { content: string; isUser: boolean }) {
   if (isUser) {
     return <p>{content}</p>;
   }
 
-  const lines = content.split('\n');
-
   return (
-    <div className="space-y-1.5 leading-relaxed">
-      {lines.map((line, index) => {
-        const trimmed = line.trim();
-        if (!trimmed) return <div key={index} className="h-0.5" />;
-
-        // Detect bullet points (• or -)
-        const isBullet = trimmed.startsWith('•') || trimmed.startsWith('-');
-        const isNumbered = /^\d+\.\s/.test(trimmed);
-
-        const cleanText = isBullet
-          ? trimmed.replace(/^[•\-]\s*/, '')
-          : isNumbered
-          ? trimmed.replace(/^\d+\.\s*/, '')
-          : trimmed;
-
-        // Parse bold **text** and URLs
-        const parts = cleanText.split(/(\*\*[^*]+\*\*|https?:\/\/[^\s)]+)/g);
-
-        const renderedLine = parts.map((part, i) => {
-          if (part.startsWith('**') && part.endsWith('**')) {
-            return (
-              <strong key={i} className="font-bold text-white">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          if (/^https?:\/\//.test(part)) {
-            return (
-              <a
-                key={i}
-                href={part}
-                target="_blank"
-                rel="noreferrer"
-                className="text-[#22c55e] underline hover:text-[#14b8a6] transition-colors"
-              >
-                {part}
-              </a>
-            );
-          }
-          return part;
-        });
-
-        if (isBullet) {
-          return (
-            <div key={index} className="flex items-start gap-1.5 pl-0.5">
-              <span className="text-[#22c55e] font-bold shrink-0 leading-tight">•</span>
-              <span className="text-slate-200">{renderedLine}</span>
+    <div className="leading-relaxed space-y-2 text-slate-200 text-xs break-words">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+          strong: ({ children }) => <strong className="font-bold text-white">{children}</strong>,
+          ul: ({ children }) => <ul className="space-y-1 my-1.5 pl-3 list-disc marker:text-[#22c55e]">{children}</ul>,
+          ol: ({ children }) => <ol className="space-y-1 my-1.5 pl-3 list-decimal marker:text-[#14b8a6]">{children}</ol>,
+          li: ({ children }) => <li className="pl-0.5 leading-snug">{children}</li>,
+          a: ({ href, children }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#22c55e] underline hover:text-[#14b8a6] transition-colors"
+            >
+              {children}
+            </a>
+          ),
+          table: ({ children }) => (
+            <div className="overflow-x-auto my-2 border border-slate-700 rounded-lg">
+              <table className="min-w-full divide-y divide-slate-700 text-[11px]">{children}</table>
             </div>
-          );
-        }
-
-        if (isNumbered) {
-          const numberMatch = trimmed.match(/^(\d+)\./);
-          const num = numberMatch ? numberMatch[1] : '1';
-          return (
-            <div key={index} className="flex items-start gap-1.5 pl-0.5">
-              <span className="text-[#14b8a6] font-bold shrink-0 leading-tight">{num}.</span>
-              <span className="text-slate-200">{renderedLine}</span>
-            </div>
-          );
-        }
-
-        return <p key={index} className="text-slate-200">{renderedLine}</p>;
-      })}
+          ),
+          th: ({ children }) => <th className="px-2 py-1 bg-slate-800 text-white font-bold text-left">{children}</th>,
+          td: ({ children }) => <td className="px-2 py-1 border-t border-slate-800">{children}</td>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
