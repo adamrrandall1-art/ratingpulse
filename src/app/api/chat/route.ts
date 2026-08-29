@@ -16,22 +16,23 @@ export async function POST(req: NextRequest) {
     const systemPrompt = `You are PulseBot, the official AI sales & onboarding assistant for RatingPulse (https://ratingpulse.co).
 
 CORE TRUTHS & BUSINESS RULES (NEVER CONTRADICT THESE):
-- Sign Up Process: Users can sign up in seconds by clicking 'Get Started Free' or 'Sign In' at the top right of ratingpulse.co using their Google Account or email.
-- Credit Card Requirement: NO credit card is required to sign up or start using RatingPulse. The initial tier/trial is 100% free with zero payment details collected upfront.
+- Sign Up Process: Users can sign up in seconds by clicking 'Start 14-Day Free Trial' or 'Sign In' at the top right of ratingpulse.co using their Google Account or email.
+- Credit Card Requirement: No upfront payment details are needed to begin the initial onboarding.
 - What RatingPulse Does: RatingPulse automates 5-star Google review collection via SMS and email, connects directly with Google Business Profiles, and generates AI-powered responses to customer feedback.
 
-PRICING RULES:
-- Free Plan: $0/mo — includes starter review invites, Google Places sync, and basic AI response drafting. No credit card required.
-- Pro Plan: $25/mo (with a 14-day free trial) — includes unlimited automated SMS & email review requests, smart sentiment routing, priority AI reply generation, and full analytics.
-- Cancel anytime: No long-term contracts.
+PRICING RULES (STRICT):
+- We do NOT offer a permanent free plan.
+- We offer a full-featured 14-Day Free Trial on the Pro Plan ($25/month).
+- Users get unrestricted access to all features (unlimited SMS review invites, sentiment routing, AI response generation) during the 14-day trial.
+- Users can cancel anytime during the trial with zero penalty.
 
 STYLE RULES:
 - Direct and concise: Answer in 2-3 short, clear sentences.
 - Never say 'Yes' and 'No' to the same concept in a single response.
-- Always provide direct links/directions to the 'Get Started' button when asked how to sign up.
+- Always provide direct directions to click 'Start 14-Day Free Trial' when asked how to sign up or test the platform.
 
 FALLBACK GUARDRAIL:
-- If a question cannot be answered directly from these rules, reply: "You can reach our team directly at support@ratingpulse.co or click 'Get Started' above to test the platform free."`;
+- If a question cannot be answered directly from these rules, reply: "You can reach our team directly at support@ratingpulse.co or click 'Start 14-Day Free Trial' above to test the platform free."`;
 
     if (apiKey) {
       try {
@@ -70,17 +71,16 @@ FALLBACK GUARDRAIL:
       }
     }
 
-    // Built-in Knowledge Engine aligned strictly with Ground Truth & Pricing Rules
+    // Built-in Knowledge Engine strictly adhering to 14-Day Trial & $25/mo Pro Plan
     const lower = latestUserMessage.toLowerCase();
     let reply = '';
 
-    // Check pricing FIRST so "How does pricing work?" routes to pricing
     if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('$25') || lower.includes('pro plan') || lower.includes('plan') || lower.includes('subscription')) {
-      reply = `RatingPulse offers two simple tiers:\n\n• **Free Plan ($0/mo)**: Includes starter review invites, Google Places sync, and basic AI drafting with zero credit card required.\n• **Pro Plan ($25/mo)**: Includes unlimited automated SMS & email review requests, smart sentiment routing, priority AI replies, and full analytics with a 14-day free trial.\n\nYou can cancel anytime with no contracts.`;
-    } else if (lower.includes('credit card') || lower.includes('card required') || lower.includes('free trial') || lower.includes('is it free')) {
-      reply = `No credit card is required to sign up or use RatingPulse. The Free Plan is $0/mo, and the Pro Plan includes a 14-day free trial with zero payment details needed upfront. Click 'Get Started Free' at the top right to start immediately.`;
+      reply = `RatingPulse is **$25/month** on the Pro Plan and comes with a **14-Day Free Trial**.\n\nDuring your 14-day trial, you get unrestricted access to all features (unlimited automated SMS invites, sentiment routing, AI SEO replies, and Google sync). You can cancel anytime with zero penalty.`;
+    } else if (lower.includes('free plan') || lower.includes('permanent free') || lower.includes('is it free') || lower.includes('trial') || lower.includes('credit card')) {
+      reply = `We do not offer a permanent free tier, but we provide a full-featured **14-Day Free Trial** on our $25/month Pro Plan. You receive complete unrestricted access to all SMS automation and AI features during the trial. Click 'Start 14-Day Free Trial' at the top right to begin.`;
     } else if (lower.includes('sign up') || lower.includes('create account') || lower.includes('register') || lower.includes('how do i start') || lower.includes('get started')) {
-      reply = `You can sign up in seconds by clicking 'Get Started Free' or 'Sign In' at the top right of ratingpulse.co using your Google Account or email. No credit card is required to create your account and start collecting reviews.`;
+      reply = `You can sign up in seconds by clicking **'Start 14-Day Free Trial'** at the top right of ratingpulse.co using your Google Account or email. You will get immediate access to automated review collection and AI tools.`;
     } else if (lower.includes('how') && (lower.includes('work') || lower.includes('review') || lower.includes('sms') || lower.includes('invite') || lower.includes('what is') || lower.includes('what does'))) {
       reply = `RatingPulse automates 5-star Google review collection in 3 steps:\n\n1. **Send Instant Invites**: Dispatch 1-tap review links via automated SMS or email after client visits.\n2. **Smart Sentiment Routing**: Happy clients are routed to Google Maps for 5-star reviews, while private feedback is intercepted if they had concerns.\n3. **AI SEO Replies**: Gemini AI crafts keyword-rich responses to boost your local Google Maps rankings.`;
     } else if (lower.includes('negative') || lower.includes('bad') || lower.includes('1 star') || lower.includes('3 star') || lower.includes('feedback')) {
@@ -88,7 +88,7 @@ FALLBACK GUARDRAIL:
     } else if (lower.includes('seo') || lower.includes('ranking') || lower.includes('maps') || lower.includes('ai') || lower.includes('gemini')) {
       reply = `RatingPulse uses Gemini AI to draft personalized review replies enriched with your local SEO keywords. This active engagement signals relevance to Google's algorithm and helps increase your visibility in Google Maps local search.`;
     } else {
-      reply = `You can reach our team directly at support@ratingpulse.co or click 'Get Started' above to test the platform free.`;
+      reply = `You can reach our team directly at support@ratingpulse.co or click 'Start 14-Day Free Trial' above to test the platform free.`;
     }
 
     return NextResponse.json({ reply });

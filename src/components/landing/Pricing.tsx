@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { Check, Star, Shield, Zap, Sparkles } from 'lucide-react';
@@ -114,8 +114,13 @@ export default function Pricing() {
               className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98]"
             />
 
+            {/* Subtitle / Trust Badge */}
+            <div className="mt-3 text-center text-xs font-semibold text-emerald-400/90">
+              Full access for 14 days • Cancel anytime • No long-term contract
+            </div>
+
             {/* Guarantee */}
-            <div className="mt-5 flex items-center justify-center gap-2 text-xs text-slate-500">
+            <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
               <Shield className="w-4 h-4 text-emerald-500" />
               30-Day 100% Money-Back Guarantee • Cancel Anytime
             </div>

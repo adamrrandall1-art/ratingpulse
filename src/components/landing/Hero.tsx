@@ -89,7 +89,11 @@ export default function Hero() {
             </div>
 
             {/* Trust badges */}
-            <div className="mt-7 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-slate-400 font-medium animate-fade-up [animation-delay:0.4s]">
+            <div className="mt-4 text-xs font-semibold text-emerald-400/90 animate-fade-up [animation-delay:0.35s]">
+              Full access for 14 days • Cancel anytime • No long-term contract
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-slate-400 font-medium animate-fade-up [animation-delay:0.4s]">
               {[
                 'No credit card required',
                 '2-minute Google sync',

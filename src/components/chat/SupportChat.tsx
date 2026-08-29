@@ -306,13 +306,13 @@ export default function SupportChat() {
             </form>
 
             <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 px-1">
-              <span>⚡ Free Plan ($0/mo) • Pro ($25/mo)</span>
+              <span>⚡ 14-Day Free Trial • Pro ($25/mo)</span>
               <Link
                 href="/signup"
                 onClick={() => setIsOpen(false)}
                 className="text-[#22c55e] font-bold hover:underline flex items-center gap-0.5"
               >
-                Get Started Free →
+                Start 14-Day Free Trial →
               </Link>
             </div>
           </div>
