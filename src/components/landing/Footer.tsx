@@ -65,25 +65,37 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="font-bold text-white uppercase tracking-wider mb-3">Legal & Safety</h4>
+            <h4 className="font-bold text-white uppercase tracking-wider mb-3">Legal &amp; Support</h4>
             <ul className="space-y-2 text-slate-400">
               <li><a href="#features" className="hover:text-white transition-colors">Google TOS Compliance</a></li>
               <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-              <li><Link href="/privacy#security" className="hover:text-white transition-colors">Security Overview</Link></li>
+              <li><Link href="/sms-consent" className="hover:text-white transition-colors">SMS Consent &amp; 10DLC</Link></li>
+              <li>
+                <a
+                  href="mailto:support@ratingpulse.co"
+                  className="text-[#00d2c4] hover:underline font-semibold flex items-center gap-1 mt-1"
+                >
+                  support@ratingpulse.co
+                </a>
+              </li>
             </ul>
           </div>
 
         </div>
 
-        {/* Copyright */}
+        {/* Copyright & Bottom Links */}
         <div className="pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div>
             © {new Date().getFullYear()} RatingPulse.co. All rights reserved.
           </div>
           <div className="flex items-center gap-4 text-slate-500">
+            <a href="mailto:support@ratingpulse.co" className="hover:text-slate-300 transition-colors">
+              Contact Support
+            </a>
             <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms of Service</Link>
+            <Link href="/sms-consent" className="hover:text-slate-300 transition-colors">SMS Consent</Link>
           </div>
         </div>
 

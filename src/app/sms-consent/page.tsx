@@ -272,7 +272,7 @@ export default function SmsConsentPage() {
               <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside">
                 <li><strong className="text-white">Frequency:</strong> Message frequency varies per transaction.</li>
                 <li><strong className="text-white">Rates:</strong> Message and data rates may apply.</li>
-                <li><strong className="text-white">Assistance:</strong> Reply <strong className="text-white">HELP</strong> or contact support at <span className="text-blue-400">support@ratingpulse.co</span>.</li>
+                <li><strong className="text-white">Assistance:</strong> Reply <strong className="text-white">HELP</strong> or contact support at <a href="mailto:support@ratingpulse.co" className="text-[#00d2c4] hover:underline">support@ratingpulse.co</a>.</li>
               </ul>
             </div>
           </div>

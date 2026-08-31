@@ -9,7 +9,7 @@ export const metadata = {
 
 const EFFECTIVE_DATE = 'August 21, 2025';
 const COMPANY = 'RatingPulse.co';
-const CONTACT_EMAIL = 'privacy@ratingpulse.co';
+const CONTACT_EMAIL = 'support@ratingpulse.co';
 
 export default function PrivacyPage() {
   return (

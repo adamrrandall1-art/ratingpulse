@@ -10,6 +10,8 @@ export const metadata = {
 const EFFECTIVE_DATE = 'August 21, 2025';
 const COMPANY = 'RatingPulse.co';
 const CONTACT_EMAIL = 'legal@ratingpulse.co';
+const BILLING_EMAIL = 'billing@ratingpulse.co';
+const SUPPORT_EMAIL = 'support@ratingpulse.co';
 
 export default function TermsPage() {
   return (
@@ -144,11 +146,11 @@ export default function TermsPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-200 mb-1">Cancellation</h3>
-                <p>You may cancel your subscription at any time from your account settings. Cancellation takes effect at the end of the current billing period. No partial refunds are issued for unused time within a billing period.</p>
+                <p>You may cancel your subscription at any time from your account settings or by contacting <a href={`mailto:${BILLING_EMAIL}`} className="text-emerald-400 hover:underline">{BILLING_EMAIL}</a>. Cancellation takes effect at the end of the current billing period. No partial refunds are issued for unused time within a billing period.</p>
               </div>
               <div>
                 <h3 className="font-semibold text-slate-200 mb-1">30-Day Money-Back Guarantee</h3>
-                <p>If you are not satisfied with the Service within the first 30 days of your first paid subscription period, contact us for a full refund. This guarantee applies once per customer.</p>
+                <p>If you are not satisfied with the Service within the first 30 days of your first paid subscription period, contact <a href={`mailto:${BILLING_EMAIL}`} className="text-emerald-400 hover:underline">{BILLING_EMAIL}</a> for a full refund. This guarantee applies once per customer.</p>
               </div>
             </div>
           </section>
@@ -244,8 +246,10 @@ export default function TermsPage() {
               We reserve the right to modify these Terms at any time. We will notify you of material changes via email or in-app notification at least 14 days before they take effect. Continued use of the Service after the effective date constitutes acceptance.
             </p>
             <p className="text-sm text-slate-300 leading-relaxed">
-              Questions about these Terms? Contact us at{' '}
-              <a href={`mailto:${CONTACT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300 underline">{CONTACT_EMAIL}</a>.
+              Questions about these Terms, legal notices, or account disputes? Contact us at{' '}
+              <a href={`mailto:${CONTACT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300 underline">{CONTACT_EMAIL}</a>{' '}
+              or for general customer support at{' '}
+              <a href={`mailto:${SUPPORT_EMAIL}`} className="text-emerald-400 hover:text-emerald-300 underline">{SUPPORT_EMAIL}</a>.
             </p>
           </section>
 
