@@ -38,6 +38,8 @@ export default function Sidebar({
   const isPro =
     profile.plan_status === 'active' ||
     profile.plan_status === 'pro' ||
+    profile.plan_status === 'trialing' ||
+    profile.plan_status === 'trial' ||
     (typeof window !== 'undefined' && localStorage.getItem('ratingpulse_is_pro') === 'true');
 
   const handleSidebarBillingAction = async (e?: React.MouseEvent) => {

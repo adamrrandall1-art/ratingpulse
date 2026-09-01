@@ -97,23 +97,32 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const subscriptionId = subscription.id;
-        const status = subscription.status;
+        const status = subscription.status; // 'active', 'trialing', 'past_due', 'canceled', etc.
         const currentPeriodEnd = (subscription as any).current_period_end
           ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : new Date().toISOString();
 
-        console.log('[Stripe Webhook] customer.subscription.updated:', {
+        console.log(`[Stripe Webhook] ${event.type}:`, {
           customerId,
           subscriptionId,
           status,
         });
 
         if (supabase && customerId) {
-          const mappedPlanStatus = status === 'active' || status === 'trialing' ? 'active' : status === 'past_due' ? 'past_due' : 'canceled';
+          // Both 'active' and 'trialing' grant full Pro access
+          const mappedPlanStatus =
+            status === 'active'
+              ? 'active'
+              : status === 'trialing'
+              ? 'trialing'
+              : status === 'past_due'
+              ? 'past_due'
+              : 'canceled';
 
           await Promise.allSettled([
             supabase

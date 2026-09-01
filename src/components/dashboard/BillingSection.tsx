@@ -131,9 +131,9 @@ export default function BillingSection() {
             </span>
           )}
           {isTrialing && (
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-xs font-bold">
-              <Clock className="w-3.5 h-3.5" />
-              14-Day Free Trial
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-bold">
+              <Clock className="w-3.5 h-3.5 text-emerald-600" />
+              14-Day Trial (Pro Access Active)
             </span>
           )}
           {isPastDue && (
@@ -197,7 +197,7 @@ export default function BillingSection() {
         </div>
 
         <div className="flex items-center gap-3 w-full sm:w-auto">
-          {!isActive && (
+          {!isActive && !isTrialing && (
             <button
               type="button"
               onClick={handleUpgrade}
