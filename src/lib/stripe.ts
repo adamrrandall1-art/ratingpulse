@@ -25,7 +25,7 @@ export const getStripePriceIdPro = () =>
   process.env.STRIPE_PRICE_ID_GROWTH ||
   process.env.STRIPE_GROWTH_PRICE_ID ||
   process.env.STRIPE_PRICE_ID_PRO ||
-  'price_1U7MZG1fc0NSzHx1a8xy48tf';
+  'price_1UAZP71k4PvXtJu0TYLD5qVZ';
 
 export const getAppUrl = (reqOrigin?: string) => {
   return (
@@ -37,7 +37,7 @@ export const getAppUrl = (reqOrigin?: string) => {
 
 export const STRIPE_PLANS = {
   GROWTH_MONTHLY: {
-    id: 'price_1U7MZG1fc0NSzHx1a8xy48tf',
+    id: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
     name: 'RatingPulse Pro (Growth Plan)',
     description: 'Unlimited Automated SMS Review Invites & Gemini AI SEO Replies',
     amount: 2500, // $25.00 in cents

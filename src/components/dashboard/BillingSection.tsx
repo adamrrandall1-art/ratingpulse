@@ -46,7 +46,7 @@ export default function BillingSection() {
           userEmail: user?.email || profile.email,
           businessName: profile.business_name,
           businessId: profile.google_place_id || profile.id,
-          priceId: 'price_1U7MZG1fc0NSzHx1a8xy48tf',
+          priceId: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
           customerId: profile.stripe_customer_id,
         }),
       });
