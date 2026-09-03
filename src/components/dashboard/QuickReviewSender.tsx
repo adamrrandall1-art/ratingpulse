@@ -107,10 +107,14 @@ export default function QuickReviewSender() {
     }
   };
 
-  const previewMessage = settings.sms_template
+  const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30s to rate your experience on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName.trim() || 'Customer')
     .replace('{{business_name}}', profile.business_name)
     .replace('{{review_link}}', 'ratingpulse.co/rate/...');
+
+  const previewMessage = /stop|unsubscribe/i.test(rawPreview)
+    ? rawPreview
+    : `${rawPreview}\n\nReply STOP to unsubscribe.`;
 
   return (
     <div className="bg-gradient-to-br from-[#111820] via-[#161f26] to-[#111820] text-white rounded-3xl p-6 sm:p-7 border border-[#00d2c4]/25 shadow-2xl relative overflow-hidden">

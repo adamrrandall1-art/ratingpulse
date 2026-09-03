@@ -48,10 +48,14 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
     }, 1500);
   };
 
-  const previewMessage = settings.sms_template
+  const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30s to rate your experience on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName || 'Sarah')
     .replace('{{business_name}}', profile.business_name)
     .replace('{{review_link}}', 'g.page/r/apex-review');
+
+  const previewMessage = /stop|unsubscribe/i.test(rawPreview)
+    ? rawPreview
+    : `${rawPreview}\n\nReply STOP to unsubscribe.`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs">

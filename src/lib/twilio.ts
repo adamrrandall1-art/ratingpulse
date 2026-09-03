@@ -44,6 +44,20 @@ export function formatE164(phone: string): string {
   return `+${digits}`;
 }
 
+export const SMS_COMPLIANCE_FOOTER = 'Reply STOP to unsubscribe.';
+
+/**
+ * Ensures outbound SMS body complies with 10DLC by appending STOP opt-out instructions if missing.
+ */
+export function appendComplianceFooter(body: string): string {
+  const trimmed = (body || '').trim();
+  const hasOptOut = /stop|unsubscribe/i.test(trimmed);
+  if (hasOptOut) {
+    return trimmed;
+  }
+  return `${trimmed}\n\n${SMS_COMPLIANCE_FOOTER}`;
+}
+
 export interface SendSmsResult {
   success: boolean;
   messageId?: string;
@@ -65,9 +79,10 @@ export async function sendTwilioSms(
   body: string
 ): Promise<SendSmsResult> {
   const formattedTo = formatE164(to);
+  const outgoingBody = appendComplianceFooter(body);
 
   if (!isTwilioConfigured || !twilioClient) {
-    console.log('[Twilio Simulated] SMS dispatched to:', formattedTo, '| body:', body);
+    console.log('[Twilio Simulated] SMS dispatched to:', formattedTo, '| body:', outgoingBody);
     return {
       success: true,
       messageId: `sim_msg_${Date.now()}`,
@@ -79,7 +94,7 @@ export async function sendTwilioSms(
   try {
     // Standard direct dispatch — no templates, no messagingServiceSid
     const message = await twilioClient.messages.create({
-      body,
+      body: outgoingBody,
       from: twilioPhoneNumber,
       to: formattedTo,
     });

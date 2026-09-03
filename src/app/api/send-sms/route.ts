@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTwilioSms, twilioPhoneNumber, formatE164 } from '@/lib/twilio';
+import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,7 +40,8 @@ export async function POST(req: NextRequest) {
     }
 
     const defaultTemplate = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
-    const messageBody = message || defaultTemplate;
+    const rawMessage = message || defaultTemplate;
+    const messageBody = appendComplianceFooter(rawMessage);
 
     const result = await sendTwilioSms(formattedTo, messageBody);
 

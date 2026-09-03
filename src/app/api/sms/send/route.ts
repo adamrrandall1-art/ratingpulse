@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164 } from '@/lib/twilio';
+import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
 
 // ─── E.164 formatter (inlined for extra safety) ──────────────────────────────
@@ -75,8 +75,9 @@ export async function POST(req: NextRequest) {
   const serviceType  = (body.serviceType  as string) || 'General Service';
   const userId       = (body.userId       as string) || '';
 
-  const messageBody = (body.message as string) ||
+  const rawMessage = (body.message as string) ||
     `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
+  const messageBody = appendComplianceFooter(rawMessage);
 
   console.log('[SMS] dispatching to:', formattedTo, '| from:', twilioPhoneNumber || 'unset');
 
