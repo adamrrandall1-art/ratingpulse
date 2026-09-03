@@ -4,7 +4,17 @@ import { sendTwilioSms, twilioPhoneNumber, formatE164 } from '@/lib/twilio';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const rawTo = body.to || body.phoneNumber || body.customerPhone || body.recipient || body.phone;
+    const rawTo =
+      body.toPhone ||
+      body.phone ||
+      body.recipientPhone ||
+      body.to ||
+      body.phoneNumber ||
+      body.customerPhone ||
+      body.recipient ||
+      body.customer_phone ||
+      body.phone_number ||
+      body.mobile;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
     const {
       customerName = 'Valued Customer',
@@ -14,14 +24,14 @@ export async function POST(req: NextRequest) {
       serviceType,
     } = body;
 
-    if (!rawTo) {
+    if (!rawTo || typeof rawTo !== 'string' || !rawTo.trim()) {
       return NextResponse.json(
         { success: false, error: 'Recipient phone number is required.' },
         { status: 400 }
       );
     }
 
-    const formattedTo = formatE164(rawTo);
+    const formattedTo = formatE164(rawTo.trim());
     if (!formattedTo || formattedTo.length < 10) {
       return NextResponse.json(
         { success: false, error: 'Invalid phone number format.' },

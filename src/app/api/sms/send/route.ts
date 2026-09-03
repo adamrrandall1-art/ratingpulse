@@ -22,7 +22,16 @@ export async function POST(req: NextRequest) {
   }
 
   const rawTo = (
-    body.to ?? body.phoneNumber ?? body.customerPhone ?? body.recipient ?? body.phone
+    body.toPhone ??
+    body.phone ??
+    body.recipientPhone ??
+    body.to ??
+    body.phoneNumber ??
+    body.customerPhone ??
+    body.recipient ??
+    body.customer_phone ??
+    body.phone_number ??
+    body.mobile
   ) as string | undefined;
 
   // 2. Log incoming body and env var state for debugging
