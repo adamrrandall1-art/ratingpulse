@@ -391,8 +391,8 @@ export default function QuickReviewSender() {
               {channel === 'sms'
                 ? `SMS Preview: "${previewMessage}"`
                 : channel === 'email'
-                ? `Email Subject: "How was your experience with ${profile.business_name}?"`
-                : `SMS: "${previewMessage.slice(0, 45)}..." • Email: "How was your experience with ${profile.business_name}?"`}
+                ? `Email Subject: "Quick note from ${profile.business_name}"`
+                : `SMS: "${previewMessage.slice(0, 45)}..." • Email: "Quick note from ${profile.business_name}"`}
             </span>
           </div>
           <span className="text-[11px] text-blue-400 font-semibold shrink-0">

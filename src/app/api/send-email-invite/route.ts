@@ -40,93 +40,60 @@ export async function POST(req: NextRequest) {
       reviewGateUrl = `${appUrl}/rate/${businessId}${queryStr}`;
     }
 
-    // 1. Send High-Converting Mobile-Responsive HTML Email via Resend
+    // 1. Send Clean Plain-Text Style Email via Resend (Optimized for Primary Inbox Deliverability)
     let resendMessageId = null;
     if (resendApiKey) {
       const resend = new Resend(resendApiKey);
-      const { data, error } = await resend.emails.send({
-        from: 'RatingPulse Reviews <reviews@ratingpulse.co>',
-        to: [customerEmail],
-        subject: `How was your experience with ${businessName}?`,
-        html: `
-<!DOCTYPE html>
-<html lang="en">
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'notifications@ratingpulse.co';
+      const fromAddress = `${businessName} via RatingPulse <${fromEmail}>`;
+      const greetingName = customerName ? customerName.trim() : 'there';
+      const subject = `Quick note from ${businessName}`;
+
+      const plainTextContent = `Hi ${greetingName},
+
+Thank you for choosing ${businessName}! We hope everything went well during your recent visit.
+
+If you have 30 seconds, could you please leave us a quick review on Google? Your feedback helps our local team and helps others in our community:
+
+${reviewGateUrl}
+
+Thank you so much for your support!
+
+Best regards,
+${businessName}`;
+
+      const htmlContent = `<!DOCTYPE html>
+<html>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>How was your experience with ${businessName}?</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
-  <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f8fafc; padding: 40px 16px;">
-    <tr>
-      <td align="center">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width: 580px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);">
-          
-          <!-- Header Banner -->
-          <tr>
-            <td style="padding: 36px 32px 24px 32px; background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); text-align: center;">
-              <div style="display: inline-block; width: 44px; height: 44px; background-color: #2563eb; border-radius: 12px; line-height: 44px; text-align: center; color: #ffffff; font-weight: 800; font-size: 20px; margin-bottom: 12px;">
-                ★
-              </div>
-              <h1 style="margin: 0; color: #ffffff; font-size: 22px; font-weight: 800; letter-spacing: -0.5px;">
-                ${businessName}
-              </h1>
-              <p style="margin: 6px 0 0 0; color: #94a3b8; font-size: 13px; font-weight: 500;">
-                Verified Customer Feedback
-              </p>
-            </td>
-          </tr>
-
-          <!-- Email Content Body -->
-          <tr>
-            <td style="padding: 36px 32px 24px 32px;">
-              <h2 style="margin: 0 0 14px 0; color: #0f172a; font-size: 18px; font-weight: 700;">
-                Hi ${customerName ? customerName : 'there'},
-              </h2>
-              <p style="margin: 0 0 20px 0; color: #475569; font-size: 15px; line-height: 1.6;">
-                Thank you for choosing <strong>${businessName}</strong>! We strive to provide the best service possible.
-              </p>
-              <p style="margin: 0 0 28px 0; color: #475569; font-size: 15px; line-height: 1.6;">
-                Could you please take <strong>30 seconds</strong> to share your experience with our team? Your honest feedback helps us improve and helps others in our community.
-              </p>
-
-              <!-- Star Graphic Preview -->
-              <div style="text-align: center; margin: 24px 0 16px 0;">
-                <span style="font-size: 28px; letter-spacing: 6px; color: #f59e0b;">★ ★ ★ ★ ★</span>
-              </div>
-
-              <!-- High Contrast CTA Button -->
-              <div style="text-align: center; margin: 0 0 28px 0;">
-                <a href="${reviewGateUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 15px 36px; border-radius: 12px; font-size: 16px; font-weight: 800; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); text-align: center;">
-                  Rate Your Experience →
-                </a>
-              </div>
-
-              <p style="margin: 0; color: #94a3b8; font-size: 12px; text-align: center; font-style: italic;">
-                Takes less than 30 seconds • No login required
-              </p>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 24px 32px; background-color: #f8fafc; border-top: 1px solid #f1f5f9; text-align: center;">
-              <p style="margin: 0 0 6px 0; color: #64748b; font-size: 12px;">
-                Sent on behalf of <strong>${businessName}</strong>
-              </p>
-              <p style="margin: 0; color: #94a3b8; font-size: 11px;">
-                Powered by <a href="https://ratingpulse.co" style="color: #2563eb; text-decoration: none; font-weight: 600;">RatingPulse.co</a> • Automated Review Growth
-              </p>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
+<body style="margin: 0; padding: 24px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #222222; background-color: #ffffff;">
+  <p style="margin: 0 0 16px 0;">Hi ${greetingName},</p>
+  <p style="margin: 0 0 16px 0;">Thank you for choosing <strong>${businessName}</strong>! We hope everything went well during your recent visit.</p>
+  <p style="margin: 0 0 16px 0;">If you have 30 seconds, could you please leave us a quick review on Google? Your honest feedback helps our team improve and helps others find us:</p>
+  <p style="margin: 0 0 16px 0;">
+    <a href="${reviewGateUrl}" style="color: #1a73e8; text-decoration: underline; font-weight: 600;">Leave a quick Google review &rarr;</a>
+  </p>
+  <p style="margin: 0 0 16px 0; font-size: 13px; color: #555555;">
+    Or click here: <a href="${reviewGateUrl}" style="color: #1a73e8; word-break: break-all;">${reviewGateUrl}</a>
+  </p>
+  <p style="margin: 0 0 16px 0;">Thank you so much for your support!</p>
+  <p style="margin: 0 0 6px 0;">Best regards,</p>
+  <p style="margin: 0 0 24px 0; font-weight: 600; color: #111111;">${businessName}</p>
+  <hr style="border: none; border-top: 1px solid #eeeeee; margin: 24px 0 12px 0;" />
+  <p style="margin: 0; font-size: 11px; color: #888888;">
+    Sent via RatingPulse on behalf of ${businessName}.
+  </p>
 </body>
-</html>
-        `,
+</html>`;
+
+      const { data, error } = await resend.emails.send({
+        from: fromAddress,
+        to: [customerEmail],
+        subject,
+        text: plainTextContent,
+        html: htmlContent,
       });
 
       if (error) {
