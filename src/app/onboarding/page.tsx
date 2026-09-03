@@ -45,7 +45,7 @@ const TEMPLATE_PRESETS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, settings, updateProfile, updateSettings } = useRatingPulseStore();
+  const { profile, settings, updateProfile, updateSettings, syncGoogleReviews } = useRatingPulseStore();
 
   // Form State
   const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
@@ -111,6 +111,10 @@ export default function OnboardingPage() {
     await updateSettings({
       sms_template: smsTemplate,
     });
+
+    if (googlePlaceId.trim()) {
+      void syncGoogleReviews(googlePlaceId.trim());
+    }
 
     setIsSaving(false);
     setSavedSuccess(true);

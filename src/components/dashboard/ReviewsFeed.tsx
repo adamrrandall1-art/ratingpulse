@@ -38,6 +38,7 @@ export default function ReviewsFeed({
     regenerateAiReply,
     updateDraftText,
     simulateIncomingGoogleReview,
+    syncGoogleReviews,
     pendingReviewsCount,
     publishedReviewsCount,
     toggleDemoMode,
@@ -118,30 +119,13 @@ export default function ReviewsFeed({
   const handleSyncGoogleReviews = async () => {
     setIsSyncing(true);
     try {
-      const placeId = profile.google_place_id;
-      const res = await fetch('/api/sync-reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          place_id: placeId,
-          business_id: profile.id,
-          user_id: profile.id,
-        }),
+      const count = await syncGoogleReviews();
+      const { toast } = await import('sonner');
+      toast.success('Google Reviews Synced!', {
+        description: count > 0 
+          ? `Successfully synced ${count} reviews from Google Places.`
+          : 'Your Google reviews are up to date.',
       });
-      const data = await res.json();
-      if (data.success) {
-        const count = data.count || 0;
-        try {
-          const { toast } = await import('sonner');
-          toast.success('Google Reviews Synced!', {
-            description: count > 0 
-              ? `Successfully synced ${count} reviews from Google Maps.`
-              : 'Your Google reviews are up to date.',
-          });
-        } catch {
-          // ignore
-        }
-      }
     } catch (err: any) {
       console.warn('Sync reviews error:', err);
     } finally {

@@ -28,7 +28,7 @@ import { SelectedPlaceData, generateGoogleReviewUrl } from '@/lib/google-places'
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { profile, settings, updateSettings, updateProfile } = useRatingPulseStore();
+  const { profile, settings, updateSettings, updateProfile, syncGoogleReviews } = useRatingPulseStore();
 
   const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
   const [placeId, setPlaceId] = useState(profile.google_place_id || '');
@@ -177,6 +177,10 @@ export default function SettingsPage() {
       toast.success('Business location updated', {
         description: `Connected to ${bName || 'Google Business Profile'}.`
       });
+
+      if (pId || placeId) {
+        void syncGoogleReviews(pId || placeId);
+      }
     } catch (err) {
       console.warn('Auto-save place error:', err);
     }
@@ -219,6 +223,10 @@ export default function SettingsPage() {
         notification_phone: notificationPhone,
         sms_alerts_enabled: smsAlertsEnabled,
       });
+
+      if (placeId) {
+        void syncGoogleReviews(placeId);
+      }
 
       setIsSaved(true);
       toast.success('Settings saved successfully!', {

@@ -50,6 +50,7 @@ export interface RatingPulseStoreContextType {
   updateInviteResolution: (inviteId: string, resolution: 'unresolved' | 'resolved' | 'needs_follow_up') => Promise<void>;
   updateSettings: (newSettings: Partial<BusinessSettings>) => Promise<void>;
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
+  syncGoogleReviews: (overridePlaceId?: string) => Promise<number>;
   resetDemoData: () => void;
   pendingReviewsCount: number;
   publishedReviewsCount: number;
@@ -701,6 +702,60 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const syncGoogleReviews = async (overridePlaceId?: string): Promise<number> => {
+    const targetPlaceId = overridePlaceId || profile.google_place_id;
+    if (!targetPlaceId) {
+      console.warn('[syncGoogleReviews] No Google Place ID configured');
+      return 0;
+    }
+
+    try {
+      const uid = user?.id || profile.id;
+      const res = await fetch('/api/sync-reviews', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          place_id: targetPlaceId,
+          business_id: uid,
+          user_id: uid,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
+        const fetchedRevs: Review[] = data.reviews;
+        let updatedReviewsList: Review[] = [];
+
+        setReviews((prev) => {
+          const existingMap = new Map(prev.map((r) => [r.id, r]));
+          fetchedRevs.forEach((r) => existingMap.set(r.id, r));
+          updatedReviewsList = Array.from(existingMap.values());
+          globalReviewsCache = updatedReviewsList;
+          persistState(updatedReviewsList, invites, settings, profile);
+          return updatedReviewsList;
+        });
+
+        if (data.stats) {
+          const updatedProfile: Profile = {
+            ...profile,
+            google_place_id: targetPlaceId,
+            google_connected: true,
+            google_rating: Number(data.stats.average_rating) || profile.google_rating,
+            google_review_count: Number(data.stats.total_reviews) || profile.google_review_count,
+          };
+          setProfile(updatedProfile);
+          globalProfileCache = updatedProfile;
+          persistState(updatedReviewsList.length > 0 ? updatedReviewsList : reviews, invites, settings, updatedProfile);
+        }
+
+        return fetchedRevs.length;
+      }
+    } catch (err) {
+      console.error('[syncGoogleReviews] Exception:', err);
+    }
+    return 0;
+  };
+
   const resetDemoData = () => {
     setProfile(initialProfile);
     setSettings(initialSettings);
@@ -733,6 +788,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateInviteResolution,
     updateSettings,
     updateProfile,
+    syncGoogleReviews,
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: reviews.filter((r) => r.status === 'published').length,
@@ -774,6 +830,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     updateInviteResolution: async () => {},
     updateSettings: async () => {},
     updateProfile: async () => {},
+    syncGoogleReviews: async () => 0,
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: globalReviewsCache.filter((r) => r.status === 'published').length,
