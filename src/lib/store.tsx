@@ -125,6 +125,32 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (revs.length > 0) {
               setReviews(revs);
               globalReviewsCache = revs;
+            } else {
+              const prof = profileRes.status === 'fulfilled' ? (profileRes.value.data as Profile) : null;
+              if (prof?.google_place_id) {
+                // Auto-sync Google reviews in background if user connected a Place ID but reviews table has 0 records
+                void (async () => {
+                  try {
+                    const syncRes = await fetch('/api/sync-reviews', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        place_id: prof.google_place_id,
+                        business_id: currentUserId,
+                        user_id: currentUserId,
+                      }),
+                    });
+                    const syncData = await syncRes.json();
+                    if (syncData.success && Array.isArray(syncData.reviews) && syncData.reviews.length > 0) {
+                      setReviews(syncData.reviews);
+                      globalReviewsCache = syncData.reviews;
+                      persistState(syncData.reviews, globalInvitesCache, globalSettingsCache, prof);
+                    }
+                  } catch (syncErr) {
+                    console.warn('[Auto-sync initial reviews exception]:', syncErr);
+                  }
+                })();
+              }
             }
           }
 

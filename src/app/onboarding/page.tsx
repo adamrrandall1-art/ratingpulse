@@ -68,7 +68,10 @@ export default function OnboardingPage() {
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     if (data.businessName) setBusinessName(data.businessName);
-    if (data.placeId) setGooglePlaceId(data.placeId);
+    if (data.placeId) {
+      setGooglePlaceId(data.placeId);
+      void syncGoogleReviews(data.placeId);
+    }
     if (data.formattedAddress) setFormattedAddress(data.formattedAddress);
     if (data.reviewUrl) setReviewUrl(data.reviewUrl);
     if (data.rating) setRating(data.rating);
@@ -113,7 +116,7 @@ export default function OnboardingPage() {
     });
 
     if (googlePlaceId.trim()) {
-      void syncGoogleReviews(googlePlaceId.trim());
+      await syncGoogleReviews(googlePlaceId.trim());
     }
 
     setIsSaving(false);
