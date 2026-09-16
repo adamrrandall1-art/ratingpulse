@@ -18,6 +18,12 @@ export interface Profile {
   google_rating: number;
   google_review_count: number;
   google_connected: boolean;
+  google_access_token?: string | null;
+  google_refresh_token?: string | null;
+  google_token_expiry?: string | number | null;
+  google_account_id?: string | null;
+  google_location_id?: string | null;
+  google_account_name?: string | null;
   phone: string | null;
   notification_email?: string | null;
   notification_phone?: string | null;
@@ -48,17 +54,20 @@ export interface BusinessSettings {
 export interface Review {
   id: string;
   user_id: string;
+  review_id?: string | null;
   author_name: string;
-  author_avatar?: string;
+  author_avatar?: string | null;
   rating: number;
   review_text: string;
   review_date: string;
   ai_draft_reply: string;
+  review_reply?: string | null;
   published_reply?: string | null;
+  replied_at?: string | null;
+  published_at?: string | null;
   status: 'pending_approval' | 'published' | 'ignored';
   sentiment: 'positive' | 'neutral' | 'negative';
   keywords_used: string[];
-  published_at?: string | null;
   created_at: string;
 }
 

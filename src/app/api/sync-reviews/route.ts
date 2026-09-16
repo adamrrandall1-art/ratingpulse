@@ -2,6 +2,8 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { fetchGBPReviews, getValidAccessTokenForProfile } from '@/lib/google-gbp';
+import { Profile } from '@/lib/supabase/types';
 
 export async function GET(req: NextRequest) {
   return handleSync(req);
@@ -16,7 +18,7 @@ async function handleSync(req: NextRequest) {
     const url = new URL(req.url);
     const body = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
 
-    const placeId = body.place_id || body.placeId || url.searchParams.get('place_id') || url.searchParams.get('placeId') || '';
+    const rawPlaceId = body.place_id || body.placeId || url.searchParams.get('place_id') || url.searchParams.get('placeId') || '';
     const rawBusinessId = body.business_id || body.businessId || url.searchParams.get('business_id') || url.searchParams.get('businessId') || '';
     const rawUserId = body.user_id || body.userId || url.searchParams.get('user_id') || url.searchParams.get('userId') || '';
     const apiKey =
@@ -35,12 +37,48 @@ async function handleSync(req: NextRequest) {
       ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } })
       : null;
 
-    let googleReviews: any[] = [];
-    let placeRating = 5.0;
-    let totalRatings = 0;
-    let placeName = '';
+    let userProfile: Profile | null = null;
+    if (supabaseAdmin && resolvedUserId) {
+      const { data: pData } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('id', resolvedUserId)
+        .maybeSingle();
+      userProfile = pData as Profile;
+    }
 
-    if (placeId && apiKey) {
+    const placeId = rawPlaceId || userProfile?.google_place_id || '';
+    let googleReviews: any[] = [];
+    let placeRating = userProfile?.google_rating || 5.0;
+    let totalRatings = userProfile?.google_review_count || 0;
+    let placeName = userProfile?.business_name || '';
+
+    // 1. Try Google Business Profile (GBP) OAuth Direct Sync if available
+    let gbpSynced = false;
+    if (userProfile && (userProfile.google_access_token || userProfile.google_refresh_token) && userProfile.google_account_id && userProfile.google_location_id) {
+      try {
+        const accessToken = await getValidAccessTokenForProfile(userProfile, async (updates) => {
+          if (supabaseAdmin && userProfile?.id) {
+            await supabaseAdmin.from('profiles').update(updates).eq('id', userProfile.id);
+          }
+        });
+
+        if (accessToken) {
+          const gbpData = await fetchGBPReviews(userProfile.google_account_id, userProfile.google_location_id, accessToken);
+          if (gbpData.reviews && gbpData.reviews.length > 0) {
+            googleReviews = gbpData.reviews;
+            if (gbpData.averageRating) placeRating = gbpData.averageRating;
+            if (gbpData.totalReviewCount) totalRatings = gbpData.totalReviewCount;
+            gbpSynced = true;
+          }
+        }
+      } catch (gbpErr) {
+        console.warn('[GBP Sync Warning, falling back to Places API]:', gbpErr);
+      }
+    }
+
+    // 2. Fallback to Google Places API if GBP OAuth is not connected or returned no reviews
+    if (!gbpSynced && placeId && apiKey) {
       try {
         const placesEndpoint = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${encodeURIComponent(
           placeId
@@ -63,32 +101,42 @@ async function handleSync(req: NextRequest) {
     }
 
     const formattedReviews: any[] = googleReviews.map((rev, index) => {
-      const authorName = rev.author_name || 'Google Customer';
+      const authorName = rev.author_name || rev.reviewer?.displayName || 'Google Customer';
       const firstName = authorName.split(' ')[0] || 'there';
       const rating = Number(rev.rating) || 5;
-      const text = rev.text || '';
-      const reviewDate = rev.time ? new Date(rev.time * 1000).toISOString() : new Date().toISOString();
-      const authorAvatar = rev.profile_photo_url || null;
+      const text = rev.review_text || rev.text || rev.comment || '';
+      const reviewDate = rev.review_date || (rev.time ? new Date(rev.time * 1000).toISOString() : new Date().toISOString());
+      const authorAvatar = rev.author_avatar || rev.profile_photo_url || rev.reviewer?.profilePhotoUrl || null;
+      const publishedReply = rev.published_reply || rev.review_reply || rev.reviewReply?.comment || null;
+      const repliedAt = rev.replied_at || rev.reviewReply?.updateTime || (publishedReply ? reviewDate : null);
+      const reviewId = rev.review_id || rev.reviewId || `rev_google_${(placeId || 'loc').slice(-6)}_${rev.time || Date.now()}_${index}`;
 
-      let aiDraftReply = '';
-      if (rating >= 4) {
-        aiDraftReply = `Thank you so much for the 5-star review, ${firstName}! We are thrilled to hear you had such a great experience with our team at ${placeName || 'our business'}. We look forward to seeing you again soon! #friendlyservice #5star`;
-      } else if (rating === 3) {
-        aiDraftReply = `Thank you for taking the time to share your feedback, ${firstName}. We appreciate your business and are always working to improve. Please feel free to reach out to us directly so we can ensure your next visit is exceptional.`;
-      } else {
-        aiDraftReply = `Hi ${firstName}, thank you for your feedback. We take all feedback seriously and would love the opportunity to make things right. Please reach out to us directly so we can ensure your next visit is exceptional.`;
+      let aiDraftReply = rev.ai_draft_reply || '';
+      if (!aiDraftReply) {
+        if (rating >= 4) {
+          aiDraftReply = `Thank you so much for the 5-star review, ${firstName}! We are thrilled to hear you had such a great experience with our team at ${placeName || 'our business'}. We look forward to seeing you again soon! #friendlyservice #5star`;
+        } else if (rating === 3) {
+          aiDraftReply = `Thank you for taking the time to share your feedback, ${firstName}. We appreciate your business and are always working to improve. Please feel free to reach out to us directly so we can ensure your next visit is exceptional.`;
+        } else {
+          aiDraftReply = `Hi ${firstName}, thank you for your feedback. We take all feedback seriously and would love the opportunity to make things right. Please reach out to us directly so we can assist you.`;
+        }
       }
 
       return {
-        id: `rev_google_${placeId.slice(-6)}_${rev.time || Date.now()}_${index}`,
+        id: rev.id || `rev_${reviewId}`,
         user_id: resolvedUserId || 'usr_mock_001',
+        review_id: reviewId,
         author_name: authorName,
         author_avatar: authorAvatar,
         rating,
         review_text: text,
         review_date: reviewDate,
         ai_draft_reply: aiDraftReply,
-        status: 'pending_approval',
+        review_reply: publishedReply,
+        published_reply: publishedReply,
+        replied_at: repliedAt,
+        published_at: repliedAt,
+        status: publishedReply ? 'published' : (rev.status || 'pending_approval'),
         sentiment: rating >= 4 ? 'positive' : rating === 3 ? 'neutral' : 'negative',
         keywords_used: ['#friendly_service', '#5star_experience'],
         created_at: reviewDate,
@@ -101,13 +149,18 @@ async function handleSync(req: NextRequest) {
       for (const rev of formattedReviews) {
         const reviewRecord = {
           user_id: resolvedUserId,
+          review_id: rev.review_id,
           author_name: rev.author_name,
           author_avatar: rev.author_avatar,
           rating: rev.rating,
           review_text: rev.review_text,
           review_date: rev.review_date,
           ai_draft_reply: rev.ai_draft_reply,
-          status: 'pending_approval',
+          review_reply: rev.review_reply,
+          published_reply: rev.published_reply,
+          replied_at: rev.replied_at,
+          published_at: rev.published_at,
+          status: rev.status,
           sentiment: rev.sentiment,
           keywords_used: rev.keywords_used,
           created_at: rev.created_at,

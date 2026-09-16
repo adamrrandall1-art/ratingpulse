@@ -244,15 +244,42 @@ export default function OnboardingPage() {
                       <MapPin className="w-4 h-4" />
                     </div>
                     <div>
-                      <h2 className="text-sm font-bold text-slate-900">2. Google Places &amp; Direct Review Link</h2>
-                      <p className="text-xs text-slate-500">Auto-detect Place ID &amp; generate your 5-star Google review link</p>
+                      <h2 className="text-sm font-bold text-slate-900">2. Google Business Profile &amp; Places</h2>
+                      <p className="text-xs text-slate-500">Auto-detect Place ID or link official Google Business Profile</p>
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                    Verified Place ID
-                  </span>
+                  {profile.google_access_token ? (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      OAuth Authenticated
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                      Places Ready
+                    </span>
+                  )}
                 </div>
+
+                {!profile.google_access_token && (
+                  <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                        G
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-blue-950">Connect with Google OAuth (Recommended)</p>
+                        <p className="text-[11px] text-blue-800/80">Enables automated 1-tap review publishing directly to Google Maps</p>
+                      </div>
+                    </div>
+                    <a
+                      href={`/api/auth/google?returnUrl=/onboarding`}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+                    >
+                      Connect Google →
+                    </a>
+                  </div>
+                )}
 
                 <GooglePlacesAutocomplete
                   initialPlaceId={googlePlaceId}

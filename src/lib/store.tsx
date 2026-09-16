@@ -289,12 +289,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
   const approveReview = async (reviewId: string, customReply?: string) => {
     setIsSaving(true);
+    const targetRev = reviews.find((r) => r.id === reviewId);
+    const finalReply = customReply || targetRev?.ai_draft_reply || '';
+
     const updatedReviews = reviews.map((rev) => {
       if (rev.id === reviewId) {
-        const finalReply = customReply || rev.ai_draft_reply;
         return {
           ...rev,
+          review_reply: finalReply,
           published_reply: finalReply,
+          replied_at: new Date().toISOString(),
           status: 'published' as const,
           published_at: new Date().toISOString(),
         };
@@ -306,6 +310,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalReviewsCache = updatedReviews;
     persistState(updatedReviews, invites, settings, profile);
 
+    // Call 1-Tap Google Business Profile Review Reply API
+    try {
+      const uid = user?.id || profile.id;
+      await fetch('/api/reviews/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewId,
+          replyText: finalReply,
+          userId: uid,
+        }),
+      });
+    } catch (err) {
+      console.warn('[approveReview /api/reviews/reply warning]:', err);
+    }
+
     if (isSupabaseConfigured && supabase) {
       const target = updatedReviews.find((r) => r.id === reviewId);
       if (target) {
@@ -313,10 +333,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           await supabase.from('reviews').upsert({
             id: target.id,
             user_id: profile.id,
+            review_id: target.review_id,
             author_name: target.author_name,
             rating: target.rating,
             review_text: target.review_text,
+            review_reply: target.review_reply,
             published_reply: target.published_reply,
+            replied_at: target.replied_at,
             status: target.status,
             published_at: target.published_at,
           });

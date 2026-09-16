@@ -290,22 +290,54 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* 2. Google Business Profile & Places Connection Card */}
+        {/* 2. Google Business Profile & Places Connection Card *        {/* 2. Google Business Profile & Places Connection Card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
-          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
                 G
               </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Google Business Profile Sync &amp; Places</h3>
-                <p className="text-xs text-slate-500">Official Google Places &amp; Direct Review Link</p>
+                <h3 className="text-sm font-bold text-slate-900">Google Business Profile &amp; OAuth Integration</h3>
+                <p className="text-xs text-slate-500">Official Google Business Profile API (1-Tap Reply &amp; Live Sync)</p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              Connected &amp; Verified
-            </span>
+            
+            <div className="flex items-center gap-2">
+              {profile.google_access_token ? (
+                <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  GBP OAuth Connected
+                </span>
+              ) : (
+                <a
+                  href={`/api/auth/google?userId=${user?.id || profile.id}&returnUrl=/dashboard/settings`}
+                  className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                  Connect Google Profile (OAuth)
+                </a>
+              )}
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-slate-900">1-Tap Google Review Replies</p>
+              <p className="text-[11px] text-slate-500">
+                {profile.google_access_token 
+                  ? 'Your Google Business Profile is authenticated. You can publish AI replies directly to Google with 1 click.'
+                  : 'Connect your Google account via OAuth to enable 1-tap automated publishing directly to Google Maps.'}
+              </p>
+            </div>
+            {!profile.google_access_token && (
+              <a
+                href={`/api/auth/google?userId=${user?.id || profile.id}&returnUrl=/dashboard/settings`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 text-xs font-semibold whitespace-nowrap shadow-2xs"
+              >
+                Connect OAuth →
+              </a>
+            )}
           </div>
 
           <GooglePlacesAutocomplete
