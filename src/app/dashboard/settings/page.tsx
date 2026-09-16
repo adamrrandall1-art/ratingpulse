@@ -15,7 +15,9 @@ import {
   ExternalLink,
   Plus,
   X,
-  Mail
+  Mail,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -28,16 +30,16 @@ import { SelectedPlaceData, generateGoogleReviewUrl } from '@/lib/google-places'
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { profile, settings, updateSettings, updateProfile, syncGoogleReviews } = useRatingPulseStore();
+  const { profile, settings, updateSettings, updateProfile, syncGoogleReviews, disconnectBusiness } = useRatingPulseStore();
 
-  const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
+  const [businessName, setBusinessName] = useState(profile.business_name || '');
   const [placeId, setPlaceId] = useState(profile.google_place_id || '');
-  const [formattedAddress, setFormattedAddress] = useState(profile.formatted_address || '1400 Broadway, New York, NY 10018');
+  const [formattedAddress, setFormattedAddress] = useState(profile.formatted_address || '');
   const [reviewUrl, setReviewUrl] = useState(
     profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
   );
-  const [rating, setRating] = useState(profile.google_rating || 4.9);
-  const [reviewCount, setReviewCount] = useState(profile.google_review_count || 284);
+  const [rating, setRating] = useState(profile.google_rating || 0);
+  const [reviewCount, setReviewCount] = useState(profile.google_review_count || 0);
   const [notificationEmail, setNotificationEmail] = useState(
     settings.notification_email || profile.notification_email || profile.email || ''
   );
@@ -55,6 +57,8 @@ export default function SettingsPage() {
   const [newKeyword, setNewKeyword] = useState('');
   const [isSaved, setIsSaved] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
   const handleSendTestWelcome = async () => {
@@ -240,6 +244,29 @@ export default function SettingsPage() {
     }
   };
 
+  const handleDisconnectBusiness = async () => {
+    setIsDisconnecting(true);
+    try {
+      await disconnectBusiness();
+      setBusinessName('');
+      setPlaceId('');
+      setFormattedAddress('');
+      setReviewUrl('');
+      setRating(0);
+      setReviewCount(0);
+      setShowDisconnectModal(false);
+      toast.success('Business Disconnected', {
+        description: 'Google Place ID, OAuth tokens, and reviews have been cleared. You can now connect a new business or re-enter onboarding.'
+      });
+    } catch (err: any) {
+      toast.error('Failed to disconnect business', {
+        description: err?.message || 'Please try again.'
+      });
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
+
   const handleSyncGoogle = () => {
     setIsSyncing(true);
     setTimeout(() => {
@@ -290,7 +317,7 @@ export default function SettingsPage() {
 
       <form onSubmit={handleSave} className="space-y-6">
         
-        {/* 2. Google Business Profile & Places Connection Card *        {/* 2. Google Business Profile & Places Connection Card */}
+        {/* 2. Google Business Profile & Places Connection Card */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3">
             <div className="flex items-center gap-3">
@@ -351,19 +378,38 @@ export default function SettingsPage() {
             showPreviewCard={true}
           />
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-slate-100 gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-3 border-t border-slate-100 gap-3">
             <div className="text-[11px] text-slate-500">
-              Live Google Place ID connection active • Direct review URL automatically updated in SMS invites
+              {placeId ? (
+                <span>Connected Place ID: <code className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-mono text-[10px]">{placeId}</code></span>
+              ) : (
+                <span>No business connected • Search above or re-enter onboarding to link your profile</span>
+              )}
             </div>
-            <button
-              type="button"
-              onClick={handleSyncGoogle}
-              disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Force Sync Google Reviews'}
-            </button>
+            
+            <div className="flex items-center gap-2">
+              {(placeId || profile.google_connected || profile.google_access_token) && (
+                <button
+                  type="button"
+                  onClick={() => setShowDisconnectModal(true)}
+                  disabled={isDisconnecting}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200/80 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                  {isDisconnecting ? 'Disconnecting...' : 'Disconnect Business'}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleSyncGoogle}
+                disabled={isSyncing || !placeId}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer disabled:opacity-50"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Force Sync Google Reviews'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -618,6 +664,63 @@ export default function SettingsPage() {
         </div>
 
       </form>
+
+      {/* Disconnect Business Confirmation Modal */}
+      {showDisconnectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Disconnect Business Profile?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  This will clear your connected Google Place ID, disconnect your Google OAuth tokens, and delete all synced reviews from the database.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-1.5">
+              <p className="font-semibold text-slate-900">What happens next:</p>
+              <ul className="list-disc pl-4 space-y-1 text-slate-600 text-[11px]">
+                <li>Your Google Maps Place ID and OAuth tokens will be detached.</li>
+                <li>Your reviews dashboard feed will be cleared.</li>
+                <li>You can search for a new business location or re-enter the onboarding flow anytime.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectModal(false)}
+                disabled={isDisconnecting}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnectBusiness}
+                disabled={isDisconnecting}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95"
+              >
+                {isDisconnecting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Confirm Disconnect & Clear Reviews
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

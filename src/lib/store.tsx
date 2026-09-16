@@ -51,6 +51,7 @@ export interface RatingPulseStoreContextType {
   updateSettings: (newSettings: Partial<BusinessSettings>) => Promise<void>;
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
   syncGoogleReviews: (overridePlaceId?: string) => Promise<number>;
+  disconnectBusiness: () => Promise<void>;
   resetDemoData: () => void;
   pendingReviewsCount: number;
   publishedReviewsCount: number;
@@ -810,6 +811,82 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return 0;
   };
 
+  const disconnectBusiness = async () => {
+    setIsSaving(true);
+    const clearedProfile: Profile = {
+      ...profile,
+      business_name: '',
+      google_place_id: '',
+      formatted_address: null,
+      review_url: null,
+      google_rating: 0,
+      google_review_count: 0,
+      google_connected: false,
+      google_access_token: null,
+      google_refresh_token: null,
+      google_token_expiry: null,
+      google_account_id: null,
+      google_location_id: null,
+      google_account_name: null,
+    };
+
+    setProfile(clearedProfile);
+    globalProfileCache = clearedProfile;
+    setReviews([]);
+    globalReviewsCache = [];
+    persistState([], invites, settings, clearedProfile);
+
+    const uid = user?.id || profile.id;
+    const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
+
+    if (isSupabaseConfigured && supabase && isUidValid) {
+      try {
+        await Promise.allSettled([
+          // 1. Clear profile tokens & google details
+          supabase
+            .from('profiles')
+            .update({
+              business_name: '',
+              google_place_id: '',
+              formatted_address: null,
+              review_url: null,
+              google_rating: 0,
+              google_review_count: 0,
+              google_connected: false,
+              google_access_token: null,
+              google_refresh_token: null,
+              google_token_expiry: null,
+              google_account_id: null,
+              google_location_id: null,
+              google_account_name: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', uid),
+
+          // 2. Clear business_settings place_id & review url
+          supabase
+            .from('business_settings')
+            .update({
+              google_review_url: null,
+              place_id: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', uid),
+
+          // 3. Clear existing reviews for this business/user
+          supabase
+            .from('reviews')
+            .delete()
+            .eq('user_id', uid),
+        ]);
+      } catch (err) {
+        console.warn('Supabase disconnectBusiness exception:', err);
+      }
+    }
+
+    setIsSaving(false);
+  };
+
   const resetDemoData = () => {
     setProfile(initialProfile);
     setSettings(initialSettings);
@@ -843,6 +920,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateSettings,
     updateProfile,
     syncGoogleReviews,
+    disconnectBusiness,
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: reviews.filter((r) => r.status === 'published').length,
@@ -885,6 +963,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     updateSettings: async () => {},
     updateProfile: async () => {},
     syncGoogleReviews: async () => 0,
+    disconnectBusiness: async () => {},
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: globalReviewsCache.filter((r) => r.status === 'published').length,
