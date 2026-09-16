@@ -30,13 +30,16 @@ export async function POST(req: NextRequest) {
 
     if (supabase) {
       // 1. Locate review in local database
-      const { data: revData } = await supabase
-        .from('reviews')
-        .select('*')
-        .or(`id.eq.${reviewId},review_id.eq.${reviewId}`)
-        .maybeSingle();
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
+      if (isUuid) {
+        const { data: revData } = await supabase
+          .from('reviews')
+          .select('*')
+          .eq('id', reviewId)
+          .maybeSingle();
+        localReviewRecord = revData;
+      }
 
-      localReviewRecord = revData;
       const targetUserId = userId || localReviewRecord?.user_id;
 
       if (targetUserId) {
@@ -51,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     const effectiveAccountId = profile?.google_account_id;
     const effectiveLocationId = profile?.google_location_id;
-    const cleanGoogleReviewId = localReviewRecord?.review_id || reviewId.replace(/^rev_gbp_/, '').replace(/^rev_google_/, '');
+    const cleanGoogleReviewId = reviewId.replace(/^rev_gbp_/, '').replace(/^rev_google_/, '').replace(/^rev_/, '');
 
     // 2. Publish to Google Business Profile via API if OAuth is connected
     let gbpPublished = false;
@@ -84,18 +87,16 @@ export async function POST(req: NextRequest) {
 
     // 3. Update local database record
     const repliedAt = new Date().toISOString();
-    if (supabase && (localReviewRecord?.id || reviewId)) {
-      const dbId = localReviewRecord?.id || reviewId;
+    if (supabase && localReviewRecord?.id) {
       await supabase
         .from('reviews')
         .update({
           status: 'published',
           published_reply: replyText.trim(),
-          review_reply: replyText.trim(),
-          replied_at: repliedAt,
           published_at: repliedAt,
+          updated_at: repliedAt,
         })
-        .eq('id', dbId);
+        .eq('id', localReviewRecord.id);
     }
 
     return NextResponse.json({

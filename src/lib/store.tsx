@@ -330,19 +330,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       const target = updatedReviews.find((r) => r.id === reviewId);
       if (target) {
         try {
-          await supabase.from('reviews').upsert({
-            id: target.id,
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target.id);
+          const reviewPayload: Record<string, unknown> = {
             user_id: profile.id,
-            review_id: target.review_id,
             author_name: target.author_name,
             rating: target.rating,
             review_text: target.review_text,
-            review_reply: target.review_reply,
             published_reply: target.published_reply,
-            replied_at: target.replied_at,
             status: target.status,
             published_at: target.published_at,
-          });
+            updated_at: new Date().toISOString(),
+          };
+
+          if (isUuid) {
+            reviewPayload.id = target.id;
+            await supabase.from('reviews').upsert(reviewPayload, { onConflict: 'id' });
+          } else {
+            await supabase.from('reviews').insert([reviewPayload]);
+          }
         } catch (err) {
           console.warn('Supabase approveReview sync warning:', err);
         }

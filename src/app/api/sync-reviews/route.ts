@@ -103,13 +103,23 @@ async function handleSync(req: NextRequest) {
     const formattedReviews: any[] = googleReviews.map((rev, index) => {
       const authorName = rev.author_name || rev.reviewer?.displayName || 'Google Customer';
       const firstName = authorName.split(' ')[0] || 'there';
-      const rating = Number(rev.rating) || 5;
+      const rating = Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5));
       const text = rev.review_text || rev.text || rev.comment || '';
-      const reviewDate = rev.review_date || (rev.time ? new Date(rev.time * 1000).toISOString() : new Date().toISOString());
+
+      let reviewDate: string;
+      if (typeof rev.time === 'number') {
+        reviewDate = new Date(rev.time > 1e11 ? rev.time : rev.time * 1000).toISOString();
+      } else if (rev.review_date || rev.createTime) {
+        const parsed = new Date(rev.review_date || rev.createTime);
+        reviewDate = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
+      } else {
+        reviewDate = new Date().toISOString();
+      }
+
       const authorAvatar = rev.author_avatar || rev.profile_photo_url || rev.reviewer?.profilePhotoUrl || null;
       const publishedReply = rev.published_reply || rev.review_reply || rev.reviewReply?.comment || null;
       const repliedAt = rev.replied_at || rev.reviewReply?.updateTime || (publishedReply ? reviewDate : null);
-      const reviewId = rev.review_id || rev.reviewId || `rev_google_${(placeId || 'loc').slice(-6)}_${rev.time || Date.now()}_${index}`;
+      const googleResourceReviewId = rev.review_id || rev.reviewId || `rev_google_${(placeId || 'loc').slice(-6)}_${rev.time || Date.now()}_${index}`;
 
       let aiDraftReply = rev.ai_draft_reply || '';
       if (!aiDraftReply) {
@@ -123,9 +133,9 @@ async function handleSync(req: NextRequest) {
       }
 
       return {
-        id: rev.id || `rev_${reviewId}`,
+        id: rev.id || `rev_${googleResourceReviewId}`,
         user_id: resolvedUserId || 'usr_mock_001',
-        review_id: reviewId,
+        review_id: googleResourceReviewId,
         author_name: authorName,
         author_avatar: authorAvatar,
         rating,
@@ -138,7 +148,7 @@ async function handleSync(req: NextRequest) {
         published_at: repliedAt,
         status: publishedReply ? 'published' : (rev.status || 'pending_approval'),
         sentiment: rating >= 4 ? 'positive' : rating === 3 ? 'neutral' : 'negative',
-        keywords_used: ['#friendly_service', '#5star_experience'],
+        keywords_used: ['friendly_service', '5star_experience'],
         created_at: reviewDate,
       };
     });
@@ -146,33 +156,67 @@ async function handleSync(req: NextRequest) {
     const insertedReviews: any[] = [];
 
     if (supabaseAdmin && formattedReviews.length > 0 && resolvedUserId) {
+      // Fetch existing reviews to prevent duplicates and enable clean upsert
+      const { data: existingDbReviews } = await supabaseAdmin
+        .from('reviews')
+        .select('id, author_name, review_text, review_date')
+        .eq('user_id', resolvedUserId);
+
+      const existingMap = new Map<string, string>();
+      (existingDbReviews || []).forEach((r: any) => {
+        const key = `${(r.author_name || '').trim().toLowerCase()}::${(r.review_text || '').trim().slice(0, 60).toLowerCase()}`;
+        existingMap.set(key, r.id);
+      });
+
       for (const rev of formattedReviews) {
-        const reviewRecord = {
+        const key = `${(rev.author_name || '').trim().toLowerCase()}::${(rev.review_text || '').trim().slice(0, 60).toLowerCase()}`;
+        const existingId = existingMap.get(key);
+
+        const cleanDbRecord: Record<string, unknown> = {
           user_id: resolvedUserId,
-          review_id: rev.review_id,
-          author_name: rev.author_name,
-          author_avatar: rev.author_avatar,
-          rating: rev.rating,
-          review_text: rev.review_text,
+          author_name: rev.author_name || 'Google Customer',
+          author_avatar: rev.author_avatar || null,
+          rating: Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5)),
+          review_text: rev.review_text || '',
           review_date: rev.review_date,
-          ai_draft_reply: rev.ai_draft_reply,
-          review_reply: rev.review_reply,
-          published_reply: rev.published_reply,
-          replied_at: rev.replied_at,
-          published_at: rev.published_at,
-          status: rev.status,
-          sentiment: rev.sentiment,
-          keywords_used: rev.keywords_used,
-          created_at: rev.created_at,
+          ai_draft_reply: rev.ai_draft_reply || '',
+          published_reply: rev.published_reply || null,
+          status: rev.published_reply ? 'published' : (rev.status || 'pending_approval'),
+          sentiment: rev.sentiment || (rev.rating >= 4 ? 'positive' : rev.rating === 3 ? 'neutral' : 'negative'),
+          keywords_used: ['friendly_service', '5star_experience'],
+          ai_model: 'gemini-1.5-flash',
+          published_at: rev.published_reply ? (rev.published_at || rev.review_date) : null,
+          updated_at: new Date().toISOString(),
         };
 
         try {
-          const { data: insData, error: insError } = await supabaseAdmin.from('reviews').insert([reviewRecord]).select();
-          if (!insError && insData && insData.length > 0) {
-            insertedReviews.push(insData[0]);
+          if (existingId) {
+            const { data: updData, error: updError } = await supabaseAdmin
+              .from('reviews')
+              .update(cleanDbRecord)
+              .eq('id', existingId)
+              .select();
+
+            if (!updError && updData && updData.length > 0) {
+              insertedReviews.push(updData[0]);
+            } else if (updError) {
+              console.error('[Review DB Update Error]:', updError.message, updError.details, updError.hint);
+            }
+          } else {
+            const { data: insData, error: insError } = await supabaseAdmin
+              .from('reviews')
+              .insert([cleanDbRecord])
+              .select();
+
+            if (!insError && insData && insData.length > 0) {
+              insertedReviews.push(insData[0]);
+              existingMap.set(key, insData[0].id);
+            } else if (insError) {
+              console.error('[Review DB Insert Error]:', insError.message, insError.details, insError.hint);
+            }
           }
         } catch (dbErr) {
-          console.warn('[Review insert error]:', dbErr);
+          console.error('[Review DB Operation Exception]:', dbErr);
         }
       }
 
