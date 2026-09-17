@@ -30,13 +30,13 @@ const mockDemoUser: User = {
   id: 'usr_mock_001',
   app_metadata: {},
   user_metadata: {
-    full_name: 'Dr. Marcus Vance',
-    business_name: 'Apex Dental & Aesthetics',
+    full_name: '',
+    business_name: '',
   },
   aud: 'authenticated',
   created_at: new Date().toISOString(),
-  email: 'dr.marcus@apexdental.com',
-  phone: '+1 (555) 234-8900',
+  email: '',
+  phone: '',
   role: 'authenticated',
   updated_at: new Date().toISOString(),
 };

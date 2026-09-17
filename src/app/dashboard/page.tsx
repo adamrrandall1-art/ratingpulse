@@ -152,29 +152,44 @@ export default function DashboardOverview() {
     <div className="space-y-8">
       
       {/* Top Greeting & Google Status Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#111820] p-4 sm:p-6 rounded-2xl border border-[#00e676]/20 shadow-xl">
-        <div className="flex items-center gap-4">
-          <Logo variant="icon" size="lg" />
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-              Welcome back, {profile.full_name || 'Dr. Marcus'}
-            </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Connected to <strong className="text-[#00e676]">{profile.business_name}</strong> on Google Business Profile
-            </p>
-          </div>
-        </div>
+      {(() => {
+        const userGreetingName =
+          profile?.full_name?.trim() ||
+          user?.user_metadata?.full_name?.trim() ||
+          (user?.email ? user.email.split('@')[0] : '');
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setInviteModalOpen(true)}
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 text-xs font-extrabold shadow-[0_0_15px_rgba(0,210,196,0.3)] transition-all transform active:scale-95 cursor-pointer"
-          >
-            <Send className="w-3.5 h-3.5 fill-slate-950" />
-            Send Review Invite
-          </button>
-        </div>
-      </div>
+        return (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-[#111820] p-4 sm:p-6 rounded-2xl border border-[#00e676]/20 shadow-xl">
+            <div className="flex items-center gap-4">
+              <Logo variant="icon" size="lg" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
+                  {userGreetingName ? `Welcome back, ${userGreetingName}` : 'Welcome back'}
+                </h1>
+                <p className="text-xs text-slate-400 mt-1">
+                  {profile.business_name ? (
+                    <>
+                      Connected to <strong className="text-[#00e676]">{profile.business_name}</strong> on Google Business Profile
+                    </>
+                  ) : (
+                    <>Manage and automate your customer reviews</>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setInviteModalOpen(true)}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 text-xs font-extrabold shadow-[0_0_15px_rgba(0,210,196,0.3)] transition-all transform active:scale-95 cursor-pointer"
+              >
+                <Send className="w-3.5 h-3.5 fill-slate-950" />
+                Send Review Invite
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Prominent Interactive Phone Input & Send Review Request Card */}
       <QuickReviewSender />

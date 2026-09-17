@@ -1,11 +1,11 @@
 import { Review, Invite, BusinessSettings, Profile } from './supabase/types';
 
 export const initialProfile: Profile = {
-  id: 'usr_mock_001',
-  email: 'dr.marcus@apexdental.com',
-  full_name: 'Dr. Marcus Vance',
-  business_name: 'Apex Dental & Aesthetics',
-  business_category: 'Healthcare / Dental Care',
+  id: '',
+  email: '',
+  full_name: '',
+  business_name: '',
+  business_category: '',
   google_place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
   formatted_address: '1400 Broadway, New York, NY 10018',
   review_url: 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4',

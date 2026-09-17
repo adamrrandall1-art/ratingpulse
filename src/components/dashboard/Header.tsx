@@ -46,7 +46,11 @@ export default function Header({
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const displayName = user?.user_metadata?.full_name || profile.full_name || 'Dr. Marcus Vance';
+  const displayName =
+    user?.user_metadata?.full_name?.trim() ||
+    profile?.full_name?.trim() ||
+    (user?.email ? user.email.split('@')[0] : '') ||
+    'Account';
   const displayEmail = user?.email || profile.email;
   const isPro =
     profile.plan_status === 'active' ||

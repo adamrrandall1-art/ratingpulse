@@ -177,7 +177,7 @@ export default function Hero() {
                       </div>
                     </div>
                     <p className="text-xs text-slate-300 leading-relaxed italic">
-                      &quot;Dr. Marcus and the team gave me the best dental experience ever. Gentle, painless, and my teeth look radiant. 10/10 recommend!&quot;
+                      &quot;The entire team gave me the best experience ever. Gentle, painless, and high quality care. 10/10 recommend!&quot;
                     </p>
                   </div>
 
