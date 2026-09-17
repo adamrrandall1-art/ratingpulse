@@ -30,7 +30,15 @@ import { SelectedPlaceData, generateGoogleReviewUrl } from '@/lib/google-places'
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { profile, settings, updateSettings, updateProfile, syncGoogleReviews, disconnectBusiness } = useRatingPulseStore();
+  const {
+    profile,
+    settings,
+    updateSettings,
+    updateProfile,
+    syncGoogleReviews,
+    disconnectBusiness,
+    resetAccountAndTestData,
+  } = useRatingPulseStore();
 
   const [businessName, setBusinessName] = useState(profile.business_name || '');
   const [placeId, setPlaceId] = useState(profile.google_place_id || '');
@@ -59,6 +67,8 @@ export default function SettingsPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+  const [isResettingAccount, setIsResettingAccount] = useState(false);
+  const [showResetAccountModal, setShowResetAccountModal] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
   const handleSendTestWelcome = async () => {
@@ -264,6 +274,34 @@ export default function SettingsPage() {
       });
     } finally {
       setIsDisconnecting(false);
+    }
+  };
+
+  const handleResetAccountAndTestData = async () => {
+    setIsResettingAccount(true);
+    try {
+      await resetAccountAndTestData();
+      setBusinessName('');
+      setPlaceId('');
+      setFormattedAddress('');
+      setReviewUrl('');
+      setRating(0);
+      setReviewCount(0);
+      setKeywords([]);
+      setBrandVoice('friendly_professional');
+      setAutoPublish(false);
+      setNotificationPhone('');
+      setShowResetAccountModal(false);
+      toast.success('Account Reset Successful', {
+        description: 'All test data, reviews, invites, and business connections have been wiped.',
+      });
+    } catch (err: any) {
+      console.error('Reset account error:', err);
+      toast.error('Failed to reset account', {
+        description: err?.message || 'Please try again.',
+      });
+    } finally {
+      setIsResettingAccount(false);
     }
   };
 
@@ -653,6 +691,36 @@ export default function SettingsPage() {
           </p>
         </div>
 
+        {/* 6. Danger Zone / Developer Tools: Reset Account & Clear All Test Data */}
+        <div className="bg-rose-50/50 rounded-2xl border border-rose-200 p-6 space-y-4 shadow-2xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-start sm:items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Reset Account & Clear All Test Data</h3>
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Wipe all review invites, reviews, SMS logs, Place IDs, and cached browser records.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowResetAccountModal(true)}
+              className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              Reset Account & Clear Test Data
+            </button>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-white/80 border border-rose-200/60 text-[11px] text-slate-600 leading-relaxed">
+            <strong className="text-rose-900 font-bold">Developer / Admin Notice:</strong> Clicking this will wipe all mock and test rows from Supabase (including <code className="text-slate-800 font-mono">review_invites</code>, <code className="text-slate-800 font-mono">reviews</code>, and <code className="text-slate-800 font-mono">business_settings</code>), clear all <code className="text-slate-800 font-mono">ratingpulse_*</code> localStorage keys, and instantly reset your dashboard to a clean 0-state ready for real customer onboarding.
+          </div>
+        </div>
+
         {/* Save Button */}
         <div className="pt-2 flex justify-end">
           <button
@@ -696,7 +764,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={() => setShowDisconnectModal(false)}
                 disabled={isDisconnecting}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors"
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
               >
                 Cancel
               </button>
@@ -704,7 +772,7 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleDisconnectBusiness}
                 disabled={isDisconnecting}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95"
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
               >
                 {isDisconnecting ? (
                   <>
@@ -715,6 +783,65 @@ export default function SettingsPage() {
                   <>
                     <Trash2 className="w-3.5 h-3.5" />
                     Confirm Disconnect & Clear Reviews
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Account & Clear All Test Data Confirmation Modal */}
+      {showResetAccountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-rose-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Reset Account & Clear All Test Data?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to clear all test data and reset business connections? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-200/80 text-xs text-rose-900 space-y-2">
+              <p className="font-bold text-rose-950">This action will immediately:</p>
+              <ul className="list-disc pl-4 space-y-1 text-rose-800 text-[11px]">
+                <li>Delete all review invites, SMS dispatch history, and customer feedback from Supabase.</li>
+                <li>Delete all synced and mock reviews from the database.</li>
+                <li>Clear Google Place ID, Google OAuth tokens, and rating metadata.</li>
+                <li>Wipe all cached localStorage keys (<code className="font-mono text-rose-900">ratingpulse_*</code>).</li>
+                <li>Reset the UI to a clean 0-state ready for real onboarding.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowResetAccountModal(false)}
+                disabled={isResettingAccount}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetAccountAndTestData}
+                disabled={isResettingAccount}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+              >
+                {isResettingAccount ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Wiping & Resetting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Yes, Wipe Everything & Reset
                   </>
                 )}
               </button>

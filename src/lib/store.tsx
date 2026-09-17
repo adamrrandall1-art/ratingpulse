@@ -52,6 +52,7 @@ export interface RatingPulseStoreContextType {
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
   syncGoogleReviews: (overridePlaceId?: string) => Promise<number>;
   disconnectBusiness: () => Promise<void>;
+  resetAccountAndTestData: () => Promise<void>;
   resetDemoData: () => void;
   pendingReviewsCount: number;
   publishedReviewsCount: number;
@@ -902,6 +903,130 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setIsSaving(false);
   };
 
+  const resetAccountAndTestData = async () => {
+    setIsSaving(true);
+
+    const clearedProfile: Profile = {
+      ...profile,
+      business_name: '',
+      business_category: '',
+      google_place_id: '',
+      formatted_address: '',
+      review_url: '',
+      google_rating: 0,
+      google_review_count: 0,
+      google_connected: false,
+      google_access_token: null,
+      google_refresh_token: null,
+      google_token_expiry: null,
+      google_account_id: null,
+      google_location_id: null,
+      google_account_name: null,
+      phone: '',
+      notification_phone: '',
+    };
+
+    const clearedSettings: BusinessSettings = {
+      ...settings,
+      custom_keywords: [],
+      brand_voice: 'friendly_professional',
+      auto_publish_5_star: false,
+      notification_phone: '',
+      sms_template: 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
+    };
+
+    // 1. Reset React State immediately for zero-delay UI zero-state
+    setReviews([]);
+    globalReviewsCache = [];
+    setInvites([]);
+    globalInvitesCache = [];
+    setProfile(clearedProfile);
+    globalProfileCache = clearedProfile;
+    setSettings(clearedSettings);
+    globalSettingsCache = clearedSettings;
+    setIsDemoMode(false);
+
+    // 2. Clear all local storage caches
+    try {
+      localStorage.removeItem(STORAGE_KEYS.PROFILE);
+      localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+      localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+      localStorage.removeItem(STORAGE_KEYS.INVITES);
+      localStorage.removeItem(STORAGE_KEYS.DEMO_MODE);
+      localStorage.removeItem('ratingpulse_is_pro');
+      localStorage.removeItem('ratingpulse_demo_auth');
+      localStorage.removeItem('ratingpulse_places_recent');
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'false');
+    } catch (e) {
+      console.error('LocalStorage account reset error', e);
+    }
+
+    const uid = user?.id || profile.id;
+    const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
+
+    // 3. Trigger backend reset API
+    if (isUidValid) {
+      try {
+        await fetch('/api/account/reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid }),
+        });
+      } catch (err) {
+        console.warn('API /api/account/reset call exception:', err);
+      }
+    }
+
+    // 4. Direct Supabase fallback cleanup
+    if (isSupabaseConfigured && supabase && isUidValid) {
+      try {
+        await Promise.allSettled([
+          supabase.from('review_invites').delete().eq('user_id', uid),
+          supabase.from('reviews').delete().eq('user_id', uid),
+          supabase
+            .from('profiles')
+            .update({
+              business_name: '',
+              business_category: '',
+              google_place_id: '',
+              formatted_address: null,
+              review_url: null,
+              google_rating: 0,
+              google_review_count: 0,
+              google_connected: false,
+              google_access_token: null,
+              google_refresh_token: null,
+              google_token_expiry: null,
+              google_account_id: null,
+              google_location_id: null,
+              google_account_name: null,
+              phone: null,
+              notification_phone: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', uid),
+          supabase
+            .from('business_settings')
+            .update({
+              brand_voice: 'friendly_professional',
+              auto_publish_5_star: false,
+              custom_keywords: [],
+              sms_template: 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
+              google_review_url: null,
+              place_id: null,
+              notification_phone: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', uid),
+        ]);
+      } catch (err) {
+        console.warn('Supabase resetAccountAndTestData exception:', err);
+      }
+    }
+
+    setIsSaving(false);
+  };
+
   const resetDemoData = () => {
     setProfile(initialProfile);
     setSettings(initialSettings);
@@ -936,6 +1061,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     syncGoogleReviews,
     disconnectBusiness,
+    resetAccountAndTestData,
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: reviews.filter((r) => r.status === 'published').length,
@@ -979,6 +1105,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     updateProfile: async () => {},
     syncGoogleReviews: async () => 0,
     disconnectBusiness: async () => {},
+    resetAccountAndTestData: async () => {},
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: globalReviewsCache.filter((r) => r.status === 'published').length,
