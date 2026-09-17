@@ -244,13 +244,19 @@ export default function DashboardOverview() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-white flex items-baseline gap-2">
-            {profile.google_rating}
-            <span className="text-xs font-bold text-[#00e676] bg-[#10b981]/15 px-2 py-0.5 rounded-full border border-[#10b981]/30">
-              Top 1% in Area
-            </span>
+            {profile.google_connected && profile.google_place_id ? profile.google_rating : '—'}
+            {profile.google_connected && profile.google_place_id && profile.google_rating >= 4.5 && (
+              <span className="text-xs font-bold text-[#00e676] bg-[#10b981]/15 px-2 py-0.5 rounded-full border border-[#10b981]/30">
+                Top 1% in Area
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-400 mt-1 flex items-center gap-1">
-            Across <strong className="text-slate-200">{profile.google_review_count}</strong> Google reviews
+            {profile.google_connected && profile.google_place_id ? (
+              <>Across <strong className="text-slate-200">{profile.google_review_count}</strong> Google reviews</>
+            ) : (
+              <span>No business connected</span>
+            )}
           </div>
         </div>
 
@@ -263,13 +269,15 @@ export default function DashboardOverview() {
             </div>
           </div>
           <div className="text-3xl font-extrabold text-white flex items-baseline gap-2">
-            {profile.google_review_count}
-            <span className="text-xs font-bold text-[#00d2c4] bg-[#00d2c4]/15 px-2 py-0.5 rounded-full border border-[#00d2c4]/30">
-              +28 this mo
-            </span>
+            {profile.google_connected && profile.google_place_id ? profile.google_review_count : 0}
+            {profile.google_connected && profile.google_place_id && (
+              <span className="text-xs font-bold text-[#00d2c4] bg-[#00d2c4]/15 px-2 py-0.5 rounded-full border border-[#00d2c4]/30">
+                +28 this mo
+              </span>
+            )}
           </div>
           <div className="text-xs text-slate-400 mt-1">
-            {publishedReviewsCount} AI replies published
+            {profile.google_connected && profile.google_place_id ? `${publishedReviewsCount} AI replies published` : 'Connect a business to sync'}
           </div>
         </div>
 

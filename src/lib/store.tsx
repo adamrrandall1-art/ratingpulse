@@ -101,12 +101,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     async function loadData() {
       // 1. Check Demo Mode Preference from localStorage
-      let currentDemoMode = true;
+      let currentDemoMode = false;
       try {
         const storedDemoMode = localStorage.getItem(STORAGE_KEYS.DEMO_MODE);
         if (storedDemoMode !== null) {
           currentDemoMode = storedDemoMode === 'true';
           setIsDemoMode(currentDemoMode);
+        } else if (!currentUserId) {
+          currentDemoMode = true;
+          setIsDemoMode(true);
+        } else {
+          setIsDemoMode(false);
         }
       } catch {
         // ignore
@@ -148,11 +153,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             globalInvitesCache = invs;
           }
 
-          const activePlaceId = activeProfile?.google_place_id;
-          if (activePlaceId) {
+          const isConnected = Boolean(
+            activeProfile?.google_place_id &&
+            activeProfile?.google_place_id.trim() !== '' &&
+            activeProfile?.google_connected !== false
+          );
+
+          if (isConnected && activeProfile?.google_place_id) {
+            const activePlaceId = activeProfile.google_place_id;
             const { data: revsData, error: revsErr } = await supabase
               .from('reviews')
               .select('*')
+              .eq('user_id', currentUserId)
               .eq('place_id', activePlaceId)
               .order('created_at', { ascending: false });
 
@@ -197,7 +209,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               })();
             }
           } else {
-            // No business is currently connected or place_id is null/empty: return empty array and purge stale review cache
+            // Strict Guard: No business is connected. DO NOT query reviews table, set reviews = [], and purge cache
             setReviews([]);
             globalReviewsCache = [];
             try {
@@ -235,9 +247,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
 
         const expectedPlaceId = parsedProfile?.google_place_id || null;
+        const isLocallyConnected = Boolean(expectedPlaceId && parsedProfile?.google_connected !== false);
 
-        // Do NOT hydrate or render reviews from localStorage unless the stored reviews specifically match activeBusiness.place_id
-        if (storedReviews) {
+        // Do NOT hydrate reviews from localStorage unless actively connected with matching place_id
+        if (isLocallyConnected && storedReviews) {
           try {
             const parsed: Review[] = JSON.parse(storedReviews);
             if (
@@ -249,7 +262,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               setReviews(parsed);
               globalReviewsCache = parsed;
             } else {
-              // Stored reviews have a different or missing place_id: clear cached item immediately
               localStorage.removeItem(STORAGE_KEYS.REVIEWS);
               setReviews([]);
               globalReviewsCache = [];
@@ -263,6 +275,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           setReviews(initialReviews);
           globalReviewsCache = initialReviews;
         } else {
+          localStorage.removeItem(STORAGE_KEYS.REVIEWS);
           setReviews([]);
           globalReviewsCache = [];
         }

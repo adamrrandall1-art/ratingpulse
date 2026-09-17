@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Star,
   Sparkles,
@@ -15,7 +16,8 @@ import {
   ExternalLink,
   ShieldCheck,
   ChevronRight,
-  Zap
+  Zap,
+  Building
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
@@ -45,6 +47,12 @@ export default function ReviewsFeed({
     searchQuery,
   } = useRatingPulseStore();
 
+  const isConnected = Boolean(
+    profile.google_place_id &&
+    profile.google_place_id.trim() !== '' &&
+    profile.google_connected !== false
+  );
+
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published'>(initialFilter);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedText, setEditedText] = useState<string>('');
@@ -52,6 +60,30 @@ export default function ReviewsFeed({
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+
+  if (!isConnected) {
+    return (
+      <div className="space-y-4">
+        <div className="p-10 sm:p-14 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+            <Building className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">No Business Connected</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md leading-relaxed">
+            Connect your Google Business profile to view reviews, sync ratings, and automate AI review replies.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              href="/onboarding"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20"
+            >
+              Connect Google Business Profile →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredReviews = reviews.filter((rev) => {
     if (statusFilter === 'pending' && rev.status !== 'pending_approval') return false;
@@ -236,24 +268,28 @@ export default function ReviewsFeed({
           <h3 className="text-sm font-bold text-slate-900">No Reviews to Display</h3>
           <p className="text-xs text-slate-500 mt-1 max-w-sm">
             {reviews.length === 0
-              ? 'Enable Demo Mode in the header or click below to populate realistic Google reviews and AI drafts.'
+              ? 'Click below to sync Google reviews for your connected business listing.'
               : 'Zero reviews match the selected filter.'}
           </p>
           <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
             <button
-              onClick={handleSimulate}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold hover:bg-blue-700 transition-colors shadow-xs cursor-pointer"
+              onClick={handleSyncGoogleReviews}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
             >
-              <Plus className="w-3.5 h-3.5" />
-              Simulate Incoming Google Review
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing...' : 'Sync Google Reviews'}
             </button>
-            <button
-              onClick={() => toggleDemoMode(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer"
-            >
-              <Zap className="w-3.5 h-3.5" />
-              Populate Demo Reviews
-            </button>
+            {showSimulateButton && (
+              <button
+                onClick={handleSimulate}
+                disabled={isSimulating}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5 text-blue-400" />
+                {isSimulating ? 'Simulating...' : 'Simulate Review'}
+              </button>
+            )}
           </div>
         </div>
       ) : (
