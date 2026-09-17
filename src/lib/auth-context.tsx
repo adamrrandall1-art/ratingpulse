@@ -70,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       });
 
-      // Listen for auth state changes including PASSWORD_RECOVERY and SIGNED_OUT
+      // Listen for auth state changes including PASSWORD_RECOVERY, SIGNED_OUT, INITIAL_SESSION, SIGNED_IN
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -84,6 +84,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setSession(null);
         } else if (event === 'PASSWORD_RECOVERY') {
           router.push('/reset-password');
+        } else if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN') {
+          // Clear any local cached review state so fresh data is always fetched from Supabase for the authenticated user's active business
+          try {
+            localStorage.removeItem('ratingpulse_reviews_v1');
+          } catch {
+            // ignore
+          }
         }
       });
 

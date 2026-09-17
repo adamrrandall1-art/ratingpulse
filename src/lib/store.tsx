@@ -71,7 +71,7 @@ const RatingPulseStoreContext = createContext<RatingPulseStoreContextType | null
 let globalHasLoaded = false;
 let globalProfileCache = initialProfile;
 let globalSettingsCache = initialSettings;
-let globalReviewsCache = initialReviews;
+let globalReviewsCache: Review[] = [];
 let globalInvitesCache = initialInvites;
 
 // Register global in-memory cache clearer with workspace-cleanup
@@ -87,7 +87,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile>(globalProfileCache);
   const [settings, setSettings] = useState<BusinessSettings>(globalSettingsCache);
-  const [reviews, setReviews] = useState<Review[]>(globalReviewsCache);
+  const [reviews, setReviews] = useState<Review[]>([]);
   const [invites, setInvites] = useState<Invite[]>(globalInvitesCache);
   const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
   const [isLoaded, setIsLoaded] = useState(globalHasLoaded);
@@ -115,18 +115,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 2. Try Supabase fetch if authenticated user exists
       if (isSupabaseConfigured && supabase && currentUserId) {
         try {
-          const [profileRes, settingsRes, invitesRes] = await Promise.allSettled([
-            supabase.from('profiles').select('*').eq('id', currentUserId).maybeSingle(),
-            supabase.from('business_settings').select('*').eq('user_id', currentUserId).maybeSingle(),
-            supabase.from('review_invites').select('*').eq('user_id', currentUserId).order('sent_at', { ascending: false }),
-          ]);
+          // Strictly wait for the active business profile to resolve from Supabase FIRST
+          const { data: profileData, error: profileErr } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', currentUserId)
+            .maybeSingle();
 
           let activeProfile: Profile | null = null;
-          if (profileRes.status === 'fulfilled' && profileRes.value.data) {
-            activeProfile = profileRes.value.data as Profile;
+          if (!profileErr && profileData) {
+            activeProfile = profileData as Profile;
             setProfile(activeProfile);
             globalProfileCache = activeProfile;
           }
+
+          // Concurrently fetch settings and invites
+          const [settingsRes, invitesRes] = await Promise.allSettled([
+            supabase.from('business_settings').select('*').eq('user_id', currentUserId).maybeSingle(),
+            supabase.from('review_invites').select('*').eq('user_id', currentUserId).order('sent_at', { ascending: false }),
+          ]);
 
           if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
             const sett = settingsRes.value.data as BusinessSettings;
@@ -146,7 +153,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const { data: revsData, error: revsErr } = await supabase
               .from('reviews')
               .select('*')
-              .eq('user_id', currentUserId)
               .eq('place_id', activePlaceId)
               .order('created_at', { ascending: false });
 
@@ -154,7 +160,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               const revs = revsData as Review[];
               setReviews(revs);
               globalReviewsCache = revs;
+              persistState(revs, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
             } else {
+              setReviews([]);
+              globalReviewsCache = [];
+              try {
+                localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+              } catch {}
+
               // Auto-sync Google reviews in background if user connected a Place ID but reviews table has 0 records for this place
               void (async () => {
                 try {
@@ -184,9 +197,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               })();
             }
           } else {
-            // No business is currently connected or place_id is null/empty: return empty array
+            // No business is currently connected or place_id is null/empty: return empty array and purge stale review cache
             setReviews([]);
             globalReviewsCache = [];
+            try {
+              localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+            } catch {}
           }
 
           globalHasLoaded = true;
@@ -204,21 +220,53 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const storedReviews = localStorage.getItem(STORAGE_KEYS.REVIEWS);
         const storedInvites = localStorage.getItem(STORAGE_KEYS.INVITES);
 
+        let parsedProfile: Profile | null = null;
         if (storedProfile) {
-          const parsed = JSON.parse(storedProfile);
-          setProfile(parsed);
-          globalProfileCache = parsed;
+          parsedProfile = JSON.parse(storedProfile);
+          if (parsedProfile) {
+            setProfile(parsedProfile);
+            globalProfileCache = parsedProfile;
+          }
         }
         if (storedSettings) {
           const parsed = JSON.parse(storedSettings);
           setSettings(parsed);
           globalSettingsCache = parsed;
         }
+
+        const expectedPlaceId = parsedProfile?.google_place_id || null;
+
+        // Do NOT hydrate or render reviews from localStorage unless the stored reviews specifically match activeBusiness.place_id
         if (storedReviews) {
-          const parsed = JSON.parse(storedReviews);
-          setReviews(parsed);
-          globalReviewsCache = parsed;
+          try {
+            const parsed: Review[] = JSON.parse(storedReviews);
+            if (
+              expectedPlaceId &&
+              Array.isArray(parsed) &&
+              parsed.length > 0 &&
+              parsed.every((r) => r.place_id === expectedPlaceId)
+            ) {
+              setReviews(parsed);
+              globalReviewsCache = parsed;
+            } else {
+              // Stored reviews have a different or missing place_id: clear cached item immediately
+              localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+              setReviews([]);
+              globalReviewsCache = [];
+            }
+          } catch {
+            localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+            setReviews([]);
+            globalReviewsCache = [];
+          }
+        } else if (!currentUserId && currentDemoMode && !storedProfile) {
+          setReviews(initialReviews);
+          globalReviewsCache = initialReviews;
+        } else {
+          setReviews([]);
+          globalReviewsCache = [];
         }
+
         if (storedInvites) {
           const parsed: Invite[] = JSON.parse(storedInvites);
           setInvites(parsed);
@@ -905,7 +953,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const { data: revsData, error: revsErr } = await supabase
             .from('reviews')
             .select('*')
-            .eq('user_id', businessId)
             .eq('place_id', switchedPlaceId)
             .order('created_at', { ascending: false });
 
@@ -913,13 +960,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const revs = revsData as Review[];
             setReviews(revs);
             globalReviewsCache = revs;
+            persistState(revs, globalInvitesCache, globalSettingsCache, switchedProfile || undefined);
           } else {
             setReviews([]);
             globalReviewsCache = [];
+            try {
+              localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+            } catch {}
           }
         } else {
           setReviews([]);
           globalReviewsCache = [];
+          try {
+            localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+          } catch {}
         }
       } catch (err) {
         console.error('[switchBusiness Exception]:', err);
