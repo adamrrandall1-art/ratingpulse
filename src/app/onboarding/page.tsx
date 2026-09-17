@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -48,7 +48,7 @@ const TEMPLATE_PRESETS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, settings, updateProfile, updateSettings, syncGoogleReviews, disconnectBusiness } = useRatingPulseStore();
+  const { profile, settings, updateProfile, updateSettings, syncGoogleReviews, disconnectBusiness, isLoaded } = useRatingPulseStore();
 
   // Form State
   const [businessName, setBusinessName] = useState(profile.business_name || '');
@@ -70,6 +70,42 @@ export default function OnboardingPage() {
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showDisconnectModal, setShowDisconnectModal] = useState(false);
+
+  // Synchronize onboarding form fields when profile resolves from Supabase or disconnects
+  useEffect(() => {
+    if (isLoaded) {
+      const isConnected = Boolean(profile.google_place_id && profile.business_name && profile.google_connected !== false);
+      if (isConnected) {
+        setBusinessName(profile.business_name || '');
+        setBusinessCategory(profile.business_category || 'Healthcare / Dental Care');
+        setGooglePlaceId(profile.google_place_id || '');
+        setFormattedAddress(profile.formatted_address || '');
+        setReviewUrl(
+          profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
+        );
+        setRating(profile.google_rating || 0);
+        setReviewCount(profile.google_review_count || 0);
+      } else {
+        // Treat as disconnected if place_id or business_name is empty
+        setBusinessName('');
+        setGooglePlaceId('');
+        setFormattedAddress('');
+        setReviewUrl('');
+        setRating(0);
+        setReviewCount(0);
+      }
+    }
+  }, [
+    isLoaded,
+    profile.google_place_id,
+    profile.business_name,
+    profile.google_connected,
+    profile.formatted_address,
+    profile.review_url,
+    profile.google_rating,
+    profile.google_review_count,
+    profile.business_category,
+  ]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     if (data.businessName) setBusinessName(data.businessName);

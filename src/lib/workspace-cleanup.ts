@@ -14,6 +14,7 @@ export const WORKSPACE_STORAGE_KEYS = [
   'ratingpulse_is_pro',
   'ratingpulse_demo_auth',
   'ratingpulse_places_recent',
+  'ratingpulse_active_business',
   'ratingpulse_active_business_id',
   'ratingpulse_selected_place',
 ] as const;

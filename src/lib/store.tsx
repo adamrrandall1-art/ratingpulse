@@ -1049,12 +1049,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             })
             .eq('id', uid),
 
-          // 2. Clear business_settings place_id & review url
+          // 2. Clear business_settings place_id, business_name, google connection tokens & review url
           supabase
             .from('business_settings')
             .update({
-              google_review_url: null,
               place_id: null,
+              business_name: null,
+              google_review_url: null,
+              google_access_token: null,
+              google_refresh_token: null,
+              connected_at: null,
               updated_at: new Date().toISOString(),
             })
             .eq('user_id', uid),

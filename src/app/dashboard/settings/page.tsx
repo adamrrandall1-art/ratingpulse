@@ -140,12 +140,22 @@ export default function SettingsPage() {
 
         if (profileRes.status === 'fulfilled' && profileRes.value.data) {
           const p = profileRes.value.data;
-          if (p.business_name) setBusinessName(p.business_name);
-          if (p.google_place_id) setPlaceId(p.google_place_id);
-          if (p.formatted_address) setFormattedAddress(p.formatted_address);
-          if (p.review_url) setReviewUrl(p.review_url);
-          if (p.google_rating) setRating(p.google_rating);
-          if (p.google_review_count !== undefined) setReviewCount(p.google_review_count);
+          const isConnected = Boolean(p.google_place_id && p.business_name && p.google_connected !== false);
+          if (isConnected) {
+            setBusinessName(p.business_name || '');
+            setPlaceId(p.google_place_id || '');
+            setFormattedAddress(p.formatted_address || '');
+            setReviewUrl(p.review_url || '');
+            setRating(p.google_rating || 0);
+            setReviewCount(p.google_review_count || 0);
+          } else {
+            setBusinessName('');
+            setPlaceId('');
+            setFormattedAddress('');
+            setReviewUrl('');
+            setRating(0);
+            setReviewCount(0);
+          }
           if (p.notification_email && !notificationEmail) setNotificationEmail(p.notification_email);
           if (p.notification_phone && !notificationPhone) setNotificationPhone(p.notification_phone);
         }

@@ -44,14 +44,20 @@ create table if not exists public.subscriptions (
 alter table public.profiles add column if not exists id uuid references auth.users on delete cascade;
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
-alter table public.profiles add column if not exists business_name text default 'Apex Dental & Aesthetics';
-alter table public.profiles add column if not exists business_category text default 'Healthcare / Dental';
-alter table public.profiles add column if not exists google_place_id text default 'ChIJN1t_tDeuEmsRUsoyG83frY4';
-alter table public.profiles add column if not exists formatted_address text default '1400 Broadway, New York, NY 10018';
-alter table public.profiles add column if not exists review_url text default 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4';
-alter table public.profiles add column if not exists google_rating numeric(2,1) default 4.9;
-alter table public.profiles add column if not exists google_review_count integer default 284;
-alter table public.profiles add column if not exists google_connected boolean default true;
+alter table public.profiles add column if not exists business_name text default '';
+alter table public.profiles add column if not exists business_category text default '';
+alter table public.profiles add column if not exists google_place_id text;
+alter table public.profiles add column if not exists formatted_address text;
+alter table public.profiles add column if not exists review_url text;
+alter table public.profiles add column if not exists google_rating numeric(2,1) default 0.0;
+alter table public.profiles add column if not exists google_review_count integer default 0;
+alter table public.profiles add column if not exists google_connected boolean default false;
+alter table public.profiles add column if not exists google_access_token text;
+alter table public.profiles add column if not exists google_refresh_token text;
+alter table public.profiles add column if not exists google_token_expiry text;
+alter table public.profiles add column if not exists google_account_id text;
+alter table public.profiles add column if not exists google_location_id text;
+alter table public.profiles add column if not exists google_account_name text;
 alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists notification_email text;
 alter table public.profiles add column if not exists notification_phone text;
@@ -65,9 +71,15 @@ alter table public.profiles add column if not exists updated_at timestamp with t
 
 -- Business Settings columns
 alter table public.business_settings add column if not exists user_id uuid references public.profiles(id) on delete cascade;
+alter table public.business_settings add column if not exists place_id text;
+alter table public.business_settings add column if not exists business_name text;
+alter table public.business_settings add column if not exists google_review_url text;
+alter table public.business_settings add column if not exists google_access_token text;
+alter table public.business_settings add column if not exists google_refresh_token text;
+alter table public.business_settings add column if not exists connected_at timestamp with time zone;
 alter table public.business_settings add column if not exists brand_voice text default 'friendly_professional';
 alter table public.business_settings add column if not exists auto_publish_5_star boolean default false;
-alter table public.business_settings add column if not exists custom_keywords text[] default array['gentle care', 'emergency dentist', 'friendly staff', 'painless dentistry'];
+alter table public.business_settings add column if not exists custom_keywords text[] default array[]::text[];
 alter table public.business_settings add column if not exists sms_template text default 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}';
 alter table public.business_settings add column if not exists notification_email text;
 alter table public.business_settings add column if not exists notification_phone text;
