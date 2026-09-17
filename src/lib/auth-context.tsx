@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useRouter } from 'next/navigation';
+import { clearLocalWorkspaceState } from './workspace-cleanup';
 
 interface AuthContextType {
   user: User | null;
@@ -69,7 +70,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsLoading(false);
       });
 
-      // Listen for auth state changes including PASSWORD_RECOVERY
+      // Listen for auth state changes including PASSWORD_RECOVERY and SIGNED_OUT
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -77,7 +78,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setIsLoading(false);
 
-        if (event === 'PASSWORD_RECOVERY') {
+        if (event === 'SIGNED_OUT') {
+          clearLocalWorkspaceState();
+          setUser(null);
+          setSession(null);
+        } else if (event === 'PASSWORD_RECOVERY') {
           router.push('/reset-password');
         }
       });
@@ -216,14 +221,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setIsLoading(true);
+    clearLocalWorkspaceState();
     if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Supabase auth.signOut exception:', err);
+      }
     }
-    localStorage.removeItem('ratingpulse_demo_auth');
     setUser(null);
     setSession(null);
     setIsLoading(false);
-    router.push('/');
+    if (typeof window !== 'undefined') {
+      window.location.assign('/login');
+    } else {
+      router.push('/login');
+    }
   };
 
   return (

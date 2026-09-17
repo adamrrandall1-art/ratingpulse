@@ -15,6 +15,7 @@ import {
 } from './data';
 import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useAuth } from './auth-context';
+import { clearLocalWorkspaceState, registerCacheResetListener } from './workspace-cleanup';
 
 export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
   const rating = inv.rating_received;
@@ -52,6 +53,8 @@ export interface RatingPulseStoreContextType {
   updateProfile: (newProfile: Partial<Profile>) => Promise<void>;
   syncGoogleReviews: (overridePlaceId?: string) => Promise<number>;
   disconnectBusiness: () => Promise<void>;
+  switchBusiness: (businessId: string) => Promise<void>;
+  clearWorkspaceData: () => void;
   resetAccountAndTestData: () => Promise<void>;
   resetDemoData: () => void;
   pendingReviewsCount: number;
@@ -70,6 +73,15 @@ let globalProfileCache = initialProfile;
 let globalSettingsCache = initialSettings;
 let globalReviewsCache = initialReviews;
 let globalInvitesCache = initialInvites;
+
+// Register global in-memory cache clearer with workspace-cleanup
+registerCacheResetListener(() => {
+  globalProfileCache = initialProfile;
+  globalSettingsCache = initialSettings;
+  globalReviewsCache = [];
+  globalInvitesCache = [];
+  globalHasLoaded = false;
+});
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
@@ -812,28 +824,91 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return 0;
   };
 
+  const clearWorkspaceData = () => {
+    clearLocalWorkspaceState();
+    const clearedProfile: Profile = {
+      ...initialProfile,
+      id: user?.id || '',
+      email: user?.email || '',
+      full_name: user?.user_metadata?.full_name || '',
+    };
+    const clearedSettings: BusinessSettings = {
+      ...initialSettings,
+      id: '',
+      user_id: user?.id || '',
+    };
+    setProfile(clearedProfile);
+    globalProfileCache = clearedProfile;
+    setSettings(clearedSettings);
+    globalSettingsCache = clearedSettings;
+    setReviews([]);
+    globalReviewsCache = [];
+    setInvites([]);
+    globalInvitesCache = [];
+    setIsDemoMode(false);
+  };
+
+  const switchBusiness = async (businessId: string) => {
+    setIsSaving(true);
+    clearLocalWorkspaceState();
+
+    setReviews([]);
+    globalReviewsCache = [];
+    setInvites([]);
+    globalInvitesCache = [];
+
+    if (isSupabaseConfigured && supabase && businessId) {
+      try {
+        const [profileRes, settingsRes, reviewsRes, invitesRes] = await Promise.allSettled([
+          supabase.from('profiles').select('*').eq('id', businessId).maybeSingle(),
+          supabase.from('business_settings').select('*').eq('user_id', businessId).maybeSingle(),
+          supabase.from('reviews').select('*').eq('user_id', businessId).order('created_at', { ascending: false }),
+          supabase.from('review_invites').select('*').eq('user_id', businessId).order('sent_at', { ascending: false }),
+        ]);
+
+        if (profileRes.status === 'fulfilled' && profileRes.value.data) {
+          const prof = profileRes.value.data as Profile;
+          setProfile(prof);
+          globalProfileCache = prof;
+        }
+        if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
+          const sett = settingsRes.value.data as BusinessSettings;
+          setSettings(sett);
+          globalSettingsCache = sett;
+        }
+        if (reviewsRes.status === 'fulfilled' && reviewsRes.value.data) {
+          const revs = (reviewsRes.value.data || []) as Review[];
+          setReviews(revs);
+          globalReviewsCache = revs;
+        }
+        if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
+          const invs = (invitesRes.value.data || []) as Invite[];
+          setInvites(invs);
+          globalInvitesCache = invs;
+        }
+      } catch (err) {
+        console.error('[switchBusiness Exception]:', err);
+      }
+    }
+
+    setIsSaving(false);
+  };
+
   const disconnectBusiness = async () => {
     setIsSaving(true);
+    clearLocalWorkspaceState();
+
     const clearedProfile: Profile = {
-      ...profile,
-      business_name: '',
-      google_place_id: '',
-      formatted_address: null,
-      review_url: null,
-      google_rating: 0,
-      google_review_count: 0,
-      google_connected: false,
-      google_access_token: null,
-      google_refresh_token: null,
-      google_token_expiry: null,
-      google_account_id: null,
-      google_location_id: null,
-      google_account_name: null,
+      ...initialProfile,
+      id: user?.id || profile.id || '',
+      email: user?.email || profile.email || '',
+      full_name: user?.user_metadata?.full_name || profile.full_name || '',
     };
 
     const clearedSettings: BusinessSettings = {
-      ...settings,
-      sms_template: 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}',
+      ...initialSettings,
+      id: settings.id || '',
+      user_id: user?.id || profile.id || '',
     };
 
     setProfile(clearedProfile);
@@ -842,18 +917,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalSettingsCache = clearedSettings;
     setReviews([]);
     globalReviewsCache = [];
-
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(clearedProfile));
-      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(clearedSettings));
-      localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify([]));
-      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'false');
-    } catch (e) {
-      console.error('LocalStorage reset error', e);
-    }
+    setInvites([]);
+    globalInvitesCache = [];
+    setIsDemoMode(false);
 
     const uid = user?.id || profile.id;
     const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
+
+    if (isUidValid) {
+      try {
+        await fetch('/api/business/disconnect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: uid }),
+        }).catch(() => {});
+      } catch (err) {
+        console.warn('API /api/business/disconnect exception:', err);
+      }
+    }
 
     if (isSupabaseConfigured && supabase && isUidValid) {
       try {
@@ -1061,6 +1142,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     updateProfile,
     syncGoogleReviews,
     disconnectBusiness,
+    switchBusiness,
+    clearWorkspaceData,
     resetAccountAndTestData,
     resetDemoData,
     pendingReviewsCount: reviews.filter((r) => r.status === 'pending_approval').length,
@@ -1105,6 +1188,8 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     updateProfile: async () => {},
     syncGoogleReviews: async () => 0,
     disconnectBusiness: async () => {},
+    switchBusiness: async () => {},
+    clearWorkspaceData: () => {},
     resetAccountAndTestData: async () => {},
     resetDemoData: () => {},
     pendingReviewsCount: globalReviewsCache.filter((r) => r.status === 'pending_approval').length,

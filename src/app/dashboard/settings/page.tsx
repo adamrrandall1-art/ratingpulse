@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Settings,
   ShieldCheck,
@@ -29,6 +30,7 @@ import GooglePlacesAutocomplete from '@/components/google/GooglePlacesAutocomple
 import { SelectedPlaceData, generateGoogleReviewUrl } from '@/lib/google-places';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const {
     profile,
@@ -268,6 +270,7 @@ export default function SettingsPage() {
       toast.success('Business Disconnected', {
         description: 'Google Place ID, OAuth tokens, and reviews have been cleared. You can now connect a new business or re-enter onboarding.'
       });
+      router.push('/onboarding');
     } catch (err: any) {
       toast.error('Failed to disconnect business', {
         description: err?.message || 'Please try again.'

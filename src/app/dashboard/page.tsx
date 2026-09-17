@@ -117,9 +117,13 @@ export default function DashboardOverview() {
       }
 
       try {
+        const activeUid = user?.id || profile.id;
+        if (!activeUid) return;
+
         const { data: feedbackData, error: feedbackError } = await supabase
           .from('feedback')
           .select('*')
+          .eq('user_id', activeUid)
           .order('created_at', { ascending: false });
 
         console.log('Direct Supabase feedback fetch:', feedbackData, feedbackError);
