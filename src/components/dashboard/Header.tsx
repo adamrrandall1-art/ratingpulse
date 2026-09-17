@@ -148,12 +148,27 @@ export default function Header({
           </div>
 
           {/* Google Connected Badge */}
-          <div className="hidden xl:flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#10b981]/15 text-[#00e676] border border-[#10b981]/30">
-              <CheckCircle className="w-3 h-3 text-[#00e676]" />
-              Google Sync Active
-            </span>
-          </div>
+          {(() => {
+            const isConnected = Boolean(profile.google_place_id && profile.business_name && profile.google_connected !== false);
+            return (
+              <div className="hidden xl:flex items-center gap-2">
+                {isConnected ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#10b981]/15 text-[#00e676] border border-[#10b981]/30">
+                    <CheckCircle className="w-3 h-3 text-[#00e676]" />
+                    Google Sync Active
+                  </span>
+                ) : (
+                  <Link
+                    href="/onboarding"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:text-slate-200 hover:border-slate-600 transition-colors"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                    Google Disconnected
+                  </Link>
+                )}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Right Actions */}

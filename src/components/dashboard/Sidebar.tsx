@@ -146,20 +146,44 @@ export default function Sidebar({
           </div>
 
           {/* Business Selector Pill */}
-          <div className="mt-4 p-2.5 rounded-xl bg-[#161f26] border border-[#00d2c4]/20 flex items-center justify-between shadow-sm">
-            <div className="truncate">
-              <div className="text-xs font-bold text-slate-200 truncate">
-                {profile.business_name}
+          {(() => {
+            const isConnected = Boolean(profile.google_place_id && profile.business_name && profile.google_connected !== false);
+            return isConnected ? (
+              <div className="mt-4 p-2.5 rounded-xl bg-[#161f26] border border-[#00d2c4]/20 flex items-center justify-between shadow-sm">
+                <div className="truncate">
+                  <div className="text-xs font-bold text-slate-200 truncate">
+                    {profile.business_name}
+                  </div>
+                  <div className="text-[10px] text-[#00d2c4] flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#00d2c4] animate-pulse" />
+                    Google Place Synced
+                  </div>
+                </div>
+                <span className="text-xs font-bold text-amber-400 bg-[#111820] px-1.5 py-0.5 rounded border border-amber-500/30">
+                  {profile.google_rating} ★
+                </span>
               </div>
-              <div className="text-[10px] text-[#00d2c4] flex items-center gap-1 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#00d2c4] animate-pulse" />
-                Google Place Synced
-              </div>
-            </div>
-            <span className="text-xs font-bold text-amber-400 bg-[#111820] px-1.5 py-0.5 rounded border border-amber-500/30">
-              {profile.google_rating} ★
-            </span>
-          </div>
+            ) : (
+              <Link
+                href="/onboarding"
+                onClick={onClose}
+                className="mt-4 p-2.5 rounded-xl bg-[#161f26]/60 border border-dashed border-slate-700 hover:border-[#00d2c4]/40 flex items-center justify-between transition-colors group cursor-pointer block"
+              >
+                <div className="truncate">
+                  <div className="text-xs font-medium text-slate-400 group-hover:text-slate-200 truncate">
+                    No Business Connected
+                  </div>
+                  <div className="text-[10px] text-slate-500 group-hover:text-[#00d2c4] flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                    Click to Connect
+                  </div>
+                </div>
+                <span className="text-xs font-semibold text-slate-500 group-hover:text-[#00d2c4] bg-[#111820] px-1.5 py-0.5 rounded border border-slate-800">
+                  + Link
+                </span>
+              </Link>
+            );
+          })()}
         </div>
 
         {/* Navigation Links */}

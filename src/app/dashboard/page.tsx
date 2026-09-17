@@ -194,7 +194,7 @@ export default function DashboardOverview() {
                   {userGreetingName ? `Welcome back, ${userGreetingName}` : 'Welcome back'}
                 </h1>
                 <p className="text-xs text-slate-400 mt-1">
-                  {profile.business_name ? (
+                  {profile.google_connected && profile.google_place_id && profile.business_name ? (
                     <>
                       Connected to <strong className="text-[#00e676]">{profile.business_name}</strong> on Google Business Profile
                     </>
