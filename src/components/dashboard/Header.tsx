@@ -16,7 +16,10 @@ import {
   ShieldCheck,
   Check,
   X,
-  Menu
+  Menu,
+  Trash2,
+  AlertTriangle,
+  RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRatingPulseStore } from '@/lib/store';
@@ -34,6 +37,7 @@ export default function Header({
   const {
     profile,
     resetDemoData,
+    resetAccountAndTestData,
     isDemoMode,
     toggleDemoMode,
     simulateIncomingGoogleReview,
@@ -44,6 +48,8 @@ export default function Header({
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const displayName =
@@ -82,6 +88,24 @@ export default function Header({
     setTimeout(() => {
       setToastMessage(null);
     }, 3000);
+  };
+
+  const handleResetAccount = async () => {
+    setIsResetting(true);
+    try {
+      await resetAccountAndTestData();
+      setShowResetModal(false);
+      toast.success('Account Reset Successful', {
+        description: 'All test data, reviews, invites, and business connections have been wiped.',
+      });
+    } catch (err: any) {
+      console.error('Reset account error:', err);
+      toast.error('Failed to reset account', {
+        description: err?.message || 'Please try again.',
+      });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (
@@ -150,6 +174,17 @@ export default function Header({
               <span className="text-[10px] uppercase font-bold">{isDemoMode ? 'Demo' : 'Live'}</span>
             </button>
           </div>
+
+          {/* Prominent Reset Test Data Button with Red Outline */}
+          <button
+            type="button"
+            onClick={() => setShowResetModal(true)}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-rose-500/70 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+            title="Wipe all mock reviews, SMS invites, and reset business connections"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+            <span className="hidden sm:inline text-[11px] font-bold">Reset Test Data</span>
+          </button>
 
           {/* Send Review Invite Modal CTA */}
           <button
@@ -290,6 +325,65 @@ export default function Header({
         isOpen={inviteModalOpen}
         onClose={() => setInviteModalOpen(false)}
       />
+
+      {/* Reset Account & Clear All Test Data Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150 text-left">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-rose-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150 text-slate-900">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1 text-left">
+                <h3 className="text-base font-bold text-slate-900">Reset Account & Clear All Test Data?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Are you sure you want to clear all test data and reset business connections? This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-200/80 text-xs text-rose-900 space-y-2 text-left">
+              <p className="font-bold text-rose-950">This action will immediately:</p>
+              <ul className="list-disc pl-4 space-y-1 text-rose-800 text-[11px]">
+                <li>Delete all review invites, SMS dispatch logs, and customer feedback from Supabase.</li>
+                <li>Delete all synced and mock reviews from the database.</li>
+                <li>Clear Google Place ID, Google OAuth tokens, and rating metadata.</li>
+                <li>Wipe all cached localStorage keys (<code className="font-mono text-rose-900">ratingpulse_*</code>).</li>
+                <li>Reset the UI to a clean 0-state ready for real customer onboarding.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleResetAccount}
+                disabled={isResetting}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+              >
+                {isResetting ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    Wiping & Resetting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Yes, Wipe Everything & Reset
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
