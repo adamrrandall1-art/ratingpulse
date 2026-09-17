@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -13,7 +13,8 @@ import {
   RefreshCw,
   Sparkles,
   Building,
-  ShieldCheck
+  ShieldCheck,
+  Trash2
 } from 'lucide-react';
 
 export interface SelectedPlaceData {
@@ -33,18 +34,20 @@ interface GooglePlacesSearchProps {
   initialReviewCount?: number;
   initialReviewUrl?: string;
   onPlaceSelect: (data: SelectedPlaceData) => void;
+  onDisconnect?: () => void;
   showPreviewCard?: boolean;
   className?: string;
 }
 
 export default function GooglePlacesSearch({
-  initialPlaceId = 'ChIJN1t_tDeuEmsRUsoyG83frY4',
-  initialBusinessName = 'Apex Dental & Aesthetics',
-  initialAddress = '1400 Broadway, New York, NY 10018',
-  initialRating = 4.9,
-  initialReviewCount = 284,
+  initialPlaceId = '',
+  initialBusinessName = '',
+  initialAddress = '',
+  initialRating = 0,
+  initialReviewCount = 0,
   initialReviewUrl = '',
   onPlaceSelect,
+  onDisconnect,
   showPreviewCard = true,
   className = '',
 }: GooglePlacesSearchProps) {
@@ -70,6 +73,27 @@ export default function GooglePlacesSearch({
     initialReviewUrl ||
       (initialPlaceId ? `https://search.google.com/local/writereview?placeid=${initialPlaceId}` : '')
   );
+
+  // Sync state reactively whenever parent props change (e.g. after disconnect/reset)
+  useEffect(() => {
+    setSelectedPlace({
+      placeId: initialPlaceId,
+      businessName: initialBusinessName,
+      formattedAddress: initialAddress,
+      rating: initialRating,
+      reviewCount: initialReviewCount,
+      reviewUrl:
+        initialReviewUrl ||
+        (initialPlaceId ? `https://search.google.com/local/writereview?placeid=${initialPlaceId}` : ''),
+    });
+    setCustomReviewUrl(
+      initialReviewUrl ||
+        (initialPlaceId ? `https://search.google.com/local/writereview?placeid=${initialPlaceId}` : '')
+    );
+    if (!initialPlaceId) {
+      setSearchQuery('');
+    }
+  }, [initialPlaceId, initialBusinessName, initialAddress, initialRating, initialReviewCount, initialReviewUrl]);
 
   useEffect(() => {
     let isMounted = true;
@@ -211,8 +235,8 @@ export default function GooglePlacesSearch({
               </p>
             </div>
 
-            {/* Google Rating Pill */}
-            <div className="flex items-center gap-2">
+            {/* Google Rating Pill & Disconnect Button */}
+            <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-amber-400">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                 <span>{selectedPlace.rating || 5.0}</span>
@@ -220,6 +244,17 @@ export default function GooglePlacesSearch({
                   ({selectedPlace.reviewCount || 0})
                 </span>
               </div>
+
+              {onDisconnect && (
+                <button
+                  type="button"
+                  onClick={onDisconnect}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-semibold border border-rose-500/40 transition-colors cursor-pointer"
+                >
+                  <Trash2 className="w-3 h-3 text-rose-400" />
+                  Disconnect / Change
+                </button>
+              )}
 
               <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/80 px-2 py-1 rounded-lg border border-emerald-800/80 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-400" />

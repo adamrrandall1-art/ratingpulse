@@ -17,12 +17,15 @@ import {
   ShieldCheck,
   Zap,
   Star,
-  Check
+  Check,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
 import GooglePlacesAutocomplete from '@/components/google/GooglePlacesAutocomplete';
 import { generateGoogleReviewUrl, SelectedPlaceData } from '@/lib/google-places';
+import { toast } from 'sonner';
 
 const TEMPLATE_PRESETS = [
   {
@@ -45,18 +48,18 @@ const TEMPLATE_PRESETS = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { profile, settings, updateProfile, updateSettings, syncGoogleReviews } = useRatingPulseStore();
+  const { profile, settings, updateProfile, updateSettings, syncGoogleReviews, disconnectBusiness } = useRatingPulseStore();
 
   // Form State
-  const [businessName, setBusinessName] = useState(profile.business_name || 'Apex Dental & Aesthetics');
+  const [businessName, setBusinessName] = useState(profile.business_name || '');
   const [businessCategory, setBusinessCategory] = useState(profile.business_category || 'Healthcare / Dental Care');
-  const [googlePlaceId, setGooglePlaceId] = useState(profile.google_place_id || 'ChIJN1t_tDeuEmsRUsoyG83frY4');
-  const [formattedAddress, setFormattedAddress] = useState(profile.formatted_address || '1400 Broadway, New York, NY 10018');
+  const [googlePlaceId, setGooglePlaceId] = useState(profile.google_place_id || '');
+  const [formattedAddress, setFormattedAddress] = useState(profile.formatted_address || '');
   const [reviewUrl, setReviewUrl] = useState(
-    profile.review_url || generateGoogleReviewUrl(profile.google_place_id || 'ChIJN1t_tDeuEmsRUsoyG83frY4')
+    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
   );
-  const [rating, setRating] = useState(profile.google_rating || 4.9);
-  const [reviewCount, setReviewCount] = useState(profile.google_review_count || 284);
+  const [rating, setRating] = useState(profile.google_rating || 0);
+  const [reviewCount, setReviewCount] = useState(profile.google_review_count || 0);
 
   const [smsTemplate, setSmsTemplate] = useState(
     settings.sms_template ||
@@ -65,6 +68,8 @@ export default function OnboardingPage() {
   const [sampleCustomerName, setSampleCustomerName] = useState('Sarah');
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const [showDisconnectModal, setShowDisconnectModal] = useState(false);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     if (data.businessName) setBusinessName(data.businessName);
@@ -76,6 +81,29 @@ export default function OnboardingPage() {
     if (data.reviewUrl) setReviewUrl(data.reviewUrl);
     if (data.rating) setRating(data.rating);
     if (data.reviewCount !== undefined) setReviewCount(data.reviewCount);
+  };
+
+  const handleDisconnectBusiness = async () => {
+    setIsDisconnecting(true);
+    try {
+      await disconnectBusiness();
+      setBusinessName('');
+      setGooglePlaceId('');
+      setFormattedAddress('');
+      setReviewUrl('');
+      setRating(0);
+      setReviewCount(0);
+      setShowDisconnectModal(false);
+      toast.success('Business Disconnected', {
+        description: 'Google Place ID, OAuth tokens, and reviews cleared. You can now search for your business.'
+      });
+    } catch (err: any) {
+      toast.error('Failed to disconnect business', {
+        description: err?.message || 'Please try again.'
+      });
+    } finally {
+      setIsDisconnecting(false);
+    }
   };
 
   // Compute live rendered preview text
@@ -289,8 +317,23 @@ export default function OnboardingPage() {
                   initialReviewCount={reviewCount}
                   initialReviewUrl={reviewUrl}
                   onPlaceSelect={handlePlaceSelect}
+                  onDisconnect={() => setShowDisconnectModal(true)}
                   showPreviewCard={true}
                 />
+
+                {(googlePlaceId || businessName || profile.google_connected) && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDisconnectModal(true)}
+                      disabled={isDisconnecting}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200/80 transition-colors cursor-pointer"
+                    >
+                      <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                      {isDisconnecting ? 'Disconnecting...' : 'Disconnect / Change Business'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Card 3: Custom SMS Template Configuration */}
@@ -527,6 +570,63 @@ export default function OnboardingPage() {
       <footer className="bg-white border-t border-slate-200 py-4 px-6 text-center text-xs text-slate-400">
         © {new Date().getFullYear()} RatingPulse.co • 100% Google Review Policy Compliant
       </footer>
+
+      {/* Disconnect Business Confirmation Modal */}
+      {showDisconnectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
+          <div className="bg-white rounded-2xl max-w-md w-full border border-slate-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-slate-900">Disconnect / Change Business?</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  This will clear the current Google Place ID, reset the business name and address, and delete any synced reviews from your account.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 space-y-1.5">
+              <p className="font-semibold text-slate-900">What happens next:</p>
+              <ul className="list-disc pl-4 space-y-1 text-slate-600 text-[11px]">
+                <li>All inputs and place preview cards will reset to an empty state.</li>
+                <li>You can type and search for your official business listing.</li>
+                <li>Saved cache in your browser will be cleared immediately.</li>
+              </ul>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowDisconnectModal(false)}
+                disabled={isDisconnecting}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDisconnectBusiness}
+                disabled={isDisconnecting}
+                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
+              >
+                {isDisconnecting ? (
+                  <>
+                    <RotateCcw className="w-3.5 h-3.5 animate-spin" />
+                    Disconnecting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Confirm Disconnect &amp; Reset
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

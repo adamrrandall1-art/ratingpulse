@@ -830,11 +830,26 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       google_account_name: null,
     };
 
+    const clearedSettings: BusinessSettings = {
+      ...settings,
+      sms_template: 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience on Google? It means the world to our team: {{review_link}}',
+    };
+
     setProfile(clearedProfile);
     globalProfileCache = clearedProfile;
+    setSettings(clearedSettings);
+    globalSettingsCache = clearedSettings;
     setReviews([]);
     globalReviewsCache = [];
-    persistState([], invites, settings, clearedProfile);
+
+    try {
+      localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(clearedProfile));
+      localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(clearedSettings));
+      localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'false');
+    } catch (e) {
+      console.error('LocalStorage reset error', e);
+    }
 
     const uid = user?.id || profile.id;
     const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);

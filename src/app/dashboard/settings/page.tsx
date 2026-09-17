@@ -375,6 +375,7 @@ export default function SettingsPage() {
             initialReviewCount={reviewCount}
             initialReviewUrl={reviewUrl}
             onPlaceSelect={handlePlaceSelect}
+            onDisconnect={() => setShowDisconnectModal(true)}
             showPreviewCard={true}
           />
 
