@@ -1,10 +1,11 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 import { NextRequest, NextResponse } from 'next/server';
+import { headers } from 'next/headers';
 import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
-
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
 
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -17,6 +18,7 @@ export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!stripe) {
+    console.error('[Stripe Webhook Error]: Stripe client is not configured.');
     return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
   }
 
@@ -24,17 +26,23 @@ export async function POST(req: NextRequest) {
 
   try {
     const rawBody = await req.text();
-    const signature = req.headers.get('stripe-signature');
+    const headerList = await headers();
+    const signature = headerList.get('stripe-signature') || req.headers.get('stripe-signature');
 
-    if (webhookSecret && signature) {
-      event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-    } else {
-      event = JSON.parse(rawBody) as Stripe.Event;
-      console.warn('[Stripe Webhook] Processing event without signature verification.');
+    if (!signature) {
+      console.error('[Stripe Webhook Error]: Missing stripe-signature header');
+      return NextResponse.json({ error: 'Missing stripe-signature header' }, { status: 400 });
     }
+
+    if (!webhookSecret) {
+      console.error('[Stripe Webhook Error]: Missing STRIPE_WEBHOOK_SECRET environment variable');
+      return NextResponse.json({ error: 'STRIPE_WEBHOOK_SECRET is not configured' }, { status: 500 });
+    }
+
+    event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
   } catch (err: any) {
-    console.error(`[Stripe Webhook Signature Error]: ${err.message}`);
-    return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
+    console.error(`[Stripe Webhook Signature Verification Failed]: ${err.message}`);
+    return NextResponse.json({ error: `Webhook signature verification failed: ${err.message}` }, { status: 400 });
   }
 
   const supabase = getSupabaseClient();
@@ -48,7 +56,7 @@ export async function POST(req: NextRequest) {
         const userId = session.client_reference_id || session.metadata?.userId || session.metadata?.user_id;
         const customerEmail = session.customer_details?.email || session.customer_email || session.metadata?.email || session.metadata?.userEmail;
 
-        console.log('[Stripe Webhook] checkout.session.completed:', {
+        console.log('[Stripe Webhook] checkout.session.completed received:', {
           customerId,
           subscriptionId,
           userId,
@@ -56,6 +64,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (supabase && (userId || customerEmail || customerId)) {
+          // 1. Record / Upsert into subscriptions table
           try {
             await supabase.from('subscriptions').upsert([
               {
@@ -73,6 +82,7 @@ export async function POST(req: NextRequest) {
             console.warn('[Subscriptions table upsert warning]:', subErr);
           }
 
+          // 2. Update profiles table
           const updatePayload: Record<string, any> = {
             plan_status: 'active',
             updated_at: new Date().toISOString(),
@@ -92,6 +102,8 @@ export async function POST(req: NextRequest) {
           const { error } = await query;
           if (error) {
             console.error('[Stripe Webhook] Error updating profile on checkout.session.completed:', error);
+          } else {
+            console.log('[Stripe Webhook] Profile successfully marked as active Pro');
           }
         }
         break;
@@ -114,7 +126,6 @@ export async function POST(req: NextRequest) {
         });
 
         if (supabase && customerId) {
-          // Both 'active' and 'trialing' grant full Pro access
           const mappedPlanStatus =
             status === 'active'
               ? 'active'
@@ -178,13 +189,48 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case 'invoice.payment_succeeded': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = (invoice.customer as string) || '';
+        const subscriptionId = ((invoice as any).subscription as string) || '';
+
+        console.log('[Stripe Webhook] invoice.payment_succeeded:', { customerId, subscriptionId });
+        if (supabase && customerId) {
+          await supabase
+            .from('profiles')
+            .update({
+              plan_status: 'active',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_customer_id', customerId);
+        }
+        break;
+      }
+
+      case 'invoice.payment_failed': {
+        const invoice = event.data.object as Stripe.Invoice;
+        const customerId = (invoice.customer as string) || '';
+
+        console.warn('[Stripe Webhook] invoice.payment_failed:', { customerId });
+        if (supabase && customerId) {
+          await supabase
+            .from('profiles')
+            .update({
+              plan_status: 'past_due',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('stripe_customer_id', customerId);
+        }
+        break;
+      }
+
       default:
         console.log(`[Stripe Webhook] Unhandled event type: ${event.type}`);
     }
 
-    return NextResponse.json({ received: true });
+    return NextResponse.json({ received: true }, { status: 200 });
   } catch (err: any) {
     console.error(`[Stripe Webhook Handler Exception]: ${err.message}`);
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 });
+    return NextResponse.json({ error: 'Webhook processing failed', details: err.message }, { status: 500 });
   }
 }
