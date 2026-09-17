@@ -36,6 +36,8 @@ export const initialReviews: Review[] = [
   {
     id: 'rev-101',
     user_id: 'usr_mock_001',
+    business_id: 'usr_mock_001',
+    place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     author_name: 'Sarah Jenkins',
     author_avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=120&h=120&fit=crop&crop=face',
     rating: 5,
@@ -51,6 +53,8 @@ export const initialReviews: Review[] = [
   {
     id: 'rev-102',
     user_id: 'usr_mock_001',
+    business_id: 'usr_mock_001',
+    place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     author_name: 'David Montgomery',
     author_avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face',
     rating: 5,
@@ -66,6 +70,8 @@ export const initialReviews: Review[] = [
   {
     id: 'rev-103',
     user_id: 'usr_mock_001',
+    business_id: 'usr_mock_001',
+    place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     author_name: 'Elena Rostova',
     author_avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&h=120&fit=crop&crop=face',
     rating: 5,
@@ -82,6 +88,8 @@ export const initialReviews: Review[] = [
   {
     id: 'rev-104',
     user_id: 'usr_mock_001',
+    business_id: 'usr_mock_001',
+    place_id: 'ChIJN1t_tDeuEmsRUsoyG83frY4',
     author_name: 'Robert Chen',
     author_avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=120&h=120&fit=crop&crop=face',
     rating: 4,

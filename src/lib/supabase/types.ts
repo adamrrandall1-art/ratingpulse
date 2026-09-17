@@ -54,6 +54,8 @@ export interface BusinessSettings {
 export interface Review {
   id: string;
   user_id: string;
+  place_id?: string | null;
+  business_id?: string | null;
   review_id?: string | null;
   author_name: string;
   author_avatar?: string | null;

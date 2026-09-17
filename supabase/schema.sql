@@ -79,6 +79,8 @@ alter table public.business_settings add column if not exists updated_at timesta
 
 -- Reviews columns
 alter table public.reviews add column if not exists user_id uuid references public.profiles(id) on delete cascade;
+alter table public.reviews add column if not exists place_id text;
+alter table public.reviews add column if not exists business_id text;
 alter table public.reviews add column if not exists author_name text default 'Google Reviewer';
 alter table public.reviews add column if not exists author_avatar text;
 alter table public.reviews add column if not exists rating integer default 5;
@@ -210,6 +212,8 @@ create trigger settings_update
 create index if not exists idx_profiles_email on public.profiles(email);
 create index if not exists idx_profiles_place_id on public.profiles(google_place_id);
 create index if not exists idx_reviews_user_status on public.reviews(user_id, status);
+create index if not exists idx_reviews_place_id on public.reviews(place_id);
+create index if not exists idx_reviews_user_place on public.reviews(user_id, place_id);
 create index if not exists idx_reviews_rating on public.reviews(rating);
 create index if not exists idx_reviews_created_at on public.reviews(created_at desc);
 create index if not exists idx_review_invites_user_status on public.review_invites(user_id, status);

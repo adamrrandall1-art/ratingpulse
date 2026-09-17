@@ -135,6 +135,8 @@ async function handleSync(req: NextRequest) {
       return {
         id: rev.id || `rev_${googleResourceReviewId}`,
         user_id: resolvedUserId || 'usr_mock_001',
+        business_id: resolvedUserId || null,
+        place_id: placeId || null,
         review_id: googleResourceReviewId,
         author_name: authorName,
         author_avatar: authorAvatar,
@@ -157,10 +159,16 @@ async function handleSync(req: NextRequest) {
 
     if (supabaseAdmin && formattedReviews.length > 0 && resolvedUserId) {
       // Fetch existing reviews to prevent duplicates and enable clean upsert
-      const { data: existingDbReviews } = await supabaseAdmin
+      let existingQuery = supabaseAdmin
         .from('reviews')
-        .select('id, author_name, review_text, review_date')
+        .select('id, author_name, review_text, review_date, place_id')
         .eq('user_id', resolvedUserId);
+
+      if (placeId) {
+        existingQuery = existingQuery.eq('place_id', placeId);
+      }
+
+      const { data: existingDbReviews } = await existingQuery;
 
       const existingMap = new Map<string, string>();
       (existingDbReviews || []).forEach((r: any) => {
@@ -174,6 +182,8 @@ async function handleSync(req: NextRequest) {
 
         const cleanDbRecord: Record<string, unknown> = {
           user_id: resolvedUserId,
+          business_id: resolvedUserId,
+          place_id: placeId || null,
           author_name: rev.author_name || 'Google Customer',
           author_avatar: rev.author_avatar || null,
           rating: Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5)),

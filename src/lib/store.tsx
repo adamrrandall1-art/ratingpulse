@@ -115,17 +115,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       // 2. Try Supabase fetch if authenticated user exists
       if (isSupabaseConfigured && supabase && currentUserId) {
         try {
-          const [profileRes, settingsRes, reviewsRes, invitesRes] = await Promise.allSettled([
+          const [profileRes, settingsRes, invitesRes] = await Promise.allSettled([
             supabase.from('profiles').select('*').eq('id', currentUserId).maybeSingle(),
             supabase.from('business_settings').select('*').eq('user_id', currentUserId).maybeSingle(),
-            supabase.from('reviews').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false }),
             supabase.from('review_invites').select('*').eq('user_id', currentUserId).order('sent_at', { ascending: false }),
           ]);
 
+          let activeProfile: Profile | null = null;
           if (profileRes.status === 'fulfilled' && profileRes.value.data) {
-            const prof = profileRes.value.data as Profile;
-            setProfile(prof);
-            globalProfileCache = prof;
+            activeProfile = profileRes.value.data as Profile;
+            setProfile(activeProfile);
+            globalProfileCache = activeProfile;
           }
 
           if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
@@ -134,45 +134,59 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             globalSettingsCache = sett;
           }
 
-          if (reviewsRes.status === 'fulfilled' && reviewsRes.value.data) {
-            const revs = reviewsRes.value.data as Review[];
-            if (revs.length > 0) {
-              setReviews(revs);
-              globalReviewsCache = revs;
-            } else {
-              const prof = profileRes.status === 'fulfilled' ? (profileRes.value.data as Profile) : null;
-              if (prof?.google_place_id) {
-                // Auto-sync Google reviews in background if user connected a Place ID but reviews table has 0 records
-                void (async () => {
-                  try {
-                    const syncRes = await fetch('/api/sync-reviews', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        place_id: prof.google_place_id,
-                        business_id: currentUserId,
-                        user_id: currentUserId,
-                      }),
-                    });
-                    const syncData = await syncRes.json();
-                    if (syncData.success && Array.isArray(syncData.reviews) && syncData.reviews.length > 0) {
-                      setReviews(syncData.reviews);
-                      globalReviewsCache = syncData.reviews;
-                      persistState(syncData.reviews, globalInvitesCache, globalSettingsCache, prof);
-                    }
-                  } catch (syncErr) {
-                    console.warn('[Auto-sync initial reviews exception]:', syncErr);
-                  }
-                })();
-              }
-            }
-          }
-
           if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
             const invs = invitesRes.value.data as Invite[];
             console.log('Fetched Urgent Feedback / Review Invites:', invs);
             setInvites(invs);
             globalInvitesCache = invs;
+          }
+
+          const activePlaceId = activeProfile?.google_place_id;
+          if (activePlaceId) {
+            const { data: revsData, error: revsErr } = await supabase
+              .from('reviews')
+              .select('*')
+              .eq('user_id', currentUserId)
+              .eq('place_id', activePlaceId)
+              .order('created_at', { ascending: false });
+
+            if (!revsErr && revsData && revsData.length > 0) {
+              const revs = revsData as Review[];
+              setReviews(revs);
+              globalReviewsCache = revs;
+            } else {
+              // Auto-sync Google reviews in background if user connected a Place ID but reviews table has 0 records for this place
+              void (async () => {
+                try {
+                  const syncRes = await fetch('/api/sync-reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      place_id: activePlaceId,
+                      business_id: currentUserId,
+                      user_id: currentUserId,
+                    }),
+                  });
+                  const syncData = await syncRes.json();
+                  if (syncData.success && Array.isArray(syncData.reviews) && syncData.reviews.length > 0) {
+                    setReviews(syncData.reviews);
+                    globalReviewsCache = syncData.reviews;
+                    persistState(syncData.reviews, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
+                  } else {
+                    setReviews([]);
+                    globalReviewsCache = [];
+                  }
+                } catch (syncErr) {
+                  console.warn('[Auto-sync initial reviews exception]:', syncErr);
+                  setReviews([]);
+                  globalReviewsCache = [];
+                }
+              })();
+            }
+          } else {
+            // No business is currently connected or place_id is null/empty: return empty array
+            setReviews([]);
+            globalReviewsCache = [];
           }
 
           globalHasLoaded = true;
@@ -347,6 +361,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(target.id);
           const reviewPayload: Record<string, unknown> = {
             user_id: profile.id,
+            business_id: profile.id,
+            place_id: profile.google_place_id || null,
             author_name: target.author_name,
             rating: target.rating,
             review_text: target.review_text,
@@ -437,6 +453,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newReview: Review = {
       id: newId,
       user_id: profile.id,
+      business_id: profile.id,
+      place_id: profile.google_place_id || '',
       author_name: randomName,
       author_avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 50)}?w=150&auto=format&fit=crop&q=80`,
       rating: 5,
@@ -859,32 +877,49 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     if (isSupabaseConfigured && supabase && businessId) {
       try {
-        const [profileRes, settingsRes, reviewsRes, invitesRes] = await Promise.allSettled([
+        const [profileRes, settingsRes, invitesRes] = await Promise.allSettled([
           supabase.from('profiles').select('*').eq('id', businessId).maybeSingle(),
           supabase.from('business_settings').select('*').eq('user_id', businessId).maybeSingle(),
-          supabase.from('reviews').select('*').eq('user_id', businessId).order('created_at', { ascending: false }),
           supabase.from('review_invites').select('*').eq('user_id', businessId).order('sent_at', { ascending: false }),
         ]);
 
+        let switchedProfile: Profile | null = null;
         if (profileRes.status === 'fulfilled' && profileRes.value.data) {
-          const prof = profileRes.value.data as Profile;
-          setProfile(prof);
-          globalProfileCache = prof;
+          switchedProfile = profileRes.value.data as Profile;
+          setProfile(switchedProfile);
+          globalProfileCache = switchedProfile;
         }
         if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
           const sett = settingsRes.value.data as BusinessSettings;
           setSettings(sett);
           globalSettingsCache = sett;
         }
-        if (reviewsRes.status === 'fulfilled' && reviewsRes.value.data) {
-          const revs = (reviewsRes.value.data || []) as Review[];
-          setReviews(revs);
-          globalReviewsCache = revs;
-        }
         if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
           const invs = (invitesRes.value.data || []) as Invite[];
           setInvites(invs);
           globalInvitesCache = invs;
+        }
+
+        const switchedPlaceId = switchedProfile?.google_place_id;
+        if (switchedPlaceId) {
+          const { data: revsData, error: revsErr } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('user_id', businessId)
+            .eq('place_id', switchedPlaceId)
+            .order('created_at', { ascending: false });
+
+          if (!revsErr && revsData && revsData.length > 0) {
+            const revs = revsData as Review[];
+            setReviews(revs);
+            globalReviewsCache = revs;
+          } else {
+            setReviews([]);
+            globalReviewsCache = [];
+          }
+        } else {
+          setReviews([]);
+          globalReviewsCache = [];
         }
       } catch (err) {
         console.error('[switchBusiness Exception]:', err);
