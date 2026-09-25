@@ -9,37 +9,65 @@ import {
   Clock,
   ExternalLink,
   Search,
-  RotateCw,
-  Sparkles
+  Sparkles,
+  Layers,
+  MessageSquare
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
+type ChannelType = 'sms' | 'email' | 'both';
+
 export default function InvitesPage() {
   const { invites, sendSmsInvite, sendEmailInvite, profile } = useRatingPulseStore();
-  const [channel, setChannel] = useState<'sms' | 'email'>('sms');
+  const [channel, setChannel] = useState<ChannelType>('sms');
   const [customerName, setCustomerName] = useState('');
-  const [recipientContact, setRecipientContact] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerEmail, setCustomerEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [search, setSearch] = useState('');
 
+  const displayName = customerName.trim() || 'valued customer';
+  const bizName = profile.business_name || 'our business';
+  const reviewLink = profile.review_url || 'https://g.page/r/YOUR_LINK/review';
+
+  // Live message content calculations
+  const smsMessageText = `Hi ${displayName}, thank you for choosing ${bizName}! Would you take 30 seconds to share your experience? ${reviewLink}`;
+  const smsCharCount = smsMessageText.length;
+  const smsSegments = Math.max(1, Math.ceil(smsCharCount / 160));
+
   const handleSendInvite = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!recipientContact.trim()) return;
+
+    if (channel === 'sms' && !customerPhone.trim()) {
+      toast.error('Please enter a valid mobile phone number.');
+      return;
+    }
+    if (channel === 'email' && !customerEmail.trim()) {
+      toast.error('Please enter a valid email address.');
+      return;
+    }
+    if (channel === 'both' && (!customerPhone.trim() || !customerEmail.trim())) {
+      toast.error('Please provide both mobile phone and email address.');
+      return;
+    }
 
     setIsSending(true);
     try {
-      if (channel === 'sms') {
-        await sendSmsInvite(customerName || 'Valued Customer', recipientContact, 'General Visit');
-      } else {
-        await sendEmailInvite(customerName || 'Valued Customer', recipientContact, 'General Visit');
+      const recipientName = customerName.trim() || 'Valued Customer';
+
+      if (channel === 'sms' || channel === 'both') {
+        await sendSmsInvite(recipientName, customerPhone.trim(), 'General Visit');
+      }
+      if (channel === 'email' || channel === 'both') {
+        await sendEmailInvite(recipientName, customerEmail.trim(), 'General Visit');
       }
 
       try {
         confetti({
-          particleCount: 60,
-          spread: 60,
+          particleCount: 70,
+          spread: 65,
           origin: { y: 0.6 },
           colors: ['#2563eb', '#10b981', '#fbbf24'],
         });
@@ -47,12 +75,20 @@ export default function InvitesPage() {
         // ignore
       }
 
+      const channelLabel =
+        channel === 'both'
+          ? `SMS & Email sent to ${customerPhone} and ${customerEmail}`
+          : channel === 'sms'
+          ? `1-tap SMS sent to ${customerPhone}`
+          : `Email sent to ${customerEmail}`;
+
       toast.success('Review Request Dispatched!', {
-        description: `1-tap review link sent to ${recipientContact}`,
+        description: channelLabel,
       });
 
       setCustomerName('');
-      setRecipientContact('');
+      setCustomerPhone('');
+      setCustomerEmail('');
     } catch (err: any) {
       toast.error('Failed to send invite', { description: err?.message || 'Please try again' });
     } finally {
@@ -73,8 +109,10 @@ export default function InvitesPage() {
   return (
     <div className="space-y-8">
       
-      {/* 1. SEND REVIEW REQUEST FORM CARD */}
-      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+      {/* 1. SEND REVIEW REQUEST FORM & LIVE PREVIEW CARD */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 sm:p-8 shadow-sm space-y-6">
+        
+        {/* Card Header & 3-Segment Channel Switcher */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
           <div>
             <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -82,38 +120,52 @@ export default function InvitesPage() {
               Send Review Request
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Dispatch an automated, 1-tap Google rating link directly to your customer.
+              Dispatch automated, 1-tap Google rating links via SMS, Email, or both.
             </p>
           </div>
 
-          {/* Channel Selector */}
+          {/* 3 Clear Segment Buttons: [ SMS ] [ Email ] [ Both (SMS & Email) ] */}
           <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50 text-xs font-medium text-slate-600">
             <button
               type="button"
               onClick={() => setChannel('sms')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                 channel === 'sms' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'hover:text-slate-900'
               }`}
             >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>SMS Text</span>
+              <Smartphone className="w-3.5 h-3.5 text-blue-600" />
+              <span>SMS</span>
             </button>
             <button
               type="button"
               onClick={() => setChannel('email')}
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
                 channel === 'email' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'hover:text-slate-900'
               }`}
             >
-              <Mail className="w-3.5 h-3.5" />
+              <Mail className="w-3.5 h-3.5 text-blue-600" />
               <span>Email</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel('both')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all cursor-pointer ${
+                channel === 'both' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5 text-blue-600" />
+              <span>Both (SMS & Email)</span>
             </button>
           </div>
         </div>
 
-        {/* Form Inputs */}
-        <form onSubmit={handleSendInvite} className="mt-5 space-y-4 max-w-2xl">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Two-Column Grid: Left (Inputs Form) | Right (Interactive Live Message Preview) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+          
+          {/* Left Form (6 cols) */}
+          <form onSubmit={handleSendInvite} className="lg:col-span-6 space-y-4">
+            
+            {/* Customer Name */}
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Customer Name <span className="text-slate-400 font-normal">(Optional)</span>
@@ -122,46 +174,133 @@ export default function InvitesPage() {
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Jane Doe"
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                placeholder="e.g. Jane Doe"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-sans"
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-                {channel === 'sms' ? 'Mobile Phone Number' : 'Email Address'} <span className="text-rose-500">*</span>
-              </label>
-              <input
-                type={channel === 'sms' ? 'tel' : 'email'}
-                required
-                value={recipientContact}
-                onChange={(e) => setRecipientContact(e.target.value)}
-                placeholder={channel === 'sms' ? '(555) 234-5678' : 'jane@example.com'}
-                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-              />
+            {/* Mobile Phone Input (Shown for SMS or Both) */}
+            {(channel === 'sms' || channel === 'both') && (
+              <div className="animate-in fade-in duration-100">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Mobile Phone Number <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="tel"
+                  required
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="(555) 234-5678"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-sans"
+                />
+              </div>
+            )}
+
+            {/* Email Address Input (Shown for Email or Both) */}
+            {(channel === 'email' || channel === 'both') && (
+              <div className="animate-in fade-in duration-100">
+                <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                  Email Address <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  value={customerEmail}
+                  onChange={(e) => setCustomerEmail(e.target.value)}
+                  placeholder="jane.doe@example.com"
+                  className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-sans"
+                />
+              </div>
+            )}
+
+            {/* Dynamic Submit Button */}
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={isSending}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {isSending ? (
+                  <span>Dispatching...</span>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5 fill-white" />
+                    <span>
+                      {channel === 'sms'
+                        ? 'Send 1-Tap SMS Invite'
+                        : channel === 'email'
+                        ? 'Send Email Invite'
+                        : 'Send SMS & Email Invites'}
+                    </span>
+                  </>
+                )}
+              </button>
             </div>
+          </form>
+
+          {/* Right: Live Interactive Message Preview Box (6 cols) */}
+          <div className="lg:col-span-6 bg-slate-50 border border-slate-200 rounded-xl p-5 text-xs font-mono text-slate-700 space-y-4">
+            
+            <div className="flex items-center justify-between border-b border-slate-200/80 pb-2.5 font-sans">
+              <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                Live Message Preview
+              </span>
+              <span className="text-[10px] uppercase font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                {channel === 'both' ? 'SMS & Email' : channel.toUpperCase()}
+              </span>
+            </div>
+
+            {/* Live SMS Preview */}
+            {(channel === 'sms' || channel === 'both') && (
+              <div className="space-y-1.5 animate-in fade-in duration-100">
+                <div className="text-[11px] font-bold text-slate-500 font-sans flex items-center gap-1">
+                  <Smartphone className="w-3 h-3 text-blue-600" />
+                  SMS Message:
+                </div>
+                <div className="p-3.5 rounded-lg bg-white border border-slate-200 text-[11px] leading-relaxed text-slate-800 shadow-2xs font-sans">
+                  Hi <strong className="text-blue-600">{displayName}</strong>, thank you for choosing <strong className="text-slate-900">{bizName}</strong>! Would you take 30 seconds to share your experience? <span className="text-blue-600 underline truncate">{reviewLink.slice(0, 30)}...</span>
+                </div>
+                
+                {/* Character & Segment Counter */}
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-sans pt-0.5">
+                  <span>Smart routing filter attached</span>
+                  <span className="font-semibold text-slate-600">
+                    {smsSegments} SMS Segment{smsSegments > 1 ? 's' : ''} • {smsCharCount}/160 characters
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Live Email Preview */}
+            {(channel === 'email' || channel === 'both') && (
+              <div className="space-y-1.5 pt-1 animate-in fade-in duration-100">
+                <div className="text-[11px] font-bold text-slate-500 font-sans flex items-center gap-1">
+                  <Mail className="w-3 h-3 text-blue-600" />
+                  Email Message:
+                </div>
+                <div className="p-3.5 rounded-lg bg-white border border-slate-200 space-y-2 text-[11px] leading-relaxed text-slate-800 shadow-2xs font-sans">
+                  <div className="border-b border-slate-100 pb-1.5 text-slate-500 text-[10px]">
+                    <strong className="text-slate-700">Subject:</strong> How was your experience with <span className="text-slate-900 font-semibold">{bizName}</span>?
+                  </div>
+                  <div className="space-y-2 pt-1">
+                    <p>
+                      Hi <strong className="text-blue-600">{displayName}</strong>, we appreciate your business. Please let us know how we did:
+                    </p>
+                    <div className="pt-1">
+                      <span className="inline-block px-3 py-1.5 rounded-md bg-blue-600 text-white font-bold text-[10px] shadow-2xs">
+                        Leave a Review
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </div>
 
-          <div className="flex items-center justify-between pt-2">
-            <span className="text-[11px] text-slate-400">
-              Includes automated 1-3★ smart filter protection & direct 5★ Google routing.
-            </span>
-            <button
-              type="submit"
-              disabled={isSending || !recipientContact.trim()}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
-            >
-              {isSending ? (
-                <span>Dispatching...</span>
-              ) : (
-                <>
-                  <Send className="w-3.5 h-3.5 fill-white" />
-                  <span>Send 1-Tap Invite</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
+        </div>
+
       </div>
 
       {/* 2. RECENT INVITES LOG TABLE */}
