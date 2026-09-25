@@ -30,18 +30,12 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-20">
             {/* Logo Lockup */}
             <Link href="/" className="flex items-center gap-3 group">
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-black text-xl shadow-sm group-hover:bg-blue-700 transition-colors">
-                <span className="tracking-tighter">R</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 -ml-0.5 mt-2"></span>
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-700 transition-colors shrink-0">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <div className="flex flex-col">
-                <span className="font-extrabold text-xl tracking-tight text-slate-900 leading-none">
-                  RATING<span className="text-blue-600">PULSE</span>
-                </span>
-                <span className="text-[10px] font-semibold tracking-widest text-slate-500 uppercase mt-0.5">
-                  Automated Reviews
-                </span>
-              </div>
+              <span className="text-lg font-bold tracking-tight text-slate-900">
+                RATING<span className="text-blue-600">PULSE</span>
+              </span>
             </Link>
 
             {/* Desktop Navigation Links */}
@@ -643,10 +637,10 @@ export default function LandingPage() {
             
             {/* Logo & Copyright */}
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black text-sm">
-                R
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <Sparkles className="w-5 h-5 text-white" />
               </div>
-              <span className="font-bold text-slate-900 tracking-tight">
+              <span className="text-lg font-bold tracking-tight text-slate-900">
                 RATING<span className="text-blue-600">PULSE</span>
               </span>
               <span className="text-xs text-slate-400 ml-2">

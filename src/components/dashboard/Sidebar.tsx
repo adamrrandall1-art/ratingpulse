@@ -201,7 +201,7 @@ export default function Sidebar({
                 onClick={onClose}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all ${
                   isActive
-                    ? 'bg-blue-50 border-l-2 border-blue-600 text-blue-600 font-semibold shadow-2xs'
+                    ? 'bg-blue-50/70 border-l-2 border-blue-600 text-blue-600 font-semibold shadow-2xs'
                     : 'text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
