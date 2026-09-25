@@ -5,7 +5,6 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { StoreProvider } from "@/lib/store";
 import { Toaster } from "sonner";
-import SupportChat from "@/components/chat/SupportChat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -71,7 +70,6 @@ export default function RootLayout({
           <StoreProvider>
             {children}
             <Toaster position="top-right" richColors />
-            <SupportChat />
           </StoreProvider>
         </AuthProvider>
       </body>
