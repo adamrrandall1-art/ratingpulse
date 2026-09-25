@@ -74,7 +74,7 @@ export default function DashboardLayoutClient({
   }, [mobileMenuOpen]);
 
   return (
-    <div className="min-h-screen bg-[#0d1317] text-slate-100 flex overflow-x-hidden w-full relative">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex overflow-x-hidden w-full relative">
       {/* 1. Desktop Persistent Left Sidebar (>= lg / 1024px) */}
       <div className="hidden lg:flex shrink-0">
         <Sidebar />
@@ -85,20 +85,20 @@ export default function DashboardLayoutClient({
         <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true">
           {/* Backdrop Overlay */}
           <div
-            className="fixed inset-0 bg-[#0d1317]/80 backdrop-blur-sm transition-opacity animate-in fade-in"
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity animate-in fade-in"
             onClick={() => setMobileMenuOpen(false)}
             aria-hidden="true"
           />
 
           {/* Drawer Container */}
-          <div className="fixed inset-y-0 left-0 max-w-[85vw] w-72 bg-[#0d1317] shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200">
+          <div className="fixed inset-y-0 left-0 max-w-[85vw] w-72 bg-white shadow-2xl flex flex-col z-50 animate-in slide-in-from-left duration-200 border-r border-slate-200">
             <Sidebar onClose={() => setMobileMenuOpen(false)} className="w-full border-r-0 min-h-full" />
           </div>
         </div>
       )}
 
       {/* 3. Main Content Container */}
-      <div className="flex-1 flex flex-col min-w-0 w-full max-w-full pb-16 lg:pb-0 bg-[#0d1317]">
+      <div className="flex-1 flex flex-col min-w-0 w-full max-w-full pb-16 lg:pb-0 bg-slate-50">
         <Header onOpenMobileMenu={() => setMobileMenuOpen(true)} />
         <main className="flex-1 p-3.5 sm:p-6 lg:p-8 max-w-7xl w-full min-w-0 mx-auto">
           {children}
@@ -108,13 +108,13 @@ export default function DashboardLayoutClient({
       {/* 4. Mobile Sticky Bottom Upgrade Banner (< lg and !isPro) */}
       {!isPro && (
         <div className="fixed bottom-3 inset-x-3 z-30 lg:hidden animate-in slide-in-from-bottom-5">
-          <div className="bg-[#161f26]/95 backdrop-blur-md border border-[#00d2c4]/35 rounded-2xl p-3 shadow-2xl flex items-center justify-between gap-2.5">
+          <div className="bg-white/95 backdrop-blur-md border border-blue-200 rounded-2xl p-3 shadow-xl flex items-center justify-between gap-2.5">
             <div className="min-w-0 flex-1">
-              <div className="text-xs font-extrabold text-white flex items-center gap-1.5 truncate">
-                <span className="w-2 h-2 rounded-full bg-[#00d2c4] animate-pulse" />
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5 truncate">
+                <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                 Free Trial Active
               </div>
-              <p className="text-[10px] text-slate-300 truncate">
+              <p className="text-[10px] text-slate-500 truncate">
                 Unlock unlimited SMS & AI replies ($25/mo)
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function DashboardLayoutClient({
               type="button"
               onClick={handleMobileUpgrade}
               disabled={mobileUpgrading}
-              className="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 text-white shadow-md shadow-orange-500/30 shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3.5 py-2 rounded-xl text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white shadow-sm shrink-0 cursor-pointer flex items-center gap-1.5 disabled:opacity-50 transition-colors"
             >
               {mobileUpgrading ? (
                 <>

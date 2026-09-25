@@ -110,7 +110,7 @@ export default function Header({
 
   return (
     <>
-      <header className="min-h-16 py-2 bg-[#111820] border-b border-[#00d2c4]/15 px-3 sm:px-6 flex items-center justify-between z-20 sticky top-0 gap-2">
+      <header className="min-h-16 py-2 bg-white border-b border-slate-200 px-3 sm:px-6 flex items-center justify-between z-20 sticky top-0 gap-2 shadow-2xs">
         
         {/* Left: Mobile Drawer Trigger + Search & Location indicator */}
         <div className="flex items-center gap-1.5 sm:gap-4 min-w-0">
@@ -118,28 +118,28 @@ export default function Header({
             <button
               type="button"
               onClick={onOpenMobileMenu}
-              className="lg:hidden p-2 rounded-xl text-slate-400 hover:text-white hover:bg-[#161f26] transition-colors cursor-pointer shrink-0"
+              className="lg:hidden p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer shrink-0"
               title="Open navigation menu"
               aria-label="Open navigation menu"
             >
-              <Menu className="w-5 h-5 text-slate-300" />
+              <Menu className="w-5 h-5 text-slate-700" />
             </button>
           )}
 
-          <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-[#161f26] border border-[#00d2c4]/20 text-xs text-slate-400 transition-all focus-within:ring-2 focus-within:ring-[#00d2c4]/30 focus-within:border-[#00d2c4] focus-within:bg-[#18222a]">
-            <Search className="w-3.5 h-3.5 text-[#00d2c4] shrink-0" />
+          <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 transition-all focus-within:ring-2 focus-within:ring-blue-500/20 focus-within:border-blue-600 focus-within:bg-white">
+            <Search className="w-3.5 h-3.5 text-slate-400 shrink-0" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search reviews & clients..."
-              className="bg-transparent border-none text-xs text-slate-100 focus:outline-none w-20 xs:w-32 sm:w-48 md:w-64 placeholder:text-slate-500"
+              className="bg-transparent border-none text-xs text-slate-900 focus:outline-none w-20 xs:w-32 sm:w-48 md:w-64 placeholder:text-slate-400"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery('')}
-                className="text-slate-400 hover:text-slate-200 p-0.5 rounded-full hover:bg-slate-700/60 transition-colors"
+                className="text-slate-400 hover:text-slate-600 p-0.5 rounded-full hover:bg-slate-200 transition-colors"
                 title="Clear search"
               >
                 <X className="w-3 h-3" />
@@ -153,17 +153,17 @@ export default function Header({
             return (
               <div className="hidden xl:flex items-center gap-2">
                 {isConnected ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#10b981]/15 text-[#00e676] border border-[#10b981]/30">
-                    <CheckCircle className="w-3 h-3 text-[#00e676]" />
-                    Google Sync Active
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <CheckCircle className="w-3 h-3 text-emerald-600" />
+                    Google Sync Active 🟢
                   </span>
                 ) : (
                   <Link
                     href="/onboarding"
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-800/80 text-slate-400 border border-slate-700/60 hover:text-slate-200 hover:border-slate-600 transition-colors"
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 hover:text-slate-900 hover:border-slate-300 transition-colors"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                    Google Disconnected
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    Disconnected
                   </Link>
                 )}
               </div>
@@ -175,17 +175,17 @@ export default function Header({
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
           {/* Interactive Demo Mode Toggle Switch */}
-          <div className="hidden sm:flex items-center gap-1 bg-[#161f26] p-1 rounded-2xl border border-slate-800 transition-colors">
+          <div className="hidden sm:flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 transition-colors">
             <button
               onClick={handleToggleDemoMode}
               className={`flex items-center gap-1 px-2 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 isDemoMode
-                  ? 'bg-amber-500 text-white shadow-xs'
-                  : 'bg-[#111820] text-slate-300 shadow-2xs border border-slate-700/50'
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 shadow-2xs border border-slate-200'
               }`}
               title="Toggle interactive mock reviews, SMS history, and simulator data"
             >
-              <Zap className="w-3 h-3 text-amber-400 fill-amber-400" />
+              <Zap className="w-3 h-3 text-amber-500 fill-amber-500" />
               <span className="text-[10px] uppercase font-bold">{isDemoMode ? 'Demo' : 'Live'}</span>
             </button>
           </div>
@@ -194,44 +194,44 @@ export default function Header({
           <button
             type="button"
             onClick={() => setShowResetModal(true)}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-rose-500/70 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 hover:text-white text-xs font-bold transition-all shadow-xs active:scale-95 cursor-pointer shrink-0"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-semibold transition-all shadow-2xs active:scale-95 cursor-pointer shrink-0"
             title="Wipe all mock reviews, SMS invites, and reset business connections"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-            <span className="hidden sm:inline text-[11px] font-bold">Reset Test Data</span>
+            <Trash2 className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+            <span className="hidden sm:inline text-[11px] font-semibold">Reset Test Data</span>
           </button>
 
           {/* Send Review Invite Modal CTA */}
           <button
             onClick={() => setInviteModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl bg-gradient-to-r from-[#00d2c4] via-[#06b6d4] to-[#10b981] hover:brightness-110 text-slate-950 text-xs font-extrabold shadow-[0_0_15px_rgba(0,210,196,0.3)] transition-all transform active:scale-95 cursor-pointer"
+            className="inline-flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all transform active:scale-95 cursor-pointer"
           >
-            <Send className="w-3.5 h-3.5 fill-slate-950" />
+            <Send className="w-3.5 h-3.5 fill-white" />
             <span className="hidden md:inline">Send Review SMS</span>
             <span className="md:hidden">Send</span>
           </button>
 
           {/* User Profile Dropdown */}
-          <div className="relative pl-2 border-l border-slate-800">
+          <div className="relative pl-2 border-l border-slate-200">
             <button
               onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="flex items-center gap-3 p-1 rounded-xl hover:bg-[#161f26] transition-colors cursor-pointer text-left"
+              className="flex items-center gap-3 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
             >
               <img
                 src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=100&h=100&fit=crop&crop=face"
                 alt={displayName}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-[#00d2c4]/30 self-center shrink-0"
+                className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-100 self-center shrink-0"
               />
               <div className="hidden sm:flex flex-col items-start text-left">
-                <span className="text-xs font-bold text-slate-100 leading-tight">
+                <span className="text-xs font-bold text-slate-900 leading-tight">
                   {displayName}
                 </span>
-                <span className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">
-                  {profile.business_name}
+                <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
+                  {profile.business_name || 'No Business Connected'}
                 </span>
                 {isPro && (
-                  <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-gradient-to-r from-[#00d2c4] to-[#10b981] text-slate-950 shadow-sm w-fit">
-                    ⚡ PRO
+                  <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-600 text-white shadow-2xs w-fit">
+                    PRO
                   </div>
                 )}
               </div>
@@ -245,28 +245,28 @@ export default function Header({
                   onClick={() => setProfileDropdownOpen(false)}
                   aria-hidden="true"
                 />
-                <div className="absolute right-0 mt-2 w-60 bg-[#161f26] rounded-2xl border border-[#00d2c4]/25 shadow-2xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100">
-                  <div className="p-2.5 border-b border-slate-800">
+                <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100 text-slate-900">
+                  <div className="p-2.5 border-b border-slate-100">
                     <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold text-slate-100 truncate">{displayName}</span>
+                      <span className="text-xs font-bold text-slate-900 truncate">{displayName}</span>
                       {isPro ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-gradient-to-r from-[#00d2c4] to-[#10b981] text-slate-950 shadow-xs shrink-0">
-                          ⚡ PRO
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white shadow-2xs shrink-0">
+                          PRO
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30 shrink-0">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
                           Trial
                         </span>
                       )}
                     </div>
-                    <div className="text-[11px] text-slate-400 truncate mt-0.5">{displayEmail}</div>
-                    <div className="text-[10px] text-[#00d2c4] font-semibold truncate mt-0.5">{profile.business_name}</div>
+                    <div className="text-[11px] text-slate-500 truncate mt-0.5">{displayEmail}</div>
+                    <div className="text-[10px] text-blue-600 font-semibold truncate mt-0.5">{profile.business_name || 'No Business Connected'}</div>
                   </div>
 
                   <Link
                     href="/dashboard/settings"
                     onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-[#18222a] hover:text-[#00d2c4] transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
                     <Settings className="w-4 h-4 text-slate-400" />
                     <span>Account Settings</span>
@@ -275,10 +275,10 @@ export default function Header({
                   <Link
                     href="/dashboard/settings"
                     onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-[#18222a] hover:text-[#00d2c4] transition-colors"
+                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
                     <div className="flex items-center gap-2">
-                      <Zap className={`w-4 h-4 ${isPro ? 'text-[#00d2c4]' : 'text-amber-400'}`} />
+                      <Zap className={`w-4 h-4 ${isPro ? 'text-blue-600' : 'text-amber-500'}`} />
                       <span>{isPro ? 'Manage Billing' : 'Upgrade to Pro'}</span>
                     </div>
                     <span className="text-[10px] font-bold text-slate-400">$25/mo</span>
@@ -287,13 +287,13 @@ export default function Header({
                   <Link
                     href="/onboarding"
                     onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-300 hover:bg-[#18222a] hover:text-[#00d2c4] transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
                   >
-                    <Sparkles className="w-4 h-4 text-[#00d2c4]" />
+                    <Sparkles className="w-4 h-4 text-blue-600" />
                     <span>Onboarding Wizard</span>
                   </Link>
 
-                  <div className="pt-1 border-t border-slate-800">
+                  <div className="pt-1 border-t border-slate-100">
                     <button
                       type="button"
                       onClick={async (e) => {
@@ -310,9 +310,9 @@ export default function Header({
                           window.location.assign('/login');
                         }
                       }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-400 hover:bg-rose-950/40 transition-colors text-left cursor-pointer"
+                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
                     >
-                      <LogOut className="w-4 h-4 text-rose-400" />
+                      <LogOut className="w-4 h-4 text-rose-600" />
                       <span>Sign Out</span>
                     </button>
                   </div>

@@ -125,11 +125,11 @@ export default function Sidebar({
   ];
 
   return (
-    <aside className={`w-64 bg-[#0d1317] text-white flex flex-col justify-between shrink-0 min-h-screen border-r border-[#00d2c4]/15 ${className}`}>
+    <aside className={`w-64 bg-white text-slate-900 flex flex-col justify-between shrink-0 min-h-screen border-r border-slate-200 ${className}`}>
       
       {/* Top Brand Logo & Business Pill */}
       <div>
-        <div className="p-4 border-b border-[#00d2c4]/15 bg-[#111820]/60">
+        <div className="p-4 border-b border-slate-200 bg-slate-50/60">
           <div className="flex items-center justify-between">
             <BrandLogo size="sm" subtitle="dashboard" href="/" onClick={onClose} />
 
@@ -137,7 +137,7 @@ export default function Sidebar({
               <button
                 type="button"
                 onClick={onClose}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-[#161f26] transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
                 title="Close navigation drawer"
               >
                 <X className="w-5 h-5" />
@@ -149,17 +149,17 @@ export default function Sidebar({
           {(() => {
             const isConnected = Boolean(profile.google_place_id && profile.business_name && profile.google_connected !== false);
             return isConnected ? (
-              <div className="mt-4 p-2.5 rounded-xl bg-[#161f26] border border-[#00d2c4]/20 flex items-center justify-between shadow-sm">
+              <div className="mt-4 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between shadow-xs">
                 <div className="truncate">
-                  <div className="text-xs font-bold text-slate-200 truncate">
+                  <div className="text-xs font-bold text-slate-900 truncate">
                     {profile.business_name}
                   </div>
-                  <div className="text-[10px] text-[#00d2c4] flex items-center gap-1 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#00d2c4] animate-pulse" />
-                    Google Place Synced
+                  <div className="text-[10px] text-emerald-600 flex items-center gap-1 font-semibold">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Google Sync Active 🟢
                   </div>
                 </div>
-                <span className="text-xs font-bold text-amber-400 bg-[#111820] px-1.5 py-0.5 rounded border border-amber-500/30">
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
                   {profile.google_rating} ★
                 </span>
               </div>
@@ -167,18 +167,18 @@ export default function Sidebar({
               <Link
                 href="/onboarding"
                 onClick={onClose}
-                className="mt-4 p-2.5 rounded-xl bg-[#161f26]/60 border border-dashed border-slate-700 hover:border-[#00d2c4]/40 flex items-center justify-between transition-colors group cursor-pointer block"
+                className="mt-4 p-2.5 rounded-xl bg-slate-100/70 border border-dashed border-slate-300 hover:border-blue-400 flex items-center justify-between transition-colors group cursor-pointer block"
               >
                 <div className="truncate">
-                  <div className="text-xs font-medium text-slate-400 group-hover:text-slate-200 truncate">
+                  <div className="text-xs font-semibold text-slate-600 group-hover:text-slate-900 truncate">
                     No Business Connected
                   </div>
-                  <div className="text-[10px] text-slate-500 group-hover:text-[#00d2c4] flex items-center gap-1 font-medium">
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                    Click to Connect
+                  <div className="text-[10px] text-slate-400 group-hover:text-blue-600 flex items-center gap-1 font-medium">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                    Disconnected • Click to Link
                   </div>
                 </div>
-                <span className="text-xs font-semibold text-slate-500 group-hover:text-[#00d2c4] bg-[#111820] px-1.5 py-0.5 rounded border border-slate-800">
+                <span className="text-xs font-semibold text-slate-500 group-hover:text-blue-600 bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-2xs">
                   + Link
                 </span>
               </Link>
@@ -199,18 +199,18 @@ export default function Sidebar({
                 key={item.href}
                 href={item.href}
                 onClick={onClose}
-                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition-all ${
+                className={`flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs transition-all ${
                   isActive
-                    ? 'bg-gradient-to-r from-[#00d2c4]/20 via-[#06b6d4]/10 to-transparent border-l-2 border-[#00d2c4] text-[#00d2c4] font-bold shadow-sm'
-                    : 'text-slate-300 hover:bg-[#161f26] hover:text-white'
+                    ? 'bg-blue-50 border-l-2 border-blue-600 text-blue-600 font-semibold shadow-2xs'
+                    : 'text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-[#00d2c4]' : 'text-slate-400'}`} />
+                  <Icon className={`w-4 h-4 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
                   <span>{item.name}</span>
                 </div>
                 {item.badge && (
-                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.badgeColor}`}>
+                  <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${item.badgeColor || 'bg-blue-100 text-blue-800'}`}>
                     {item.badge}
                   </span>
                 )}
@@ -226,26 +226,26 @@ export default function Sidebar({
               disabled={billingLoading}
               className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer border ${
                 isPro
-                  ? 'bg-slate-800/90 hover:bg-slate-800 text-slate-200 border-slate-700'
-                  : 'bg-gradient-to-r from-amber-500/15 via-orange-500/15 to-rose-500/15 hover:from-amber-500/25 hover:via-orange-500/25 hover:to-rose-500/25 text-amber-300 border-amber-500/40 shadow-xs'
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200'
+                  : 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200 shadow-2xs'
               }`}
             >
               <div className="flex items-center gap-3">
                 {billingLoading ? (
-                  <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
                 ) : (
-                  <Zap className={`w-4 h-4 ${isPro ? 'text-blue-400' : 'text-amber-400 fill-amber-400'}`} />
+                  <Zap className={`w-4 h-4 ${isPro ? 'text-blue-600' : 'text-blue-600 fill-blue-600'}`} />
                 )}
                 <span>{isPro ? 'Manage Subscription' : 'Upgrade to Pro'}</span>
               </div>
               <span
                 className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full ${
                   isPro
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                    : 'bg-gradient-to-r from-amber-500 to-rose-500 text-white shadow-xs'
+                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                    : 'bg-blue-600 text-white shadow-2xs'
                 }`}
               >
-                {isPro ? '⚡ PRO' : '⚡ $25/mo'}
+                {isPro ? 'PRO' : '$25/mo'}
               </span>
             </button>
           </div>
@@ -253,24 +253,24 @@ export default function Sidebar({
       </div>
 
       {/* Bottom Growth & Landing Page Links */}
-      <div className="p-4 border-t border-slate-800 space-y-3">
+      <div className="p-4 border-t border-slate-200 space-y-3">
         {/* Dynamic Plan Status Card */}
         <div
-          className={`p-3.5 rounded-2xl text-xs space-y-2.5 shadow-xl transition-all ${
+          className={`p-3.5 rounded-2xl text-xs space-y-2.5 border transition-all ${
             isPro
-              ? 'bg-gradient-to-br from-blue-950 via-slate-900 to-slate-900 border border-blue-800/50'
-              : 'bg-gradient-to-br from-slate-900 via-blue-950/70 to-slate-900 border-2 border-amber-500/50 shadow-amber-500/10 ring-1 ring-amber-500/20'
+              ? 'bg-slate-50 border-slate-200 shadow-xs'
+              : 'bg-blue-50/50 border-blue-200 shadow-xs'
           }`}
         >
           <div className="flex items-center justify-between text-[11px] font-bold">
-            <span className="flex items-center gap-1.5 text-white">
-              <Sparkles className={`w-3.5 h-3.5 ${isPro ? 'text-blue-400' : 'text-amber-400'}`} />
+            <span className="flex items-center gap-1.5 text-slate-900">
+              <Sparkles className={`w-3.5 h-3.5 ${isPro ? 'text-blue-600' : 'text-blue-600'}`} />
               {isPro ? 'RatingPulse Pro' : 'Free Trial Active'}
             </span>
-            <span className="text-emerald-400 font-extrabold text-xs">$25/mo</span>
+            <span className="text-emerald-700 font-extrabold text-xs">$25/mo</span>
           </div>
 
-          <p className="text-[10px] text-slate-300 leading-relaxed">
+          <p className="text-[10px] text-slate-600 leading-relaxed">
             {isPro
               ? 'Unlimited review invites, AI replies & priority sync active.'
               : 'Unlock unlimited SMS & Email invites + 1-tap AI SEO replies.'}
@@ -280,10 +280,10 @@ export default function Sidebar({
             type="button"
             onClick={handleSidebarBillingAction}
             disabled={billingLoading}
-            className={`w-full text-center py-2.5 px-3 rounded-xl text-xs font-extrabold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-lg disabled:opacity-50 ${
+            className={`w-full text-center py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50 ${
               isPro
-                ? 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                : 'bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:from-amber-600 hover:via-orange-600 hover:to-rose-600 text-white shadow-orange-500/30 hover:scale-[1.02] active:scale-98'
+                ? 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-300'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
             }`}
           >
             {billingLoading ? (
@@ -303,7 +303,7 @@ export default function Sidebar({
         <Link
           href="/"
           onClick={onClose}
-          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back to Public Site
@@ -326,7 +326,7 @@ export default function Sidebar({
               window.location.assign('/login');
             }
           }}
-          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-semibold text-rose-400 hover:text-rose-300 hover:bg-rose-950/40 border border-rose-900/30 transition-colors cursor-pointer"
+          className="flex items-center justify-center gap-2 w-full py-2 px-3 rounded-lg text-xs font-semibold text-rose-600 hover:text-rose-700 hover:bg-rose-50 border border-rose-200 transition-colors cursor-pointer"
         >
           <LogOut className="w-3.5 h-3.5" />
           <span>Sign Out</span>

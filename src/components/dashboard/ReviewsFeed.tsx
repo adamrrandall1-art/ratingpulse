@@ -257,11 +257,9 @@ export default function ReviewsFeed({
 
         </div>
 
-      </div>
-
-      {/* Reviews Stream */}
+      </div>      {/* Reviews Table Layout */}
       {displayedReviews.length === 0 ? (
-        <div className="p-12 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center">
+        <div className="p-12 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center shadow-sm">
           <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
             <Sparkles className="w-6 h-6" />
           </div>
@@ -275,7 +273,7 @@ export default function ReviewsFeed({
             <button
               onClick={handleSyncGoogleReviews}
               disabled={isSyncing}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
               {isSyncing ? 'Syncing...' : 'Sync Google Reviews'}
@@ -284,7 +282,7 @@ export default function ReviewsFeed({
               <button
                 onClick={handleSimulate}
                 disabled={isSimulating}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5 text-blue-400" />
                 {isSimulating ? 'Simulating...' : 'Simulate Review'}
@@ -293,191 +291,198 @@ export default function ReviewsFeed({
           </div>
         </div>
       ) : (
-        <div className="space-y-4">
-          {displayedReviews.map((rev) => {
-            const isEditing = editingId === rev.id;
-            const isJustApproved = justApprovedId === rev.id;
-            const isPublished = rev.status === 'published';
-            const isRegenerating = regeneratingId === rev.id;
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-slate-500 uppercase text-xs font-semibold border-b border-slate-200">
+                  <th className="px-4 py-3">Customer / Reviewer</th>
+                  <th className="px-4 py-3">Rating</th>
+                  <th className="px-4 py-3">Review & Gemini AI Reply</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-sm">
+                {displayedReviews.map((rev) => {
+                  const isEditing = editingId === rev.id;
+                  const isJustApproved = justApprovedId === rev.id;
+                  const isPublished = rev.status === 'published';
+                  const isRegenerating = regeneratingId === rev.id;
 
-            return (
-              <div
-                key={rev.id}
-                className={`bg-white rounded-2xl border p-5 sm:p-6 shadow-2xs space-y-4 transition-all duration-200 ${
-                  isPublished
-                    ? 'border-slate-200/90'
-                    : 'border-blue-200 ring-1 ring-blue-500/10'
-                }`}
-              >
-                {/* Review Header: Author, Badge, Stars, Date */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                  
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={rev.author_avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face'}
-                      alt={rev.author_name}
-                      className="w-11 h-11 rounded-full object-cover ring-2 ring-slate-100"
-                    />
-                    <div>
-                      <div className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        {rev.author_name}
+                  return (
+                    <tr
+                      key={rev.id}
+                      className="bg-white hover:bg-slate-50/50 text-slate-700 border-b border-slate-100 transition-colors"
+                    >
+                      {/* Customer / Reviewer */}
+                      <td className="px-4 py-3 align-top min-w-[160px]">
+                        <div className="flex items-center gap-2.5">
+                          <img
+                            src={rev.author_avatar || 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&h=100&fit=crop&crop=face'}
+                            alt={rev.author_name}
+                            className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
+                          />
+                          <div className="truncate">
+                            <div className="text-xs font-bold text-slate-900 truncate">
+                              {rev.author_name}
+                            </div>
+                            <div className="text-[11px] text-slate-400 truncate" suppressHydrationWarning>
+                              {new Date(rev.review_date).toLocaleDateString()}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Star Rating */}
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80">
+                          <div className="flex text-amber-500">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                className={`w-3 h-3 ${
+                                  i < rev.rating
+                                    ? 'fill-amber-400 text-amber-400'
+                                    : 'text-slate-200'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                          <span className="text-[11px] font-bold text-amber-900">
+                            {rev.rating}.0
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Review & Gemini AI Reply */}
+                      <td className="px-4 py-3 align-top max-w-md">
+                        <div className="space-y-2">
+                          {/* Review Text */}
+                          <p className="text-xs text-slate-800 leading-relaxed italic">
+                            &quot;{rev.review_text}&quot;
+                          </p>
+
+                          {/* AI Reply Box */}
+                          <div className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                              <span className="flex items-center gap-1 text-blue-600">
+                                <Bot className="w-3.5 h-3.5" />
+                                {isPublished ? 'Published Reply:' : 'Gemini AI Reply Draft:'}
+                              </span>
+                              {!isPublished && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRegenerate(rev.id)}
+                                  disabled={isRegenerating}
+                                  className="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-[10px] cursor-pointer"
+                                >
+                                  <RefreshCw className={`w-2.5 h-2.5 ${isRegenerating ? 'animate-spin' : ''}`} />
+                                  <span>Regenerate</span>
+                                </button>
+                              )}
+                            </div>
+
+                            {isEditing ? (
+                              <div className="space-y-1.5">
+                                <textarea
+                                  value={editedText}
+                                  onChange={(e) => setEditedText(e.target.value)}
+                                  rows={2}
+                                  className="w-full p-2 text-xs rounded border border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
+                                />
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => setEditingId(null)}
+                                    className="px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-200 rounded"
+                                  >
+                                    Cancel
+                                  </button>
+                                  <button
+                                    onClick={() => handleApprove(rev.id, editedText)}
+                                    className="px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded"
+                                  >
+                                    Save & Publish
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-[11px] text-slate-600 leading-normal">
+                                {rev.published_reply || rev.ai_draft_reply || 'No draft generated yet.'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 align-top whitespace-nowrap">
                         {isPublished ? (
-                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.2 rounded-full flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                             <Check className="w-3 h-3 text-emerald-600" />
                             Live on Google
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.2 rounded-full animate-pulse">
-                            Awaiting 1-Tap Approval
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                            <Clock className="w-3 h-3 text-blue-600" />
+                            Awaiting 1-Tap
                           </span>
                         )}
-                      </div>
+                      </td>
 
-                      <div className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <span className="text-slate-600 font-medium flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-blue-600" /> Google Verified
-                        </span>
-                        <span>•</span>
-                        <span suppressHydrationWarning>
-                          {new Date(rev.review_date).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Star Rating Display */}
-                  <div className="flex items-center gap-1 bg-amber-50/80 px-2.5 py-1 rounded-xl border border-amber-200/60 w-fit">
-                    <div className="flex items-center gap-0.5">
-                      {[...Array(rev.rating)].map((_, i) => (
-                        <Star key={i} className="w-4 h-4 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                    <span className="text-xs font-bold text-amber-700 ml-1">
-                      {rev.rating}.0
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* Customer Review Quote */}
-                <div className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 text-xs sm:text-sm text-slate-700 leading-relaxed italic">
-                  &quot;{rev.review_text}&quot;
-                </div>
-
-                {/* Gemini AI Reply Drafting Box */}
-                <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50/80 to-indigo-50/60 border border-blue-200 space-y-2.5">
-                  
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-1.5 font-bold text-blue-950">
-                      <span className="p-1 rounded-lg bg-blue-600 text-white">
-                        <Bot className="w-3.5 h-3.5" />
-                      </span>
-                      <span>{isPublished ? 'Live Google Reply' : 'Gemini AI Drafted SEO Reply'}</span>
-                    </div>
-
-                    {!isPublished && (
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleRegenerate(rev.id)}
-                          disabled={isRegenerating}
-                          className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 transition-colors"
-                        >
-                          <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-                          {isRegenerating ? 'Drafting...' : 'Regenerate'}
-                        </button>
-                        <button
-                          onClick={() => {
-                            setEditingId(rev.id);
-                            setEditedText(rev.ai_draft_reply);
-                          }}
-                          className="text-[11px] font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1 transition-colors"
-                        >
-                          <Edit3 className="w-3 h-3" />
-                          Edit Reply
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Reply Content */}
-                  {isEditing ? (
-                    <div className="space-y-2 pt-1">
-                      <textarea
-                        value={editedText}
-                        onChange={(e) => setEditedText(e.target.value)}
-                        rows={3}
-                        className="w-full p-3 rounded-xl border border-blue-300 text-xs text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                      />
-                      <div className="flex justify-end gap-2">
-                        <button
-                          onClick={() => setEditingId(null)}
-                          className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-blue-100/50 rounded-lg"
-                        >
-                          Cancel
-                        </button>
-                        <button
-                          onClick={() => {
-                            updateDraftText(rev.id, editedText);
-                            setEditingId(null);
-                          }}
-                          className="px-3.5 py-1.5 text-xs font-bold bg-blue-600 text-white rounded-lg shadow-xs"
-                        >
-                          Save Draft
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-xs sm:text-sm text-slate-800 leading-relaxed font-sans">
-                      {isPublished ? rev.published_reply : rev.ai_draft_reply}
-                    </p>
-                  )}
-
-                  {/* Local SEO Injected Keywords Strip */}
-                  {rev.keywords_used && rev.keywords_used.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[10px] text-blue-800">
-                      <span className="font-semibold text-slate-500">Gemini SEO Keywords:</span>
-                      {rev.keywords_used.map((kw, i) => (
-                        <span key={i} className="bg-blue-100/90 text-blue-800 px-2 py-0.5 rounded-md font-bold">
-                          #{kw}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                </div>
-
-                {/* 1-Tap Action Button */}
-                <div>
-                  {isPublished ? (
-                    <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                      <span className="flex items-center gap-1.5 text-emerald-600 font-bold">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Published & Synced to Google Business Profile
-                      </span>
-                      <span className="text-[11px] text-slate-400">Response active on Google Maps</span>
-                    </div>
-                  ) : isJustApproved ? (
-                    <div className="w-full py-3 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center gap-2 animate-pulse">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                      Approved & Synced to Google Business Profile!
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() => handleApprove(rev.id, isEditing ? editedText : undefined)}
-                      className="w-full py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-98 cursor-pointer"
-                    >
-                      <Sparkles className="w-4 h-4 text-amber-300" />
-                      <span>Approve AI Reply</span>
-                      <span className="text-[11px] font-medium text-blue-200">
-                        • 1-Tap Publish to Google Profile
-                      </span>
-                    </button>
-                  )}
-                </div>
-
-              </div>
-            );
-          })}
+                      {/* Actions */}
+                      <td className="px-4 py-3 align-top text-right whitespace-nowrap">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {!isPublished && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setEditingId(rev.id);
+                                  setEditedText(rev.ai_draft_reply || '');
+                                }}
+                                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors"
+                                title="Edit reply text"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleApprove(rev.id)}
+                                disabled={isJustApproved}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
+                              >
+                                {isJustApproved ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Approved!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </>
+                                )}
+                              </button>
+                            </>
+                          )}
+                          {isPublished && (
+                            <a
+                              href={`https://search.google.com/local/reviews?placeid=${profile.google_place_id || ''}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-500 hover:text-blue-600 hover:bg-slate-50 rounded-lg transition-colors"
+                            >
+                              <span>View</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
