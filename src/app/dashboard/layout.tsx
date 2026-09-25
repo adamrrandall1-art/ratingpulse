@@ -65,6 +65,7 @@ export default function DashboardLayout({
     { name: 'Analytics', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
     { name: 'Invites', href: '/dashboard/invites', active: pathname === '/dashboard/invites' },
     { name: 'Business Setup', href: '/dashboard/setup', active: pathname === '/dashboard/setup' },
+    { name: 'Settings', href: '/dashboard/settings', active: pathname === '/dashboard/settings' },
   ];
 
   return (

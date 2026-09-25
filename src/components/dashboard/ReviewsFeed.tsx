@@ -74,7 +74,7 @@ export default function ReviewsFeed({
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
             <Link
-              href="/onboarding"
+              href="/dashboard/setup"
               className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20"
             >
               Connect Google Business Profile →
