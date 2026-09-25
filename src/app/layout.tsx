@@ -66,7 +66,7 @@ export default function RootLayout({
           defer
         ></script>
       </head>
-      <body className="min-h-full flex flex-col bg-[#0d1317] text-slate-50 font-sans selection:bg-[#00d2c4]/30 selection:text-white">
+      <body className="min-h-full flex flex-col bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
         <AuthProvider>
           <StoreProvider>
             {children}
