@@ -52,10 +52,10 @@ export default function DashboardLayout({
   };
 
   const primaryNavItems = [
-    { name: 'Dashboard', href: '/dashboard', active: pathname === '/dashboard' || pathname.startsWith('/dashboard/') },
-    { name: 'Businesses', href: '/onboarding', active: pathname === '/onboarding' },
-    { name: 'Feedback', href: '/dashboard/reviews', active: false },
-    { name: 'Reports', href: '#', active: false },
+    { name: 'Dashboard', href: '/dashboard', active: pathname === '/dashboard' },
+    { name: 'Businesses', href: '/dashboard/setup', active: pathname === '/dashboard/setup' },
+    { name: 'Feedback', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' },
+    { name: 'Reports', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
     { name: 'Settings', href: '/dashboard/settings', active: pathname === '/dashboard/settings' },
   ];
 
@@ -64,6 +64,7 @@ export default function DashboardLayout({
     { name: 'Reviews', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' },
     { name: 'Analytics', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
     { name: 'Invites', href: '/dashboard/invites', active: pathname === '/dashboard/invites' },
+    { name: 'Business Setup', href: '/dashboard/setup', active: pathname === '/dashboard/setup' },
   ];
 
   return (
@@ -129,7 +130,7 @@ export default function DashboardLayout({
                 </div>
 
                 <Link
-                  href="/onboarding"
+                  href="/dashboard/setup"
                   onClick={() => setProfileDropdownOpen(false)}
                   className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors"
                 >

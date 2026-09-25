@@ -39,7 +39,7 @@ export default function DashboardOverviewPage() {
               </h3>
               <p className="text-xs text-slate-500 mt-1 truncate">
                 {businessAddress || (
-                  <Link href="/onboarding" className="text-blue-600 hover:underline font-medium">
+                  <Link href="/dashboard/setup" className="text-blue-600 hover:underline font-medium">
                     Connect a business profile &rarr;
                   </Link>
                 )}
@@ -122,7 +122,7 @@ export default function DashboardOverviewPage() {
             {!isGoogleConnected && (
               <div className="mt-4">
                 <Link
-                  href="/onboarding"
+                  href="/dashboard/setup"
                   className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow-sm transition-all"
                 >
                   <span>Connect Google Profile</span>
