@@ -4,219 +4,273 @@ import React, { useState } from 'react';
 import {
   Send,
   Smartphone,
-  Star,
+  Mail,
   CheckCircle2,
   Clock,
+  ExternalLink,
   Search,
   RotateCw,
-  TrendingUp,
-  Flame,
-  Check
+  Sparkles
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
-import SendInviteModal from '@/components/dashboard/SendInviteModal';
-import QuickReviewSender from '@/components/dashboard/QuickReviewSender';
+import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
 
 export default function InvitesPage() {
-  const { invites, sendSmsInvite, searchQuery } = useRatingPulseStore();
-  const [modalOpen, setModalOpen] = useState(false);
+  const { invites, sendSmsInvite, sendEmailInvite, profile } = useRatingPulseStore();
+  const [channel, setChannel] = useState<'sms' | 'email'>('sms');
+  const [customerName, setCustomerName] = useState('');
+  const [recipientContact, setRecipientContact] = useState('');
+  const [isSending, setIsSending] = useState(false);
   const [search, setSearch] = useState('');
-  const [resendingId, setResendingId] = useState<string | null>(null);
 
-  const activeQuery = (search || searchQuery || '').trim().toLowerCase();
+  const handleSendInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recipientContact.trim()) return;
+
+    setIsSending(true);
+    try {
+      if (channel === 'sms') {
+        await sendSmsInvite(customerName || 'Valued Customer', recipientContact, 'General Visit');
+      } else {
+        await sendEmailInvite(customerName || 'Valued Customer', recipientContact, 'General Visit');
+      }
+
+      try {
+        confetti({
+          particleCount: 60,
+          spread: 60,
+          origin: { y: 0.6 },
+          colors: ['#2563eb', '#10b981', '#fbbf24'],
+        });
+      } catch {
+        // ignore
+      }
+
+      toast.success('Review Request Dispatched!', {
+        description: `1-tap review link sent to ${recipientContact}`,
+      });
+
+      setCustomerName('');
+      setRecipientContact('');
+    } catch (err: any) {
+      toast.error('Failed to send invite', { description: err?.message || 'Please try again' });
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   const filteredInvites = invites.filter((inv) => {
-    if (!activeQuery) return true;
+    const q = search.trim().toLowerCase();
+    if (!q) return true;
     return (
-      inv.customer_name.toLowerCase().includes(activeQuery) ||
-      inv.customer_phone.toLowerCase().includes(activeQuery) ||
-      inv.service_type.toLowerCase().includes(activeQuery)
+      inv.customer_name.toLowerCase().includes(q) ||
+      inv.customer_phone.toLowerCase().includes(q) ||
+      (inv as any).customer_email?.toLowerCase().includes(q)
     );
   });
 
-  const handleResend = (id: string, name: string, phone: string, service: string) => {
-    setResendingId(id);
-    setTimeout(() => {
-      sendSmsInvite(name, phone, service);
-      setResendingId(null);
-    }, 800);
-  };
-
-  const reviewedCount = invites.filter((i) => i.status === 'reviewed').length;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       
-      {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
-            <Send className="w-6 h-6 text-blue-600" />
-            Instant SMS Invites & Delivery Stream
-          </h1>
-          <p className="text-xs text-slate-500 mt-1">
-            Automate post-appointment review links via high-converting SMS.
-          </p>
+      {/* 1. SEND REVIEW REQUEST FORM CARD */}
+      <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+          <div>
+            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Send className="w-4 h-4 text-blue-600" />
+              Send Review Request
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Dispatch an automated, 1-tap Google rating link directly to your customer.
+            </p>
+          </div>
+
+          {/* Channel Selector */}
+          <div className="inline-flex rounded-lg border border-slate-200 p-1 bg-slate-50 text-xs font-medium text-slate-600">
+            <button
+              type="button"
+              onClick={() => setChannel('sms')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+                channel === 'sms' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>SMS Text</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setChannel('email')}
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-md transition-all cursor-pointer ${
+                channel === 'email' ? 'bg-white text-slate-900 shadow-sm font-semibold' : 'hover:text-slate-900'
+              }`}
+            >
+              <Mail className="w-3.5 h-3.5" />
+              <span>Email</span>
+            </button>
+          </div>
         </div>
 
-        <button
-          onClick={() => setModalOpen(true)}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/30 transition-all transform active:scale-95 cursor-pointer"
-        >
-          <Send className="w-3.5 h-3.5" />
-          Send New SMS Invite
-        </button>
+        {/* Form Inputs */}
+        <form onSubmit={handleSendInvite} className="mt-5 space-y-4 max-w-2xl">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                Customer Name <span className="text-slate-400 font-normal">(Optional)</span>
+              </label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Jane Doe"
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+                {channel === 'sms' ? 'Mobile Phone Number' : 'Email Address'} <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type={channel === 'sms' ? 'tel' : 'email'}
+                required
+                value={recipientContact}
+                onChange={(e) => setRecipientContact(e.target.value)}
+                placeholder={channel === 'sms' ? '(555) 234-5678' : 'jane@example.com'}
+                className="w-full px-3.5 py-2.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2">
+            <span className="text-[11px] text-slate-400">
+              Includes automated 1-3★ smart filter protection & direct 5★ Google routing.
+            </span>
+            <button
+              type="submit"
+              disabled={isSending || !recipientContact.trim()}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+            >
+              {isSending ? (
+                <span>Dispatching...</span>
+              ) : (
+                <>
+                  <Send className="w-3.5 h-3.5 fill-white" />
+                  <span>Send 1-Tap Invite</span>
+                </>
+              )}
+            </button>
+          </div>
+        </form>
       </div>
 
-      {/* Interactive Phone Number Box & Send Review Request Card */}
-      <QuickReviewSender />
-
-      {/* Metric Cards Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">
-            Total Invites Dispatched
-          </div>
-          <div className="text-2xl font-extrabold text-slate-900">{invites.length}</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Unlimited with $25/mo plan</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">
-            Delivery Rate
-          </div>
-          <div className="text-2xl font-extrabold text-emerald-600">99.2%</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Tier 1 SMS Carriers</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">
-            Click-to-Review Rate
-          </div>
-          <div className="text-2xl font-extrabold text-blue-600">68.4%</div>
-          <div className="text-[11px] text-slate-400 mt-0.5">Zero login barrier</div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs">
-          <div className="text-xs text-slate-500 font-bold uppercase tracking-wider mb-1">
-            Reviews Generated
-          </div>
-          <div className="text-2xl font-extrabold text-amber-500 flex items-center gap-1.5">
-            {reviewedCount}
-            <Star className="w-5 h-5 fill-amber-400" />
-          </div>
-          <div className="text-[11px] text-slate-400 mt-0.5">100% 5-Star Reviews</div>
-        </div>
-      </div>
-
-      {/* Invites Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden">
+      {/* 2. RECENT INVITES LOG TABLE */}
+      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         
-        {/* Table Search Toolbar */}
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between gap-4">
-          <div className="relative flex-1 max-w-sm">
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        {/* Table Header Bar */}
+        <div className="px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h3 className="text-base font-bold text-slate-900">Recent Invites Log</h3>
+            <p className="text-xs text-slate-500">History of outbound customer review invitations</p>
+          </div>
+
+          <div className="relative w-full sm:w-64">
+            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder="Search customer, phone, or service..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-xl border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+              placeholder="Search recipients..."
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
             />
           </div>
-          <span className="text-xs text-slate-500 font-medium">
-            Showing {filteredInvites.length} invites
-          </span>
         </div>
 
-        {/* Table Body */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50/80 text-slate-500 font-bold uppercase tracking-wider text-[10px] border-b border-slate-100">
-              <tr>
-                <th className="py-3 px-4">Customer</th>
-                <th className="py-3 px-4">Phone</th>
-                <th className="py-3 px-4">Service</th>
-                <th className="py-3 px-4">Delivery Status</th>
-                <th className="py-3 px-4">Sent Time</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredInvites.length === 0 ? (
+        {/* Table Content */}
+        {filteredInvites.length === 0 ? (
+          <div className="px-6 py-16 text-center max-w-sm mx-auto">
+            <p className="text-sm font-medium text-slate-600">No invitations sent yet.</p>
+            <p className="text-xs text-slate-400 mt-1">
+              Use the form above to send your first review request.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-slate-700">
+              <thead className="bg-slate-50 text-xs font-semibold text-slate-500 uppercase px-6 py-3 border-b border-slate-200">
                 <tr>
-                  <td colSpan={6} className="py-12 text-center text-slate-500">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                        <Send className="w-5 h-5" />
-                      </div>
-                      <div className="text-xs font-bold text-slate-800">No SMS Invites Found</div>
-                      <p className="text-[11px] text-slate-400 max-w-xs">
-                        Use the phone number sender above to send your first SMS invite, or turn on Demo Mode in the header.
-                      </p>
-                    </div>
-                  </td>
+                  <th scope="col" className="px-6 py-3">Recipient</th>
+                  <th scope="col" className="px-6 py-3">Sent Date</th>
+                  <th scope="col" className="px-6 py-3">Channel</th>
+                  <th scope="col" className="px-6 py-3">Status</th>
                 </tr>
-              ) : (
-                filteredInvites.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="py-3.5 px-4 font-bold text-slate-900">
-                      {inv.customer_name}
-                    </td>
-                    <td className="py-3.5 px-4 font-mono text-slate-600">
-                      {inv.customer_phone}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-600">
-                      {inv.service_type}
-                    </td>
-                    <td className="py-3.5 px-4">
-                      {inv.status === 'reviewed' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                          5★ Google Review Left
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredInvites.map((inv) => {
+                  const sentDate = (inv.sent_at || (inv as any).created_at)
+                    ? new Date(inv.sent_at || (inv as any).created_at).toLocaleDateString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })
+                    : 'Recent';
+
+                  return (
+                    <tr key={inv.id} className="hover:bg-slate-50/60 transition-colors">
+                      {/* Recipient */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="font-semibold text-slate-900">{inv.customer_name}</div>
+                        <div className="text-xs text-slate-500 font-mono mt-0.5">{inv.customer_phone}</div>
+                      </td>
+
+                      {/* Sent Date */}
+                      <td className="px-6 py-4 text-xs text-slate-500 whitespace-nowrap">
+                        {sentDate}
+                      </td>
+
+                      {/* Channel */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 bg-slate-100 px-2.5 py-1 rounded-md">
+                          <Smartphone className="w-3 h-3 text-slate-500" />
+                          SMS
                         </span>
-                      )}
-                      {inv.status === 'opened' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                          Link Opened
-                        </span>
-                      )}
-                      {inv.status === 'delivered' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          <Check className="w-3 h-3 text-slate-500" /> Delivered
-                        </span>
-                      )}
-                      {inv.status === 'sent' && (
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
-                          <Clock className="w-3 h-3" /> Sending...
-                        </span>
-                      )}
-                    </td>
-                    <td className="py-3.5 px-4 text-slate-400 text-[11px]" suppressHydrationWarning>
-                      {new Date(inv.sent_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                    <td className="py-3.5 px-4 text-right">
-                      <button
-                        onClick={() => handleResend(inv.id, inv.customer_name, inv.customer_phone, inv.service_type)}
-                        disabled={resendingId === inv.id}
-                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 disabled:opacity-50 cursor-pointer"
-                      >
-                        {resendingId === inv.id ? 'Resending...' : 'Resend SMS'}
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {inv.status === 'reviewed' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Reviewed
+                          </span>
+                        ) : inv.status === 'opened' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-full border border-blue-200">
+                            <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                            Clicked
+                          </span>
+                        ) : inv.status === 'delivered' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-700 bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-slate-500" />
+                            Delivered
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-800 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            Pending
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
 
       </div>
-
-      <SendInviteModal
-        isOpen={modalOpen}
-        onClose={() => setModalOpen(false)}
-      />
 
     </div>
   );

@@ -62,7 +62,7 @@ export default function DashboardLayout({
   const subNavItems = [
     { name: 'Overview', href: '/dashboard', active: pathname === '/dashboard' },
     { name: 'Reviews', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' },
-    { name: 'Analytics', href: '#', active: false },
+    { name: 'Analytics', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
     { name: 'Invites', href: '/dashboard/invites', active: pathname === '/dashboard/invites' },
   ];
 
