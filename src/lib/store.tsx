@@ -467,7 +467,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           reviewText: target.review_text,
           authorName: target.author_name,
           rating: target.rating,
-          businessName: profile.business_name,
+          businessName: profile.business_name || 'our team',
+          businessCategory: profile.business_category || 'Healthcare / Dental',
           tone,
           keywords,
         }),
@@ -475,12 +476,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        const updated = reviews.map((r) =>
-          r.id === reviewId ? { ...r, ai_draft_reply: data.reply } : r
-        );
-        setReviews(updated);
-        globalReviewsCache = updated;
-        persistState(updated, invites, settings, profile);
+        if (data.reply) {
+          const updated = reviews.map((r) =>
+            r.id === reviewId ? { ...r, ai_draft_reply: data.reply } : r
+          );
+          setReviews(updated);
+          globalReviewsCache = updated;
+          persistState(updated, invites, settings, profile);
+        }
       }
     } catch (e) {
       console.error('Failed to regenerate AI reply:', e);
@@ -499,16 +502,71 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const simulateIncomingGoogleReview = (): Review => {
-    const names = ['David K.', 'Sarah M.', 'Rachel B.', 'Carlos G.', 'Emily W.'];
-    const comments = [
-      'Outstanding experience today! The doctor took time to explain every detail clearly. 10/10 recommend!',
-      'Fast, gentle, and extremely professional team. So grateful to have found this clinic!',
-      'Dr. Marcus and staff are unbelievable. Zero pain during my appointment and spotless office.',
-      'Super clean facility and virtually no wait time. Truly the highest standard in town.',
+    const sampleScenarios = [
+      {
+        name: 'David K.',
+        avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+        rating: 5,
+        text: 'Outstanding experience today! The doctor took time to explain every detail of my treatment clearly and the staff was so welcoming. 10/10 recommend!',
+        sentiment: 'positive' as const,
+        keywords: ['clear explanation', 'welcoming staff', 'personalized care'],
+        replies: [
+          'Hi David, thank you so much for the 5-star praise! We take great pride in making sure every patient understands their care plan with clarity. We appreciate your recommendation and look forward to your next visit!',
+          'Hello David! It was a pleasure having you in today. Hearing that our clear explanations and welcoming team made your visit exceptional means everything to us. See you next time!',
+        ],
+      },
+      {
+        name: 'Sarah M.',
+        avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+        rating: 5,
+        text: 'Fast, gentle, and extremely professional team. I was nervous about the laser cleaning, but it was 100% painless. So grateful to have found this clinic!',
+        sentiment: 'positive' as const,
+        keywords: ['gentle care', 'painless laser cleaning', 'professional'],
+        replies: [
+          'Thank you for such a wonderful review, Sarah! We know dental appointments can cause anxiety, so knowing our gentle laser cleaning kept you completely painless and relaxed is the best feedback we could receive.',
+          'Hi Sarah! Thank you for trusting our clinic. Providing fast, comfortable, and pain-free treatments is our highest priority, and we are so glad you had such a great experience!',
+        ],
+      },
+      {
+        name: 'Carlos G.',
+        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+        rating: 5,
+        text: 'Super clean modern facility and virtually no wait time. Dr. Marcus and the team provided top-tier cosmetic care. My smile looks amazing!',
+        sentiment: 'positive' as const,
+        keywords: ['modern facility', 'cosmetic care', 'no wait time'],
+        replies: [
+          'Hi Carlos! We are thrilled to hear how much you love your new smile! Respecting your time with zero wait while maintaining a spotless clinic is what we strive for every day. Enjoy your brilliant results!',
+          'Thank you so much, Carlos! Crafting beautiful smile transformations in a modern, punctual setting is our passion. We appreciate your glowing 5-star review!',
+        ],
+      },
+      {
+        name: 'Emily W.',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        rating: 4,
+        text: 'The dental treatment was fantastic and the hygienist was very sweet. Parking was a bit crowded around midday, but overall a great clinic.',
+        sentiment: 'neutral' as const,
+        keywords: ['sweet hygienist', 'dental treatment', 'parking access'],
+        replies: [
+          'Hi Emily, thank you for your kind 4-star feedback and for highlighting our wonderful hygienist! We appreciate your note regarding midday parking and have added designated patient spots right behind building B for your future convenience.',
+          'Dear Emily, thank you for sharing your experience! We are glad you loved your dental treatment. We are working on optimizing parking signage to make your next visit completely seamless.',
+        ],
+      },
+      {
+        name: 'Rachel B.',
+        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=150&auto=format&fit=crop&q=80',
+        rating: 5,
+        text: 'Brought my 7-year-old daughter in for her first filling and the team was so patient and sweet with her. No tears at all! Highly recommend for families.',
+        sentiment: 'positive' as const,
+        keywords: ['family pediatric care', 'patient staff', 'fear-free visit'],
+        replies: [
+          'Thank you for such a heartwarming note, Rachel! Making pediatric visits calm, fear-free, and fun for kids is something our entire team cherishes. Give our warmest regards to your daughter!',
+          'Hi Rachel, we are so delighted to hear your daughter had a tear-free first filling appointment! Thank you for trusting us with your family dental care.',
+        ],
+      },
     ];
 
-    const randomName = names[Math.floor(Math.random() * names.length)];
-    const randomComment = comments[Math.floor(Math.random() * comments.length)];
+    const pick = sampleScenarios[Math.floor(Math.random() * sampleScenarios.length)];
+    const chosenReply = pick.replies[Math.floor(Math.random() * pick.replies.length)];
     const newId = `rev-${Date.now()}`;
 
     const newReview: Review = {
@@ -516,20 +574,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       user_id: profile.id,
       business_id: profile.id,
       place_id: profile.google_place_id || '',
-      author_name: randomName,
-      author_avatar: `https://images.unsplash.com/photo-${1534528741775 + Math.floor(Math.random() * 50)}?w=150&auto=format&fit=crop&q=80`,
-      rating: 5,
-      review_text: randomComment,
+      author_name: pick.name,
+      author_avatar: pick.avatar,
+      rating: pick.rating,
+      review_text: pick.text,
       review_date: 'Just now',
-      sentiment: 'positive',
-      keywords_used: ['gentle care', 'professional'],
+      sentiment: pick.sentiment,
+      keywords_used: pick.keywords,
       created_at: new Date().toISOString(),
-      status: settings.auto_publish_5_star ? 'published' : 'pending_approval',
-      ai_draft_reply: `Thank you so much, ${randomName}! We truly appreciate you taking the time to share your feedback. Our team is dedicated to gentle, personalized care, and we look forward to seeing you again soon!`,
-      published_reply: settings.auto_publish_5_star
-        ? `Thank you so much, ${randomName}! We truly appreciate you taking the time to share your feedback. Our team is dedicated to gentle, personalized care, and we look forward to seeing you again soon!`
-        : undefined,
-      published_at: settings.auto_publish_5_star ? new Date().toISOString() : undefined,
+      status: settings.auto_publish_5_star && pick.rating === 5 ? 'published' : 'pending_approval',
+      ai_draft_reply: chosenReply,
+      published_reply: settings.auto_publish_5_star && pick.rating === 5 ? chosenReply : undefined,
+      published_at: settings.auto_publish_5_star && pick.rating === 5 ? new Date().toISOString() : undefined,
     };
 
     const updated = [newReview, ...reviews];
