@@ -204,6 +204,38 @@ export default function BusinessSetupPage() {
     }
   };
 
+  const handleClearLocation = async () => {
+    try {
+      await updateProfile({
+        google_place_id: '',
+        business_name: '',
+        formatted_address: null,
+        review_url: null,
+        google_connected: false,
+      });
+
+      setSelectedPlace({
+        placeId: '',
+        businessName: '',
+        formattedAddress: '',
+        rating: 0,
+        reviewCount: 0,
+        reviewUrl: '',
+      });
+      setBusinessName('');
+      setBusinessAddress('');
+      setReviewUrl('');
+
+      toast.success('Location Cleared', {
+        description: 'Google Place ID and location have been removed. You can attach a new listing now.',
+      });
+    } catch (err: any) {
+      toast.error('Failed to clear location', {
+        description: err?.message || 'Please try again.',
+      });
+    }
+  };
+
   const handleDisconnect = async () => {
     setIsDisconnecting(true);
     try {
@@ -332,14 +364,29 @@ export default function BusinessSetupPage() {
             </p>
           </div>
 
-          {profile.google_place_id && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-slate-500">Active Place ID:</span>
-              <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold border border-slate-200">
-                {profile.google_place_id}
-              </code>
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-slate-500">Active Place ID:</span>
+            {profile.google_place_id ? (
+              <div className="flex items-center gap-1.5">
+                <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold border border-slate-200">
+                  {profile.google_place_id}
+                </code>
+                <button
+                  type="button"
+                  onClick={handleClearLocation}
+                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 transition-colors cursor-pointer"
+                  title="Remove location and clear Place ID"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Clear
+                </button>
+              </div>
+            ) : (
+              <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] border border-slate-200">
+                None attached
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Search Autocomplete */}
