@@ -191,7 +191,7 @@ export default function BusinessSetupPage() {
 
     setIsSyncingReviews(true);
     try {
-      const syncedCount = await syncGoogleReviews();
+      const syncedCount = await syncGoogleReviews(profile.google_place_id);
       toast.success('Google Reviews Synced! 🔄', {
         description: `Fetched latest reviews from Google. (${syncedCount} reviews updated).`,
       });
@@ -212,6 +212,8 @@ export default function BusinessSetupPage() {
         formatted_address: null,
         review_url: null,
         google_connected: false,
+        google_rating: 0,
+        google_review_count: 0,
       });
 
       setSelectedPlace({

@@ -53,9 +53,10 @@ async function handleSync(req: NextRequest) {
     let totalRatings = userProfile?.google_review_count || 0;
     let placeName = userProfile?.business_name || '';
 
-    // 1. Try Google Business Profile (GBP) OAuth Direct Sync if available
+    // 1. Try Google Business Profile (GBP) OAuth Direct Sync if available and matching target place
     let gbpSynced = false;
-    if (userProfile && (userProfile.google_access_token || userProfile.google_refresh_token) && userProfile.google_account_id && userProfile.google_location_id) {
+    const isPlaceMatch = !rawPlaceId || !userProfile?.google_place_id || rawPlaceId === userProfile.google_place_id;
+    if (isPlaceMatch && userProfile && (userProfile.google_access_token || userProfile.google_refresh_token) && userProfile.google_account_id && userProfile.google_location_id) {
       try {
         const accessToken = await getValidAccessTokenForProfile(userProfile, async (updates) => {
           if (supabaseAdmin && userProfile?.id) {

@@ -168,11 +168,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               .eq('place_id', activePlaceId)
               .order('created_at', { ascending: false });
 
-            if (!revsErr && revsData && revsData.length > 0) {
-              const revs = revsData as Review[];
-              setReviews(revs);
-              globalReviewsCache = revs;
-              persistState(revs, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
+            const validRevs = (!revsErr && revsData) ? (revsData as Review[]).filter((r) => r.place_id === activePlaceId) : [];
+
+            if (validRevs.length > 0) {
+              setReviews(validRevs);
+              globalReviewsCache = validRevs;
+              persistState(validRevs, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
             } else {
               setReviews([]);
               globalReviewsCache = [];
@@ -194,9 +195,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                   });
                   const syncData = await syncRes.json();
                   if (syncData.success && Array.isArray(syncData.reviews) && syncData.reviews.length > 0) {
-                    setReviews(syncData.reviews);
-                    globalReviewsCache = syncData.reviews;
-                    persistState(syncData.reviews, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
+                    const fresh = syncData.reviews
+                      .map((r: Review) => ({ ...r, place_id: r.place_id || activePlaceId }))
+                      .filter((r: Review) => r.place_id === activePlaceId);
+                    setReviews(fresh);
+                    globalReviewsCache = fresh;
+                    persistState(fresh, globalInvitesCache, globalSettingsCache, activeProfile || undefined);
                   } else {
                     setReviews([]);
                     globalReviewsCache = [];
@@ -841,10 +845,41 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfile = async (newProfile: Partial<Profile>) => {
+    const isPlaceChanged =
+      newProfile.google_place_id !== undefined &&
+      newProfile.google_place_id !== profile.google_place_id;
+
+    const newPlaceId = newProfile.google_place_id !== undefined ? (newProfile.google_place_id || '') : (profile.google_place_id || '');
+
+    let updatedReviews = reviews;
+
+    if (isPlaceChanged) {
+      if (!newPlaceId || newPlaceId.trim() === '') {
+        updatedReviews = [];
+        setReviews([]);
+        globalReviewsCache = [];
+        try {
+          localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+        } catch {}
+      } else {
+        // Filter out any previous reviews from old place_ids
+        updatedReviews = reviews.filter((r) => r.place_id === newPlaceId);
+        setReviews(updatedReviews);
+        globalReviewsCache = updatedReviews;
+        try {
+          if (updatedReviews.length === 0) {
+            localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+          } else {
+            localStorage.setItem(STORAGE_KEYS.REVIEWS, JSON.stringify(updatedReviews));
+          }
+        } catch {}
+      }
+    }
+
     const updated = { ...profile, ...newProfile };
     setProfile(updated);
     globalProfileCache = updated;
-    persistState(reviews, invites, settings, updated);
+    persistState(updatedReviews, invites, settings, updated);
 
     const uid = user?.id || updated.id;
     const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
@@ -899,6 +934,23 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (settingsError) {
           console.error('Supabase save error details (business_settings):', settingsError.message, settingsError.details, settingsError.hint);
         }
+
+        // If place ID changed and is non-empty, query existing reviews for the new place in Supabase
+        if (isPlaceChanged && newPlaceId && newPlaceId.trim() !== '') {
+          const { data: placeRevs } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('user_id', uid)
+            .eq('place_id', newPlaceId)
+            .order('created_at', { ascending: false });
+
+          if (placeRevs && placeRevs.length > 0) {
+            const freshRevs = (placeRevs as Review[]).filter((r) => r.place_id === newPlaceId);
+            setReviews(freshRevs);
+            globalReviewsCache = freshRevs;
+            persistState(freshRevs, invites, settings, updated);
+          }
+        }
       } catch (err) {
         console.warn('Supabase update profile exception:', err);
       }
@@ -925,32 +977,29 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       });
 
       const data = await res.json();
-      if (data.success && Array.isArray(data.reviews) && data.reviews.length > 0) {
-        const fetchedRevs: Review[] = data.reviews;
-        let updatedReviewsList: Review[] = [];
+      if (data.success && Array.isArray(data.reviews)) {
+        // Strictly filter to ensure ONLY reviews matching targetPlaceId are included
+        const fetchedRevs: Review[] = data.reviews
+          .map((r: Review) => ({ ...r, place_id: r.place_id || targetPlaceId }))
+          .filter((r: Review) => r.place_id === targetPlaceId);
 
-        setReviews((prev) => {
-          const existingMap = new Map(prev.map((r) => [r.id, r]));
-          fetchedRevs.forEach((r) => existingMap.set(r.id, r));
-          updatedReviewsList = Array.from(existingMap.values());
-          globalReviewsCache = updatedReviewsList;
-          persistState(updatedReviewsList, invites, settings, profile);
-          return updatedReviewsList;
-        });
+        setReviews(fetchedRevs);
+        globalReviewsCache = fetchedRevs;
+
+        const updatedProfile: Profile = {
+          ...profile,
+          google_place_id: targetPlaceId,
+          google_connected: true,
+          google_rating: Number(data.stats?.average_rating) || profile.google_rating,
+          google_review_count: Number(data.stats?.total_reviews) || fetchedRevs.length || profile.google_review_count,
+        };
 
         if (data.stats) {
-          const updatedProfile: Profile = {
-            ...profile,
-            google_place_id: targetPlaceId,
-            google_connected: true,
-            google_rating: Number(data.stats.average_rating) || profile.google_rating,
-            google_review_count: Number(data.stats.total_reviews) || profile.google_review_count,
-          };
           setProfile(updatedProfile);
           globalProfileCache = updatedProfile;
-          persistState(updatedReviewsList.length > 0 ? updatedReviewsList : reviews, invites, settings, updatedProfile);
         }
 
+        persistState(fetchedRevs, invites, settings, updatedProfile);
         return fetchedRevs.length;
       }
     } catch (err) {

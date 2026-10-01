@@ -86,6 +86,11 @@ export default function ReviewsFeed({
   }
 
   const filteredReviews = reviews.filter((rev) => {
+    // Strict active place_id guard: if profile.google_place_id is set, only show reviews for this active place
+    if (profile.google_place_id && rev.place_id && rev.place_id !== profile.google_place_id) {
+      return false;
+    }
+
     if (statusFilter === 'pending' && rev.status !== 'pending_approval') return false;
     if (statusFilter === 'published' && rev.status !== 'published') return false;
 
@@ -151,7 +156,7 @@ export default function ReviewsFeed({
   const handleSyncGoogleReviews = async () => {
     setIsSyncing(true);
     try {
-      const count = await syncGoogleReviews();
+      const count = await syncGoogleReviews(profile.google_place_id);
       const { toast } = await import('sonner');
       toast.success('Google Reviews Synced!', {
         description: count > 0 
