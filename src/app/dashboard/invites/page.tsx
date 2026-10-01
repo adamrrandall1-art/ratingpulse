@@ -14,6 +14,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { generateGoogleReviewUrl } from '@/lib/google-places';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
@@ -30,7 +31,7 @@ export default function InvitesPage() {
 
   const displayName = customerName.trim() || 'valued customer';
   const bizName = profile.business_name || 'our business';
-  const reviewLink = profile.review_url || 'https://g.page/r/YOUR_LINK/review';
+  const reviewLink = profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : 'https://g.page/r/YOUR_LINK/review');
 
   // Live message content calculations
   const smsMessageText = `Hi ${displayName}, thank you for choosing ${bizName}! Would you take 30 seconds to share your experience? ${reviewLink}`;

@@ -107,12 +107,18 @@ export default function BusinessSetupPage() {
     e.preventDefault();
     setIsSavingProfile(true);
     try {
+      const chosenBusinessName = businessName.trim() || selectedPlace.businessName || profile.business_name;
+      const chosenPlaceId = selectedPlace.placeId || profile.google_place_id || undefined;
+      const chosenAddress = businessAddress.trim() || selectedPlace.formattedAddress || profile.formatted_address;
+      const gReviewUrl = reviewUrl || (chosenPlaceId ? generateGoogleReviewUrl(chosenPlaceId) : undefined);
+
       await updateProfile({
-        business_name: businessName,
-        formatted_address: businessAddress,
+        business_name: chosenBusinessName,
+        formatted_address: chosenAddress,
         phone: businessPhone,
         business_category: businessCategory,
-        review_url: reviewUrl || (selectedPlace.placeId ? generateGoogleReviewUrl(selectedPlace.placeId) : undefined),
+        google_place_id: chosenPlaceId,
+        review_url: gReviewUrl,
       });
       await updateSettings({
         auto_publish_5_star: autoPublish5Star,

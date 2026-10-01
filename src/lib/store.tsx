@@ -890,12 +890,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           id: uid,
           email: updated.email || user?.email || '',
           full_name: updated.full_name || null,
-          business_name: updated.business_name || 'Apex Dental & Aesthetics',
-          business_category: updated.business_category || 'Healthcare / Dental',
+          business_name: updated.business_name || null,
+          business_category: updated.business_category || null,
           google_place_id: updated.google_place_id || '',
           formatted_address: updated.formatted_address || null,
           review_url: updated.review_url || null,
-          google_rating: Number(updated.google_rating) || 4.9,
+          google_rating: Number(updated.google_rating) || 0,
           google_review_count: Number(updated.google_review_count) || 0,
           google_connected: Boolean(updated.google_connected),
           phone: updated.phone || null,
@@ -915,6 +915,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
         const cleanSettingsPayload: Record<string, unknown> = {
           user_id: uid,
+          business_name: updated.business_name || null,
+          place_id: updated.google_place_id || null,
+          google_review_url: updated.review_url || null,
           brand_voice: settings.brand_voice || 'friendly_professional',
           auto_publish_5_star: Boolean(settings.auto_publish_5_star),
           custom_keywords: Array.isArray(settings.custom_keywords) ? settings.custom_keywords : ['gentle care', 'emergency dentist'],
@@ -989,6 +992,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const updatedProfile: Profile = {
           ...profile,
           google_place_id: targetPlaceId,
+          business_name: (data.stats?.place_name && data.stats.place_name.trim() !== '') ? data.stats.place_name : profile.business_name,
           google_connected: true,
           google_rating: Number(data.stats?.average_rating) || profile.google_rating,
           google_review_count: Number(data.stats?.total_reviews) || fetchedRevs.length || profile.google_review_count,
