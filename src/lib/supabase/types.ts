@@ -28,6 +28,13 @@ export interface Profile {
   notification_email?: string | null;
   notification_phone?: string | null;
   sms_alerts_enabled?: boolean;
+  notify_negative_enabled?: boolean;
+  notify_negative_email?: boolean;
+  notify_negative_sms?: boolean;
+  notify_negative_phone?: string | null;
+  notify_positive_enabled?: boolean;
+  notify_positive_email?: boolean;
+  notify_positive_sms?: boolean;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
@@ -49,6 +56,13 @@ export interface BusinessSettings {
   sms_alerts_enabled?: boolean;
   notify_email: boolean;
   notify_sms: boolean;
+  notify_negative_enabled?: boolean;
+  notify_negative_email?: boolean;
+  notify_negative_sms?: boolean;
+  notify_negative_phone?: string | null;
+  notify_positive_enabled?: boolean;
+  notify_positive_email?: boolean;
+  notify_positive_sms?: boolean;
   created_at: string;
 }
 

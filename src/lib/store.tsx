@@ -828,6 +828,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           sms_alerts_enabled: updated.sms_alerts_enabled ?? true,
           notify_email: updated.notify_email ?? true,
           notify_sms: updated.notify_sms ?? true,
+          notify_negative_enabled: updated.notify_negative_enabled ?? true,
+          notify_negative_email: updated.notify_negative_email ?? true,
+          notify_negative_sms: updated.notify_negative_sms ?? true,
+          notify_negative_phone: updated.notify_negative_phone || null,
+          notify_positive_enabled: updated.notify_positive_enabled ?? true,
+          notify_positive_email: updated.notify_positive_email ?? true,
+          notify_positive_sms: updated.notify_positive_sms ?? false,
           updated_at: new Date().toISOString(),
         };
 
@@ -902,6 +909,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           notification_email: updated.notification_email || null,
           notification_phone: updated.notification_phone || null,
           sms_alerts_enabled: updated.sms_alerts_enabled ?? true,
+          notify_negative_enabled: updated.notify_negative_enabled ?? true,
+          notify_negative_email: updated.notify_negative_email ?? true,
+          notify_negative_sms: updated.notify_negative_sms ?? true,
+          notify_negative_phone: updated.notify_negative_phone || null,
+          notify_positive_enabled: updated.notify_positive_enabled ?? true,
+          notify_positive_email: updated.notify_positive_email ?? true,
+          notify_positive_sms: updated.notify_positive_sms ?? false,
           updated_at: new Date().toISOString(),
         };
 
@@ -927,6 +941,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           sms_alerts_enabled: updated.sms_alerts_enabled ?? settings.sms_alerts_enabled ?? true,
           notify_email: settings.notify_email ?? true,
           notify_sms: settings.notify_sms ?? true,
+          notify_negative_enabled: updated.notify_negative_enabled ?? settings.notify_negative_enabled ?? true,
+          notify_negative_email: updated.notify_negative_email ?? settings.notify_negative_email ?? true,
+          notify_negative_sms: updated.notify_negative_sms ?? settings.notify_negative_sms ?? true,
+          notify_negative_phone: updated.notify_negative_phone || settings.notify_negative_phone || null,
+          notify_positive_enabled: updated.notify_positive_enabled ?? settings.notify_positive_enabled ?? true,
+          notify_positive_email: updated.notify_positive_email ?? settings.notify_positive_email ?? true,
+          notify_positive_sms: updated.notify_positive_sms ?? settings.notify_positive_sms ?? false,
           updated_at: new Date().toISOString(),
         };
 

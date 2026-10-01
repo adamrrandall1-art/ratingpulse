@@ -49,6 +49,15 @@ export const initialSettings: BusinessSettings = {
   sms_template: 'Hi {{customer_name}}, thank you for trusting {{business_name}} today! Could you take 30 seconds to share your feedback on Google? It really helps our local team: {{review_link}}',
   notify_email: true,
   notify_sms: true,
+  notify_negative_enabled: true,
+  notify_negative_email: true,
+  notify_negative_sms: true,
+  notify_negative_phone: '+1 (555) 234-8900',
+  notify_positive_enabled: true,
+  notify_positive_email: true,
+  notify_positive_sms: false,
+  notification_email: 'marcus@apexdental.com',
+  notification_phone: '+1 (555) 234-8900',
   created_at: new Date().toISOString(),
 };
 
