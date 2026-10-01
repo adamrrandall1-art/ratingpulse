@@ -79,13 +79,14 @@ export default function DashboardLayout({
           <div className="flex items-center gap-8">
             <Link
               href="/"
-              className="cursor-pointer flex items-center select-none hover:opacity-90 transition-opacity shrink-0"
+              className="cursor-pointer flex items-center gap-3 select-none hover:opacity-95 transition-opacity"
             >
-              <img
-                src="/ratingpulse_logo.png"
-                alt="RatingPulse"
-                className="h-9 sm:h-10 w-auto object-contain block"
-              />
+              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm shrink-0">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <span className="text-lg font-bold tracking-tight text-slate-900">
+                RATING<span className="text-blue-600">PULSE</span>
+              </span>
             </Link>
 
             {/* Primary Navigation Links */}

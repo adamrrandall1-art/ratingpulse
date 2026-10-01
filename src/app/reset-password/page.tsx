@@ -312,15 +312,11 @@ export default function ResetPasswordPage() {
       {/* Top Navbar */}
       <header className="px-6 py-5 bg-white border-b border-slate-200">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center select-none hover:opacity-90 transition-opacity shrink-0"
-          >
-            <img
-              src="/ratingpulse_logo.png"
-              alt="RatingPulse"
-              className="h-9 sm:h-10 w-auto object-contain block"
-            />
+          <Link href="/" className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <Star className="w-5 h-5 fill-amber-400 text-amber-400" />
+            </div>
+            <span className="font-bold text-lg text-slate-900 tracking-tight">RatingPulse.co</span>
           </Link>
 
           <Link
