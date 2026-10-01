@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { sendWelcomeEmail } from '@/lib/email/templates/welcome';
@@ -17,7 +17,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await sendWelcomeEmail({ to: email, name, userId });
+    const force = Boolean(body.force);
+
+    const result = await sendWelcomeEmail({ to: email, name, userId, force });
     return NextResponse.json(result);
   } catch (err: any) {
     console.error('[API Welcome Email Error]:', err);

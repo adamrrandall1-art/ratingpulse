@@ -32,6 +32,7 @@ export interface Profile {
   stripe_subscription_id?: string | null;
   plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
   trial_ends_at?: string | null;
+  welcome_email_sent?: boolean;
   created_at: string;
   updated_at: string;
 }

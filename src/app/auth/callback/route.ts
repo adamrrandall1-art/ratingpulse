@@ -37,18 +37,58 @@ export async function GET(request: NextRequest) {
       });
 
       const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      if (!error) {
-        // Trigger welcome onboarding email in background
-        if (data?.user?.email && type !== 'recovery') {
+      if (!error && data?.user) {
+        // Welcome email check: only dispatch once upon initial account creation
+        if (data.user.email && type !== 'recovery') {
           try {
-            const { sendWelcomeEmail } = await import('@/lib/email/templates/welcome');
-            sendWelcomeEmail({
-              to: data.user.email,
-              name: data.user.user_metadata?.full_name,
-              userId: data.user.id,
-            }).catch((emailErr) => console.warn('[Welcome email dispatch error]:', emailErr));
-          } catch {
-            // ignore
+            // Check if profile already exists in Supabase
+            const { data: existingProfile } = await supabase
+              .from('profiles')
+              .select('id, email, welcome_email_sent, created_at')
+              .eq('id', data.user.id)
+              .maybeSingle();
+
+            const isExistingUser = Boolean(existingProfile?.id);
+            const userCreatedAt = data.user.created_at ? new Date(data.user.created_at).getTime() : 0;
+            const isBrandNewAuth = Date.now() - userCreatedAt < 120000; // Created within last 2 minutes
+
+            if (!isExistingUser && isBrandNewAuth) {
+              // Brand new user registration: create initial profile and dispatch welcome email once
+              await supabase.from('profiles').upsert(
+                {
+                  id: data.user.id,
+                  email: data.user.email,
+                  full_name: data.user.user_metadata?.full_name || 'Business Owner',
+                  business_name: data.user.user_metadata?.business_name || 'My Business',
+                  welcome_email_sent: true,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: 'id' }
+              );
+
+              await supabase.from('business_settings').upsert(
+                {
+                  user_id: data.user.id,
+                },
+                { onConflict: 'user_id' }
+              );
+
+              const { sendWelcomeEmail } = await import('@/lib/email/templates/welcome');
+              sendWelcomeEmail({
+                to: data.user.email,
+                name: data.user.user_metadata?.full_name,
+                userId: data.user.id,
+              }).catch((emailErr) => console.warn('[Welcome email dispatch error]:', emailErr));
+            } else if (isExistingUser && !existingProfile?.welcome_email_sent) {
+              // Existing user returning: ensure flag is marked true so email is never sent on recurring sign-ins
+              await supabase
+                .from('profiles')
+                .update({ welcome_email_sent: true })
+                .eq('id', data.user.id);
+            }
+          } catch (profileCheckErr) {
+            console.warn('[Auth callback profile check exception]:', profileCheckErr);
           }
         }
 

@@ -66,6 +66,7 @@ alter table public.profiles add column if not exists stripe_customer_id text;
 alter table public.profiles add column if not exists stripe_subscription_id text;
 alter table public.profiles add column if not exists plan_status text default 'trialing';
 alter table public.profiles add column if not exists trial_ends_at timestamp with time zone default timezone('utc'::text, now() + interval '14 days');
+alter table public.profiles add column if not exists welcome_email_sent boolean default false;
 alter table public.profiles add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.profiles add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
 

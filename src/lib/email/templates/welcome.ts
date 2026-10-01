@@ -144,7 +144,7 @@ export async function sendWelcomeEmail({ to, name, userId, force }: SendWelcomeE
       supabaseAdmin = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 
       if (!force && (userId || to)) {
-        let query = supabaseAdmin.from('profiles').select('welcome_email_sent');
+        let query = supabaseAdmin.from('profiles').select('id, email, welcome_email_sent, created_at');
         if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
           query = query.eq('id', userId);
         } else {
@@ -155,6 +155,15 @@ export async function sendWelcomeEmail({ to, name, userId, force }: SendWelcomeE
         if (profileData?.welcome_email_sent) {
           console.log('[Welcome Email] Already sent previously to:', to);
           return { success: true, skipped: true, message: 'Welcome email already sent previously' };
+        }
+
+        // If profile was created more than 5 minutes ago, this is a pre-existing user account
+        if (profileData?.created_at && Date.now() - new Date(profileData.created_at).getTime() > 5 * 60 * 1000) {
+          console.log('[Welcome Email] Pre-existing user detected, skipping email for:', to);
+          if (profileData?.id) {
+            await supabaseAdmin.from('profiles').update({ welcome_email_sent: true }).eq('id', profileData.id);
+          }
+          return { success: true, skipped: true, message: 'Existing account, skipped welcome email' };
         }
       }
     } catch (checkErr) {
