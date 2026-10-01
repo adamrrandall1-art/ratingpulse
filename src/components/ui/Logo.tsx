@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { Sparkles } from 'lucide-react';
+import { useAuth } from '@/lib/auth-context';
 
 export interface LogoProps {
   className?: string;
@@ -19,25 +19,33 @@ export const Logo: React.FC<LogoProps> = ({
   className = '',
   iconOnly = false,
   variant,
-  href = '/',
+  size = 'md',
+  href,
   onClick,
 }) => {
-  const isIcon = iconOnly || variant === 'icon';
+  const { user } = useAuth();
+  const targetHref = href !== undefined ? href : (user ? '/dashboard' : '/');
+
+  const heightClass =
+    size === 'sm'
+      ? 'h-8'
+      : size === 'lg'
+      ? 'h-11'
+      : size === 'xl'
+      ? 'h-12'
+      : 'h-9 sm:h-10';
 
   return (
     <Link
-      href={href}
+      href={targetHref}
       onClick={onClick}
-      className={`inline-flex items-center gap-3 select-none group ${className}`}
+      className={`inline-flex items-center select-none hover:opacity-90 transition-opacity shrink-0 ${className}`}
     >
-      <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white shadow-sm group-hover:bg-blue-700 transition-colors shrink-0">
-        <Sparkles className="w-5 h-5 text-white" />
-      </div>
-      {!isIcon && (
-        <span className="text-lg font-bold tracking-tight text-slate-900">
-          RATING<span className="text-blue-600">PULSE</span>
-        </span>
-      )}
+      <img
+        src="/ratingpulse_logo.png"
+        alt="RatingPulse"
+        className={`${heightClass} w-auto object-contain block`}
+      />
     </Link>
   );
 };
