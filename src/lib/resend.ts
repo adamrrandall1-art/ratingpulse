@@ -196,6 +196,17 @@ export async function sendFeedbackAlert({
                 </tr>` : ''}
               </table>
 
+              <!-- CTA Action Button -->
+              <div style="margin-top: 24px; margin-bottom: 24px; text-align: center;">
+                <a href="https://ratingpulse.co/dashboard/reviews" 
+                   style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
+                  View Feedback in Dashboard
+                </a>
+                <p style="margin-top: 14px; font-size: 13px; color: #6b7280;">
+                  Or visit directly: <a href="https://ratingpulse.co/dashboard/reviews" style="color: #2563eb; text-decoration: underline;">https://ratingpulse.co/dashboard/reviews</a>
+                </p>
+              </div>
+
               <div style="background-color: #f0fdf4; border: 1px solid #dcfce7; border-radius: 12px; padding: 14px; color: #166534; font-size: 13px; line-height: 1.4;">
                 💡 <strong>Pro Tip:</strong> Reaching out within 15 minutes turns 70% of dissatisfied customers into loyal advocates!
               </div>
@@ -215,6 +226,18 @@ export async function sendFeedbackAlert({
     </html>
   `;
 
+  const text = `⚠️ RatingPulse Private Customer Feedback Alert (Intercepted)
+
+Rating: ${rating}/5 Stars (${starIcons})
+Customer: ${customerName || 'Anonymous Customer'}
+${customerPhone ? `Phone: ${customerPhone}\n` : ''}${customerEmail ? `Email: ${customerEmail}\n` : ''}
+Customer Feedback:
+"${feedbackText || 'No comments provided'}"
+
+View and respond to this feedback:
+https://ratingpulse.co/dashboard/reviews
+`;
+
   const fallbackRecipient = process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
   let targetRecipient = businessOwnerEmail;
   if (!targetRecipient || targetRecipient === 'notifications@ratingpulse.co' || targetRecipient === 'reviews@ratingpulse.co') {
@@ -227,6 +250,7 @@ export async function sendFeedbackAlert({
       to: [targetRecipient],
       subject: `⚠️ Negative Feedback Alert: ${customerName || 'A customer'} left a ${rating}-star rating`,
       html,
+      text,
     });
 
     if (error) {
