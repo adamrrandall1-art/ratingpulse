@@ -11,12 +11,10 @@ import {
   CheckCircle2,
   RefreshCw,
   Save,
-  Database,
   ExternalLink,
   Plus,
   X,
   Mail,
-  Trash2,
   AlertTriangle,
   User,
   KeyRound,
@@ -38,7 +36,6 @@ export default function SettingsPage() {
     settings,
     updateSettings,
     updateProfile,
-    resetAccountAndTestData,
   } = useRatingPulseStore();
 
   // Admin Account States
@@ -89,8 +86,6 @@ export default function SettingsPage() {
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
-  const [isResettingAccount, setIsResettingAccount] = useState(false);
-  const [showResetAccountModal, setShowResetAccountModal] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
   // Hydrate on mount
@@ -232,27 +227,6 @@ export default function SettingsPage() {
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleResetAccountAndTestData = async () => {
-    setIsResettingAccount(true);
-    try {
-      await resetAccountAndTestData();
-      setKeywords([]);
-      setBrandVoice('friendly_professional');
-      setNegativePhoneNumber('');
-      setShowResetAccountModal(false);
-      toast.success('Account Reset Successful', {
-        description: 'All test data, reviews, invites, and business connections have been wiped.',
-      });
-    } catch (err: any) {
-      console.error('Reset account error:', err);
-      toast.error('Failed to reset account', {
-        description: err?.message || 'Please try again.',
-      });
-    } finally {
-      setIsResettingAccount(false);
     }
   };
 
@@ -708,55 +682,8 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-
-        {/* 6. SUPABASE BACKEND CLOUD DATABASE */}
-        <div className="bg-slate-900 text-white rounded-2xl p-6 border border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Database className="w-5 h-5 text-blue-400" />
-              <h3 className="text-sm font-bold text-white">Supabase Cloud Database</h3>
-            </div>
-            <span className="text-[10px] uppercase font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-800">
-              {isSupabaseConfigured ? 'Connected' : 'Local Fallback Mode'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">
-            Database connection is active. All business profiles, invitations, customer feedback, and synced Google reviews are persisted in PostgreSQL.
-          </p>
-        </div>
-
-        {/* 7. DANGER ZONE: RESET ACCOUNT & CLEAR TEST DATA */}
-        <div className="bg-rose-50/50 rounded-2xl border border-rose-200 p-6 space-y-4 shadow-2xs">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">Reset Account &amp; Clear All Test Data</h3>
-                <p className="text-xs text-slate-600 mt-0.5">
-                  Wipe all review invites, reviews, SMS logs, Place IDs, and cached browser records.
-                </p>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setShowResetAccountModal(true)}
-              className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-md shadow-rose-600/20 flex items-center justify-center gap-2 transition-all transform active:scale-95 cursor-pointer shrink-0"
-            >
-              <Trash2 className="w-4 h-4" />
-              Reset Account &amp; Clear Test Data
-            </button>
-          </div>
-
-          <div className="p-3.5 rounded-xl bg-white/80 border border-rose-200/60 text-[11px] text-slate-600 leading-relaxed">
-            <strong className="text-rose-900 font-bold">Developer / Admin Notice:</strong> Clicking this will wipe all mock and test rows from Supabase (including <code className="text-slate-800 font-mono">review_invites</code>, <code className="text-slate-800 font-mono">reviews</code>, and <code className="text-slate-800 font-mono">business_settings</code>), clear all <code className="text-slate-800 font-mono">ratingpulse_*</code> localStorage keys, and instantly reset your dashboard to a clean 0-state ready for real customer onboarding.
-          </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="pt-2 flex justify-end">
+        {/* Save Button Action Bar */}
+        <div className="pt-4 pb-8 flex justify-end">
           <button
             type="submit"
             disabled={isSaving}
@@ -777,66 +704,6 @@ export default function SettingsPage() {
         </div>
 
       </form>
-
-      {/* Reset Account & Clear All Test Data Confirmation Modal */}
-      {showResetAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-2xl max-w-md w-full border border-rose-200 shadow-2xl p-6 space-y-5 animate-in zoom-in-95 duration-150">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="space-y-1">
-                <h3 className="text-base font-bold text-slate-900">Reset Account &amp; Clear All Test Data?</h3>
-                <p className="text-xs text-slate-500 leading-relaxed">
-                  Are you sure you want to clear all test data and reset business connections? This action cannot be undone.
-                </p>
-              </div>
-            </div>
-
-            <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-200/80 text-xs text-rose-900 space-y-2">
-              <p className="font-bold text-rose-950">This action will immediately:</p>
-              <ul className="list-disc pl-4 space-y-1 text-rose-800 text-[11px]">
-                <li>Delete all review invites, SMS dispatch history, and customer feedback from Supabase.</li>
-                <li>Delete all synced and mock reviews from the database.</li>
-                <li>Clear Google Place ID, Google OAuth tokens, and rating metadata.</li>
-                <li>Wipe all cached localStorage keys (<code className="font-mono text-rose-900">ratingpulse_*</code>).</li>
-                <li>Reset the UI to a clean 0-state ready for real onboarding.</li>
-              </ul>
-            </div>
-
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowResetAccountModal(false)}
-                disabled={isResettingAccount}
-                className="px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleResetAccountAndTestData}
-                disabled={isResettingAccount}
-                className="px-4 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold shadow-md shadow-rose-600/20 flex items-center gap-1.5 transition-all transform active:scale-95 cursor-pointer"
-              >
-                {isResettingAccount ? (
-                  <>
-                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    Wiping &amp; Resetting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Yes, Wipe Everything &amp; Reset
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 }
