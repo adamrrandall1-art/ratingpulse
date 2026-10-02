@@ -53,18 +53,9 @@ export default function DashboardLayout({
 
   const primaryNavItems = [
     { name: 'Dashboard', href: '/dashboard', active: pathname === '/dashboard' },
-    { name: 'Businesses', href: '/dashboard/setup', active: pathname === '/dashboard/setup' },
-    { name: 'Feedback', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' },
-    { name: 'Reports', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
-    { name: 'Settings', href: '/dashboard/settings', active: pathname === '/dashboard/settings' },
-  ];
-
-  const subNavItems = [
-    { name: 'Overview', href: '/dashboard', active: pathname === '/dashboard' },
-    { name: 'Reviews', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' },
-    { name: 'Analytics', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' },
-    { name: 'Invites', href: '/dashboard/invites', active: pathname === '/dashboard/invites' },
-    { name: 'Business Setup', href: '/dashboard/setup', active: pathname === '/dashboard/setup' },
+    { name: 'Businesses', href: '/dashboard/setup', active: pathname === '/dashboard/setup' || pathname === '/dashboard/businesses' },
+    { name: 'Reviews', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' || pathname === '/dashboard/feedback' },
+    { name: 'Reports', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' || pathname === '/dashboard/reports' },
     { name: 'Settings', href: '/dashboard/settings', active: pathname === '/dashboard/settings' },
   ];
 
@@ -72,7 +63,7 @@ export default function DashboardLayout({
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans antialiased flex flex-col">
       
       {/* 1. TOP NAVIGATION BAR */}
-      <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-2xs">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-slate-200 shadow-2xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           
           {/* Left: Brand Logo & Primary Nav */}
@@ -175,28 +166,26 @@ export default function DashboardLayout({
           </div>
 
         </div>
-      </header>
 
-      {/* 2. SUB-NAVIGATION TAB ROW */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center gap-8 text-sm">
-          {subNavItems.map((tab) => (
+        {/* Mobile Navigation bar for smaller screens */}
+        <div className="md:hidden border-t border-slate-100 px-4 py-2 flex items-center justify-between overflow-x-auto gap-3 text-xs">
+          {primaryNavItems.map((item) => (
             <Link
-              key={tab.name}
-              href={tab.href}
-              className={`py-3.5 transition-all text-xs font-semibold ${
-                tab.active
-                  ? 'border-b-2 border-blue-600 text-blue-600'
-                  : 'text-slate-500 hover:text-slate-900'
+              key={item.name}
+              href={item.href}
+              className={`px-2.5 py-1.5 rounded-md whitespace-nowrap transition-colors ${
+                item.active
+                  ? 'bg-blue-50 text-blue-600 font-semibold'
+                  : 'text-slate-600 hover:text-slate-900 font-medium'
               }`}
             >
-              {tab.name}
+              {item.name}
             </Link>
           ))}
         </div>
-      </div>
+      </header>
 
-      {/* 3. MAIN DASHBOARD CANVAS */}
+      {/* 2. MAIN DASHBOARD CANVAS */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {children}
       </main>
