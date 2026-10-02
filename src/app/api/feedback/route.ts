@@ -5,6 +5,23 @@ import { createClient } from '@supabase/supabase-js';
 import { sendFeedbackAlert } from '@/lib/resend';
 import { sendTwilioSms, formatE164 } from '@/lib/twilio';
 
+function getAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ADMIN_KEY ||
+    process.env.SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
+
+  return createClient(supabaseUrl, supabaseKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
 export async function POST(req: NextRequest) {
   let dbSaved = false;
   let emailSent = false;
@@ -33,6 +50,7 @@ export async function POST(req: NextRequest) {
       businessId,
       invite_id,
       inviteId,
+      token,
       id,
       businessName = 'RatingPulse Business',
       ownerEmail,
@@ -43,186 +61,196 @@ export async function POST(req: NextRequest) {
       phone,
     } = body;
 
-    // 1. Safe Star Rating Parsing & Numeric Coercion
-    const rawRating = rating ?? stars ?? rating_received ?? body.effectiveRating ?? 3;
-    const numericRating = Number(rawRating);
-    const isNegative = !isNaN(numericRating) ? numericRating <= 3 : true;
-    const effectiveRating = !isNaN(numericRating) ? numericRating : 3;
+    // 1. Star Rating Parsing & Numeric Coercion (if <= 3 or absent, treat as negative)
+    const rawRating = rating ?? stars ?? rating_received ?? body.effectiveRating;
+    const numericRating = rawRating !== undefined && rawRating !== null && rawRating !== '' ? Number(rawRating) : null;
+    const isNegative = numericRating === null || isNaN(numericRating) || numericRating <= 3;
+    const effectiveRating = numericRating !== null && !isNaN(numericRating) ? numericRating : 3;
 
     const effectiveText = feedback_text || feedbackText || comment || '';
-    const effectiveName = customer_name || customerName || 'Anonymous';
+    const effectiveName = customer_name || customerName || 'Anonymous Customer';
     const effectiveEmail = customer_email || customerEmail || (customerPhone?.includes('@') ? customerPhone : null);
     const effectiveCustomerPhone = customer_phone || customerPhone || null;
-    const effectiveTargetId = invite_id || inviteId || id || '';
-    const rawUserId = user_id || userId || business_id || businessId || '';
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    let resolvedUserId = rawUserId && isUuid.test(rawUserId) ? rawUserId : null;
 
+    // 2. Initialize Supabase Admin Client using SUPABASE_SERVICE_ROLE_KEY to bypass RLS
+    const supabaseAdmin = getAdminClient();
+
+    // 3. Trace User / Owner ID from invite_id, token, business_id, or user_id
+    const targetInviteId = invite_id || inviteId || token || id || '';
+    const targetBusinessId = business_id || businessId || '';
+    const rawUserId = user_id || userId || '';
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    let resolvedUserId: string | null = null;
+    if (rawUserId && isUuid.test(rawUserId)) {
+      resolvedUserId = rawUserId;
+    }
+
+    // Lookup via review_invites table if invite ID/token is present
+    if (!resolvedUserId && targetInviteId) {
+      try {
+        let inviteQuery = supabaseAdmin
+          .from('review_invites')
+          .select('id, user_id, business_id, customer_name, customer_phone');
+
+        if (isUuid.test(targetInviteId)) {
+          inviteQuery = inviteQuery.eq('id', targetInviteId);
+        } else {
+          inviteQuery = inviteQuery.or(`id.eq.${targetInviteId},token.eq.${targetInviteId}`);
+        }
+
+        const { data: inviteData, error: inviteErr } = await inviteQuery.maybeSingle();
+
+        if (inviteData?.user_id) {
+          resolvedUserId = inviteData.user_id;
+        } else if (inviteData?.business_id) {
+          resolvedUserId = inviteData.business_id;
+        } else if (inviteErr) {
+          console.warn('[Feedback Flow]: Invite lookup warning:', inviteErr.message);
+        }
+
+        // Update invite record if found
+        if (targetInviteId && isUuid.test(targetInviteId)) {
+          await supabaseAdmin
+            .from('review_invites')
+            .update({
+              rating_received: effectiveRating,
+              rating: effectiveRating,
+              feedback_text: effectiveText,
+              status: 'feedback_submitted',
+              resolution_status: 'needs_follow_up',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', targetInviteId);
+        }
+      } catch (invEx: any) {
+        console.warn('[Feedback Flow]: Exception querying review_invites:', invEx?.message);
+      }
+    }
+
+    // Lookup via businesses or profiles if business_id is passed
+    if (!resolvedUserId && targetBusinessId) {
+      if (isUuid.test(targetBusinessId)) {
+        resolvedUserId = targetBusinessId;
+      } else {
+        try {
+          const { data: bData } = await supabaseAdmin
+            .from('businesses')
+            .select('user_id')
+            .eq('id', targetBusinessId)
+            .maybeSingle();
+
+          if (bData?.user_id) {
+            resolvedUserId = bData.user_id;
+          }
+        } catch {
+          // businesses table may not exist, continue
+        }
+      }
+    }
+
+    // Lookup by owner email if provided
     let effectiveOwnerEmail =
       ownerEmail ||
       businessOwnerEmail ||
       process.env.ADMIN_ALERT_EMAIL ||
-      'arandall79@gmail.com';
-
-    let destinationPhone =
-      notification_phone ||
-      notificationPhone ||
-      ownerPhone ||
-      phone ||
       '';
 
-    let isNegativeAlertEnabled = true;
-    let isNegativeEmailEnabled = true;
-    let isNegativeSmsEnabled = true;
-
-    // 2. Initialize Supabase Admin Client using SUPABASE_SERVICE_ROLE_KEY to bypass RLS
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
-    const supabaseServiceKey =
-      process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.SUPABASE_SERVICE_KEY ||
-      process.env.SUPABASE_SECRET_KEY ||
-      process.env.SUPABASE_ADMIN_KEY ||
-      process.env.SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-      '';
-
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.warn(
-        '[Feedback Flow Error]: SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables. ' +
-        'Falling back to available key, which may be restricted by RLS.'
-      );
-    }
-
-    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
-    });
-
-    // 3. Resolve User ID from invite ID if provided
-    if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
-      try {
-        const { data: existingInvite, error: inviteLookupErr } = await supabaseAdmin
-          .from('review_invites')
-          .select('user_id')
-          .eq('id', effectiveTargetId)
-          .maybeSingle();
-
-        if (existingInvite?.user_id) {
-          resolvedUserId = existingInvite.user_id;
-        } else if (inviteLookupErr) {
-          console.error('[Feedback Flow Error]: Invite lookup error:', inviteLookupErr.message);
-        }
-
-        await supabaseAdmin
-          .from('review_invites')
-          .update({
-            rating_received: effectiveRating,
-            rating: effectiveRating,
-            feedback_text: effectiveText,
-            status: 'completed',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', effectiveTargetId);
-      } catch (inviteEx: any) {
-        console.error('[Feedback Flow Error]: Exception updating review invite:', inviteEx);
-      }
-    }
-
-    // 4. Fallback resolution of user_id from owner email
     if (!resolvedUserId && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
       try {
         const { data: profByEmail } = await supabaseAdmin
           .from('profiles')
-          .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
+          .select('id')
           .or(`email.eq.${effectiveOwnerEmail},notification_email.eq.${effectiveOwnerEmail}`)
           .maybeSingle();
 
         if (profByEmail?.id) {
           resolvedUserId = profByEmail.id;
         }
-      } catch (profEx: any) {
-        console.error('[Feedback Flow Error]: Exception searching profiles by email:', profEx);
+      } catch (emailEx: any) {
+        console.warn('[Feedback Flow]: Email lookup exception:', emailEx?.message);
       }
     }
 
-    // 5. Fallback: If still unresolved, fetch first business profile
-    if (!resolvedUserId) {
-      try {
-        const { data: firstProfile } = await supabaseAdmin
-          .from('profiles')
-          .select('id')
-          .limit(1)
-          .maybeSingle();
+    // 4. Query Profiles & Business Settings using Service Role
+    let profile: any = null;
+    let settings: any = null;
 
-        if (firstProfile?.id) {
-          resolvedUserId = firstProfile.id;
-        }
-      } catch (firstProfErr) {
-        console.warn('[Feedback Flow]: Could not fetch default profile:', firstProfErr);
-      }
-    }
-
-    // 6. Fetch notification preferences for resolved user
     if (resolvedUserId && isUuid.test(resolvedUserId)) {
       try {
         const [profRes, settRes] = await Promise.allSettled([
-          supabaseAdmin
-            .from('profiles')
-            .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
-            .eq('id', resolvedUserId)
-            .maybeSingle(),
-          supabaseAdmin
-            .from('business_settings')
-            .select('user_id, business_name, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
-            .eq('user_id', resolvedUserId)
-            .maybeSingle(),
+          supabaseAdmin.from('profiles').select('*').eq('id', resolvedUserId).maybeSingle(),
+          supabaseAdmin.from('business_settings').select('*').eq('user_id', resolvedUserId).maybeSingle(),
         ]);
-
-        const p = profRes.status === 'fulfilled' ? profRes.value.data : null;
-        const s = settRes.status === 'fulfilled' ? settRes.value.data : null;
-
-        console.log('[Alert Settings Loaded]:', { profile: p, settings: s });
-
-        // Resolve phone with full hierarchy
-        const candidatePhone =
-          s?.notify_negative_phone ||
-          s?.notification_phone ||
-          p?.notify_negative_phone ||
-          p?.notification_phone ||
-          p?.phone ||
-          destinationPhone;
-
-        if (candidatePhone) {
-          destinationPhone = candidatePhone;
-        }
-
-        // Resolve email with full hierarchy
-        const candidateEmail =
-          s?.notification_email ||
-          p?.notification_email ||
-          p?.email ||
-          effectiveOwnerEmail;
-
-        if (candidateEmail && !candidateEmail.includes('ratingpulse.co')) {
-          effectiveOwnerEmail = candidateEmail;
-        }
-
-        // Default to enabled (true) unless explicitly set to false
-        if (s?.notify_negative_enabled === false || (s?.notify_negative_enabled === undefined && p?.notify_negative_enabled === false)) {
-          isNegativeAlertEnabled = false;
-        }
-        if (s?.notify_negative_sms === false || (s?.notify_negative_sms === undefined && p?.notify_negative_sms === false && p?.sms_alerts_enabled === false)) {
-          isNegativeSmsEnabled = false;
-        }
-        if (s?.notify_negative_email === false || (s?.notify_negative_email === undefined && p?.notify_negative_email === false)) {
-          isNegativeEmailEnabled = false;
-        }
-      } catch (settingsEx: any) {
-        console.error('[Feedback Flow Error]: Error reading notification preferences:', settingsEx);
+        profile = profRes.status === 'fulfilled' ? profRes.value.data : null;
+        settings = settRes.status === 'fulfilled' ? settRes.value.data : null;
+      } catch (loadErr: any) {
+        console.warn('[Feedback Flow]: Error querying user profile/settings:', loadErr?.message);
       }
+    }
+
+    // 5. Fallback / Single-Tenant Graceful Resolution: Fetch the first active profile
+    if (!profile) {
+      try {
+        const { data: firstProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('*')
+          .limit(1)
+          .maybeSingle();
+
+        if (firstProfile) {
+          profile = firstProfile;
+          resolvedUserId = firstProfile.id;
+          const { data: firstSettings } = await supabaseAdmin
+            .from('business_settings')
+            .select('*')
+            .eq('user_id', firstProfile.id)
+            .maybeSingle();
+          settings = firstSettings;
+        }
+      } catch (firstErr: any) {
+        console.warn('[Feedback Flow]: Could not fetch fallback profile:', firstErr?.message);
+      }
+    }
+
+    console.log('[Alert Settings Loaded]:', { profile, settings });
+    console.log('[Resolved Profile for Alert]:', {
+      id: profile?.id,
+      phone: profile?.notify_negative_phone || profile?.notification_phone || profile?.phone,
+    });
+
+    // 6. Resolve Destination Phone & Email with Hierarchy
+    let destinationPhone =
+      settings?.notify_negative_phone ||
+      settings?.notification_phone ||
+      profile?.notify_negative_phone ||
+      profile?.notification_phone ||
+      profile?.phone ||
+      notification_phone ||
+      notificationPhone ||
+      ownerPhone ||
+      phone ||
+      '';
+
+    if (settings?.notification_email || profile?.notification_email || profile?.email) {
+      const candidateEmail = settings?.notification_email || profile?.notification_email || profile?.email;
+      if (candidateEmail && !candidateEmail.includes('ratingpulse.co')) {
+        effectiveOwnerEmail = candidateEmail;
+      }
+    }
+
+    let isNegativeAlertEnabled = true;
+    let isNegativeSmsEnabled = true;
+    let isNegativeEmailEnabled = true;
+
+    if (settings?.notify_negative_enabled === false || (settings?.notify_negative_enabled === undefined && profile?.notify_negative_enabled === false)) {
+      isNegativeAlertEnabled = false;
+    }
+    if (settings?.notify_negative_sms === false || (settings?.notify_negative_sms === undefined && profile?.notify_negative_sms === false && profile?.sms_alerts_enabled === false)) {
+      isNegativeSmsEnabled = false;
+    }
+    if (settings?.notify_negative_email === false || (settings?.notify_negative_email === undefined && profile?.notify_negative_email === false)) {
+      isNegativeEmailEnabled = false;
     }
 
     // 7. Insert Feedback Row using Admin Client
@@ -258,7 +286,7 @@ export async function POST(req: NextRequest) {
       dbErrorDetails = insertEx?.message || 'Database insert exception';
     }
 
-    // 8. Dispatch Email Alert (if negative review and email enabled)
+    // 8. Dispatch Email Alert
     if (isNegative && isNegativeAlertEnabled && isNegativeEmailEnabled && effectiveOwnerEmail) {
       try {
         const emailResult = await sendFeedbackAlert({
@@ -268,7 +296,7 @@ export async function POST(req: NextRequest) {
           customerPhone: effectiveCustomerPhone || 'Not provided',
           rating: effectiveRating,
           feedbackText: effectiveText,
-          businessName,
+          businessName: profile?.business_name || businessName,
         });
         emailSent = emailResult?.success ?? false;
         console.log('[Feedback Alert Email]: successfully sent to', effectiveOwnerEmail);
@@ -277,18 +305,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 9. Dispatch SMS Alert using Sanitized E.164 Recipient Phone
-    if (isNegative && isNegativeAlertEnabled && isNegativeSmsEnabled && destinationPhone) {
+    // 9. Dispatch SMS Alert (E.164)
+    if (isNegative && destinationPhone) {
       try {
         const sanitizedPhone = formatE164(destinationPhone);
         if (sanitizedPhone) {
-          const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${businessName}:\n"${effectiveText.slice(0, 100)}${effectiveText.length > 100 ? '...' : ''}"\nLogin to reply.`;
+          const bizTitle = profile?.business_name || businessName || 'Your Business';
+          const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${bizTitle}:\n"${effectiveText.slice(0, 120)}${effectiveText.length > 120 ? '...' : ''}"\nLogin to reply.`;
           const smsResult = await sendTwilioSms(sanitizedPhone, smsText);
           smsSent = smsResult.success;
           if (!smsResult.success) {
             console.error('[Feedback Flow Error]: Twilio SMS alert dispatch failed:', smsResult.error);
           } else {
-            console.log('[Feedback Alert SMS Sent]: to', sanitizedPhone, 'messageSid:', smsResult.messageId);
+            console.log('[Feedback Alert SMS]: Dispatched to', sanitizedPhone);
           }
         } else {
           console.error('[Feedback Flow Error]: Destination phone could not be sanitized to E.164:', destinationPhone);
@@ -299,9 +328,7 @@ export async function POST(req: NextRequest) {
     } else {
       console.log('[Feedback Alert SMS]: Skipped', {
         isNegative,
-        numericRating,
-        isNegativeAlertEnabled,
-        isNegativeSmsEnabled,
+        effectiveRating,
         hasDestinationPhone: Boolean(destinationPhone),
         destinationPhone,
       });
