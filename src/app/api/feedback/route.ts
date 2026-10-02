@@ -312,7 +312,7 @@ export async function POST(req: NextRequest) {
         if (sanitizedPhone) {
           const bizTitle = profile?.business_name || businessName || 'Your Business';
           const commentText = effectiveText ? (effectiveText.length > 120 ? `${effectiveText.slice(0, 120)}...` : effectiveText) : 'No comment left';
-          const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${bizTitle}:\n"${commentText}"\n\nView & reply:\nhttps://ratingpulse.co/dashboard/feedback\n\nReply STOP to unsubscribe.`;
+          const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${bizTitle}:\n"${commentText}"\n\nView & reply:\nhttps://ratingpulse.co/dashboard/reviews\n\nReply STOP to unsubscribe.`;
           const smsResult = await sendTwilioSms(sanitizedPhone, smsText);
           smsSent = smsResult.success;
           if (!smsResult.success) {
