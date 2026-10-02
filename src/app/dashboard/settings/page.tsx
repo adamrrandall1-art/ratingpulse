@@ -59,7 +59,7 @@ export default function SettingsPage() {
   const [negativeEmailAddress, setNegativeEmailAddress] = useState(
     settings.notification_email || profile.notification_email || profile.email || user?.email || ''
   );
-  const [negativePhoneNumber, setNegativePhoneNumber] = useState(
+  const [negativePhone, setNegativePhone] = useState(
     settings.notify_negative_phone || settings.notification_phone || profile.notify_negative_phone || profile.notification_phone || profile.phone || ''
   );
 
@@ -100,7 +100,7 @@ export default function SettingsPage() {
           setNotifyNegativeEnabled(settings.notify_negative_enabled ?? profile.notify_negative_enabled ?? true);
           setNotifyNegativeEmail(settings.notify_negative_email ?? profile.notify_negative_email ?? true);
           setNotifyNegativeSms(settings.notify_negative_sms ?? profile.notify_negative_sms ?? true);
-          setNegativePhoneNumber(settings.notify_negative_phone || settings.notification_phone || profile.notify_negative_phone || profile.notification_phone || profile.phone || '');
+          setNegativePhone(settings.notify_negative_phone || settings.notification_phone || profile.notify_negative_phone || profile.notification_phone || profile.phone || '');
           setNegativeEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
           setPositiveEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
           setNotifyPositiveEnabled(settings.notify_positive_enabled ?? profile.notify_positive_enabled ?? true);
@@ -125,7 +125,7 @@ export default function SettingsPage() {
             const resolvedPhone = json.resolvedPhone || '';
             const resolvedEmail = json.resolvedEmail || user?.email || '';
 
-            setNegativePhoneNumber(resolvedPhone);
+            setNegativePhone(resolvedPhone);
             setNegativeEmailAddress(resolvedEmail);
             setPositiveEmailAddress(resolvedEmail);
 
@@ -206,7 +206,7 @@ export default function SettingsPage() {
             user?.email ||
             '';
 
-          setNegativePhoneNumber(resolvedPhone);
+          setNegativePhone(resolvedPhone);
           setNegativeEmailAddress(resolvedEmail);
           setPositiveEmailAddress(resolvedEmail);
 
@@ -341,7 +341,7 @@ export default function SettingsPage() {
 
     try {
       const primaryNotificationEmail = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email || '';
-      const primaryNotificationPhone = negativePhoneNumber.trim();
+      const primaryNotificationPhone = (negativePhone || '').trim();
       const activeUserId = user?.id || profile.id;
 
       const payload = {
@@ -375,7 +375,11 @@ export default function SettingsPage() {
 
       const resData = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok || !resData.success) {
-        throw new Error(resData?.error || 'Server rejected settings update. Please check database permissions.');
+        const errorMsg = resData?.error || 'Server rejected settings update. Please check database permissions.';
+        const errObj = new Error(errorMsg);
+        console.error('[Supabase Save Error]:', errObj);
+        alert('Error saving: ' + errorMsg);
+        throw errObj;
       }
 
       // 2. Synchronize local store state
@@ -648,8 +652,8 @@ export default function SettingsPage() {
                       <input
                         type="tel"
                         placeholder="+1 (555) 000-0000"
-                        value={negativePhoneNumber}
-                        onChange={(e) => setNegativePhoneNumber(e.target.value)}
+                        value={negativePhone || ''}
+                        onChange={(e) => setNegativePhone(e.target.value)}
                         disabled={!notifyNegativeSms}
                         className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                       />

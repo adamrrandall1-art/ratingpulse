@@ -137,7 +137,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // Concurrently fetch settings and invites
           const [settingsRes, invitesRes] = await Promise.allSettled([
             supabase.from('business_settings').select('*').eq('user_id', currentUserId).maybeSingle(),
-            supabase.from('review_invites').select('*').eq('user_id', currentUserId).order('sent_at', { ascending: false }),
+            supabase.from('review_invites').select('*').eq('user_id', currentUserId),
           ]);
 
           if (settingsRes.status === 'fulfilled' && settingsRes.value.data) {
@@ -147,7 +147,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
-            const invs = invitesRes.value.data as Invite[];
+            const rawInvs = (invitesRes.value.data || []) as Invite[];
+            const invs = [...rawInvs].sort((a, b) => {
+              const tA = new Date(a.sent_at || a.created_at || 0).getTime();
+              const tB = new Date(b.sent_at || b.created_at || 0).getTime();
+              return tB - tA;
+            });
             console.log('Fetched Urgent Feedback / Review Invites:', invs);
             setInvites(invs);
             globalInvitesCache = invs;
@@ -165,10 +170,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               .from('reviews')
               .select('*')
               .eq('user_id', currentUserId)
-              .eq('place_id', activePlaceId)
-              .order('created_at', { ascending: false });
+              .eq('place_id', activePlaceId);
 
-            const validRevs = (!revsErr && revsData) ? (revsData as Review[]).filter((r) => r.place_id === activePlaceId) : [];
+            const rawRevs = (!revsErr && revsData) ? (revsData as Review[]).filter((r) => r.place_id === activePlaceId) : [];
+            const validRevs = [...rawRevs].sort((a, b) => {
+              const tA = new Date(a.created_at || a.review_date || a.published_at || 0).getTime();
+              const tB = new Date(b.created_at || b.review_date || b.published_at || 0).getTime();
+              return tB - tA;
+            });
 
             if (validRevs.length > 0) {
               setReviews(validRevs);
@@ -328,12 +337,16 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const { data } = await client
               .from('review_invites')
               .select('*')
-              .eq('user_id', currentUserId)
-              .order('sent_at', { ascending: false });
+              .eq('user_id', currentUserId);
 
             if (data) {
-              setInvites(data as Invite[]);
-              globalInvitesCache = data as Invite[];
+              const sorted = [...(data as Invite[])].sort((a, b) => {
+                const tA = new Date(a.sent_at || a.created_at || 0).getTime();
+                const tB = new Date(b.sent_at || b.created_at || 0).getTime();
+                return tB - tA;
+              });
+              setInvites(sorted);
+              globalInvitesCache = sorted;
             }
           }
         )
@@ -972,11 +985,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             .from('reviews')
             .select('*')
             .eq('user_id', uid)
-            .eq('place_id', newPlaceId)
-            .order('created_at', { ascending: false });
+            .eq('place_id', newPlaceId);
 
           if (placeRevs && placeRevs.length > 0) {
-            const freshRevs = (placeRevs as Review[]).filter((r) => r.place_id === newPlaceId);
+            const raw = (placeRevs as Review[]).filter((r) => r.place_id === newPlaceId);
+            const freshRevs = [...raw].sort((a, b) => {
+              const tA = new Date(a.created_at || a.review_date || a.published_at || 0).getTime();
+              const tB = new Date(b.created_at || b.review_date || b.published_at || 0).getTime();
+              return tB - tA;
+            });
             setReviews(freshRevs);
             globalReviewsCache = freshRevs;
             persistState(freshRevs, invites, settings, updated);
@@ -1078,7 +1095,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         const [profileRes, settingsRes, invitesRes] = await Promise.allSettled([
           supabase.from('profiles').select('*').eq('id', businessId).maybeSingle(),
           supabase.from('business_settings').select('*').eq('user_id', businessId).maybeSingle(),
-          supabase.from('review_invites').select('*').eq('user_id', businessId).order('sent_at', { ascending: false }),
+          supabase.from('review_invites').select('*').eq('user_id', businessId),
         ]);
 
         let switchedProfile: Profile | null = null;
@@ -1093,7 +1110,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           globalSettingsCache = sett;
         }
         if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
-          const invs = (invitesRes.value.data || []) as Invite[];
+          const rawInvs = (invitesRes.value.data || []) as Invite[];
+          const invs = [...rawInvs].sort((a, b) => {
+            const tA = new Date(a.sent_at || a.created_at || 0).getTime();
+            const tB = new Date(b.sent_at || b.created_at || 0).getTime();
+            return tB - tA;
+          });
           setInvites(invs);
           globalInvitesCache = invs;
         }
@@ -1103,11 +1125,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const { data: revsData, error: revsErr } = await supabase
             .from('reviews')
             .select('*')
-            .eq('place_id', switchedPlaceId)
-            .order('created_at', { ascending: false });
+            .eq('place_id', switchedPlaceId);
 
           if (!revsErr && revsData && revsData.length > 0) {
-            const revs = revsData as Review[];
+            const rawRevs = revsData as Review[];
+            const revs = [...rawRevs].sort((a, b) => {
+              const tA = new Date(a.created_at || a.review_date || a.published_at || 0).getTime();
+              const tB = new Date(b.created_at || b.review_date || b.published_at || 0).getTime();
+              return tB - tA;
+            });
             setReviews(revs);
             globalReviewsCache = revs;
             persistState(revs, globalInvitesCache, globalSettingsCache, switchedProfile || undefined);

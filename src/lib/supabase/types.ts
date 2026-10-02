@@ -102,5 +102,7 @@ export interface Invite {
   feedback_text?: string | null;
   resolution_status?: 'unresolved' | 'resolved' | 'needs_follow_up' | string;
   review_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
 }
 
