@@ -20,10 +20,7 @@ import {
   Save,
   Radio,
   Zap,
-  Layers,
-  Bell,
-  Mail,
-  AlertTriangle
+  Layers
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
@@ -55,24 +52,6 @@ export default function BusinessSetupPage() {
   const [businessCategory, setBusinessCategory] = useState(profile.business_category || 'Healthcare / Dental');
   const [reviewUrl, setReviewUrl] = useState(
     profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
-  );
-
-  // Notification Routing & Alerts States
-  const [notifyNegativeEnabled, setNotifyNegativeEnabled] = useState(settings.notify_negative_enabled ?? true);
-  const [notifyNegativeEmail, setNotifyNegativeEmail] = useState(settings.notify_negative_email ?? true);
-  const [notifyNegativeSms, setNotifyNegativeSms] = useState(settings.notify_negative_sms ?? true);
-  const [negativeEmailAddress, setNegativeEmailAddress] = useState(
-    settings.notification_email || profile.notification_email || profile.email || user?.email || ''
-  );
-  const [negativePhoneNumber, setNegativePhoneNumber] = useState(
-    settings.notify_negative_phone || settings.notification_phone || profile.notification_phone || profile.phone || ''
-  );
-
-  const [notifyPositiveEnabled, setNotifyPositiveEnabled] = useState(settings.notify_positive_enabled ?? true);
-  const [notifyPositiveEmail, setNotifyPositiveEmail] = useState(settings.notify_positive_email ?? true);
-  const [notifyPositiveSms, setNotifyPositiveSms] = useState(settings.notify_positive_sms ?? false);
-  const [positiveEmailAddress, setPositiveEmailAddress] = useState(
-    settings.notification_email || profile.notification_email || profile.email || user?.email || ''
   );
 
   // Place Search & Location States
@@ -112,19 +91,10 @@ export default function BusinessSetupPage() {
         });
       }
       if (settings) {
-        setNotifyNegativeEnabled(settings.notify_negative_enabled ?? true);
-        setNotifyNegativeEmail(settings.notify_negative_email ?? true);
-        setNotifyNegativeSms(settings.notify_negative_sms ?? true);
-        setNegativePhoneNumber(settings.notify_negative_phone || settings.notification_phone || profile.notification_phone || profile.phone || '');
-        setNegativeEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
-        setPositiveEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
-        setNotifyPositiveEnabled(settings.notify_positive_enabled ?? true);
-        setNotifyPositiveEmail(settings.notify_positive_email ?? true);
-        setNotifyPositiveSms(settings.notify_positive_sms ?? false);
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, profile, settings, user, isConnected]);
+  }, [isLoaded, profile.google_place_id, profile.business_name, profile.formatted_address, profile.phone, profile.business_category, settings, isConnected]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);
@@ -145,9 +115,6 @@ export default function BusinessSetupPage() {
       const chosenAddress = businessAddress.trim() || selectedPlace.formattedAddress || profile.formatted_address;
       const gReviewUrl = reviewUrl || (chosenPlaceId ? generateGoogleReviewUrl(chosenPlaceId) : undefined);
 
-      const notificationEmailValue = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email;
-      const notificationPhoneValue = negativePhoneNumber.trim() || profile.phone || null;
-
       await updateProfile({
         business_name: chosenBusinessName,
         formatted_address: chosenAddress,
@@ -155,32 +122,13 @@ export default function BusinessSetupPage() {
         business_category: businessCategory,
         google_place_id: chosenPlaceId,
         review_url: gReviewUrl,
-        notification_email: notificationEmailValue,
-        notification_phone: notificationPhoneValue,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_phone: notificationPhoneValue,
-        notify_positive_enabled: notifyPositiveEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
       });
 
       await updateSettings({
         auto_publish_5_star: autoPublish5Star,
-        notification_email: notificationEmailValue,
-        notification_phone: notificationPhoneValue,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_phone: notificationPhoneValue,
-        notify_positive_enabled: notifyPositiveEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
       });
-
       toast.success('Business profile updated', {
-        description: 'Your business details and notification routing preferences have been saved.',
+        description: 'Your business details and sync preferences have been saved.',
       });
     } catch (err: any) {
       toast.error('Failed to save profile', {
@@ -669,248 +617,7 @@ export default function BusinessSetupPage() {
         </div>
       </form>
 
-      {/* 4. NOTIFICATION ROUTING & ALERTS CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
-        <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              <Bell className="w-4 h-4 text-blue-600" />
-              Notification Routing &amp; Alerts
-            </h3>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Route instant review alerts to specific team members based on customer sentiment and star ratings.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={async () => {
-              setIsSavingProfile(true);
-              try {
-                const notificationEmailValue = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email;
-                const notificationPhoneValue = negativePhoneNumber.trim() || profile.phone || null;
-
-                await updateSettings({
-                  notification_email: notificationEmailValue,
-                  notification_phone: notificationPhoneValue,
-                  notify_negative_enabled: notifyNegativeEnabled,
-                  notify_negative_email: notifyNegativeEmail,
-                  notify_negative_sms: notifyNegativeSms,
-                  notify_negative_phone: notificationPhoneValue,
-                  notify_positive_enabled: notifyPositiveEnabled,
-                  notify_positive_email: notifyPositiveEmail,
-                  notify_positive_sms: notifyPositiveSms,
-                });
-                await updateProfile({
-                  notification_email: notificationEmailValue,
-                  notification_phone: notificationPhoneValue,
-                  notify_negative_enabled: notifyNegativeEnabled,
-                  notify_negative_email: notifyNegativeEmail,
-                  notify_negative_sms: notifyNegativeSms,
-                  notify_negative_phone: notificationPhoneValue,
-                  notify_positive_enabled: notifyPositiveEnabled,
-                  notify_positive_email: notifyPositiveEmail,
-                  notify_positive_sms: notifyPositiveSms,
-                });
-                toast.success('Alert Routing Saved', {
-                  description: 'Review alert preferences updated successfully.',
-                });
-              } catch (e: any) {
-                toast.error('Failed to save alert preferences', {
-                  description: e?.message || 'Please try again.',
-                });
-              } finally {
-                setIsSavingProfile(false);
-              }
-            }}
-            disabled={isSavingProfile}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
-          >
-            <Save className="w-3.5 h-3.5 text-blue-600" />
-            <span>Save Routing Preferences</span>
-          </button>
-        </div>
-
-        <div className="space-y-6">
-          {/* NEGATIVE REVIEW ALERTS (1–3 STARS) */}
-          <div className="p-5 rounded-2xl border border-rose-100 bg-rose-50/30 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold shrink-0">
-                  <AlertTriangle className="w-4 h-4 text-rose-600" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                    Negative Review Alerts (1–3 Stars)
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
-                      High Priority
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Instantly alert management when a customer leaves an unhappy review or low rating.
-                  </div>
-                </div>
-              </div>
-
-              {/* Toggle Switch */}
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={notifyNegativeEnabled}
-                  onChange={(e) => setNotifyNegativeEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            {notifyNegativeEnabled && (
-              <div className="space-y-4 pt-3 border-t border-rose-100/80 animate-in fade-in duration-150">
-                {/* Channel Checkboxes */}
-                <div className="flex flex-wrap items-center gap-6">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifyNegativeEmail}
-                      onChange={(e) => setNotifyNegativeEmail(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
-                    />
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Email Notification</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifyNegativeSms}
-                      onChange={(e) => setNotifyNegativeSms(e.target.checked)}
-                      className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
-                    />
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>SMS Urgent Alert</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Notification Email */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      Negative Alert Notification Email
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="owner@business.com"
-                      value={negativeEmailAddress}
-                      onChange={(e) => setNegativeEmailAddress(e.target.value)}
-                      disabled={!notifyNegativeEmail}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 disabled:bg-slate-100 disabled:text-slate-400"
-                    />
-                  </div>
-
-                  {/* Notification Phone */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                      <Phone className="w-3.5 h-3.5 text-slate-400" />
-                      Notification Phone Number (SMS)
-                    </label>
-                    <input
-                      type="tel"
-                      placeholder="+1 (555) 000-0000"
-                      value={negativePhoneNumber}
-                      onChange={(e) => setNegativePhoneNumber(e.target.value)}
-                      disabled={!notifyNegativeSms}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 disabled:bg-slate-100 disabled:text-slate-400"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* POSITIVE REVIEW ALERTS (4–5 STARS) */}
-          <div className="p-5 rounded-2xl border border-amber-100 bg-amber-50/20 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                    Positive Review Alerts (4–5 Stars)
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                      Standard
-                    </span>
-                  </div>
-                  <div className="text-[11px] text-slate-500">
-                    Receive praise digests when customers leave glowing 4 or 5-star reviews on Google.
-                  </div>
-                </div>
-              </div>
-
-              {/* Toggle Switch */}
-              <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                <input
-                  type="checkbox"
-                  checked={notifyPositiveEnabled}
-                  onChange={(e) => setNotifyPositiveEnabled(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-              </label>
-            </div>
-
-            {notifyPositiveEnabled && (
-              <div className="space-y-4 pt-3 border-t border-amber-100/80 animate-in fade-in duration-150">
-                {/* Channel Checkboxes */}
-                <div className="flex flex-wrap items-center gap-6">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifyPositiveEmail}
-                      onChange={(e) => setNotifyPositiveEmail(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <Mail className="w-3.5 h-3.5 text-slate-500" />
-                    <span>Email Notification</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={notifyPositiveSms}
-                      onChange={(e) => setNotifyPositiveSms(e.target.checked)}
-                      className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-                    />
-                    <Phone className="w-3.5 h-3.5 text-slate-500" />
-                    <span>SMS Alert</span>
-                  </label>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Notification Email */}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      Positive Alert Notification Email
-                    </label>
-                    <input
-                      type="email"
-                      placeholder="marketing@business.com"
-                      value={positiveEmailAddress}
-                      onChange={(e) => setPositiveEmailAddress(e.target.value)}
-                      disabled={!notifyPositiveEmail}
-                      className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* 5. LIVE REVIEW INGESTION & SYNC CONTROLS CARD */}
+      {/* 4. LIVE REVIEW INGESTION & SYNC CONTROLS CARD */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
         <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>

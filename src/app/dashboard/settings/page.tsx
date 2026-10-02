@@ -21,7 +21,9 @@ import {
   User,
   KeyRound,
   Bell,
-  Lock
+  Lock,
+  Phone,
+  Star
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -47,15 +49,34 @@ export default function SettingsPage() {
     user?.email || profile.email || ''
   );
 
-  // Notification Routing States
-  const [notificationEmail, setNotificationEmail] = useState(
-    settings.notification_email || profile.notification_email || profile.email || ''
+  // Unified Notification Routing States
+  const [notifyNegativeEnabled, setNotifyNegativeEnabled] = useState(
+    settings.notify_negative_enabled ?? profile.notify_negative_enabled ?? true
   );
-  const [notificationPhone, setNotificationPhone] = useState(
-    settings.notification_phone || profile.notification_phone || profile.phone || ''
+  const [notifyNegativeEmail, setNotifyNegativeEmail] = useState(
+    settings.notify_negative_email ?? profile.notify_negative_email ?? true
   );
-  const [smsAlertsEnabled, setSmsAlertsEnabled] = useState(
-    settings.sms_alerts_enabled ?? profile.sms_alerts_enabled ?? true
+  const [notifyNegativeSms, setNotifyNegativeSms] = useState(
+    settings.notify_negative_sms ?? profile.notify_negative_sms ?? true
+  );
+  const [negativeEmailAddress, setNegativeEmailAddress] = useState(
+    settings.notification_email || profile.notification_email || profile.email || user?.email || ''
+  );
+  const [negativePhoneNumber, setNegativePhoneNumber] = useState(
+    settings.notify_negative_phone || settings.notification_phone || profile.notification_phone || profile.phone || ''
+  );
+
+  const [notifyPositiveEnabled, setNotifyPositiveEnabled] = useState(
+    settings.notify_positive_enabled ?? profile.notify_positive_enabled ?? true
+  );
+  const [notifyPositiveEmail, setNotifyPositiveEmail] = useState(
+    settings.notify_positive_email ?? profile.notify_positive_email ?? true
+  );
+  const [notifyPositiveSms, setNotifyPositiveSms] = useState(
+    settings.notify_positive_sms ?? profile.notify_positive_sms ?? false
+  );
+  const [positiveEmailAddress, setPositiveEmailAddress] = useState(
+    settings.notification_email || profile.notification_email || profile.email || user?.email || ''
   );
 
   // AI & Automation Preferences
@@ -76,12 +97,21 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile.full_name && !fullName) setFullName(profile.full_name);
     if (profile.email && !adminEmail) setAdminEmail(profile.email);
-    if (profile.notification_email && !notificationEmail) setNotificationEmail(profile.notification_email);
-    if (profile.notification_phone && !notificationPhone) setNotificationPhone(profile.notification_phone);
-  }, [profile.full_name, profile.email, profile.notification_email, profile.notification_phone]);
+    if (settings) {
+      setNotifyNegativeEnabled(settings.notify_negative_enabled ?? profile.notify_negative_enabled ?? true);
+      setNotifyNegativeEmail(settings.notify_negative_email ?? profile.notify_negative_email ?? true);
+      setNotifyNegativeSms(settings.notify_negative_sms ?? profile.notify_negative_sms ?? true);
+      setNegativePhoneNumber(settings.notify_negative_phone || settings.notification_phone || profile.notification_phone || profile.phone || '');
+      setNegativeEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
+      setPositiveEmailAddress(settings.notification_email || profile.notification_email || profile.email || user?.email || '');
+      setNotifyPositiveEnabled(settings.notify_positive_enabled ?? profile.notify_positive_enabled ?? true);
+      setNotifyPositiveEmail(settings.notify_positive_email ?? profile.notify_positive_email ?? true);
+      setNotifyPositiveSms(settings.notify_positive_sms ?? profile.notify_positive_sms ?? false);
+    }
+  }, [profile, settings, user]);
 
   const handleSendTestWelcome = async () => {
-    const targetEmail = notificationEmail || profile.email || user?.email || 'admin@business.com';
+    const targetEmail = negativeEmailAddress || positiveEmailAddress || profile.email || user?.email || 'admin@business.com';
     setSendingTestWelcome(true);
 
     try {
@@ -158,24 +188,42 @@ export default function SettingsPage() {
     setIsSaving(true);
 
     try {
+      const primaryNotificationEmail = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email || '';
+      const primaryNotificationPhone = negativePhoneNumber.trim() || profile.phone || '';
+
       await updateProfile({
         full_name: fullName,
-        notification_email: notificationEmail,
-        notification_phone: notificationPhone,
-        sms_alerts_enabled: smsAlertsEnabled,
+        notification_email: primaryNotificationEmail,
+        notification_phone: primaryNotificationPhone,
+        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_negative_phone: primaryNotificationPhone,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
       });
+
       await updateSettings({
         brand_voice: brandVoice as any,
         sms_template: smsTemplate,
         custom_keywords: keywords,
-        notification_email: notificationEmail,
-        notification_phone: notificationPhone,
-        sms_alerts_enabled: smsAlertsEnabled,
+        notification_email: primaryNotificationEmail,
+        notification_phone: primaryNotificationPhone,
+        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_negative_phone: primaryNotificationPhone,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
       });
 
       setIsSaved(true);
       toast.success('Settings saved successfully!', {
-        description: 'Account profile and notification preferences have been updated.',
+        description: 'Account profile, AI response preferences, and review notification routing have been updated.',
       });
       setTimeout(() => setIsSaved(false), 2500);
     } catch (err: any) {
@@ -193,7 +241,7 @@ export default function SettingsPage() {
       await resetAccountAndTestData();
       setKeywords([]);
       setBrandVoice('friendly_professional');
-      setNotificationPhone('');
+      setNegativePhoneNumber('');
       setShowResetAccountModal(false);
       toast.success('Account Reset Successful', {
         description: 'All test data, reviews, invites, and business connections have been wiped.',
@@ -326,102 +374,230 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* 3. NOTIFICATION PREFERENCES (EMAIL & SMS ALERTS) */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-            <div className="flex items-center gap-2">
-              <Bell className="w-5 h-5 text-blue-600" />
+        {/* 3. NOTIFICATION ROUTING & ALERTS CARD */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+                <Bell className="w-5 h-5 text-blue-600" />
+              </div>
               <div>
-                <h3 className="text-sm font-bold text-slate-900">Notification Alerts &amp; Interception Routing</h3>
-                <p className="text-xs text-slate-500">Receive instant alerts when low-star (1–3 star) feedback is intercepted</p>
+                <h3 className="text-sm font-bold text-slate-900">Notification Routing &amp; Alerts</h3>
+                <p className="text-xs text-slate-500">Route instant review alerts to specific team members based on customer sentiment and star ratings.</p>
               </div>
             </div>
             <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-              Real-time Alert Engine Active
+              Active Routing Engine 🟢
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* Notification Email */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Alert Notification Email
-              </label>
-              <input
-                type="email"
-                placeholder="owner@business.com"
-                value={notificationEmail}
-                onChange={(e) => setNotificationEmail(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-              />
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                Private feedback alerts are delivered immediately to this inbox.
-              </p>
-            </div>
+          <div className="space-y-6">
+            {/* NEGATIVE REVIEW ALERTS (1–3 STARS) */}
+            <div className="p-5 rounded-2xl border border-rose-100 bg-rose-50/30 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 text-rose-600 flex items-center justify-center font-bold shrink-0">
+                    <AlertTriangle className="w-4 h-4 text-rose-600" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                      Negative Review Alerts (1–3 Stars)
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 border border-rose-200">
+                        High Priority
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Instantly alert management when a customer leaves an unhappy review or low rating.
+                    </div>
+                  </div>
+                </div>
 
-            {/* Notification Mobile Phone */}
-            <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                Alert Mobile Phone (SMS)
-              </label>
-              <input
-                type="tel"
-                placeholder="(555) 000-0000"
-                value={notificationPhone}
-                onChange={(e) => setNotificationPhone(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
-              />
-              <p className="text-[11px] text-slate-500 mt-1.5">
-                Receive an urgent SMS alert when a customer leaves 1–3 star feedback.
-              </p>
-            </div>
-          </div>
+                {/* Toggle Switch */}
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={notifyNegativeEnabled}
+                    onChange={(e) => setNotifyNegativeEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
 
-          {/* SMS Alerts Toggle */}
-          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-            <div>
-              <div className="text-xs font-bold text-slate-800">Enable Urgent SMS Text Alerts</div>
-              <div className="text-[11px] text-slate-500">
-                Instantly dispatch a text message to your mobile number as soon as low-star feedback is intercepted.
-              </div>
-            </div>
-            <input
-              type="checkbox"
-              checked={smsAlertsEnabled}
-              onChange={(e) => setSmsAlertsEnabled(e.target.checked)}
-              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
-            />
-          </div>
+              {notifyNegativeEnabled && (
+                <div className="space-y-4 pt-3 border-t border-rose-100/80 animate-in fade-in duration-150">
+                  {/* Channel Checkboxes */}
+                  <div className="flex flex-wrap items-center gap-6">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notifyNegativeEmail}
+                        onChange={(e) => setNotifyNegativeEmail(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <Mail className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Email Notification</span>
+                    </label>
 
-          {/* Test Welcome Email Trigger Card */}
-          <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-indigo-50/40 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                Automated Onboarding Welcome Email
-              </div>
-              <div className="text-[11px] text-slate-500 mt-0.5">
-                Test the 3-step quick start onboarding email sent to new users upon account registration.
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={handleSendTestWelcome}
-              disabled={sendingTestWelcome}
-              className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
-            >
-              {sendingTestWelcome ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                  <span>Sending Test Email...</span>
-                </>
-              ) : (
-                <>
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>Send Test Welcome Email</span>
-                </>
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notifyNegativeSms}
+                        onChange={(e) => setNotifyNegativeSms(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      <span>SMS Urgent Alert</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Notification Email */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        Negative Alert Notification Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="owner@business.com"
+                        value={negativeEmailAddress}
+                        onChange={(e) => setNegativeEmailAddress(e.target.value)}
+                        disabled={!notifyNegativeEmail}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                      />
+                    </div>
+
+                    {/* Notification Phone */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        Notification Phone Number (SMS)
+                      </label>
+                      <input
+                        type="tel"
+                        placeholder="+1 (555) 000-0000"
+                        value={negativePhoneNumber}
+                        onChange={(e) => setNegativePhoneNumber(e.target.value)}
+                        disabled={!notifyNegativeSms}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
               )}
-            </button>
+            </div>
+
+            {/* POSITIVE REVIEW ALERTS (4–5 STARS) */}
+            <div className="p-5 rounded-2xl border border-amber-100 bg-amber-50/20 space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold shrink-0">
+                    <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+                      Positive Review Alerts (4–5 Stars)
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                        Standard
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      Receive praise digests when customers leave glowing 4 or 5-star reviews on Google.
+                    </div>
+                  </div>
+                </div>
+
+                {/* Toggle Switch */}
+                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={notifyPositiveEnabled}
+                    onChange={(e) => setNotifyPositiveEnabled(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+
+              {notifyPositiveEnabled && (
+                <div className="space-y-4 pt-3 border-t border-amber-100/80 animate-in fade-in duration-150">
+                  {/* Channel Checkboxes */}
+                  <div className="flex flex-wrap items-center gap-6">
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notifyPositiveEmail}
+                        onChange={(e) => setNotifyPositiveEmail(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <Mail className="w-3.5 h-3.5 text-slate-500" />
+                      <span>Email Notification</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={notifyPositiveSms}
+                        onChange={(e) => setNotifyPositiveSms(e.target.checked)}
+                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <Phone className="w-3.5 h-3.5 text-slate-500" />
+                      <span>SMS Alert</span>
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Notification Email */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center gap-1">
+                        <Mail className="w-3.5 h-3.5 text-slate-400" />
+                        Positive Alert Notification Email
+                      </label>
+                      <input
+                        type="email"
+                        placeholder="marketing@business.com"
+                        value={positiveEmailAddress}
+                        onChange={(e) => setPositiveEmailAddress(e.target.value)}
+                        disabled={!notifyPositiveEmail}
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Test Welcome Email Trigger Card */}
+            <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/50 to-indigo-50/40 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+                  Automated Onboarding Welcome Email
+                </div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
+                  Test the 3-step quick start onboarding email sent to new users upon account registration.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleSendTestWelcome}
+                disabled={sendingTestWelcome}
+                className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                {sendingTestWelcome ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                    <span>Sending Test Email...</span>
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-3.5 h-3.5" />
+                    <span>Send Test Welcome Email</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
 
