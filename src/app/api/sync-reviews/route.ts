@@ -13,6 +13,177 @@ export async function POST(req: NextRequest) {
   return handleSync(req);
 }
 
+/**
+ * Generate a unique, contextual AI reply for a review.
+ * Uses Gemini AI directly with fallback to contextual synthesis.
+ */
+async function generateUniqueAIReply({
+  authorName,
+  rating,
+  reviewText,
+  businessName,
+  businessCategory,
+}: {
+  authorName: string;
+  rating: number;
+  reviewText: string;
+  businessName: string;
+  businessCategory?: string;
+}): Promise<string> {
+  const firstName = authorName.trim().split(' ')[0] || 'Valued Customer';
+  const bizName = businessName || 'our business';
+  const cleanReviewText = (reviewText || '').trim();
+
+  const apiKey =
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GOOGLE_GENAI_API_KEY;
+
+  if (apiKey) {
+    try {
+      const prompt = `You are the owner of ${bizName}. Write a warm, authentic 2-sentence response to this customer review.
+
+Customer Name: ${authorName}
+Rating: ${rating} Stars
+Customer Review: "${cleanReviewText || 'Great service!'}"
+
+Guidelines:
+- Directly mention 1 or 2 specific details or items they praised in their review.
+- Sound natural and personable, like a genuine local business owner.
+- Do NOT use repetitive boilerplate phrases (e.g. "We are thrilled to hear...").
+- Do NOT include hashtags (remove #5star, #friendlyservice).`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            generationConfig: {
+              temperature: 0.7,
+              maxOutputTokens: 250,
+            },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const generated = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (generated && generated.trim()) {
+          const cleaned = generated
+            .trim()
+            .replace(/^["']|["']$/g, '')
+            .replace(/#\w+/g, '')
+            .trim();
+          if (cleaned) return cleaned;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[Gemini Sync Generation Warning]:', apiErr);
+    }
+  }
+
+  // Intelligent fallback generator with unique contextual replies
+  return buildIntelligentContextualReply({
+    firstName,
+    authorName,
+    rating,
+    reviewText: cleanReviewText,
+    businessName: bizName,
+  });
+}
+
+function buildIntelligentContextualReply({
+  firstName,
+  authorName,
+  rating,
+  reviewText,
+  businessName,
+}: {
+  firstName: string;
+  authorName: string;
+  rating: number;
+  reviewText: string;
+  businessName: string;
+}): string {
+  const textLower = reviewText.toLowerCase();
+
+  // No text (star rating only)
+  if (!reviewText) {
+    if (rating >= 5) {
+      const star5Pool = [
+        `Hi ${firstName}, thank you so much for the 5-star rating! We truly appreciate your support and look forward to welcoming you back to ${businessName}.`,
+        `Thank you for the wonderful 5-star rating, ${firstName}! We are honored to have your trust and can't wait to see you again soon.`,
+        `Hello ${firstName}, we really appreciate your top rating! Serving you is always a pleasure, and our entire team thanks you for your support.`,
+      ];
+      return star5Pool[Math.floor(Math.random() * star5Pool.length)];
+    }
+    if (rating === 4) {
+      return `Hi ${firstName}, thank you for the positive 4-star rating! We appreciate your trust in ${businessName} and look forward to serving you again.`;
+    }
+    return `Hi ${firstName}, thank you for rating us. We always strive to provide a 5-star experience, so please feel free to reach out to our team directly if there is anything we can do to assist you.`;
+  }
+
+  // Contextual topic matching
+  if (rating >= 5) {
+    if (textLower.includes('emergency') || textLower.includes('pain') || textLower.includes('toothache') || textLower.includes('urgent')) {
+      const emergencyPool = [
+        `Hi ${firstName}, we are so glad our team could take care of you right away and get you relief when you needed it most! Knowing you felt comfortable and well-cared for means everything to all of us at ${businessName}.`,
+        `Thank you for trusting us with your urgent care, ${firstName}! Immediate relief and gentle, painless treatment are always our top priorities. Wishing you a smooth recovery!`,
+      ];
+      return emergencyPool[Math.floor(Math.random() * emergencyPool.length)];
+    }
+
+    if (textLower.includes('clean') || textLower.includes('modern') || textLower.includes('whitening') || textLower.includes('bright')) {
+      const cleanPool = [
+        `Thank you so much, ${firstName}! We are so pleased you love your bright results and enjoyed our clean, modern space. Our team takes great pride in delivering top-tier care from the moment you walk through our doors.`,
+        `Hi ${firstName}, hearing that your whitening results exceeded expectations made our day! We put a lot of care into maintaining a spotless, welcoming environment. See you at your next visit!`,
+      ];
+      return cleanPool[Math.floor(Math.random() * cleanPool.length)];
+    }
+
+    if (textLower.includes('kid') || textLower.includes('daughter') || textLower.includes('son') || textLower.includes('child') || textLower.includes('family')) {
+      return `Thank you for such a kind note, ${firstName}! Making appointments gentle, comforting, and fear-free for families is one of our favorite parts of what we do. Please send our warmest regards to your family!`;
+    }
+
+    if (textLower.includes('fast') || textLower.includes('quick') || textLower.includes('prompt') || textLower.includes('friendly') || textLower.includes('recommend')) {
+      const fastPool = [
+        `Hi ${firstName}, thank you for highlighting our prompt service and welcoming team! We respect your time and love making every visit as seamless as possible.`,
+        `Hello ${firstName}! Your recommendation means the world to everyone at ${businessName}. Providing attentive, high-standard care is what drives us every single day.`,
+      ];
+      return fastPool[Math.floor(Math.random() * fastPool.length)];
+    }
+
+    // Varied 5-star pool without repetitive clichés
+    const generic5Pool = [
+      `Thank you so much for the 5-star review, ${firstName}! We are dedicated to providing personalized, high-quality care, and we can't wait to welcome you back to ${businessName}.`,
+      `Hi ${firstName}, we truly appreciate your generous feedback! Knowing you had an exceptional visit inspires our whole team to keep setting the highest standard.`,
+      `Wonderful feedback like yours makes our day, ${firstName}! Thank you for choosing ${businessName} and taking the time to share your experience.`,
+    ];
+    return generic5Pool[Math.floor(Math.random() * generic5Pool.length)];
+  }
+
+  if (rating === 4) {
+    if (textLower.includes('parking') || textLower.includes('wait') || textLower.includes('time')) {
+      return `Hi ${firstName}, thank you for your honest 4-star review and praise for our staff! We appreciate your feedback regarding parking during peak hours—we have dedicated spots available to make your next visit even smoother.`;
+    }
+    return `Hi ${firstName}, thank you for your kind 4-star review! We're glad you had a great experience overall, and we look forward to welcoming you back to ${businessName}.`;
+  }
+
+  // 1-3 Stars
+  return `Dear ${firstName}, thank you for bringing this to our attention. We hold ourselves to the highest standards, and we sincerely apologize that your recent experience did not reflect that. Please reach out to our management team directly so we can make things right.`;
+}
+
+function isStaleGenericDraft(draft: string | null | undefined): boolean {
+  if (!draft || !draft.trim()) return true;
+  const lower = draft.toLowerCase();
+  if (lower.includes('#5star') || lower.includes('#friendlyservice') || lower.includes('#friendly_service')) return true;
+  if (lower.includes('we are thrilled to hear you had such a great experience with our team')) return true;
+  return false;
+}
+
 async function handleSync(req: NextRequest) {
   try {
     const url = new URL(req.url);
@@ -21,6 +192,13 @@ async function handleSync(req: NextRequest) {
     const rawPlaceId = body.place_id || body.placeId || url.searchParams.get('place_id') || url.searchParams.get('placeId') || '';
     const rawBusinessId = body.business_id || body.businessId || url.searchParams.get('business_id') || url.searchParams.get('businessId') || '';
     const rawUserId = body.user_id || body.userId || url.searchParams.get('user_id') || url.searchParams.get('userId') || '';
+    const regenerateAll = Boolean(
+      body.regenerateAll ||
+      body.regenerate_all ||
+      url.searchParams.get('regenerateAll') === 'true' ||
+      url.searchParams.get('regenerate_all') === 'true'
+    );
+
     const apiKey =
       process.env.GOOGLE_PLACES_API_KEY ||
       process.env.NEXT_PUBLIC_GOOGLE_PLACES_API_KEY ||
@@ -89,7 +267,7 @@ async function handleSync(req: NextRequest) {
         const gData = await gRes.json();
 
         if (gData.status === 'OK' && gData.result) {
-          placeName = gData.result.name || '';
+          placeName = gData.result.name || placeName;
           placeRating = Number(gData.result.rating) || 5.0;
           totalRatings = Number(gData.result.user_ratings_total) || 0;
           googleReviews = gData.result.reviews || [];
@@ -101,133 +279,168 @@ async function handleSync(req: NextRequest) {
       }
     }
 
-    const formattedReviews: any[] = googleReviews.map((rev, index) => {
-      const authorName = rev.author_name || rev.reviewer?.displayName || 'Google Customer';
-      const firstName = authorName.split(' ')[0] || 'there';
-      const rating = Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5));
-      const text = rev.review_text || rev.text || rev.comment || '';
+    // Generate unique AI replies for all reviews asynchronously
+    const formattedReviews: any[] = await Promise.all(
+      googleReviews.map(async (rev, index) => {
+        const authorName = rev.author_name || rev.reviewer?.displayName || 'Google Customer';
+        const rating = Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5));
+        const text = rev.review_text || rev.text || rev.comment || '';
 
-      let reviewDate: string;
-      if (typeof rev.time === 'number') {
-        reviewDate = new Date(rev.time > 1e11 ? rev.time : rev.time * 1000).toISOString();
-      } else if (rev.review_date || rev.createTime) {
-        const parsed = new Date(rev.review_date || rev.createTime);
-        reviewDate = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
-      } else {
-        reviewDate = new Date().toISOString();
-      }
-
-      const authorAvatar = rev.author_avatar || rev.profile_photo_url || rev.reviewer?.profilePhotoUrl || null;
-      const publishedReply = rev.published_reply || rev.review_reply || rev.reviewReply?.comment || null;
-      const repliedAt = rev.replied_at || rev.reviewReply?.updateTime || (publishedReply ? reviewDate : null);
-      const googleResourceReviewId = rev.review_id || rev.reviewId || `rev_google_${(placeId || 'loc').slice(-6)}_${rev.time || Date.now()}_${index}`;
-
-      let aiDraftReply = rev.ai_draft_reply || '';
-      if (!aiDraftReply) {
-        if (rating >= 4) {
-          aiDraftReply = `Thank you so much for the 5-star review, ${firstName}! We are thrilled to hear you had such a great experience with our team at ${placeName || 'our business'}. We look forward to seeing you again soon! #friendlyservice #5star`;
-        } else if (rating === 3) {
-          aiDraftReply = `Thank you for taking the time to share your feedback, ${firstName}. We appreciate your business and are always working to improve. Please feel free to reach out to us directly so we can ensure your next visit is exceptional.`;
+        let reviewDate: string;
+        if (typeof rev.time === 'number') {
+          reviewDate = new Date(rev.time > 1e11 ? rev.time : rev.time * 1000).toISOString();
+        } else if (rev.review_date || rev.createTime) {
+          const parsed = new Date(rev.review_date || rev.createTime);
+          reviewDate = isNaN(parsed.getTime()) ? new Date().toISOString() : parsed.toISOString();
         } else {
-          aiDraftReply = `Hi ${firstName}, thank you for your feedback. We take all feedback seriously and would love the opportunity to make things right. Please reach out to us directly so we can assist you.`;
+          reviewDate = new Date().toISOString();
         }
-      }
 
-      return {
-        id: rev.id || `rev_${googleResourceReviewId}`,
-        user_id: resolvedUserId || 'usr_mock_001',
-        business_id: resolvedUserId || null,
-        place_id: placeId || null,
-        review_id: googleResourceReviewId,
-        author_name: authorName,
-        author_avatar: authorAvatar,
-        rating,
-        review_text: text,
-        review_date: reviewDate,
-        ai_draft_reply: aiDraftReply,
-        review_reply: publishedReply,
-        published_reply: publishedReply,
-        replied_at: repliedAt,
-        published_at: repliedAt,
-        status: publishedReply ? 'published' : (rev.status || 'pending_approval'),
-        sentiment: rating >= 4 ? 'positive' : rating === 3 ? 'neutral' : 'negative',
-        keywords_used: ['friendly_service', '5star_experience'],
-        created_at: reviewDate,
-      };
-    });
+        const authorAvatar = rev.author_avatar || rev.profile_photo_url || rev.reviewer?.profilePhotoUrl || null;
+        const publishedReply = rev.published_reply || rev.review_reply || rev.reviewReply?.comment || null;
+        const repliedAt = rev.replied_at || rev.reviewReply?.updateTime || (publishedReply ? reviewDate : null);
+        const googleResourceReviewId = rev.review_id || rev.reviewId || `rev_google_${(placeId || 'loc').slice(-6)}_${rev.time || Date.now()}_${index}`;
+
+        // Automatically generate unique contextual reply if missing or stale generic template
+        let aiDraftReply = rev.ai_draft_reply || '';
+        if (!aiDraftReply || isStaleGenericDraft(aiDraftReply) || regenerateAll) {
+          aiDraftReply = await generateUniqueAIReply({
+            authorName,
+            rating,
+            reviewText: text,
+            businessName: placeName || userProfile?.business_name || 'our business',
+            businessCategory: userProfile?.business_category,
+          });
+        }
+
+        return {
+          id: rev.id || `rev_${googleResourceReviewId}`,
+          user_id: resolvedUserId || 'usr_mock_001',
+          business_id: resolvedUserId || null,
+          place_id: placeId || null,
+          review_id: googleResourceReviewId,
+          author_name: authorName,
+          author_avatar: authorAvatar,
+          rating,
+          review_text: text,
+          review_date: reviewDate,
+          ai_draft_reply: aiDraftReply,
+          review_reply: publishedReply,
+          published_reply: publishedReply,
+          replied_at: repliedAt,
+          published_at: repliedAt,
+          status: publishedReply ? 'published' : (rev.status || 'pending_approval'),
+          sentiment: rating >= 4 ? 'positive' : rating === 3 ? 'neutral' : 'negative',
+          keywords_used: ['personalized_care', '5star_experience'],
+          created_at: reviewDate,
+        };
+      })
+    );
 
     const insertedReviews: any[] = [];
 
-    if (supabaseAdmin && formattedReviews.length > 0 && resolvedUserId) {
-      // Fetch existing reviews to prevent duplicates and enable clean upsert
-      let existingQuery = supabaseAdmin
-        .from('reviews')
-        .select('id, author_name, review_text, review_date, place_id')
-        .eq('user_id', resolvedUserId);
+    if (supabaseAdmin && resolvedUserId) {
+      // 1. Upsert / update newly synced reviews
+      if (formattedReviews.length > 0) {
+        let existingQuery = supabaseAdmin
+          .from('reviews')
+          .select('id, author_name, review_text, review_date, place_id, ai_draft_reply')
+          .eq('user_id', resolvedUserId);
 
-      if (placeId) {
-        existingQuery = existingQuery.eq('place_id', placeId);
+        if (placeId) {
+          existingQuery = existingQuery.eq('place_id', placeId);
+        }
+
+        const { data: existingDbReviews } = await existingQuery;
+
+        const existingMap = new Map<string, { id: string; ai_draft_reply?: string }>();
+        (existingDbReviews || []).forEach((r: any) => {
+          const key = `${(r.author_name || '').trim().toLowerCase()}::${(r.review_text || '').trim().slice(0, 60).toLowerCase()}`;
+          existingMap.set(key, { id: r.id, ai_draft_reply: r.ai_draft_reply });
+        });
+
+        for (const rev of formattedReviews) {
+          const key = `${(rev.author_name || '').trim().toLowerCase()}::${(rev.review_text || '').trim().slice(0, 60).toLowerCase()}`;
+          const existingRecord = existingMap.get(key);
+
+          const cleanDbRecord: Record<string, unknown> = {
+            user_id: resolvedUserId,
+            business_id: resolvedUserId,
+            place_id: placeId || null,
+            author_name: rev.author_name || 'Google Customer',
+            author_avatar: rev.author_avatar || null,
+            rating: Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5)),
+            review_text: rev.review_text || '',
+            review_date: rev.review_date,
+            ai_draft_reply: rev.ai_draft_reply || '',
+            published_reply: rev.published_reply || null,
+            status: rev.published_reply ? 'published' : (rev.status || 'pending_approval'),
+            sentiment: rev.sentiment || (rev.rating >= 4 ? 'positive' : rev.rating === 3 ? 'neutral' : 'negative'),
+            keywords_used: ['personalized_care', '5star_experience'],
+            ai_model: 'gemini-1.5-flash',
+            published_at: rev.published_reply ? (rev.published_at || rev.review_date) : null,
+            updated_at: new Date().toISOString(),
+          };
+
+          try {
+            if (existingRecord?.id) {
+              const { data: updData, error: updError } = await supabaseAdmin
+                .from('reviews')
+                .update(cleanDbRecord)
+                .eq('id', existingRecord.id)
+                .select();
+
+              if (!updError && updData && updData.length > 0) {
+                insertedReviews.push(updData[0]);
+              } else if (updError) {
+                console.error('[Review DB Update Error]:', updError.message, updError.details, updError.hint);
+              }
+            } else {
+              const { data: insData, error: insError } = await supabaseAdmin
+                .from('reviews')
+                .insert([cleanDbRecord])
+                .select();
+
+              if (!insError && insData && insData.length > 0) {
+                insertedReviews.push(insData[0]);
+                existingMap.set(key, { id: insData[0].id, ai_draft_reply: cleanDbRecord.ai_draft_reply as string });
+              } else if (insError) {
+                console.error('[Review DB Insert Error]:', insError.message, insError.details, insError.hint);
+              }
+            }
+          } catch (dbErr) {
+            console.error('[Review DB Operation Exception]:', dbErr);
+          }
+        }
       }
 
-      const { data: existingDbReviews } = await existingQuery;
+      // 2. If regenerateAll is true, scan all existing reviews in the DB and update any generic or stale drafts
+      if (regenerateAll) {
+        const { data: allStoredReviews } = await supabaseAdmin
+          .from('reviews')
+          .select('id, author_name, review_text, rating, ai_draft_reply, published_reply')
+          .eq('user_id', resolvedUserId);
 
-      const existingMap = new Map<string, string>();
-      (existingDbReviews || []).forEach((r: any) => {
-        const key = `${(r.author_name || '').trim().toLowerCase()}::${(r.review_text || '').trim().slice(0, 60).toLowerCase()}`;
-        existingMap.set(key, r.id);
-      });
+        if (allStoredReviews && allStoredReviews.length > 0) {
+          for (const sRev of allStoredReviews) {
+            if (!sRev.published_reply) {
+              const freshDraft = await generateUniqueAIReply({
+                authorName: sRev.author_name || 'Google Customer',
+                rating: sRev.rating || 5,
+                reviewText: sRev.review_text || '',
+                businessName: placeName || userProfile?.business_name || 'our business',
+                businessCategory: userProfile?.business_category,
+              });
 
-      for (const rev of formattedReviews) {
-        const key = `${(rev.author_name || '').trim().toLowerCase()}::${(rev.review_text || '').trim().slice(0, 60).toLowerCase()}`;
-        const existingId = existingMap.get(key);
-
-        const cleanDbRecord: Record<string, unknown> = {
-          user_id: resolvedUserId,
-          business_id: resolvedUserId,
-          place_id: placeId || null,
-          author_name: rev.author_name || 'Google Customer',
-          author_avatar: rev.author_avatar || null,
-          rating: Math.max(1, Math.min(5, Math.round(Number(rev.rating)) || 5)),
-          review_text: rev.review_text || '',
-          review_date: rev.review_date,
-          ai_draft_reply: rev.ai_draft_reply || '',
-          published_reply: rev.published_reply || null,
-          status: rev.published_reply ? 'published' : (rev.status || 'pending_approval'),
-          sentiment: rev.sentiment || (rev.rating >= 4 ? 'positive' : rev.rating === 3 ? 'neutral' : 'negative'),
-          keywords_used: ['friendly_service', '5star_experience'],
-          ai_model: 'gemini-1.5-flash',
-          published_at: rev.published_reply ? (rev.published_at || rev.review_date) : null,
-          updated_at: new Date().toISOString(),
-        };
-
-        try {
-          if (existingId) {
-            const { data: updData, error: updError } = await supabaseAdmin
-              .from('reviews')
-              .update(cleanDbRecord)
-              .eq('id', existingId)
-              .select();
-
-            if (!updError && updData && updData.length > 0) {
-              insertedReviews.push(updData[0]);
-            } else if (updError) {
-              console.error('[Review DB Update Error]:', updError.message, updError.details, updError.hint);
-            }
-          } else {
-            const { data: insData, error: insError } = await supabaseAdmin
-              .from('reviews')
-              .insert([cleanDbRecord])
-              .select();
-
-            if (!insError && insData && insData.length > 0) {
-              insertedReviews.push(insData[0]);
-              existingMap.set(key, insData[0].id);
-            } else if (insError) {
-              console.error('[Review DB Insert Error]:', insError.message, insError.details, insError.hint);
+              await supabaseAdmin
+                .from('reviews')
+                .update({
+                  ai_draft_reply: freshDraft,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', sRev.id);
             }
           }
-        } catch (dbErr) {
-          console.error('[Review DB Operation Exception]:', dbErr);
         }
       }
 
@@ -271,3 +484,4 @@ async function handleSync(req: NextRequest) {
     );
   }
 }
+

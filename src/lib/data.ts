@@ -72,7 +72,7 @@ export const initialReviews: Review[] = [
     rating: 5,
     review_text: 'Had an emergency toothache and Dr. Marcus took me in right away. The team made me feel completely comfortable and the laser treatment was 100% painless. Truly the best dental clinic in town!',
     review_date: new Date(Date.now() - 2 * 3600000).toISOString(),
-    ai_draft_reply: 'Thank you so much for the glowing 5-star review, Sarah! We are thrilled to hear that Dr. Marcus and our team provided painless, immediate care for your emergency dental needs. Your comfort is our top priority. We look forward to seeing you again for your regular checkups!',
+    ai_draft_reply: 'Hi Sarah, thank you for trusting us with your emergency care! We are so glad our laser treatment was completely painless and that Dr. Marcus helped you feel at ease right away. Looking forward to welcoming you back for your regular checkups!',
     published_reply: null,
     status: 'pending_approval',
     sentiment: 'positive',

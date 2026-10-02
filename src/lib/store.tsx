@@ -559,7 +559,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         sentiment: 'positive' as const,
         keywords: ['modern facility', 'cosmetic care', 'no wait time'],
         replies: [
-          'Hi Carlos! We are thrilled to hear how much you love your new smile! Respecting your time with zero wait while maintaining a spotless clinic is what we strive for every day. Enjoy your brilliant results!',
+          'Hi Carlos! Hearing that you love your new smile made our day! Respecting your time with zero wait while maintaining a spotless clinic is what we strive for every day. Enjoy your brilliant results!',
           'Thank you so much, Carlos! Crafting beautiful smile transformations in a modern, punctual setting is our passion. We appreciate your glowing 5-star review!',
         ],
       },

@@ -32,23 +32,17 @@ export async function POST(req: NextRequest) {
 
     if (apiKey) {
       try {
-        const prompt = `You are a professional reputation management expert responding on behalf of "${businessName}" (Industry: ${businessCategory}) to a customer review on Google Maps.
+        const prompt = `You are the owner of ${businessName}. Write a warm, authentic 2-sentence response to this customer review.
 
-CUSTOMER REVIEW DETAILS:
-- Customer Name: ${authorName}
-- Star Rating: ${rating} out of 5 stars
-- Review Text: "${reviewText}"
-- Tone Preference: ${tone}
-${keywords && keywords.length > 0 ? `- Relevant Local SEO Keywords to naturally weave in if appropriate: ${keywords.join(', ')}` : ''}
+Customer Name: ${authorName}
+Rating: ${rating} Stars
+Customer Review: "${reviewText || 'Great service!'}"
 
-STRICT RESPONSE RULES:
-1. Dynamic & Tailored Content: You MUST directly acknowledge and reference at least one specific detail, procedure, staff member, or sentiment mentioned in the customer's review text.
-2. Tone & Rating Calibration:
-   - 4-5 Stars: Warm, appreciative, authentic, and reinforcing the specific positive experience they shared.
-   - 1-3 Stars: Deeply empathetic, polite, taking complete ownership without making excuses, and inviting them to connect directly offline to make things right.
-3. Originality & Variety: Strictly avoid robotic boilerplate, repetitive clichés, or generic stock phrases (e.g. avoid repeating "Thank you for your review, we strive to provide the best service").
-4. Greeting & Sign-off Variety: Use natural, varied greetings ("Hi ${authorName}", "Hello ${authorName}", "Dear ${authorName}", "Thanks for sharing, ${authorName}") and varied warm sign-offs.
-5. Format: Return ONLY the final review reply text without quotation marks, headers, or explanations. Keep it between 2 to 4 concise, impactful sentences.`;
+Guidelines:
+- Directly mention 1 or 2 specific details or items they praised in their review.
+- Sound natural and personable, like a genuine local business owner.
+- Do NOT use repetitive boilerplate phrases (e.g. "We are thrilled to hear...").
+- Do NOT include hashtags (remove #5star, #friendlyservice).`;
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -74,9 +68,14 @@ STRICT RESPONSE RULES:
           const data = await response.json();
           const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
           if (generatedText && generatedText.trim()) {
+            const cleaned = generatedText
+              .trim()
+              .replace(/^["']|["']$/g, '')
+              .replace(/#\w+/g, '')
+              .trim();
             return NextResponse.json({
               success: true,
-              reply: generatedText.trim().replace(/^["']|["']$/g, ''),
+              reply: cleaned,
               model: 'gemini-1.5-flash',
             });
           }
