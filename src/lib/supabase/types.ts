@@ -91,6 +91,8 @@ export interface Review {
 export interface Invite {
   id: string;
   user_id: string;
+  business_id?: string | null;
+  place_id?: string | null;
   customer_name: string;
   customer_phone: string;
   customer_email?: string | null;

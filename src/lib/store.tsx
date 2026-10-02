@@ -146,23 +146,46 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             globalSettingsCache = sett;
           }
 
-          if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
-            const rawInvs = (invitesRes.value.data || []) as Invite[];
-            const invs = [...rawInvs].sort((a, b) => {
-              const tA = new Date(a.sent_at || a.created_at || 0).getTime();
-              const tB = new Date(b.sent_at || b.created_at || 0).getTime();
-              return tB - tA;
-            });
-            console.log('Fetched Urgent Feedback / Review Invites:', invs);
-            setInvites(invs);
-            globalInvitesCache = invs;
-          }
-
           const isConnected = Boolean(
             activeProfile?.google_place_id &&
             activeProfile?.google_place_id.trim() !== '' &&
             activeProfile?.google_connected !== false
           );
+
+          if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
+            const rawInvs = (invitesRes.value.data || []) as Invite[];
+            const invs = isConnected
+              ? [...rawInvs]
+                  .filter((inv) => {
+                    if (inv.place_id && activeProfile?.google_place_id && inv.place_id !== activeProfile.google_place_id) {
+                      return false;
+                    }
+                    if (inv.business_id && activeProfile?.id && inv.business_id !== activeProfile.id) {
+                      return false;
+                    }
+                    return true;
+                  })
+                  .sort((a, b) => {
+                    const tA = new Date(a.sent_at || a.created_at || 0).getTime();
+                    const tB = new Date(b.sent_at || b.created_at || 0).getTime();
+                    return tB - tA;
+                  })
+              : [];
+            console.log('Fetched Urgent Feedback / Review Invites:', invs);
+            setInvites(invs);
+            globalInvitesCache = invs;
+            if (!isConnected) {
+              try {
+                localStorage.removeItem(STORAGE_KEYS.INVITES);
+              } catch {}
+            }
+          } else if (!isConnected) {
+            setInvites([]);
+            globalInvitesCache = [];
+            try {
+              localStorage.removeItem(STORAGE_KEYS.INVITES);
+            } catch {}
+          }
 
           if (isConnected && activeProfile?.google_place_id) {
             const activePlaceId = activeProfile.google_place_id;
@@ -639,6 +662,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newInvite: Invite = {
       id: validUuid,
       user_id: profile.id,
+      business_id: profile.id,
+      place_id: profile.google_place_id || undefined,
       customer_name: customerName,
       customer_phone: customerPhone,
       service_type: serviceType,
@@ -706,6 +731,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const uid = user?.id || profile.id;
           if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
             payload.user_id = uid;
+            payload.business_id = uid;
+          }
+          if (profile.google_place_id) {
+            payload.place_id = profile.google_place_id;
           }
           const { error } = await supabase.from('review_invites').insert([payload]);
           if (error) console.error('Supabase insert invite error:', error.message);
@@ -730,6 +759,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const newInvite: Invite = {
       id: validUuid,
       user_id: profile.id,
+      business_id: profile.id,
+      place_id: profile.google_place_id || undefined,
       customer_name: customerName,
       customer_phone: customerEmail,
       customer_email: customerEmail,
@@ -798,6 +829,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const uid = user?.id || profile.id;
           if (uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid)) {
             payload.user_id = uid;
+            payload.business_id = uid;
+          }
+          if (profile.google_place_id) {
+            payload.place_id = profile.google_place_id;
           }
           const { error } = await supabase.from('review_invites').insert([payload]);
           if (error) console.error('Supabase insert email invite error:', error.message);
@@ -1119,11 +1154,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         }
         if (invitesRes.status === 'fulfilled' && invitesRes.value.data) {
           const rawInvs = (invitesRes.value.data || []) as Invite[];
-          const invs = [...rawInvs].sort((a, b) => {
-            const tA = new Date(a.sent_at || a.created_at || 0).getTime();
-            const tB = new Date(b.sent_at || b.created_at || 0).getTime();
-            return tB - tA;
-          });
+          const invs = [...rawInvs]
+            .filter((inv) => {
+              if (inv.place_id && switchedProfile?.google_place_id && inv.place_id !== switchedProfile.google_place_id) {
+                return false;
+              }
+              if (inv.business_id && businessId && inv.business_id !== businessId) {
+                return false;
+              }
+              return true;
+            })
+            .sort((a, b) => {
+              const tA = new Date(a.sent_at || a.created_at || 0).getTime();
+              const tB = new Date(b.sent_at || b.created_at || 0).getTime();
+              return tB - tA;
+            });
           setInvites(invs);
           globalInvitesCache = invs;
         }
@@ -1193,6 +1238,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setInvites([]);
     globalInvitesCache = [];
     setIsDemoMode(false);
+    try {
+      localStorage.removeItem(STORAGE_KEYS.INVITES);
+      localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+    } catch {}
 
     const uid = user?.id || profile.id;
     const isUidValid = uid && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(uid);
@@ -1250,6 +1299,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           // 3. Clear existing reviews for this business/user
           supabase
             .from('reviews')
+            .delete()
+            .eq('user_id', uid),
+
+          // 4. Clear existing review invites for this business/user
+          supabase
+            .from('review_invites')
             .delete()
             .eq('user_id', uid),
         ]);

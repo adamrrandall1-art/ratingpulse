@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Send,
   Smartphone,
@@ -11,7 +12,8 @@ import {
   Search,
   Sparkles,
   Layers,
-  MessageSquare
+  MessageSquare,
+  Building,
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { generateGoogleReviewUrl } from '@/lib/google-places';
@@ -28,6 +30,12 @@ export default function InvitesPage() {
   const [customerEmail, setCustomerEmail] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [search, setSearch] = useState('');
+
+  const isConnected = Boolean(
+    profile.google_place_id &&
+    profile.google_place_id.trim() !== '' &&
+    profile.google_connected !== false
+  );
 
   const displayName = customerName.trim() || 'valued customer';
   const bizName = profile.business_name || 'our business';
@@ -97,7 +105,37 @@ export default function InvitesPage() {
     }
   };
 
+  if (!isConnected) {
+    return (
+      <div className="space-y-4">
+        <div className="p-10 sm:p-14 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+            <Building className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">No Business Connected</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md leading-relaxed">
+            No business connected. Connect a Google Business Profile to view and send invites.
+          </p>
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              href="/dashboard/setup"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20"
+            >
+              Connect Google Business Profile →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const filteredInvites = invites.filter((inv) => {
+    if (profile.google_place_id && inv.place_id && inv.place_id !== profile.google_place_id) {
+      return false;
+    }
+    if (profile.id && inv.business_id && inv.business_id !== profile.id) {
+      return false;
+    }
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (
