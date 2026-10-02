@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -90,15 +90,21 @@ export async function POST(req: NextRequest) {
         if (!resolvedUserId && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
           const { data: prof } = await supabaseAdmin
             .from('profiles')
-            .select('id, notification_email, notification_phone, sms_alerts_enabled')
+            .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
             .or(`email.eq.${effectiveOwnerEmail},notification_email.eq.${effectiveOwnerEmail}`)
             .maybeSingle();
 
           if (prof?.id) {
             resolvedUserId = prof.id;
             if (prof.notification_email) effectiveOwnerEmail = prof.notification_email;
-            if (prof.notification_phone) destinationPhone = prof.notification_phone;
-            if (prof.sms_alerts_enabled !== undefined) smsAlertsEnabled = prof.sms_alerts_enabled;
+            if (prof.notify_negative_phone || prof.notification_phone || prof.phone) {
+              destinationPhone = prof.notify_negative_phone || prof.notification_phone || prof.phone;
+            }
+            if (prof.notify_negative_sms !== undefined && prof.notify_negative_sms !== null) {
+              smsAlertsEnabled = Boolean(prof.notify_negative_sms);
+            } else if (prof.sms_alerts_enabled !== undefined && prof.sms_alerts_enabled !== null) {
+              smsAlertsEnabled = Boolean(prof.sms_alerts_enabled);
+            }
           }
         }
 
@@ -130,17 +136,55 @@ export async function POST(req: NextRequest) {
 
         // Fetch notification settings for owner if available
         if (resolvedUserId) {
-          const { data: sett } = await supabaseAdmin
-            .from('business_settings')
-            .select('notification_email, notification_phone, sms_alerts_enabled')
-            .eq('user_id', resolvedUserId)
-            .maybeSingle();
+          const [profRes, settRes] = await Promise.allSettled([
+            supabaseAdmin.from('profiles').select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('id', resolvedUserId).maybeSingle(),
+            supabaseAdmin.from('business_settings').select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('user_id', resolvedUserId).maybeSingle(),
+          ]);
 
-          if (sett) {
-            if (sett.notification_email) effectiveOwnerEmail = sett.notification_email;
-            if (sett.notification_phone) destinationPhone = sett.notification_phone;
-            if (sett.sms_alerts_enabled !== undefined) smsAlertsEnabled = sett.sms_alerts_enabled;
+          let foundNotificationEmail = '';
+          let foundNotificationPhone = '';
+          let foundNegativeSms = true;
+          let foundNegativeEnabled = true;
+
+          if (settRes.status === 'fulfilled' && settRes.value.data) {
+            const s = settRes.value.data;
+            if (s.notification_email) foundNotificationEmail = s.notification_email;
+            if (s.notify_negative_phone) foundNotificationPhone = s.notify_negative_phone;
+            else if (s.notification_phone) foundNotificationPhone = s.notification_phone;
+
+            if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
+              foundNegativeEnabled = Boolean(s.notify_negative_enabled);
+            }
+            if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
+              foundNegativeSms = Boolean(s.notify_negative_sms);
+            } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+              foundNegativeSms = Boolean(s.sms_alerts_enabled);
+            }
           }
+
+          if (profRes.status === 'fulfilled' && profRes.value.data) {
+            const p = profRes.value.data;
+            if (!foundNotificationEmail) {
+              foundNotificationEmail = p.notification_email || p.email || '';
+            }
+            if (!foundNotificationPhone) {
+              foundNotificationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
+            }
+            if (settRes.status !== 'fulfilled' || !settRes.value.data) {
+              if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
+                foundNegativeEnabled = Boolean(p.notify_negative_enabled);
+              }
+              if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
+                foundNegativeSms = Boolean(p.notify_negative_sms);
+              } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
+                foundNegativeSms = Boolean(p.sms_alerts_enabled);
+              }
+            }
+          }
+
+          if (foundNotificationEmail) effectiveOwnerEmail = foundNotificationEmail;
+          if (foundNotificationPhone) destinationPhone = foundNotificationPhone;
+          smsAlertsEnabled = foundNegativeEnabled && foundNegativeSms;
         }
       } catch (err: any) {
         console.error('Feedback database exception:', err);
@@ -167,10 +211,19 @@ export async function POST(req: NextRequest) {
     if (smsAlertsEnabled && destinationPhone) {
       try {
         const formattedPhone = formatE164(destinationPhone);
-        const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${businessName}:\n"${effectiveText.slice(0, 100)}${effectiveText.length > 100 ? '...' : ''}"\nLogin to reply.`;
-        await sendTwilioSms(formattedPhone, smsText);
+        if (formattedPhone) {
+          const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${businessName}:\n"${effectiveText.slice(0, 100)}${effectiveText.length > 100 ? '...' : ''}"\nLogin to reply.`;
+          const smsResult = await sendTwilioSms(formattedPhone, smsText);
+          if (!smsResult.success) {
+            console.error('[SMS Dispatch Error]: Failed to send SMS review alert:', smsResult.error);
+          } else {
+            console.log('[SMS Dispatch Success]: Sent review alert to', formattedPhone, smsResult);
+          }
+        } else {
+          console.error('[SMS Dispatch Error]: Recipient phone could not be formatted into E.164:', destinationPhone);
+        }
       } catch (smsErr) {
-        console.warn('Twilio alert warning:', smsErr);
+        console.error('[SMS Dispatch Error]:', smsErr);
       }
     }
 

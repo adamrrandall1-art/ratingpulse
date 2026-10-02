@@ -128,20 +128,28 @@ export async function POST(req: NextRequest) {
         // Check if there is an explicit notification_email, notification_phone, or sms_alerts_enabled configured
         if (resolvedUserId && isUuid.test(resolvedUserId)) {
           const [profRes, settRes] = await Promise.allSettled([
-            supabaseAdmin.from('profiles').select('email, phone, notification_email, notification_phone, sms_alerts_enabled').eq('id', resolvedUserId).maybeSingle(),
-            supabaseAdmin.from('business_settings').select('notification_email, notification_phone, sms_alerts_enabled').eq('user_id', resolvedUserId).maybeSingle(),
+            supabaseAdmin.from('profiles').select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('id', resolvedUserId).maybeSingle(),
+            supabaseAdmin.from('business_settings').select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('user_id', resolvedUserId).maybeSingle(),
           ]);
 
           let foundNotificationEmail = '';
           let foundNotificationPhone = '';
-          let foundSmsEnabled = true;
+          let foundNegativeSms = true;
+          let foundNegativeEnabled = true;
 
           if (settRes.status === 'fulfilled' && settRes.value.data) {
             const s = settRes.value.data;
             if (s.notification_email) foundNotificationEmail = s.notification_email;
-            if (s.notification_phone) foundNotificationPhone = s.notification_phone;
-            if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
-              foundSmsEnabled = Boolean(s.sms_alerts_enabled);
+            if (s.notify_negative_phone) foundNotificationPhone = s.notify_negative_phone;
+            else if (s.notification_phone) foundNotificationPhone = s.notification_phone;
+
+            if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
+              foundNegativeEnabled = Boolean(s.notify_negative_enabled);
+            }
+            if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
+              foundNegativeSms = Boolean(s.notify_negative_sms);
+            } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+              foundNegativeSms = Boolean(s.sms_alerts_enabled);
             }
           }
           if (profRes.status === 'fulfilled' && profRes.value.data) {
@@ -150,16 +158,23 @@ export async function POST(req: NextRequest) {
               foundNotificationEmail = p.notification_email || p.email || '';
             }
             if (!foundNotificationPhone) {
-              foundNotificationPhone = p.notification_phone || p.phone || '';
+              foundNotificationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
             }
-            if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null && settRes.status !== 'fulfilled') {
-              foundSmsEnabled = Boolean(p.sms_alerts_enabled);
+            if (settRes.status !== 'fulfilled' || !settRes.value.data) {
+              if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
+                foundNegativeEnabled = Boolean(p.notify_negative_enabled);
+              }
+              if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
+                foundNegativeSms = Boolean(p.notify_negative_sms);
+              } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
+                foundNegativeSms = Boolean(p.sms_alerts_enabled);
+              }
             }
           }
 
           if (foundNotificationEmail) destinationEmail = foundNotificationEmail;
           if (foundNotificationPhone) destinationPhone = foundNotificationPhone;
-          smsAlertsEnabled = foundSmsEnabled;
+          smsAlertsEnabled = foundNegativeEnabled && foundNegativeSms;
         }
       } catch (dbErr) {
         console.error('[DB feedback exception]', dbErr);
@@ -192,10 +207,16 @@ export async function POST(req: NextRequest) {
           const smsText = `⚠️ RatingPulse Alert: A customer (${customerName || 'Customer'}) left a ${effectiveRating}-star review with note: '${effectiveText || 'No comments'}'. Log into your dashboard to respond.`;
           const smsResult = await sendTwilioSms(formattedPhone, smsText);
           smsSuccess = smsResult.success;
-          console.log('[SMS Feedback Alert dispatched]:', smsResult);
+          if (!smsResult.success) {
+            console.error('[SMS Dispatch Error]: Failed to dispatch SMS feedback alert:', smsResult.error);
+          } else {
+            console.log('[SMS Dispatch Success]: Sent feedback alert to', formattedPhone, smsResult);
+          }
+        } else {
+          console.error('[SMS Dispatch Error]: Invalid formatted destination phone for feedback alert:', destinationPhone);
         }
       } catch (smsErr) {
-        console.warn('[SMS alert error]', smsErr);
+        console.error('[SMS Dispatch Error]: Exception while dispatching SMS:', smsErr);
       }
     }
 

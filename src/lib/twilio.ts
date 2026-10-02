@@ -6,9 +6,14 @@ export const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER ?? '';
 
 if (!accountSid || !authToken || !twilioPhoneNumber) {
   console.warn(
-    '[Twilio] One or more required env vars are missing ' +
+    '[Twilio Config Warning] One or more required env vars are missing ' +
       '(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER). ' +
-      'SMS will run in simulation mode.'
+      'SMS will run in simulation mode.',
+    {
+      hasAccountSid: Boolean(accountSid),
+      hasAuthToken: Boolean(authToken),
+      hasPhoneNumber: Boolean(twilioPhoneNumber),
+    }
   );
 }
 
@@ -28,20 +33,44 @@ export const twilioClient =
     : null;
 
 /**
- * Format phone numbers into standard E.164 (+1XXXXXXXXXX) format
+ * Format phone numbers into standard E.164 (+1XXXXXXXXXX or +<country_code><digits>) format.
+ * Strips all formatting characters (spaces, hyphens, parentheses, etc.).
  */
-export function formatE164(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
+export function formatE164(phone?: string | null): string {
+  if (!phone || typeof phone !== 'string') return '';
+  const trimmed = phone.trim();
+  if (!trimmed) return '';
+
+  // Extract all digit characters
+  const digits = trimmed.replace(/\D/g, '');
+  if (!digits) return '';
+
+  // Standard 10-digit US/Canada number: 5552348900 -> +15552348900
   if (digits.length === 10) {
     return `+1${digits}`;
   }
+
+  // 11-digit US/Canada number starting with 1: 15552348900 -> +15552348900
   if (digits.length === 11 && digits.startsWith('1')) {
     return `+${digits}`;
   }
-  if (phone.startsWith('+')) {
-    return phone.replace(/\s+/g, '');
+
+  // Explicit international number format starting with +: e.g. +447911123456 -> +447911123456
+  if (trimmed.startsWith('+') && digits.length >= 7) {
+    return `+${digits}`;
   }
-  return `+${digits}`;
+
+  // Multi-digit international fallback (11+ digits without +)
+  if (digits.length >= 11) {
+    return `+${digits}`;
+  }
+
+  // 7 to 9 digit fallback (assume US national)
+  if (digits.length >= 7) {
+    return `+1${digits}`;
+  }
+
+  return '';
 }
 
 export const SMS_COMPLIANCE_FOOTER = 'Reply STOP to unsubscribe.';
@@ -81,8 +110,21 @@ export async function sendTwilioSms(
   const formattedTo = formatE164(to);
   const outgoingBody = appendComplianceFooter(body);
 
+  if (!formattedTo) {
+    console.error('[SMS Dispatch Error]: Invalid or missing destination phone number:', { rawTo: to });
+    return {
+      success: false,
+      error: `Invalid or missing recipient phone number format: "${to}"`,
+    };
+  }
+
   if (!isTwilioConfigured || !twilioClient) {
-    console.log('[Twilio Simulated] SMS dispatched to:', formattedTo, '| body:', outgoingBody);
+    console.warn('[SMS Dispatch Notice] Twilio is not configured or client not initialized. Operating in simulated mode.', {
+      to: formattedTo,
+      from: twilioPhoneNumber || '(not set)',
+      hasAccountSid: Boolean(accountSid),
+      hasAuthToken: Boolean(authToken),
+    });
     return {
       success: true,
       messageId: `sim_msg_${Date.now()}`,
@@ -99,7 +141,7 @@ export async function sendTwilioSms(
       to: formattedTo,
     });
 
-    console.log('[Twilio] sent:', message.sid, '| status:', message.status);
+    console.log('[SMS Dispatch Success]: sent message sid:', message.sid, '| status:', message.status, '| to:', formattedTo);
     return {
       success: true,
       messageId: message.sid,
@@ -108,9 +150,18 @@ export async function sendTwilioSms(
     };
   } catch (error: any) {
     const code: number | undefined = error.code;
+    const status: number | undefined = error.status;
     const msg: string = error.message || 'Failed to dispatch SMS through Twilio';
 
-    console.error('[Twilio] dispatch error — code:', code, '| message:', msg);
+    console.error('[SMS Dispatch Error]:', {
+      recipient: formattedTo,
+      from: twilioPhoneNumber,
+      errorCode: code,
+      httpStatus: status,
+      errorMessage: msg,
+      moreInfo: error.moreInfo,
+      details: error.details,
+    });
 
     // Twilio trial accounts block messages to unverified numbers (code 21608)
     // and sometimes flag template issues (code 21606/21612).

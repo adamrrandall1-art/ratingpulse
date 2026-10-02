@@ -115,32 +115,49 @@ export async function POST(req: NextRequest) {
         // Fetch owner email and phone for notifications
         if (resolvedUid && isUuid.test(resolvedUid)) {
           const [profRes, settRes] = await Promise.allSettled([
-            supabase.from('profiles').select('email, phone, notification_email, notification_phone, sms_alerts_enabled').eq('id', resolvedUid).maybeSingle(),
-            supabase.from('business_settings').select('notification_email, notification_phone, sms_alerts_enabled').eq('user_id', resolvedUid).maybeSingle(),
+            supabase.from('profiles').select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('id', resolvedUid).maybeSingle(),
+            supabase.from('business_settings').select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('user_id', resolvedUid).maybeSingle(),
           ]);
 
           let foundNotificationEmail = '';
           let foundNotificationPhone = '';
+          let foundNegativeSms = true;
+          let foundNegativeEnabled = true;
 
           if (settRes.status === 'fulfilled' && settRes.value.data) {
             const s = settRes.value.data;
             if (s.notification_email) foundNotificationEmail = s.notification_email;
-            if (s.notification_phone) foundNotificationPhone = s.notification_phone;
-            if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
-              smsAlertsEnabled = Boolean(s.sms_alerts_enabled);
+            if (s.notify_negative_phone) foundNotificationPhone = s.notify_negative_phone;
+            else if (s.notification_phone) foundNotificationPhone = s.notification_phone;
+
+            if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
+              foundNegativeEnabled = Boolean(s.notify_negative_enabled);
+            }
+            if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
+              foundNegativeSms = Boolean(s.notify_negative_sms);
+            } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+              foundNegativeSms = Boolean(s.sms_alerts_enabled);
             }
           }
           if (profRes.status === 'fulfilled' && profRes.value.data) {
             const p = profRes.value.data;
             if (!foundNotificationEmail) foundNotificationEmail = p.notification_email || p.email || '';
-            if (!foundNotificationPhone) foundNotificationPhone = p.notification_phone || p.phone || '';
-            if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null && settRes.status !== 'fulfilled') {
-              smsAlertsEnabled = Boolean(p.sms_alerts_enabled);
+            if (!foundNotificationPhone) foundNotificationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
+            if (settRes.status !== 'fulfilled' || !settRes.value.data) {
+              if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
+                foundNegativeEnabled = Boolean(p.notify_negative_enabled);
+              }
+              if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
+                foundNegativeSms = Boolean(p.notify_negative_sms);
+              } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
+                foundNegativeSms = Boolean(p.sms_alerts_enabled);
+              }
             }
           }
 
           if (foundNotificationEmail) recipientEmail = foundNotificationEmail;
           if (foundNotificationPhone) destinationPhone = foundNotificationPhone;
+          smsAlertsEnabled = foundNegativeEnabled && foundNegativeSms;
         }
       } catch (dbErr) {
         console.warn('[DB Error recording feedback or fetching owner details]', dbErr);
@@ -182,9 +199,16 @@ export async function POST(req: NextRequest) {
           const smsText = `⚠️ RatingPulse Alert: A customer (${customerName || 'Customer'}) left a ${effectiveRating}-star review with note: '${effectiveText}'. Log into your dashboard to respond.`;
           const smsResult = await sendTwilioSms(formattedPhone, smsText);
           smsSuccess = smsResult.success;
+          if (!smsResult.success) {
+            console.error('[SMS Dispatch Error]: Failed to send feedback alert SMS:', smsResult.error);
+          } else {
+            console.log('[SMS Dispatch Success]: Sent feedback alert SMS to', formattedPhone, smsResult);
+          }
+        } else {
+          console.error('[SMS Dispatch Error]: Invalid formatted destination phone for feedback alert:', destinationPhone);
         }
       } catch (smsErr) {
-        console.warn('[SMS alert warning]', smsErr);
+        console.error('[SMS Dispatch Error]: Exception while dispatching SMS:', smsErr);
       }
     }
 
