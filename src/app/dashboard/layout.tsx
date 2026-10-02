@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, ChevronDown, Building, LayoutDashboard, User, LogOut, CheckCircle2 } from 'lucide-react';
+import { Sparkles, ChevronDown, Building, LayoutDashboard, User, LogOut, CheckCircle2, Send } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
@@ -54,6 +54,7 @@ export default function DashboardLayout({
   const primaryNavItems = [
     { name: 'Dashboard', href: '/dashboard', active: pathname === '/dashboard' },
     { name: 'Businesses', href: '/dashboard/setup', active: pathname === '/dashboard/setup' || pathname === '/dashboard/businesses' },
+    { name: 'Invites', href: '/dashboard/invites', active: pathname === '/dashboard/invites' },
     { name: 'Reviews', href: '/dashboard/reviews', active: pathname === '/dashboard/reviews' || pathname === '/dashboard/feedback' },
     { name: 'Reports', href: '/dashboard/analytics', active: pathname === '/dashboard/analytics' || pathname === '/dashboard/reports' },
     { name: 'Settings', href: '/dashboard/settings', active: pathname === '/dashboard/settings' },
@@ -98,21 +99,30 @@ export default function DashboardLayout({
             </nav>
           </div>
 
-          {/* Right: User Profile Menu */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              type="button"
-              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="flex items-center gap-2.5 p-1 rounded-full hover:bg-slate-50 transition-colors cursor-pointer"
+          {/* Right: Quick Action & User Profile Menu */}
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard/invites"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs sm:text-sm px-3 sm:px-3.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 transition-colors shrink-0"
             >
-              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center ring-1 ring-slate-200 shrink-0">
-                {displayName.charAt(0).toUpperCase()}
-              </div>
-              <span className="hidden sm:inline-block text-xs font-semibold text-slate-700 max-w-[120px] truncate">
-                {displayName}
-              </span>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-            </button>
+              <Send className="w-3.5 h-3.5" />
+              <span>Send SMS Invite</span>
+            </Link>
+
+            <div className="relative" ref={dropdownRef}>
+              <button
+                type="button"
+                onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                className="flex items-center gap-2.5 p-1 rounded-full hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-xs flex items-center justify-center ring-1 ring-slate-200 shrink-0">
+                  {displayName.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden sm:inline-block text-xs font-semibold text-slate-700 max-w-[120px] truncate">
+                  {displayName}
+                </span>
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+              </button>
 
             {/* Profile Dropdown Menu */}
             {profileDropdownOpen && (
@@ -163,6 +173,7 @@ export default function DashboardLayout({
                 </button>
               </div>
             )}
+            </div>
           </div>
 
         </div>
