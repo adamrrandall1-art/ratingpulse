@@ -240,14 +240,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         if (storedProfile) {
           parsedProfile = JSON.parse(storedProfile);
           if (parsedProfile) {
+            if (parsedProfile.phone && parsedProfile.phone.includes('555')) parsedProfile.phone = '';
+            if (parsedProfile.notification_phone && parsedProfile.notification_phone.includes('555')) parsedProfile.notification_phone = '';
+            if (parsedProfile.notify_negative_phone && parsedProfile.notify_negative_phone.includes('555')) parsedProfile.notify_negative_phone = '';
             setProfile(parsedProfile);
             globalProfileCache = parsedProfile;
           }
         }
         if (storedSettings) {
           const parsed = JSON.parse(storedSettings);
-          setSettings(parsed);
-          globalSettingsCache = parsed;
+          if (parsed) {
+            if (parsed.notification_phone && parsed.notification_phone.includes('555')) parsed.notification_phone = '';
+            if (parsed.notify_negative_phone && parsed.notify_negative_phone.includes('555')) parsed.notify_negative_phone = '';
+            setSettings(parsed);
+            globalSettingsCache = parsed;
+          }
         }
 
         const expectedPlaceId = parsedProfile?.google_place_id || null;

@@ -88,11 +88,11 @@ export default function SettingsPage() {
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
-  // Hydrate on mount directly from live Supabase record
+  // Hydrate on mount directly from live server/Supabase record
   useEffect(() => {
     async function loadFreshSettings() {
       const activeUserId = user?.id || profile.id;
-      if (!isSupabaseConfigured || !supabase || !activeUserId || activeUserId.startsWith('usr_mock')) {
+      if (!activeUserId || activeUserId.startsWith('usr_mock')) {
         // Fallback to store values if not connected
         if (profile.full_name && !fullName) setFullName(profile.full_name);
         if (profile.email && !adminEmail) setAdminEmail(profile.email);
@@ -111,83 +111,151 @@ export default function SettingsPage() {
       }
 
       try {
-        const [profRes, settRes] = await Promise.allSettled([
-          supabase.from('profiles').select('*').eq('id', activeUserId).maybeSingle(),
-          supabase.from('business_settings').select('*').eq('user_id', activeUserId).maybeSingle(),
-        ]);
+        // 1. Try server-side API endpoint for reliable service-role reading
+        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success) {
+            const p = json.profile;
+            const s = json.settings;
 
-        const p = profRes.status === 'fulfilled' ? profRes.value.data : null;
-        const s = settRes.status === 'fulfilled' ? settRes.value.data : null;
+            if (p?.full_name) setFullName(p.full_name);
+            if (p?.email) setAdminEmail(p.email);
 
-        if (p) {
-          if (p.full_name) setFullName(p.full_name);
-          if (p.email) setAdminEmail(p.email);
+            const resolvedPhone = json.resolvedPhone || '';
+            const resolvedEmail = json.resolvedEmail || user?.email || '';
+
+            setNegativePhoneNumber(resolvedPhone);
+            setNegativeEmailAddress(resolvedEmail);
+            setPositiveEmailAddress(resolvedEmail);
+
+            if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
+              setNotifyNegativeEnabled(Boolean(s.notify_negative_enabled));
+            } else if (p?.notify_negative_enabled !== undefined && p?.notify_negative_enabled !== null) {
+              setNotifyNegativeEnabled(Boolean(p.notify_negative_enabled));
+            }
+
+            if (s?.notify_negative_email !== undefined && s?.notify_negative_email !== null) {
+              setNotifyNegativeEmail(Boolean(s.notify_negative_email));
+            } else if (p?.notify_negative_email !== undefined && p?.notify_negative_email !== null) {
+              setNotifyNegativeEmail(Boolean(p.notify_negative_email));
+            }
+
+            if (s?.notify_negative_sms !== undefined && s?.notify_negative_sms !== null) {
+              setNotifyNegativeSms(Boolean(s.notify_negative_sms));
+            } else if (s?.sms_alerts_enabled !== undefined && s?.sms_alerts_enabled !== null) {
+              setNotifyNegativeSms(Boolean(s.sms_alerts_enabled));
+            } else if (p?.notify_negative_sms !== undefined && p?.notify_negative_sms !== null) {
+              setNotifyNegativeSms(Boolean(p.notify_negative_sms));
+            } else if (p?.sms_alerts_enabled !== undefined && p?.sms_alerts_enabled !== null) {
+              setNotifyNegativeSms(Boolean(p.sms_alerts_enabled));
+            }
+
+            if (s?.notify_positive_enabled !== undefined && s?.notify_positive_enabled !== null) {
+              setNotifyPositiveEnabled(Boolean(s.notify_positive_enabled));
+            } else if (p?.notify_positive_enabled !== undefined && p?.notify_positive_enabled !== null) {
+              setNotifyPositiveEnabled(Boolean(p.notify_positive_enabled));
+            }
+
+            if (s?.notify_positive_email !== undefined && s?.notify_positive_email !== null) {
+              setNotifyPositiveEmail(Boolean(s.notify_positive_email));
+            } else if (p?.notify_positive_email !== undefined && p?.notify_positive_email !== null) {
+              setNotifyPositiveEmail(Boolean(p.notify_positive_email));
+            }
+
+            if (s?.notify_positive_sms !== undefined && s?.notify_positive_sms !== null) {
+              setNotifyPositiveSms(Boolean(s.notify_positive_sms));
+            } else if (p?.notify_positive_sms !== undefined && p?.notify_positive_sms !== null) {
+              setNotifyPositiveSms(Boolean(p.notify_positive_sms));
+            }
+
+            if (s?.brand_voice) setBrandVoice(s.brand_voice);
+            if (s?.sms_template) setSmsTemplate(s.sms_template);
+            if (Array.isArray(s?.custom_keywords)) setKeywords(s.custom_keywords);
+            return;
+          }
         }
 
-        const resolvedPhone =
-          s?.notify_negative_phone ||
-          s?.notification_phone ||
-          p?.notify_negative_phone ||
-          p?.notification_phone ||
-          p?.phone ||
-          '';
+        // 2. Client-side Supabase query fallback
+        if (isSupabaseConfigured && supabase) {
+          const [profRes, settRes] = await Promise.allSettled([
+            supabase.from('profiles').select('*').eq('id', activeUserId).maybeSingle(),
+            supabase.from('business_settings').select('*').eq('user_id', activeUserId).maybeSingle(),
+          ]);
 
-        const resolvedEmail =
-          s?.notification_email ||
-          p?.notification_email ||
-          p?.email ||
-          user?.email ||
-          '';
+          const p = profRes.status === 'fulfilled' ? profRes.value.data : null;
+          const s = settRes.status === 'fulfilled' ? settRes.value.data : null;
 
-        setNegativePhoneNumber(resolvedPhone);
-        setNegativeEmailAddress(resolvedEmail);
-        setPositiveEmailAddress(resolvedEmail);
+          if (p) {
+            if (p.full_name) setFullName(p.full_name);
+            if (p.email) setAdminEmail(p.email);
+          }
 
-        if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
-          setNotifyNegativeEnabled(Boolean(s.notify_negative_enabled));
-        } else if (p?.notify_negative_enabled !== undefined && p?.notify_negative_enabled !== null) {
-          setNotifyNegativeEnabled(Boolean(p.notify_negative_enabled));
+          const resolvedPhone =
+            s?.notify_negative_phone ||
+            s?.notification_phone ||
+            p?.notify_negative_phone ||
+            p?.notification_phone ||
+            p?.phone ||
+            '';
+
+          const resolvedEmail =
+            s?.notification_email ||
+            p?.notification_email ||
+            p?.email ||
+            user?.email ||
+            '';
+
+          setNegativePhoneNumber(resolvedPhone);
+          setNegativeEmailAddress(resolvedEmail);
+          setPositiveEmailAddress(resolvedEmail);
+
+          if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
+            setNotifyNegativeEnabled(Boolean(s.notify_negative_enabled));
+          } else if (p?.notify_negative_enabled !== undefined && p?.notify_negative_enabled !== null) {
+            setNotifyNegativeEnabled(Boolean(p.notify_negative_enabled));
+          }
+
+          if (s?.notify_negative_email !== undefined && s?.notify_negative_email !== null) {
+            setNotifyNegativeEmail(Boolean(s.notify_negative_email));
+          } else if (p?.notify_negative_email !== undefined && p?.notify_negative_email !== null) {
+            setNotifyNegativeEmail(Boolean(p.notify_negative_email));
+          }
+
+          if (s?.notify_negative_sms !== undefined && s?.notify_negative_sms !== null) {
+            setNotifyNegativeSms(Boolean(s.notify_negative_sms));
+          } else if (s?.sms_alerts_enabled !== undefined && s?.sms_alerts_enabled !== null) {
+            setNotifyNegativeSms(Boolean(s.sms_alerts_enabled));
+          } else if (p?.notify_negative_sms !== undefined && p?.notify_negative_sms !== null) {
+            setNotifyNegativeSms(Boolean(p.notify_negative_sms));
+          } else if (p?.sms_alerts_enabled !== undefined && p?.sms_alerts_enabled !== null) {
+            setNotifyNegativeSms(Boolean(p.sms_alerts_enabled));
+          }
+
+          if (s?.notify_positive_enabled !== undefined && s?.notify_positive_enabled !== null) {
+            setNotifyPositiveEnabled(Boolean(s.notify_positive_enabled));
+          } else if (p?.notify_positive_enabled !== undefined && p?.notify_positive_enabled !== null) {
+            setNotifyPositiveEnabled(Boolean(p.notify_positive_enabled));
+          }
+
+          if (s?.notify_positive_email !== undefined && s?.notify_positive_email !== null) {
+            setNotifyPositiveEmail(Boolean(s.notify_positive_email));
+          } else if (p?.notify_positive_email !== undefined && p?.notify_positive_email !== null) {
+            setNotifyPositiveEmail(Boolean(p.notify_positive_email));
+          }
+
+          if (s?.notify_positive_sms !== undefined && s?.notify_positive_sms !== null) {
+            setNotifyPositiveSms(Boolean(s.notify_positive_sms));
+          } else if (p?.notify_positive_sms !== undefined && p?.notify_positive_sms !== null) {
+            setNotifyPositiveSms(Boolean(p.notify_positive_sms));
+          }
+
+          if (s?.brand_voice) setBrandVoice(s.brand_voice);
+          if (s?.sms_template) setSmsTemplate(s.sms_template);
+          if (Array.isArray(s?.custom_keywords)) setKeywords(s.custom_keywords);
         }
-
-        if (s?.notify_negative_email !== undefined && s?.notify_negative_email !== null) {
-          setNotifyNegativeEmail(Boolean(s.notify_negative_email));
-        } else if (p?.notify_negative_email !== undefined && p?.notify_negative_email !== null) {
-          setNotifyNegativeEmail(Boolean(p.notify_negative_email));
-        }
-
-        if (s?.notify_negative_sms !== undefined && s?.notify_negative_sms !== null) {
-          setNotifyNegativeSms(Boolean(s.notify_negative_sms));
-        } else if (s?.sms_alerts_enabled !== undefined && s?.sms_alerts_enabled !== null) {
-          setNotifyNegativeSms(Boolean(s.sms_alerts_enabled));
-        } else if (p?.notify_negative_sms !== undefined && p?.notify_negative_sms !== null) {
-          setNotifyNegativeSms(Boolean(p.notify_negative_sms));
-        } else if (p?.sms_alerts_enabled !== undefined && p?.sms_alerts_enabled !== null) {
-          setNotifyNegativeSms(Boolean(p.sms_alerts_enabled));
-        }
-
-        if (s?.notify_positive_enabled !== undefined && s?.notify_positive_enabled !== null) {
-          setNotifyPositiveEnabled(Boolean(s.notify_positive_enabled));
-        } else if (p?.notify_positive_enabled !== undefined && p?.notify_positive_enabled !== null) {
-          setNotifyPositiveEnabled(Boolean(p.notify_positive_enabled));
-        }
-
-        if (s?.notify_positive_email !== undefined && s?.notify_positive_email !== null) {
-          setNotifyPositiveEmail(Boolean(s.notify_positive_email));
-        } else if (p?.notify_positive_email !== undefined && p?.notify_positive_email !== null) {
-          setNotifyPositiveEmail(Boolean(p.notify_positive_email));
-        }
-
-        if (s?.notify_positive_sms !== undefined && s?.notify_positive_sms !== null) {
-          setNotifyPositiveSms(Boolean(s.notify_positive_sms));
-        } else if (p?.notify_positive_sms !== undefined && p?.notify_positive_sms !== null) {
-          setNotifyPositiveSms(Boolean(p.notify_positive_sms));
-        }
-
-        if (s?.brand_voice) setBrandVoice(s.brand_voice);
-        if (s?.sms_template) setSmsTemplate(s.sms_template);
-        if (Array.isArray(s?.custom_keywords)) setKeywords(s.custom_keywords);
       } catch (err) {
-        console.warn('Error loading live settings from Supabase:', err);
+        console.warn('Error loading live settings:', err);
       }
     }
 
@@ -276,6 +344,41 @@ export default function SettingsPage() {
       const primaryNotificationPhone = negativePhoneNumber.trim();
       const activeUserId = user?.id || profile.id;
 
+      const payload = {
+        userId: activeUserId,
+        full_name: fullName,
+        notification_email: primaryNotificationEmail,
+        notification_phone: primaryNotificationPhone,
+        notify_negative_phone: primaryNotificationPhone,
+        alert_phone: primaryNotificationPhone,
+        phone: primaryNotificationPhone,
+        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
+        brand_voice: brandVoice,
+        sms_template: smsTemplate,
+        custom_keywords: keywords,
+      };
+
+      console.log('[Saving Settings Payload]:', payload);
+
+      // 1. Post to Server-Side Settings API (uses SUPABASE_SERVICE_ROLE_KEY to guarantee persistence)
+      const saveRes = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const resData = await saveRes.json().catch(() => ({}));
+      if (!saveRes.ok || !resData.success) {
+        throw new Error(resData?.error || 'Server rejected settings update. Please check database permissions.');
+      }
+
+      // 2. Synchronize local store state
       await updateProfile({
         full_name: fullName,
         notification_email: primaryNotificationEmail,
@@ -307,44 +410,6 @@ export default function SettingsPage() {
         notify_positive_sms: notifyPositiveSms,
       });
 
-      // Direct Supabase write for instant reliability
-      if (isSupabaseConfigured && supabase && activeUserId && !activeUserId.startsWith('usr_mock')) {
-        await Promise.allSettled([
-          supabase.from('profiles').update({
-            full_name: fullName,
-            notification_email: primaryNotificationEmail,
-            notification_phone: primaryNotificationPhone,
-            phone: primaryNotificationPhone || null,
-            sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-            notify_negative_enabled: notifyNegativeEnabled,
-            notify_negative_email: notifyNegativeEmail,
-            notify_negative_sms: notifyNegativeSms,
-            notify_negative_phone: primaryNotificationPhone,
-            notify_positive_enabled: notifyPositiveEnabled,
-            notify_positive_email: notifyPositiveEmail,
-            notify_positive_sms: notifyPositiveSms,
-            updated_at: new Date().toISOString(),
-          }).eq('id', activeUserId),
-          supabase.from('business_settings').upsert({
-            user_id: activeUserId,
-            notification_email: primaryNotificationEmail,
-            notification_phone: primaryNotificationPhone,
-            sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-            notify_negative_enabled: notifyNegativeEnabled,
-            notify_negative_email: notifyNegativeEmail,
-            notify_negative_sms: notifyNegativeSms,
-            notify_negative_phone: primaryNotificationPhone,
-            notify_positive_enabled: notifyPositiveEnabled,
-            notify_positive_email: notifyPositiveEmail,
-            notify_positive_sms: notifyPositiveSms,
-            brand_voice: brandVoice as any,
-            sms_template: smsTemplate,
-            custom_keywords: keywords,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' }),
-        ]);
-      }
-
       setIsSaved(true);
       toast.success('Settings saved successfully!', {
         description: primaryNotificationPhone
@@ -353,6 +418,7 @@ export default function SettingsPage() {
       });
       setTimeout(() => setIsSaved(false), 2500);
     } catch (err: any) {
+      console.error('[Settings Save Error]:', err);
       toast.error('Failed to save settings', {
         description: err?.message || 'Please check your connection and try again.',
       });
