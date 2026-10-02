@@ -132,7 +132,6 @@ export async function POST(req: NextRequest) {
       user_id: targetUserId,
       notification_phone: effectivePhone || null,
       notify_negative_phone: effectivePhone || null,
-      notify_positive_phone: effectivePhone || null,
       updated_at: new Date().toISOString(),
     };
     if (effectiveEmail) settingsPayload.notification_email = effectiveEmail;
@@ -159,8 +158,7 @@ export async function POST(req: NextRequest) {
       updateError = profileUpdateRes.value.error.message;
     }
     if (settingsUpdateRes.status === 'fulfilled' && settingsUpdateRes.value.error) {
-      console.error('[Settings API] Business settings upsert error:', settingsUpdateRes.value.error);
-      updateError = settingsUpdateRes.value.error.message;
+      console.warn('[Settings API] Business settings upsert warning (non-fatal):', settingsUpdateRes.value.error);
     }
 
     if (updateError) {

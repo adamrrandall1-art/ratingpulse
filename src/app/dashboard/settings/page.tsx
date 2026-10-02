@@ -382,29 +382,32 @@ export default function SettingsPage() {
           console.error('[Supabase Profiles Save Error]:', profileError);
         }
 
-        const { error: settingsError } = await supabase
-          .from('business_settings')
-          .upsert({
-            user_id: activeUserId,
-            notify_negative_phone: primaryNotificationPhone || null,
-            notify_negative_email: notifyNegativeEmail,
-            notify_negative_sms: notifyNegativeSms,
-            notify_negative_enabled: notifyNegativeEnabled,
-            notify_positive_phone: primaryNotificationPhone || null,
-            notify_positive_email: notifyPositiveEmail,
-            notify_positive_sms: notifyPositiveSms,
-            notify_positive_enabled: notifyPositiveEnabled,
-            notification_email: primaryNotificationEmail || null,
-            notification_phone: primaryNotificationPhone || null,
-            sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-            brand_voice: brandVoice as any,
-            sms_template: smsTemplate,
-            custom_keywords: keywords,
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+        try {
+          const { error: settingsError } = await supabase
+            .from('business_settings')
+            .upsert({
+              user_id: activeUserId,
+              notify_negative_phone: primaryNotificationPhone || null,
+              notify_negative_email: notifyNegativeEmail,
+              notify_negative_sms: notifyNegativeSms,
+              notify_negative_enabled: notifyNegativeEnabled,
+              notify_positive_email: notifyPositiveEmail,
+              notify_positive_sms: notifyPositiveSms,
+              notify_positive_enabled: notifyPositiveEnabled,
+              notification_email: primaryNotificationEmail || null,
+              notification_phone: primaryNotificationPhone || null,
+              sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+              brand_voice: brandVoice as any,
+              sms_template: smsTemplate,
+              custom_keywords: keywords,
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
 
-        if (settingsError) {
-          console.error('[Supabase Business Settings Save Error]:', settingsError);
+          if (settingsError) {
+            console.warn('[Supabase Business Settings Save Warning]:', settingsError);
+          }
+        } catch (settingsCatchErr) {
+          console.warn('[Supabase Business Settings Catch Warning]:', settingsCatchErr);
         }
       }
 
