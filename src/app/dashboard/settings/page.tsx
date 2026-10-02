@@ -342,14 +342,82 @@ export default function SettingsPage() {
     try {
       const primaryNotificationEmail = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email || '';
       const primaryNotificationPhone = (negativePhone || '').trim();
-      const activeUserId = user?.id || profile.id;
 
+      // 1. Get Current User ID from active Supabase session or context
+      let activeUserId = user?.id || profile.id;
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const authUserRes = await supabase.auth.getUser();
+          if (authUserRes?.data?.user?.id) {
+            activeUserId = authUserRes.data.user.id;
+          }
+        } catch (authErr) {
+          console.warn('[Settings Auth Check Warning]:', authErr);
+        }
+      }
+
+      // 2. Explicitly update the profiles table directly
+      if (isSupabaseConfigured && supabase && activeUserId && !activeUserId.startsWith('usr_mock')) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: fullName,
+            notify_negative_phone: primaryNotificationPhone || null,
+            notify_negative_email: notifyNegativeEmail,
+            notify_negative_sms: notifyNegativeSms,
+            notify_negative_enabled: notifyNegativeEnabled,
+            notify_positive_phone: primaryNotificationPhone || null,
+            notify_positive_email: notifyPositiveEmail,
+            notify_positive_sms: notifyPositiveSms,
+            notify_positive_enabled: notifyPositiveEnabled,
+            notification_email: primaryNotificationEmail || null,
+            notification_phone: primaryNotificationPhone || null,
+            phone: primaryNotificationPhone || profile.phone || null,
+            sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', activeUserId);
+
+        if (profileError) {
+          console.error('[Supabase Profiles Save Error]:', profileError);
+        }
+
+        const { error: settingsError } = await supabase
+          .from('business_settings')
+          .upsert({
+            user_id: activeUserId,
+            notify_negative_phone: primaryNotificationPhone || null,
+            notify_negative_email: notifyNegativeEmail,
+            notify_negative_sms: notifyNegativeSms,
+            notify_negative_enabled: notifyNegativeEnabled,
+            notify_positive_phone: primaryNotificationPhone || null,
+            notify_positive_email: notifyPositiveEmail,
+            notify_positive_sms: notifyPositiveSms,
+            notify_positive_enabled: notifyPositiveEnabled,
+            notification_email: primaryNotificationEmail || null,
+            notification_phone: primaryNotificationPhone || null,
+            sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
+            brand_voice: brandVoice as any,
+            sms_template: smsTemplate,
+            custom_keywords: keywords,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' });
+
+        if (settingsError) {
+          console.error('[Supabase Business Settings Save Error]:', settingsError);
+        }
+      }
+
+      console.log('[Settings Saved for User]:', activeUserId, { negativePhone: primaryNotificationPhone });
+
+      // 3. Post to Server-Side Settings API (uses SUPABASE_SERVICE_ROLE_KEY to guarantee persistence)
       const payload = {
         userId: activeUserId,
         full_name: fullName,
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
         notify_negative_phone: primaryNotificationPhone,
+        notify_positive_phone: primaryNotificationPhone,
         alert_phone: primaryNotificationPhone,
         phone: primaryNotificationPhone,
         sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
@@ -364,9 +432,6 @@ export default function SettingsPage() {
         custom_keywords: keywords,
       };
 
-      console.log('[Saving Settings Payload]:', payload);
-
-      // 1. Post to Server-Side Settings API (uses SUPABASE_SERVICE_ROLE_KEY to guarantee persistence)
       const saveRes = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -382,7 +447,7 @@ export default function SettingsPage() {
         throw errObj;
       }
 
-      // 2. Synchronize local store state
+      // 4. Synchronize local store state
       await updateProfile({
         full_name: fullName,
         notification_email: primaryNotificationEmail,

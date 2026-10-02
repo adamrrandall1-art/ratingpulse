@@ -118,6 +118,7 @@ export async function POST(req: NextRequest) {
     if (effectiveEmail) profilePayload.notification_email = effectiveEmail;
     profilePayload.notification_phone = effectivePhone || null;
     profilePayload.notify_negative_phone = effectivePhone || null;
+    profilePayload.notify_positive_phone = effectivePhone || null;
     profilePayload.phone = effectivePhone || null;
     if (sms_alerts_enabled !== undefined) profilePayload.sms_alerts_enabled = sms_alerts_enabled;
     if (notify_negative_enabled !== undefined) profilePayload.notify_negative_enabled = notify_negative_enabled;
@@ -131,6 +132,7 @@ export async function POST(req: NextRequest) {
       user_id: targetUserId,
       notification_phone: effectivePhone || null,
       notify_negative_phone: effectivePhone || null,
+      notify_positive_phone: effectivePhone || null,
       updated_at: new Date().toISOString(),
     };
     if (effectiveEmail) settingsPayload.notification_email = effectiveEmail;
