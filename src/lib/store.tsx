@@ -480,7 +480,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const keywords = customKeywords || settings.custom_keywords || [];
+    let keywords = customKeywords || settings.custom_keywords || [];
+    const bizNameLower = (profile.business_name || '').toLowerCase();
+    const isDentalBiz = bizNameLower.includes('dental') || bizNameLower.includes('dentist') || bizNameLower.includes('orthodont');
+    
+    // Filter out stale dental keywords if the business is not a dental clinic
+    if (!isDentalBiz && Array.isArray(keywords)) {
+      keywords = keywords.filter((k) => !k.toLowerCase().includes('dental') && !k.toLowerCase().includes('dentist') && !k.toLowerCase().includes('tooth') && !k.toLowerCase().includes('teeth'));
+    }
+
     const tone = settings.brand_voice || 'friendly_professional';
 
     try {
@@ -492,7 +500,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           authorName: target.author_name,
           rating: target.rating,
           businessName: profile.business_name || 'our team',
-          businessCategory: profile.business_category || 'Healthcare / Dental',
+          businessCategory: profile.business_category || 'Local Business',
           tone,
           keywords,
         }),
@@ -841,7 +849,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           user_id: uid,
           brand_voice: updated.brand_voice || 'friendly_professional',
           auto_publish_5_star: Boolean(updated.auto_publish_5_star),
-          custom_keywords: Array.isArray(updated.custom_keywords) ? updated.custom_keywords : ['gentle care', 'emergency dentist'],
+          custom_keywords: Array.isArray(updated.custom_keywords) ? updated.custom_keywords : [],
           sms_template: updated.sms_template || '',
           notification_email: updated.notification_email || null,
           notification_phone: updated.notification_phone || null,

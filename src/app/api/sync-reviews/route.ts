@@ -41,17 +41,17 @@ async function generateUniqueAIReply({
 
   if (apiKey) {
     try {
-      const prompt = `You are the owner of ${bizName}. Write a warm, authentic 2-sentence response to this customer review.
+      const prompt = `You are the owner of "${bizName}". Write a friendly, 2-sentence response to this Google review.
 
 Customer Name: ${authorName}
 Rating: ${rating} Stars
-Customer Review: "${cleanReviewText || 'Great service!'}"
+Review: "${cleanReviewText || 'Great service!'}"
 
-Guidelines:
-- Directly mention 1 or 2 specific details or items they praised in their review.
-- Sound natural and personable, like a genuine local business owner.
-- Do NOT use repetitive boilerplate phrases (e.g. "We are thrilled to hear...").
-- Do NOT include hashtags (remove #5star, #friendlyservice).`;
+Rules:
+- Speak strictly as the owner of ${bizName}.
+- Reference details from their review (e.g., food, service, atmosphere).
+- Absolutely do NOT mention dental care, medical treatments, or unrelated industries unless explicitly referenced in the customer review.
+- No hashtags.`;
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -85,7 +85,7 @@ Guidelines:
     }
   }
 
-  // Intelligent fallback generator with unique contextual replies
+  // Intelligent fallback generator dynamically matching the customer's actual words
   return buildIntelligentContextualReply({
     firstName,
     authorName,
@@ -115,65 +115,74 @@ function buildIntelligentContextualReply({
     if (rating >= 5) {
       const star5Pool = [
         `Hi ${firstName}, thank you so much for the 5-star rating! We truly appreciate your support and look forward to welcoming you back to ${businessName}.`,
-        `Thank you for the wonderful 5-star rating, ${firstName}! We are honored to have your trust and can't wait to see you again soon.`,
+        `Thank you for the wonderful 5-star rating, ${firstName}! We are honored to have your trust and can't wait to see you again soon at ${businessName}.`,
         `Hello ${firstName}, we really appreciate your top rating! Serving you is always a pleasure, and our entire team thanks you for your support.`,
       ];
       return star5Pool[Math.floor(Math.random() * star5Pool.length)];
     }
     if (rating === 4) {
-      return `Hi ${firstName}, thank you for the positive 4-star rating! We appreciate your trust in ${businessName} and look forward to serving you again.`;
+      return `Hi ${firstName}, thank you for the positive 4-star rating! We appreciate your support and look forward to serving you again at ${businessName}.`;
     }
-    return `Hi ${firstName}, thank you for rating us. We always strive to provide a 5-star experience, so please feel free to reach out to our team directly if there is anything we can do to assist you.`;
+    return `Hi ${firstName}, thank you for taking the time to rate us. We always strive to provide a 5-star experience, so please reach out to us directly if there is anything we can do to assist you.`;
   }
 
-  // Contextual topic matching
+  // Contextual topic matching directly based on review keywords
   if (rating >= 5) {
-    if (textLower.includes('emergency') || textLower.includes('pain') || textLower.includes('toothache') || textLower.includes('urgent')) {
-      const emergencyPool = [
-        `Hi ${firstName}, we are so glad our team could take care of you right away and get you relief when you needed it most! Knowing you felt comfortable and well-cared for means everything to all of us at ${businessName}.`,
-        `Thank you for trusting us with your urgent care, ${firstName}! Immediate relief and gentle, painless treatment are always our top priorities. Wishing you a smooth recovery!`,
+    // Food / Dining / Drinks
+    if (
+      textLower.includes('pizza') || textLower.includes('crust') || textLower.includes('slice') ||
+      textLower.includes('delicious') || textLower.includes('tasty') || textLower.includes('food') ||
+      textLower.includes('meal') || textLower.includes('burger') || textLower.includes('coffee') ||
+      textLower.includes('flavor') || textLower.includes('drink') || textLower.includes('dish')
+    ) {
+      const foodPool = [
+        `Hi ${firstName}, thank you so much for the 5-star review! We're thrilled you loved the flavors and had a delicious experience at ${businessName}. See you again soon!`,
+        `Thanks a million, ${firstName}! Our kitchen team puts a lot of passion into crafting every order, so hearing that you enjoyed your meal made our day.`,
       ];
-      return emergencyPool[Math.floor(Math.random() * emergencyPool.length)];
+      return foodPool[Math.floor(Math.random() * foodPool.length)];
     }
 
-    if (textLower.includes('clean') || textLower.includes('modern') || textLower.includes('whitening') || textLower.includes('bright')) {
+    // Ambiance / Cleanliness / Atmosphere
+    if (textLower.includes('clean') || textLower.includes('modern') || textLower.includes('atmosphere') || textLower.includes('vibe') || textLower.includes('space') || textLower.includes('beautiful')) {
       const cleanPool = [
-        `Thank you so much, ${firstName}! We are so pleased you love your bright results and enjoyed our clean, modern space. Our team takes great pride in delivering top-tier care from the moment you walk through our doors.`,
-        `Hi ${firstName}, hearing that your whitening results exceeded expectations made our day! We put a lot of care into maintaining a spotless, welcoming environment. See you at your next visit!`,
+        `Thank you so much, ${firstName}! We are so pleased you enjoyed our clean, welcoming space and had a wonderful visit to ${businessName}.`,
+        `Hi ${firstName}, hearing that you enjoyed our atmosphere made our day! We put a lot of care into creating a great environment for our guests. See you next time!`,
       ];
       return cleanPool[Math.floor(Math.random() * cleanPool.length)];
     }
 
+    // Family / Kids
     if (textLower.includes('kid') || textLower.includes('daughter') || textLower.includes('son') || textLower.includes('child') || textLower.includes('family')) {
-      return `Thank you for such a kind note, ${firstName}! Making appointments gentle, comforting, and fear-free for families is one of our favorite parts of what we do. Please send our warmest regards to your family!`;
+      return `Thank you for such a kind note, ${firstName}! Creating a warm, welcoming experience for families is what we love most at ${businessName}. Please send our warmest regards to your family!`;
     }
 
-    if (textLower.includes('fast') || textLower.includes('quick') || textLower.includes('prompt') || textLower.includes('friendly') || textLower.includes('recommend')) {
-      const fastPool = [
-        `Hi ${firstName}, thank you for highlighting our prompt service and welcoming team! We respect your time and love making every visit as seamless as possible.`,
-        `Hello ${firstName}! Your recommendation means the world to everyone at ${businessName}. Providing attentive, high-standard care is what drives us every single day.`,
+    // Staff / Prompt service / Friendly team
+    if (textLower.includes('fast') || textLower.includes('quick') || textLower.includes('prompt') || textLower.includes('friendly') || textLower.includes('staff') || textLower.includes('team') || textLower.includes('service') || textLower.includes('recommend')) {
+      const servicePool = [
+        `Hi ${firstName}, thank you for highlighting our prompt service and friendly team! We respect your time and love making every visit to ${businessName} as seamless as possible.`,
+        `Hello ${firstName}! Your recommendation means the world to everyone at ${businessName}. Providing attentive, high-standard service is what drives us every single day.`,
       ];
-      return fastPool[Math.floor(Math.random() * fastPool.length)];
+      return servicePool[Math.floor(Math.random() * servicePool.length)];
     }
 
-    // Varied 5-star pool without repetitive clichés
+    // General high praise (non-dental)
     const generic5Pool = [
-      `Thank you so much for the 5-star review, ${firstName}! We are dedicated to providing personalized, high-quality care, and we can't wait to welcome you back to ${businessName}.`,
-      `Hi ${firstName}, we truly appreciate your generous feedback! Knowing you had an exceptional visit inspires our whole team to keep setting the highest standard.`,
+      `Thank you so much for the 5-star review, ${firstName}! We are dedicated to providing an outstanding experience and can't wait to welcome you back to ${businessName}.`,
+      `Hi ${firstName}, we truly appreciate your generous feedback! Knowing you had a great visit inspires our whole team at ${businessName} to keep setting the standard.`,
       `Wonderful feedback like yours makes our day, ${firstName}! Thank you for choosing ${businessName} and taking the time to share your experience.`,
     ];
     return generic5Pool[Math.floor(Math.random() * generic5Pool.length)];
   }
 
   if (rating === 4) {
-    if (textLower.includes('parking') || textLower.includes('wait') || textLower.includes('time')) {
-      return `Hi ${firstName}, thank you for your honest 4-star review and praise for our staff! We appreciate your feedback regarding parking during peak hours—we have dedicated spots available to make your next visit even smoother.`;
+    if (textLower.includes('parking') || textLower.includes('wait') || textLower.includes('busy') || textLower.includes('line')) {
+      return `Hi ${firstName}, thank you for your honest 4-star review and praise for our team! We appreciate your feedback regarding the busy peak hours and are constantly working to make your experience at ${businessName} even smoother.`;
     }
     return `Hi ${firstName}, thank you for your kind 4-star review! We're glad you had a great experience overall, and we look forward to welcoming you back to ${businessName}.`;
   }
 
   // 1-3 Stars
-  return `Dear ${firstName}, thank you for bringing this to our attention. We hold ourselves to the highest standards, and we sincerely apologize that your recent experience did not reflect that. Please reach out to our management team directly so we can make things right.`;
+  return `Dear ${firstName}, thank you for bringing this to our attention. We hold ourselves to high standards and sincerely apologize that your experience at ${businessName} did not reflect that. Please reach out to us directly so we can make things right.`;
 }
 
 function isStaleGenericDraft(draft: string | null | undefined): boolean {

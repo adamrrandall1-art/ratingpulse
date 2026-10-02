@@ -49,7 +49,7 @@ export default function BusinessSetupPage() {
   const [businessName, setBusinessName] = useState(profile.business_name || '');
   const [businessAddress, setBusinessAddress] = useState(profile.formatted_address || '');
   const [businessPhone, setBusinessPhone] = useState(profile.phone || '');
-  const [businessCategory, setBusinessCategory] = useState(profile.business_category || 'Healthcare / Dental');
+  const [businessCategory, setBusinessCategory] = useState(profile.business_category || 'Local Business');
   const [reviewUrl, setReviewUrl] = useState(
     profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
   );
@@ -79,7 +79,7 @@ export default function BusinessSetupPage() {
         setBusinessName(profile.business_name || '');
         setBusinessAddress(profile.formatted_address || '');
         setBusinessPhone(profile.phone || '');
-        setBusinessCategory(profile.business_category || 'Healthcare / Dental');
+        setBusinessCategory(profile.business_category || 'Local Business');
         setReviewUrl(profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : ''));
         setSelectedPlace({
           placeId: profile.google_place_id || '',
@@ -149,8 +149,32 @@ export default function BusinessSetupPage() {
     try {
       const gReviewUrl = selectedPlace.reviewUrl || generateGoogleReviewUrl(selectedPlace.placeId);
 
+      // Infer business category dynamically from the new place name
+      const nameLower = (selectedPlace.businessName || '').toLowerCase();
+      let inferredCategory = 'Local Business';
+      if (
+        nameLower.includes('pizza') || nameLower.includes('pizzeria') || nameLower.includes('restaurant') ||
+        nameLower.includes('cafe') || nameLower.includes('coffee') || nameLower.includes('bistro') ||
+        nameLower.includes('burger') || nameLower.includes('bakery') || nameLower.includes('bar') ||
+        nameLower.includes('kitchen') || nameLower.includes('taco') || nameLower.includes('deli') ||
+        nameLower.includes('food') || nameLower.includes('ice cream')
+      ) {
+        inferredCategory = 'Restaurant & Food Service';
+      } else if (nameLower.includes('dental') || nameLower.includes('dentist') || nameLower.includes('orthodont')) {
+        inferredCategory = 'Healthcare / Dental';
+      } else if (nameLower.includes('salon') || nameLower.includes('barber') || nameLower.includes('spa') || nameLower.includes('hair') || nameLower.includes('nails') || nameLower.includes('beauty')) {
+        inferredCategory = 'Beauty & Wellness';
+      } else if (nameLower.includes('auto') || nameLower.includes('tire') || nameLower.includes('car') || nameLower.includes('mechanic') || nameLower.includes('motors')) {
+        inferredCategory = 'Automotive';
+      } else if (nameLower.includes('plumb') || nameLower.includes('electric') || nameLower.includes('hvac') || nameLower.includes('roof') || nameLower.includes('clean') || nameLower.includes('contractor')) {
+        inferredCategory = 'Home Services';
+      } else if (nameLower.includes('law') || nameLower.includes('attorney') || nameLower.includes('legal')) {
+        inferredCategory = 'Legal Services';
+      }
+
       await updateProfile({
         business_name: selectedPlace.businessName,
+        business_category: inferredCategory,
         google_place_id: selectedPlace.placeId,
         formatted_address: selectedPlace.formattedAddress,
         google_rating: selectedPlace.rating || 5.0,
@@ -159,8 +183,14 @@ export default function BusinessSetupPage() {
         google_connected: true,
       });
 
+      // Clear old keywords when connecting a new location
+      await updateSettings({
+        custom_keywords: [],
+      });
+
       setBusinessName(selectedPlace.businessName);
       setBusinessAddress(selectedPlace.formattedAddress || '');
+      setBusinessCategory(inferredCategory);
       setReviewUrl(gReviewUrl);
 
       // Trigger review sync

@@ -45,7 +45,7 @@ export const initialSettings: BusinessSettings = {
   user_id: 'usr_mock_001',
   brand_voice: 'friendly_professional',
   auto_publish_5_star: false,
-  custom_keywords: ['gentle dental care', 'teeth whitening', 'emergency dentist', 'friendly staff'],
+  custom_keywords: [],
   sms_template: 'Hi {{customer_name}}, thank you for trusting {{business_name}} today! Could you take 30 seconds to share your feedback on Google? It really helps our local team: {{review_link}}',
   notify_email: true,
   notify_sms: true,
