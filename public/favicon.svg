@@ -1,13 +1,15 @@
-﻿<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="100" height="100" rx="22" fill="#0B0F19"/>
-  <!-- White 'R' Shape -->
+<svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="100" height="100" rx="22" fill="#2563EB"/>
   <path
-    d="M22 82V20H54C64 20 72 26 72 37C72 46 66 52 57 54L76 82H58L42 56H38V82H22ZM38 44H52C56 44 60 41 60 37C60 33 56 30 52 30H38V44Z"
+    d="M50 15 C50 34.33 65.67 50 85 50 C65.67 50 50 65.67 50 85 C50 65.67 34.33 50 15 50 C34.33 50 50 34.33 50 15 Z"
     fill="#FFFFFF"
   />
-  <!-- Green Checkmark Accent -->
   <path
-    d="M26 48L44 66L84 22L75 14L44 48L34 38L26 48Z"
-    fill="#22C55E"
+    d="M23 15 C23 19.4 26.6 23 31 23 C26.6 23 23 26.6 23 31 C23 26.6 19.4 23 15 23 C19.4 23 23 19.4 23 15 Z"
+    fill="#FFFFFF"
+  />
+  <path
+    d="M77 69 C77 73.4 80.6 77 85 77 C80.6 77 77 80.6 77 85 C77 80.6 73.4 77 69 77 C73.4 77 77 73.4 77 69 Z"
+    fill="#FFFFFF"
   />
 </svg>
