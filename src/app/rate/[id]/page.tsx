@@ -38,6 +38,7 @@ function ReviewGateContent() {
   const [ownerEmail, setOwnerEmail] = useState<string>(
     ownerEmailParam || 'notifications@ratingpulse.co'
   );
+  const [ownerPhone, setOwnerPhone] = useState<string>('');
   const [address, setAddress] = useState<string>('');
   const [targetUserId, setTargetUserId] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
@@ -74,7 +75,7 @@ function ReviewGateContent() {
           setTargetUserId(resolvedUserId);
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('business_name, google_place_id, review_url, email, notification_email, formatted_address')
+            .select('business_name, google_place_id, review_url, email, notification_email, notification_phone, phone, formatted_address')
             .eq('id', resolvedUserId)
             .maybeSingle();
 
@@ -92,6 +93,9 @@ function ReviewGateContent() {
             }
             if ((profileData.notification_email || profileData.email) && !ownerEmailParam) {
               setOwnerEmail(profileData.notification_email || profileData.email);
+            }
+            if (profileData.notification_phone || profileData.phone) {
+              setOwnerPhone(profileData.notification_phone || profileData.phone);
             }
             if (profileData.formatted_address) {
               setAddress(profileData.formatted_address);
@@ -185,6 +189,7 @@ function ReviewGateContent() {
           invite_id: idParam || null,
           businessName,
           ownerEmail,
+          notificationPhone: ownerPhone || null,
         }),
       });
 

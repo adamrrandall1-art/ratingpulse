@@ -68,177 +68,175 @@ export async function POST(req: NextRequest) {
     let isNegativeEmailEnabled = true;
     let isNegativeSmsEnabled = true;
 
-    // 1. Initialize Supabase Admin Client using Service Role Key (bypasses RLS)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseServiceRoleKey =
+    // 1. Initialize Supabase Admin Client using SUPABASE_SERVICE_ROLE_KEY to bypass RLS
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+    const supabaseServiceKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
       process.env.SUPABASE_SERVICE_KEY ||
       process.env.SUPABASE_SECRET_KEY ||
       process.env.SUPABASE_ADMIN_KEY ||
       process.env.SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      '';
 
-    const supabaseKey = supabaseServiceRoleKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-    if (!supabaseServiceRoleKey) {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.warn(
-        '[Supabase Config Warning] SUPABASE_SERVICE_ROLE_KEY is not set in environment variables. ' +
-        'Database operations will run with anon key and may require permissive RLS policies.'
+        '[Feedback Flow Error]: SUPABASE_SERVICE_ROLE_KEY is not defined in environment variables. ' +
+        'Falling back to available key, which may be restricted by RLS.'
       );
     }
 
-    let supabaseAdmin = null;
-    if (supabaseUrl && supabaseKey) {
-      supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-        auth: { persistSession: false, autoRefreshToken: false },
-      });
-    }
+    const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
 
-    // 2. Resolve User ID & Notification Routing Settings BEFORE DB insert
-    if (supabaseAdmin) {
+    // 2. Resolve User ID from invite ID if provided
+    if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
       try {
-        // A. If invite ID is provided, resolve user_id and update invite status
-        if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
-          const { data: existingInvite, error: inviteLookupErr } = await supabaseAdmin
-            .from('review_invites')
-            .select('user_id')
-            .eq('id', effectiveTargetId)
-            .maybeSingle();
+        const { data: existingInvite, error: inviteLookupErr } = await supabaseAdmin
+          .from('review_invites')
+          .select('user_id')
+          .eq('id', effectiveTargetId)
+          .maybeSingle();
 
-          if (existingInvite?.user_id) {
-            resolvedUserId = existingInvite.user_id;
-          } else if (inviteLookupErr) {
-            console.warn('[Invite Lookup Warning]:', inviteLookupErr.message);
-          }
-
-          // Update invite record
-          try {
-            await supabaseAdmin
-              .from('review_invites')
-              .update({
-                rating_received: effectiveRating,
-                rating: effectiveRating,
-                feedback_text: effectiveText,
-                status: 'completed',
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', effectiveTargetId);
-          } catch (e: any) {
-            console.warn('[Invite Update Warning]:', e);
-          }
+        if (existingInvite?.user_id) {
+          resolvedUserId = existingInvite.user_id;
+        } else if (inviteLookupErr) {
+          console.error('[Feedback Flow Error]: Invite lookup error:', inviteLookupErr.message);
         }
 
-        // B. If user_id is still unknown, search profiles by owner email
-        if (!resolvedUserId && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
-          const { data: profByEmail } = await supabaseAdmin
+        await supabaseAdmin
+          .from('review_invites')
+          .update({
+            rating_received: effectiveRating,
+            rating: effectiveRating,
+            feedback_text: effectiveText,
+            status: 'completed',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', effectiveTargetId);
+      } catch (inviteEx: any) {
+        console.error('[Feedback Flow Error]: Exception updating review invite:', inviteEx);
+      }
+    }
+
+    // 3. Fallback resolution of user_id from owner email
+    if (!resolvedUserId && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
+      try {
+        const { data: profByEmail } = await supabaseAdmin
+          .from('profiles')
+          .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
+          .or(`email.eq.${effectiveOwnerEmail},notification_email.eq.${effectiveOwnerEmail}`)
+          .maybeSingle();
+
+        if (profByEmail?.id) {
+          resolvedUserId = profByEmail.id;
+        }
+      } catch (profEx: any) {
+        console.error('[Feedback Flow Error]: Exception searching profiles by email:', profEx);
+      }
+    }
+
+    // 4. Fetch notification preferences for resolved user
+    if (resolvedUserId && isUuid.test(resolvedUserId)) {
+      try {
+        const [profRes, settRes] = await Promise.allSettled([
+          supabaseAdmin
             .from('profiles')
             .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
-            .or(`email.eq.${effectiveOwnerEmail},notification_email.eq.${effectiveOwnerEmail}`)
-            .maybeSingle();
+            .eq('id', resolvedUserId)
+            .maybeSingle(),
+          supabaseAdmin
+            .from('business_settings')
+            .select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
+            .eq('user_id', resolvedUserId)
+            .maybeSingle(),
+        ]);
 
-          if (profByEmail?.id) {
-            resolvedUserId = profByEmail.id;
+        if (settRes.status === 'fulfilled' && settRes.value.data) {
+          const s = settRes.value.data;
+          if (s.notification_email) effectiveOwnerEmail = s.notification_email;
+          if (s.notify_negative_phone) destinationPhone = s.notify_negative_phone;
+          else if (s.notification_phone && !destinationPhone) destinationPhone = s.notification_phone;
+
+          if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
+            isNegativeAlertEnabled = Boolean(s.notify_negative_enabled);
+          }
+          if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
+            isNegativeSmsEnabled = Boolean(s.notify_negative_sms);
+          } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
+            isNegativeSmsEnabled = Boolean(s.sms_alerts_enabled);
+          }
+          if (s.notify_negative_email !== undefined && s.notify_negative_email !== null) {
+            isNegativeEmailEnabled = Boolean(s.notify_negative_email);
           }
         }
 
-        // C. Fetch notification routing settings for the business owner
-        if (resolvedUserId && isUuid.test(resolvedUserId)) {
-          const [profRes, settRes] = await Promise.allSettled([
-            supabaseAdmin
-              .from('profiles')
-              .select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
-              .eq('id', resolvedUserId)
-              .maybeSingle(),
-            supabaseAdmin
-              .from('business_settings')
-              .select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
-              .eq('user_id', resolvedUserId)
-              .maybeSingle(),
-          ]);
-
-          if (settRes.status === 'fulfilled' && settRes.value.data) {
-            const s = settRes.value.data;
-            if (s.notification_email) effectiveOwnerEmail = s.notification_email;
-            if (s.notify_negative_phone) destinationPhone = s.notify_negative_phone;
-            else if (s.notification_phone && !destinationPhone) destinationPhone = s.notification_phone;
-
-            if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
-              isNegativeAlertEnabled = Boolean(s.notify_negative_enabled);
-            }
-            if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
-              isNegativeSmsEnabled = Boolean(s.notify_negative_sms);
-            } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
-              isNegativeSmsEnabled = Boolean(s.sms_alerts_enabled);
-            }
-            if (s.notify_negative_email !== undefined && s.notify_negative_email !== null) {
-              isNegativeEmailEnabled = Boolean(s.notify_negative_email);
-            }
+        if (profRes.status === 'fulfilled' && profRes.value.data) {
+          const p = profRes.value.data;
+          if (!effectiveOwnerEmail || effectiveOwnerEmail.includes('ratingpulse.co')) {
+            effectiveOwnerEmail = p.notification_email || p.email || effectiveOwnerEmail;
           }
-
-          if (profRes.status === 'fulfilled' && profRes.value.data) {
-            const p = profRes.value.data;
-            if (!effectiveOwnerEmail || effectiveOwnerEmail.includes('ratingpulse.co')) {
-              effectiveOwnerEmail = p.notification_email || p.email || effectiveOwnerEmail;
+          if (!destinationPhone) {
+            destinationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
+          }
+          if (settRes.status !== 'fulfilled' || !settRes.value.data) {
+            if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
+              isNegativeAlertEnabled = Boolean(p.notify_negative_enabled);
             }
-            if (!destinationPhone) {
-              destinationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
+            if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
+              isNegativeSmsEnabled = Boolean(p.notify_negative_sms);
+            } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
+              isNegativeSmsEnabled = Boolean(p.sms_alerts_enabled);
             }
-            if (settRes.status !== 'fulfilled' || !settRes.value.data) {
-              if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
-                isNegativeAlertEnabled = Boolean(p.notify_negative_enabled);
-              }
-              if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
-                isNegativeSmsEnabled = Boolean(p.notify_negative_sms);
-              } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
-                isNegativeSmsEnabled = Boolean(p.sms_alerts_enabled);
-              }
-              if (p.notify_negative_email !== undefined && p.notify_negative_email !== null) {
-                isNegativeEmailEnabled = Boolean(p.notify_negative_email);
-              }
+            if (p.notify_negative_email !== undefined && p.notify_negative_email !== null) {
+              isNegativeEmailEnabled = Boolean(p.notify_negative_email);
             }
           }
         }
-      } catch (lookupErr: any) {
-        console.warn('[Notification Lookup Warning]:', lookupErr?.message || lookupErr);
+      } catch (settingsEx: any) {
+        console.error('[Feedback Flow Error]: Error reading notification preferences:', settingsEx);
       }
     }
 
-    // 3. Insert into public.feedback table (Non-blocking: Alert dispatch continues regardless)
+    // 5. Insert Feedback Row using Admin Client
     let insertedData = null;
-    if (supabaseAdmin) {
-      try {
-        const insertPayload = {
-          customer_name: effectiveName,
-          customer_email: effectiveEmail,
-          customer_phone: effectiveCustomerPhone,
-          rating: effectiveRating,
-          feedback_text: effectiveText,
-          status: 'unresolved',
-          user_id: resolvedUserId,
-          business_id: resolvedUserId,
-          created_at: new Date().toISOString(),
-        };
+    try {
+      const insertPayload = {
+        customer_name: effectiveName,
+        customer_email: effectiveEmail,
+        customer_phone: effectiveCustomerPhone,
+        rating: effectiveRating,
+        feedback_text: effectiveText,
+        status: 'unresolved',
+        user_id: resolvedUserId,
+        business_id: resolvedUserId,
+        created_at: new Date().toISOString(),
+      };
 
-        const { data, error } = await supabaseAdmin
-          .from('feedback')
-          .insert([insertPayload])
-          .select();
+      const { data, error } = await supabaseAdmin
+        .from('feedback')
+        .insert([insertPayload])
+        .select();
 
-        if (error) {
-          console.error('[Feedback DB Insert Error]:', error.message, error.details, error.hint);
-          dbErrorDetails = error.message;
-        } else {
-          insertedData = data;
-          dbSaved = true;
-          console.log('[Feedback DB Insert Success]:', data);
-        }
-      } catch (insertEx: any) {
-        console.error('[Feedback DB Exception]:', insertEx?.message || insertEx);
-        dbErrorDetails = insertEx?.message || 'Database insert exception';
+      if (error) {
+        console.error('[Feedback Flow Error]: DB insert failed:', error.message, error.details);
+        dbErrorDetails = error.message;
+      } else {
+        insertedData = data;
+        dbSaved = true;
+        console.log('[Feedback DB Insert Success]:', data);
       }
+    } catch (insertEx: any) {
+      console.error('[Feedback Flow Error]: Database insert exception:', insertEx);
+      dbErrorDetails = insertEx?.message || 'Database insert exception';
     }
 
-    // 4. Dispatch Resend Email Alert (if enabled)
+    // 6. Dispatch Email Alert (if enabled)
     if (isNegativeAlertEnabled && isNegativeEmailEnabled && effectiveOwnerEmail) {
       try {
         const emailResult = await sendFeedbackAlert({
@@ -251,33 +249,33 @@ export async function POST(req: NextRequest) {
           businessName,
         });
         emailSent = emailResult?.success ?? false;
-        console.log('[Email Feedback Alert Dispatched]:', { recipient: effectiveOwnerEmail, success: emailSent });
+        console.log('[Feedback Alert Email]: successfully sent to', effectiveOwnerEmail);
       } catch (mailErr: any) {
-        console.error('[Email Dispatch Error]:', mailErr?.message || mailErr);
+        console.error('[Feedback Flow Error]: Email alert dispatch exception:', mailErr);
       }
     }
 
-    // 5. Dispatch Twilio SMS Alert (if enabled)
+    // 7. Dispatch SMS Alert using Sanitized E.164 Recipient Phone
     if (isNegativeAlertEnabled && isNegativeSmsEnabled && destinationPhone) {
       try {
-        const formattedPhone = formatE164(destinationPhone);
-        if (formattedPhone) {
+        const sanitizedPhone = formatE164(destinationPhone);
+        if (sanitizedPhone) {
           const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${businessName}:\n"${effectiveText.slice(0, 100)}${effectiveText.length > 100 ? '...' : ''}"\nLogin to reply.`;
-          const smsResult = await sendTwilioSms(formattedPhone, smsText);
+          const smsResult = await sendTwilioSms(sanitizedPhone, smsText);
           smsSent = smsResult.success;
           if (!smsResult.success) {
-            console.error('[SMS Dispatch Error]: Twilio SMS alert failed:', smsResult.error);
+            console.error('[Feedback Flow Error]: Twilio SMS alert dispatch failed:', smsResult.error);
           } else {
-            console.log('[SMS Dispatch Success]: Sent review alert to', formattedPhone, smsResult);
+            console.log('[Feedback Alert SMS]: successfully sent to', sanitizedPhone);
           }
         } else {
-          console.error('[SMS Dispatch Error]: Destination phone could not be formatted into E.164:', destinationPhone);
+          console.error('[Feedback Flow Error]: Destination phone could not be sanitized to E.164:', destinationPhone);
         }
       } catch (smsErr: any) {
-        console.error('[SMS Dispatch Error]: Exception while dispatching SMS:', smsErr?.message || smsErr);
+        console.error('[Feedback Flow Error]: SMS alert dispatch exception:', smsErr);
       }
     } else {
-      console.log('[SMS Alert Skipped]:', {
+      console.log('[Feedback Alert SMS]: Skipped', {
         isNegativeAlertEnabled,
         isNegativeSmsEnabled,
         hasDestinationPhone: Boolean(destinationPhone),
@@ -294,11 +292,12 @@ export async function POST(req: NextRequest) {
       ...(dbErrorDetails ? { dbWarning: dbErrorDetails } : {}),
     });
   } catch (err: any) {
-    console.error('[Feedback Route Critical Error]:', err);
+    console.error('[Feedback Flow Error]: Critical route error:', err);
     return NextResponse.json(
       { success: false, error: err.message || 'Internal server error' },
       { status: 500 }
     );
   }
 }
+
 
