@@ -44,3 +44,20 @@ drop policy if exists "Allow public business_settings read for review gate" on p
 create policy "Allow public business_settings read for review gate" on public.business_settings
   for select to anon, authenticated
   using (true);
+
+-- 4. Notification Routing Columns
+alter table public.profiles add column if not exists notify_negative_enabled boolean default true;
+alter table public.profiles add column if not exists notify_negative_email boolean default true;
+alter table public.profiles add column if not exists notify_negative_sms boolean default true;
+alter table public.profiles add column if not exists notify_negative_phone text;
+alter table public.profiles add column if not exists notify_positive_enabled boolean default true;
+alter table public.profiles add column if not exists notify_positive_email boolean default true;
+alter table public.profiles add column if not exists notify_positive_sms boolean default false;
+
+alter table public.business_settings add column if not exists notify_negative_enabled boolean default true;
+alter table public.business_settings add column if not exists notify_negative_email boolean default true;
+alter table public.business_settings add column if not exists notify_negative_sms boolean default true;
+alter table public.business_settings add column if not exists notify_negative_phone text;
+alter table public.business_settings add column if not exists notify_positive_enabled boolean default true;
+alter table public.business_settings add column if not exists notify_positive_email boolean default true;
+alter table public.business_settings add column if not exists notify_positive_sms boolean default false;

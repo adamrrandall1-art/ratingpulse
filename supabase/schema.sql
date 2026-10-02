@@ -62,6 +62,13 @@ alter table public.profiles add column if not exists phone text;
 alter table public.profiles add column if not exists notification_email text;
 alter table public.profiles add column if not exists notification_phone text;
 alter table public.profiles add column if not exists sms_alerts_enabled boolean default true;
+alter table public.profiles add column if not exists notify_negative_enabled boolean default true;
+alter table public.profiles add column if not exists notify_negative_email boolean default true;
+alter table public.profiles add column if not exists notify_negative_sms boolean default true;
+alter table public.profiles add column if not exists notify_negative_phone text;
+alter table public.profiles add column if not exists notify_positive_enabled boolean default true;
+alter table public.profiles add column if not exists notify_positive_email boolean default true;
+alter table public.profiles add column if not exists notify_positive_sms boolean default false;
 alter table public.profiles add column if not exists stripe_customer_id text;
 alter table public.profiles add column if not exists stripe_subscription_id text;
 alter table public.profiles add column if not exists plan_status text default 'trialing';
@@ -87,6 +94,13 @@ alter table public.business_settings add column if not exists notification_phone
 alter table public.business_settings add column if not exists sms_alerts_enabled boolean default true;
 alter table public.business_settings add column if not exists notify_email boolean default true;
 alter table public.business_settings add column if not exists notify_sms boolean default true;
+alter table public.business_settings add column if not exists notify_negative_enabled boolean default true;
+alter table public.business_settings add column if not exists notify_negative_email boolean default true;
+alter table public.business_settings add column if not exists notify_negative_sms boolean default true;
+alter table public.business_settings add column if not exists notify_negative_phone text;
+alter table public.business_settings add column if not exists notify_positive_enabled boolean default true;
+alter table public.business_settings add column if not exists notify_positive_email boolean default true;
+alter table public.business_settings add column if not exists notify_positive_sms boolean default false;
 alter table public.business_settings add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.business_settings add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
 
