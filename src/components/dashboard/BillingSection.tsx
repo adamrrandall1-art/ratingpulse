@@ -151,39 +151,39 @@ export default function BillingSection() {
       </div>
 
       {/* Plan Card */}
-      <div className="p-5 rounded-xl bg-slate-900 text-white border border-slate-800 space-y-4">
+      <div className="p-6 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
-              <h4 className="text-lg font-bold text-white">RatingPulse Pro (Growth Plan)</h4>
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              <h4 className="text-lg font-bold text-slate-900">RatingPulse Pro (Growth Plan)</h4>
             </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Unlimited SMS review invites, Gemini AI SEO reply generator & Google Places sync.
+            <p className="text-xs text-slate-500 mt-1">
+              Unlimited SMS review invites, Gemini AI SEO reply generator &amp; Google Places sync.
             </p>
           </div>
           <div className="text-left sm:text-right">
-            <span className="text-3xl font-extrabold text-white">$25</span>
-            <span className="text-xs text-slate-400"> / month</span>
+            <span className="text-3xl font-extrabold text-slate-900">$25</span>
+            <span className="text-sm font-medium text-slate-500"> / month</span>
           </div>
         </div>
 
         {/* Feature bullets */}
-        <div className="grid sm:grid-cols-2 gap-2.5 pt-3 border-t border-slate-800 text-xs text-slate-300">
+        <div className="grid sm:grid-cols-2 gap-2.5 pt-4 border-t border-slate-100 text-xs text-slate-700">
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>Unlimited SMS Review Invites</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>Gemini AI Reply Generator</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>1-Tap Google Business Publishing</span>
           </div>
           <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>Customer Feedback Sentiment Guard</span>
           </div>
         </div>
