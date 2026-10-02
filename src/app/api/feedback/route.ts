@@ -20,7 +20,9 @@ export async function POST(req: NextRequest) {
       customerEmail,
       customer_phone,
       customerPhone,
-      rating = 3,
+      rating,
+      stars,
+      rating_received,
       feedback_text,
       feedbackText,
       comment,
@@ -41,8 +43,13 @@ export async function POST(req: NextRequest) {
       phone,
     } = body;
 
+    // 1. Safe Star Rating Parsing & Numeric Coercion
+    const rawRating = rating ?? stars ?? rating_received ?? body.effectiveRating ?? 3;
+    const numericRating = Number(rawRating);
+    const isNegative = !isNaN(numericRating) ? numericRating <= 3 : true;
+    const effectiveRating = !isNaN(numericRating) ? numericRating : 3;
+
     const effectiveText = feedback_text || feedbackText || comment || '';
-    const effectiveRating = Number(rating) || 3;
     const effectiveName = customer_name || customerName || 'Anonymous';
     const effectiveEmail = customer_email || customerEmail || (customerPhone?.includes('@') ? customerPhone : null);
     const effectiveCustomerPhone = customer_phone || customerPhone || null;
@@ -68,7 +75,7 @@ export async function POST(req: NextRequest) {
     let isNegativeEmailEnabled = true;
     let isNegativeSmsEnabled = true;
 
-    // 1. Initialize Supabase Admin Client using SUPABASE_SERVICE_ROLE_KEY to bypass RLS
+    // 2. Initialize Supabase Admin Client using SUPABASE_SERVICE_ROLE_KEY to bypass RLS
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
     const supabaseServiceKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -94,7 +101,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // 2. Resolve User ID from invite ID if provided
+    // 3. Resolve User ID from invite ID if provided
     if (effectiveTargetId && isUuid.test(effectiveTargetId)) {
       try {
         const { data: existingInvite, error: inviteLookupErr } = await supabaseAdmin
@@ -124,7 +131,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Fallback resolution of user_id from owner email
+    // 4. Fallback resolution of user_id from owner email
     if (!resolvedUserId && effectiveOwnerEmail && !effectiveOwnerEmail.includes('ratingpulse.co')) {
       try {
         const { data: profByEmail } = await supabaseAdmin
@@ -141,7 +148,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 4. Fetch notification preferences for resolved user
+    // 5. Fallback: If still unresolved, fetch first business profile
+    if (!resolvedUserId) {
+      try {
+        const { data: firstProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .limit(1)
+          .maybeSingle();
+
+        if (firstProfile?.id) {
+          resolvedUserId = firstProfile.id;
+        }
+      } catch (firstProfErr) {
+        console.warn('[Feedback Flow]: Could not fetch default profile:', firstProfErr);
+      }
+    }
+
+    // 6. Fetch notification preferences for resolved user
     if (resolvedUserId && isUuid.test(resolvedUserId)) {
       try {
         const [profRes, settRes] = await Promise.allSettled([
@@ -152,58 +176,56 @@ export async function POST(req: NextRequest) {
             .maybeSingle(),
           supabaseAdmin
             .from('business_settings')
-            .select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
+            .select('user_id, business_name, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled')
             .eq('user_id', resolvedUserId)
             .maybeSingle(),
         ]);
 
-        if (settRes.status === 'fulfilled' && settRes.value.data) {
-          const s = settRes.value.data;
-          if (s.notification_email) effectiveOwnerEmail = s.notification_email;
-          if (s.notify_negative_phone) destinationPhone = s.notify_negative_phone;
-          else if (s.notification_phone && !destinationPhone) destinationPhone = s.notification_phone;
+        const p = profRes.status === 'fulfilled' ? profRes.value.data : null;
+        const s = settRes.status === 'fulfilled' ? settRes.value.data : null;
 
-          if (s.notify_negative_enabled !== undefined && s.notify_negative_enabled !== null) {
-            isNegativeAlertEnabled = Boolean(s.notify_negative_enabled);
-          }
-          if (s.notify_negative_sms !== undefined && s.notify_negative_sms !== null) {
-            isNegativeSmsEnabled = Boolean(s.notify_negative_sms);
-          } else if (s.sms_alerts_enabled !== undefined && s.sms_alerts_enabled !== null) {
-            isNegativeSmsEnabled = Boolean(s.sms_alerts_enabled);
-          }
-          if (s.notify_negative_email !== undefined && s.notify_negative_email !== null) {
-            isNegativeEmailEnabled = Boolean(s.notify_negative_email);
-          }
+        console.log('[Alert Settings Loaded]:', { profile: p, settings: s });
+
+        // Resolve phone with full hierarchy
+        const candidatePhone =
+          s?.notify_negative_phone ||
+          s?.notification_phone ||
+          p?.notify_negative_phone ||
+          p?.notification_phone ||
+          p?.phone ||
+          destinationPhone;
+
+        if (candidatePhone) {
+          destinationPhone = candidatePhone;
         }
 
-        if (profRes.status === 'fulfilled' && profRes.value.data) {
-          const p = profRes.value.data;
-          if (!effectiveOwnerEmail || effectiveOwnerEmail.includes('ratingpulse.co')) {
-            effectiveOwnerEmail = p.notification_email || p.email || effectiveOwnerEmail;
-          }
-          if (!destinationPhone) {
-            destinationPhone = p.notify_negative_phone || p.notification_phone || p.phone || '';
-          }
-          if (settRes.status !== 'fulfilled' || !settRes.value.data) {
-            if (p.notify_negative_enabled !== undefined && p.notify_negative_enabled !== null) {
-              isNegativeAlertEnabled = Boolean(p.notify_negative_enabled);
-            }
-            if (p.notify_negative_sms !== undefined && p.notify_negative_sms !== null) {
-              isNegativeSmsEnabled = Boolean(p.notify_negative_sms);
-            } else if (p.sms_alerts_enabled !== undefined && p.sms_alerts_enabled !== null) {
-              isNegativeSmsEnabled = Boolean(p.sms_alerts_enabled);
-            }
-            if (p.notify_negative_email !== undefined && p.notify_negative_email !== null) {
-              isNegativeEmailEnabled = Boolean(p.notify_negative_email);
-            }
-          }
+        // Resolve email with full hierarchy
+        const candidateEmail =
+          s?.notification_email ||
+          p?.notification_email ||
+          p?.email ||
+          effectiveOwnerEmail;
+
+        if (candidateEmail && !candidateEmail.includes('ratingpulse.co')) {
+          effectiveOwnerEmail = candidateEmail;
+        }
+
+        // Default to enabled (true) unless explicitly set to false
+        if (s?.notify_negative_enabled === false || (s?.notify_negative_enabled === undefined && p?.notify_negative_enabled === false)) {
+          isNegativeAlertEnabled = false;
+        }
+        if (s?.notify_negative_sms === false || (s?.notify_negative_sms === undefined && p?.notify_negative_sms === false && p?.sms_alerts_enabled === false)) {
+          isNegativeSmsEnabled = false;
+        }
+        if (s?.notify_negative_email === false || (s?.notify_negative_email === undefined && p?.notify_negative_email === false)) {
+          isNegativeEmailEnabled = false;
         }
       } catch (settingsEx: any) {
         console.error('[Feedback Flow Error]: Error reading notification preferences:', settingsEx);
       }
     }
 
-    // 5. Insert Feedback Row using Admin Client
+    // 7. Insert Feedback Row using Admin Client
     let insertedData = null;
     try {
       const insertPayload = {
@@ -236,8 +258,8 @@ export async function POST(req: NextRequest) {
       dbErrorDetails = insertEx?.message || 'Database insert exception';
     }
 
-    // 6. Dispatch Email Alert (if enabled)
-    if (isNegativeAlertEnabled && isNegativeEmailEnabled && effectiveOwnerEmail) {
+    // 8. Dispatch Email Alert (if negative review and email enabled)
+    if (isNegative && isNegativeAlertEnabled && isNegativeEmailEnabled && effectiveOwnerEmail) {
       try {
         const emailResult = await sendFeedbackAlert({
           businessOwnerEmail: effectiveOwnerEmail,
@@ -255,8 +277,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 7. Dispatch SMS Alert using Sanitized E.164 Recipient Phone
-    if (isNegativeAlertEnabled && isNegativeSmsEnabled && destinationPhone) {
+    // 9. Dispatch SMS Alert using Sanitized E.164 Recipient Phone
+    if (isNegative && isNegativeAlertEnabled && isNegativeSmsEnabled && destinationPhone) {
       try {
         const sanitizedPhone = formatE164(destinationPhone);
         if (sanitizedPhone) {
@@ -266,7 +288,7 @@ export async function POST(req: NextRequest) {
           if (!smsResult.success) {
             console.error('[Feedback Flow Error]: Twilio SMS alert dispatch failed:', smsResult.error);
           } else {
-            console.log('[Feedback Alert SMS]: successfully sent to', sanitizedPhone);
+            console.log('[Feedback Alert SMS Sent]: to', sanitizedPhone, 'messageSid:', smsResult.messageId);
           }
         } else {
           console.error('[Feedback Flow Error]: Destination phone could not be sanitized to E.164:', destinationPhone);
@@ -276,6 +298,8 @@ export async function POST(req: NextRequest) {
       }
     } else {
       console.log('[Feedback Alert SMS]: Skipped', {
+        isNegative,
+        numericRating,
         isNegativeAlertEnabled,
         isNegativeSmsEnabled,
         hasDestinationPhone: Boolean(destinationPhone),
@@ -299,5 +323,6 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
 
 
