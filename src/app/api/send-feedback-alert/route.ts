@@ -47,14 +47,20 @@ export async function POST(req: NextRequest) {
 
     // 1. Supabase Database Write & Recipient Resolution using Service Role Key
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
+    const supabaseServiceRoleKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_ADMIN_KEY ||
+      process.env.SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+    const supabaseKey = supabaseServiceRoleKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     if (supabaseUrl && supabaseKey) {
       try {
         const supabase = createClient(supabaseUrl, supabaseKey, {
-          auth: { persistSession: false },
+          auth: { persistSession: false, autoRefreshToken: false },
         });
 
         let resolvedUid = targetUserId;

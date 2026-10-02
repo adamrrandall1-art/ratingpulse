@@ -36,9 +36,15 @@ export async function POST(req: NextRequest) {
 
     // 1. Supabase Database Write using Service Role Key (bypasses RLS for public review gate)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey =
+    const supabaseServiceRoleKey =
       process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.SUPABASE_SECRET_KEY ||
+      process.env.SUPABASE_ADMIN_KEY ||
+      process.env.SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY;
+
+    const supabaseKey = supabaseServiceRoleKey || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
     let dbSuccess = false;
     let recordId = effectiveTargetId;
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
     if (supabaseUrl && supabaseKey) {
       try {
         const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-          auth: { persistSession: false },
+          auth: { persistSession: false, autoRefreshToken: false },
         });
 
         let resolvedUserId = effectiveUserId;

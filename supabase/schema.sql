@@ -333,6 +333,43 @@ drop policy if exists "Users can delete own invites" on public.review_invites;
 create policy "Users can delete own invites" on public.review_invites
   for delete using (auth.uid() = user_id);
 
+-- Public Review Gate & Feedback Policies (Allow unauthenticated customers to submit feedback & view landing)
+drop policy if exists "Allow public feedback inserts" on public.feedback;
+create policy "Allow public feedback inserts" on public.feedback
+  for insert to anon, authenticated
+  with check (true);
+
+drop policy if exists "Allow public feedback select" on public.feedback;
+create policy "Allow public feedback select" on public.feedback
+  for select to anon, authenticated
+  using (true);
+
+drop policy if exists "Allow public review_invites insert" on public.review_invites;
+create policy "Allow public review_invites insert" on public.review_invites
+  for insert to anon, authenticated
+  with check (true);
+
+drop policy if exists "Allow public review_invites update" on public.review_invites;
+create policy "Allow public review_invites update" on public.review_invites
+  for update to anon, authenticated
+  using (true)
+  with check (true);
+
+drop policy if exists "Allow public review_invites select" on public.review_invites;
+create policy "Allow public review_invites select" on public.review_invites
+  for select to anon, authenticated
+  using (true);
+
+drop policy if exists "Allow public profiles read for review gate" on public.profiles;
+create policy "Allow public profiles read for review gate" on public.profiles
+  for select to anon, authenticated
+  using (true);
+
+drop policy if exists "Allow public business_settings read for review gate" on public.business_settings;
+create policy "Allow public business_settings read for review gate" on public.business_settings
+  for select to anon, authenticated
+  using (true);
+
 -- Subscriptions Policies
 drop policy if exists "Users can view own subscriptions" on public.subscriptions;
 create policy "Users can view own subscriptions" on public.subscriptions
