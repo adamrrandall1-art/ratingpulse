@@ -17,7 +17,7 @@ export default function ReviewsPage() {
   const { profile, reviews, pendingReviewsCount, publishedReviewsCount } = useRatingPulseStore();
 
   return (
-    <div className="space-y-6">
+    <div className="w-full max-w-full overflow-x-hidden space-y-6 pb-24 md:pb-8">
       
       {/* Top Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-2xs">
