@@ -9,12 +9,13 @@ import {
   AlertTriangle,
   Clock,
   ShieldAlert,
+  Trash2,
   Archive,
   PhoneCall,
   MessageSquare,
-  Send,
   Sparkles,
-  Check
+  Check,
+  Edit2
 } from 'lucide-react';
 import { useRatingPulseStore, isLowStarOrFeedback } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -37,6 +38,7 @@ export default function PrivateFeedbackFeed({
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(highlightId || null);
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({});
   const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
+  const [expandedNoteIds, setExpandedNoteIds] = useState<Record<string, boolean>>({});
   const [contactedItems, setContactedItems] = useState<Record<string, boolean>>({});
   const [archivedItems, setArchivedItems] = useState<Record<string, boolean>>({});
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -66,7 +68,6 @@ export default function PrivateFeedbackFeed({
   useEffect(() => {
     if (highlightId) {
       setActiveHighlightId(highlightId);
-      // Auto-switch to "all" if the item might be resolved or archived
       setFilter('all');
     }
   }, [highlightId]);
@@ -83,35 +84,55 @@ export default function PrivateFeedbackFeed({
     }
   }, [activeHighlightId, supabaseFeedback, invites]);
 
-  // Merge store invites and live feedback items from Supabase
+  // Merge store invites and live feedback items from Supabase with robust deduplication
   const mergedItems = React.useMemo(() => {
     const inviteItems = invites.filter((inv: Invite) => isLowStarOrFeedback(inv));
-
-    // Map live feedback items into unified format
-    const formattedLiveItems = supabaseFeedback.map((f: any) => ({
-      id: f.id,
-      user_id: f.user_id,
-      business_id: f.business_id,
-      customer_name: f.customer_name || 'Anonymous Customer',
-      customer_phone: f.customer_phone || '',
-      customer_email: f.customer_email || '',
-      service_type: 'Private Feedback Gate',
-      status: f.status || 'unresolved',
-      resolution_status: f.status === 'resolved' ? 'resolved' : 'needs_follow_up',
-      rating_received: Number(f.rating) || 2,
-      rating: Number(f.rating) || 2,
-      feedback_text: f.feedback_text || '',
-      notes: f.notes || '',
-      created_at: f.created_at || new Date().toISOString(),
-      sent_at: f.created_at || new Date().toISOString(),
-      review_received_at: f.created_at || new Date().toISOString(),
-    }));
-
-    // Deduplicate by ID
     const map = new Map<string, any>();
-    formattedLiveItems.forEach((item) => map.set(item.id, item));
-    inviteItems.forEach((item) => {
-      if (!map.has(item.id)) map.set(item.id, item);
+
+    // 1. Process Supabase feedback records
+    supabaseFeedback.forEach((f: any) => {
+      const id = String(f.id);
+      map.set(id, {
+        id,
+        user_id: f.user_id,
+        business_id: f.business_id,
+        customer_name: f.customer_name || 'Anonymous Customer',
+        customer_phone: f.customer_phone || '',
+        customer_email: f.customer_email || '',
+        service_type: 'Private Feedback Gate',
+        status: f.status || 'unresolved',
+        resolution_status: f.status === 'resolved' ? 'resolved' : (f.status === 'contacted' ? 'contacted' : 'needs_follow_up'),
+        rating_received: Number(f.rating) || 2,
+        rating: Number(f.rating) || 2,
+        feedback_text: f.feedback_text || '',
+        notes: f.notes || '',
+        created_at: f.created_at || new Date().toISOString(),
+        sent_at: f.created_at || new Date().toISOString(),
+        review_received_at: f.created_at || new Date().toISOString(),
+      });
+    });
+
+    // 2. Process store invites with low rating / feedback text
+    inviteItems.forEach((inv: Invite) => {
+      const id = String(inv.id);
+      if (!map.has(id)) {
+        const alreadyExists = Array.from(map.values()).some(
+          (existing) =>
+            existing.feedback_text &&
+            inv.feedback_text &&
+            existing.feedback_text === inv.feedback_text &&
+            existing.customer_name === inv.customer_name
+        );
+        if (!alreadyExists) {
+          map.set(id, {
+            ...inv,
+            id,
+            rating_received: Number(inv.rating_received) || Number((inv as any).rating) || 2,
+            rating: Number(inv.rating_received) || Number((inv as any).rating) || 2,
+            notes: (inv as any).notes || '',
+          });
+        }
+      }
     });
 
     return Array.from(map.values()).sort((a, b) => {
@@ -223,46 +244,45 @@ export default function PrivateFeedbackFeed({
   };
 
   return (
-    <div className="bg-white rounded-2xl border-2 border-rose-200/80 shadow-sm overflow-hidden space-y-0">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-0">
       
-      {/* Urgent Header */}
-      <div className="p-5 sm:p-6 bg-gradient-to-r from-rose-50/90 via-red-50/40 to-white border-b border-rose-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Refined Header */}
+      <div className="p-5 bg-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="w-8 h-8 rounded-xl bg-rose-600 text-white flex items-center justify-center font-bold text-sm shadow-md shadow-rose-600/20">
+            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm border border-rose-100">
               <ShieldAlert className="w-4 h-4" />
             </div>
-            <h2 className="text-base font-extrabold text-slate-900 tracking-tight flex items-center gap-1.5">
-              <span>Private Feedback & Low-Star Interception</span>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
+              <span>Private Feedback & Gated Inquiries</span>
             </h2>
 
             {activeUnresolvedCount > 0 ? (
-              <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full text-xs font-extrabold bg-rose-600 text-white shadow-xs animate-pulse">
-                [ {activeUnresolvedCount} Needs Attention ]
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+                {activeUnresolvedCount} Needs Attention
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                [ All Resolved ]
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+                All Resolved
               </span>
             )}
           </div>
-          <p className="text-xs font-medium text-slate-600 mt-1.5">
-            Direct customer feedback from 1–3 star submissions intercepted before reaching public Google listings.
+          <p className="text-xs text-slate-500 mt-1">
+            Private 1–3 star ratings intercepted before reaching public Google listings.
           </p>
         </div>
 
-        {/* Filter Tabs */}
-        <div className="flex flex-wrap items-center gap-1 p-1 bg-white border border-rose-200/80 rounded-xl text-xs font-bold self-start sm:self-auto shadow-2xs">
+        {/* Filter Tabs - Clean Segmented Control */}
+        <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
           <button
             type="button"
             onClick={() => setFilter('needs_follow_up')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'needs_follow_up'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-rose-600'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <AlertTriangle className="w-3.5 h-3.5" />
             <span>Needs Follow-up</span>
           </button>
           <button
@@ -270,7 +290,7 @@ export default function PrivateFeedbackFeed({
             onClick={() => setFilter('all')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
               filter === 'all'
-                ? 'bg-rose-600 text-white shadow-xs'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
@@ -281,11 +301,10 @@ export default function PrivateFeedbackFeed({
             onClick={() => setFilter('contacted')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'contacted'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-blue-600'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <PhoneCall className="w-3.5 h-3.5" />
             <span>Contacted</span>
           </button>
           <button
@@ -293,11 +312,10 @@ export default function PrivateFeedbackFeed({
             onClick={() => setFilter('resolved')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'resolved'
-                ? 'bg-emerald-600 text-white shadow-xs'
-                : 'text-slate-600 hover:text-emerald-600'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            <CheckCircle2 className="w-3.5 h-3.5" />
             <span>Resolved</span>
           </button>
           <button
@@ -305,11 +323,10 @@ export default function PrivateFeedbackFeed({
             onClick={() => setFilter('archived')}
             className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
               filter === 'archived'
-                ? 'bg-slate-800 text-white shadow-xs'
+                ? 'bg-white text-slate-900 shadow-2xs font-bold'
                 : 'text-slate-500 hover:text-slate-800'
             }`}
           >
-            <Archive className="w-3.5 h-3.5" />
             <span>Archived</span>
           </button>
         </div>
@@ -318,18 +335,18 @@ export default function PrivateFeedbackFeed({
       {/* Feedback List Body */}
       {feedbackItems.length === 0 ? (
         <div className="p-10 sm:p-14 text-center space-y-3 bg-slate-50/50">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-xl font-bold border border-emerald-200">
-            <CheckCircle2 className="w-6 h-6" />
+          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto text-xl font-bold border border-slate-200">
+            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
           </div>
-          <h3 className="text-sm font-extrabold text-slate-800">
-            No private feedback found in this filter.
+          <h3 className="text-sm font-bold text-slate-800">
+            No private feedback in this view.
           </h3>
           <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            When customers leave 1–3 star ratings on your review gate, their comments appear here immediately for private follow-up.
+            When customers leave 1–3 star ratings on your review gate, their submissions appear here for private follow-up.
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-slate-100 bg-white">
+        <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
           {feedbackItems.map((item) => {
             const rawRating = item.rating_received !== undefined && item.rating_received !== null ? item.rating_received : item.rating;
             const rating = Number(rawRating) || 2;
@@ -343,175 +360,212 @@ export default function PrivateFeedbackFeed({
             const feedbackText = item.feedback_text;
             const dateStr = item.review_received_at || item.sent_at || item.created_at || new Date().toISOString();
             const currentNote = noteInputs[item.id] !== undefined ? noteInputs[item.id] : (savedNotes[item.id] || item.notes || '');
+            const isNoteExpanded = Boolean(expandedNoteIds[item.id]);
 
             return (
               <div
                 key={item.id}
                 ref={(el) => { itemRefs.current[item.id] = el; }}
                 id={`feedback-${item.id}`}
-                className={`p-5 sm:p-6 transition-all space-y-4 ${
+                className={`rounded-xl border bg-white p-5 shadow-sm space-y-3 transition-all ${
                   isHighlighted
-                    ? 'ring-4 ring-rose-500/80 bg-rose-50/80 shadow-md'
+                    ? 'ring-2 ring-rose-400 border-rose-300 bg-rose-50/30'
                     : isResolved
-                    ? 'bg-slate-50/40 hover:bg-slate-50/80'
-                    : 'bg-rose-50/15 hover:bg-rose-50/30'
+                    ? 'border-slate-200 bg-slate-50/40'
+                    : 'border-slate-200'
                 }`}
               >
                 {/* Highlight Alert Banner if deep linked */}
                 {isHighlighted && (
-                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold shadow-xs">
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
                     <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                      Direct Alert Link Selected ({item.customer_name})
+                      <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+                      Selected from Alert Notification ({customerName})
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveHighlightId(null)}
-                      className="text-white/80 hover:text-white text-[11px] underline cursor-pointer"
+                      className="text-rose-600 hover:text-rose-900 text-[11px] underline cursor-pointer"
                     >
-                      Dismiss Highlight
+                      Dismiss
                     </button>
                   </div>
                 )}
 
-                {/* Top Row: Customer info, rating badge & resolution status */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    {/* Star Rating Badge */}
-                    <div className={`px-3 py-1 rounded-xl font-extrabold text-xs flex items-center gap-1.5 border shadow-2xs ${
-                      rating <= 1
-                        ? 'bg-rose-600 text-white border-rose-700'
-                        : rating === 2
-                        ? 'bg-orange-600 text-white border-orange-700'
-                        : 'bg-amber-500 text-white border-amber-600'
-                    }`}>
-                      <Star className="w-3.5 h-3.5 fill-current" />
-                      <span>{rating}.0 / 5 Stars</span>
+                {/* Card Header Row */}
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                  
+                  {/* Left: Customer Info & Star Badge */}
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                      <div className="flex items-center gap-0.5">
+                        {[...Array(rating)].map((_, i) => (
+                          <Star key={i} className="w-3 h-3 fill-rose-500 text-rose-500" />
+                        ))}
+                      </div>
+                      <span>{rating}.0 Star</span>
                     </div>
 
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                        <span>{customerName}</span>
-                        {!isResolved && !isArchived && (
-                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                        )}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h4 className="text-sm font-bold text-slate-900 truncate">
+                          {customerName}
+                        </h4>
                         {isContacted && !isResolved && (
-                          <span className="px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 text-[10px] font-bold">
+                          <span className="px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-semibold">
                             Contacted
                           </span>
                         )}
-                      </h4>
-                      <p className="text-[11px] text-slate-500">
-                        {item.service_type || 'Private Feedback Gate'} • {new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </p>
+                        {isResolved && (
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-semibold">
+                            Resolved
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mt-0.5">
+                        <span>{new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                        <span>•</span>
+                        <span>Intercepted before Google Maps</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Resolution Actions Bar */}
-                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  {/* Right: Compact Action Row */}
+                  <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                    {/* Call Customer Button */}
+                    {customerPhone && !customerPhone.includes('@') && (
+                      <a
+                        href={`tel:${customerPhone}`}
+                        className="border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors font-medium"
+                        title={`Call ${customerPhone}`}
+                      >
+                        <Phone className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Call</span>
+                      </a>
+                    )}
+
+                    {/* Email Customer Button */}
+                    {customerEmail && (
+                      <a
+                        href={`mailto:${customerEmail}?subject=Following up on your recent experience with our team`}
+                        className="border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors font-medium"
+                        title={`Email ${customerEmail}`}
+                      >
+                        <Mail className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Email</span>
+                      </a>
+                    )}
+
+                    {/* Mark Contacted Button */}
                     <button
                       type="button"
                       onClick={() => handleToggleContacted(item.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border shadow-2xs ${
+                      className={`text-xs px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer ${
                         isContacted
-                          ? 'bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
+                          : 'border border-slate-200 hover:bg-slate-50 text-slate-700'
                       }`}
                     >
                       <PhoneCall className="w-3.5 h-3.5" />
                       <span>{isContacted ? 'Contacted ✓' : 'Mark Contacted'}</span>
                     </button>
 
+                    {/* Mark Resolved Button */}
                     <button
                       type="button"
                       onClick={() => handleToggleResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
-                      className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer shadow-2xs flex items-center gap-1 ${
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
                         isResolved
-                          ? 'bg-slate-200 hover:bg-slate-300 text-slate-800'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/20'
+                          ? 'border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
                       }`}
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>{isResolved ? 'Re-open' : 'Mark as Resolved'}</span>
+                      <span>{isResolved ? 'Re-open' : 'Mark Resolved'}</span>
                     </button>
 
+                    {/* Trash/Archive Button */}
                     <button
                       type="button"
                       onClick={() => handleToggleArchive(item.id)}
                       title={isArchived ? 'Unarchive feedback' : 'Archive feedback'}
-                      className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                        isArchived
-                          ? 'bg-slate-800 text-white border-slate-900'
-                          : 'bg-white text-slate-400 hover:text-slate-700 border-slate-200'
-                      }`}
+                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
                     >
-                      <Archive className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
+
                 </div>
 
                 {/* Customer Feedback Quote Block */}
-                <div className={`p-4 rounded-xl border text-xs leading-relaxed font-medium ${
-                  isResolved
-                    ? 'bg-slate-100/70 border-slate-200 text-slate-600'
-                    : 'bg-white border-rose-200 text-slate-800 shadow-2xs'
-                }`}>
-                  <p className="italic">
-                    &quot;{feedbackText || 'Customer submitted a low-star rating on the review gate without providing detailed text.'}&quot;
-                  </p>
+                <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-100 text-xs text-slate-700 leading-relaxed italic">
+                  &quot;{feedbackText || 'Customer submitted a low-star rating on the review gate without additional comments.'}&quot;
                 </div>
 
-                {/* Direct Action Contact Buttons */}
-                <div className="flex flex-wrap items-center gap-2.5 text-xs">
-                  {customerPhone && !customerPhone.includes('@') && (
-                    <a
-                      href={`tel:${customerPhone}`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold transition-all shadow-xs transform active:scale-95"
-                    >
-                      <Phone className="w-3.5 h-3.5" />
-                      <span>Call Customer ({customerPhone})</span>
-                    </a>
+                {/* Collapsible Internal Note Section */}
+                <div className="pt-1">
+                  {!isNoteExpanded ? (
+                    currentNote ? (
+                      <div className="flex items-center gap-2 text-xs bg-slate-50 border border-slate-200/80 rounded-lg px-3 py-1.5">
+                        <span className="font-semibold text-slate-700 shrink-0">Note:</span>
+                        <span className="text-slate-600 truncate">{currentNote}</span>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedNoteIds((prev) => ({ ...prev, [item.id]: true }))}
+                          className="ml-auto text-blue-600 hover:text-blue-700 font-medium text-[11px] cursor-pointer flex items-center gap-1 shrink-0"
+                        >
+                          <Edit2 className="w-3 h-3" />
+                          <span>Edit</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setExpandedNoteIds((prev) => ({ ...prev, [item.id]: true }))}
+                        className="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
+                        <span>+ Add note / log summary</span>
+                      </button>
+                    )
+                  ) : (
+                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 pt-1">
+                      <input
+                        type="text"
+                        placeholder="Log call summary or internal resolution note..."
+                        value={currentNote}
+                        onChange={(e) => setNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            handleSaveNote(item.id);
+                            setExpandedNoteIds((prev) => ({ ...prev, [item.id]: false }));
+                          }
+                        }}
+                        className="flex-1 text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white"
+                        autoFocus
+                      />
+                      <div className="flex items-center gap-1.5 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            handleSaveNote(item.id);
+                            setExpandedNoteIds((prev) => ({ ...prev, [item.id]: false }));
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-all cursor-pointer"
+                        >
+                          Save
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setExpandedNoteIds((prev) => ({ ...prev, [item.id]: false }))}
+                          className="px-2.5 py-1.5 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-100 text-xs transition-all cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   )}
-
-                  {customerEmail && (
-                    <a
-                      href={`mailto:${customerEmail}?subject=Following up on your recent experience with our team`}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold transition-all shadow-xs transform active:scale-95"
-                    >
-                      <Mail className="w-3.5 h-3.5" />
-                      <span>Email Customer ({customerEmail})</span>
-                    </a>
-                  )}
-
-                  <span className="text-[11px] text-slate-400 ml-auto hidden sm:inline">
-                    Intercepted before public review posting
-                  </span>
-                </div>
-
-                {/* Internal Notes / Direct Follow-up Field */}
-                <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                  <div className="relative flex-1">
-                    <input
-                      type="text"
-                      placeholder="Add internal resolution note or log call summary..."
-                      value={currentNote}
-                      onChange={(e) => setNoteInputs((prev) => ({ ...prev, [item.id]: e.target.value }))}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          handleSaveNote(item.id);
-                        }
-                      }}
-                      className="w-full text-xs px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:bg-white"
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleSaveNote(item.id)}
-                    className="px-3.5 py-2 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1 shadow-2xs"
-                  >
-                    <MessageSquare className="w-3 h-3" />
-                    <span>Save Note</span>
-                  </button>
                 </div>
 
               </div>
