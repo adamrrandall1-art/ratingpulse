@@ -55,7 +55,7 @@ function ReviewGateContent() {
         // Try looking up review_invites table
         const { data: inviteData } = await supabase
           .from('review_invites')
-          .select('id, user_id, customer_name, customer_phone')
+          .select('id, user_id, customer_name, customer_phone, business_name, business_id')
           .eq('id', idParam)
           .maybeSingle();
 
@@ -70,6 +70,9 @@ function ReviewGateContent() {
             setCustomerPhone(inviteData.customer_phone);
           }
         }
+        if (inviteData?.business_name && !businessParam) {
+          setBusinessName(inviteData.business_name);
+        }
 
         if (resolvedUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId)) {
           setTargetUserId(resolvedUserId);
@@ -80,7 +83,7 @@ function ReviewGateContent() {
             .maybeSingle();
 
           if (profileData) {
-            if (profileData.business_name && !businessParam) {
+            if (profileData.business_name && !businessParam && !inviteData?.business_name) {
               setBusinessName(profileData.business_name);
             }
             if (profileData.google_place_id && !placeIdParam) {
@@ -187,6 +190,7 @@ function ReviewGateContent() {
           user_id: targetUserId || null,
           business_id: targetUserId || null,
           invite_id: idParam || null,
+          business_name: businessName,
           businessName,
           ownerEmail,
           notificationPhone: ownerPhone || null,

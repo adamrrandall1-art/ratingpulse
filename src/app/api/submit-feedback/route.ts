@@ -19,7 +19,8 @@ export async function POST(req: NextRequest) {
       rating = 3,
       feedbackText,
       comment,
-      businessName = 'RatingPulse Business',
+      business_name,
+      businessName,
       ownerEmail,
       businessOwnerEmail,
     } = body;
@@ -33,6 +34,8 @@ export async function POST(req: NextRequest) {
     let destinationEmail = effectiveOwnerEmail;
     let destinationPhone = '';
     let smsAlertsEnabled = true;
+    let inviteBusinessName: string | null = null;
+    let profileBusinessName: string | null = null;
 
     // 1. Supabase Database Write using Service Role Key (bypasses RLS for public review gate)
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -67,6 +70,9 @@ export async function POST(req: NextRequest) {
 
           if (existingInvite?.user_id) {
             resolvedUserId = existingInvite.user_id;
+          }
+          if (existingInvite?.business_name) {
+            inviteBusinessName = existingInvite.business_name;
           }
 
           // Update existing review invite record cleanly
@@ -134,7 +140,7 @@ export async function POST(req: NextRequest) {
         // Check if there is an explicit notification_email, notification_phone, or sms_alerts_enabled configured
         if (resolvedUserId && isUuid.test(resolvedUserId)) {
           const [profRes, settRes] = await Promise.allSettled([
-            supabaseAdmin.from('profiles').select('id, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('id', resolvedUserId).maybeSingle(),
+            supabaseAdmin.from('profiles').select('id, business_name, email, phone, notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('id', resolvedUserId).maybeSingle(),
             supabaseAdmin.from('business_settings').select('notification_email, notification_phone, notify_negative_enabled, notify_negative_email, notify_negative_sms, notify_negative_phone, sms_alerts_enabled').eq('user_id', resolvedUserId).maybeSingle(),
           ]);
 
@@ -160,6 +166,9 @@ export async function POST(req: NextRequest) {
           }
           if (profRes.status === 'fulfilled' && profRes.value.data) {
             const p = profRes.value.data;
+            if (p.business_name) {
+              profileBusinessName = p.business_name;
+            }
             if (!foundNotificationEmail) {
               foundNotificationEmail = p.notification_email || p.email || '';
             }
@@ -187,6 +196,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Dynamic resolution of business name: prioritize body & invite over static profile
+    const resolvedBusinessName =
+      (business_name && business_name !== 'RatingPulse Business')
+        ? business_name
+        : (businessName && businessName !== 'RatingPulse Business')
+          ? businessName
+          : inviteBusinessName ||
+            profileBusinessName ||
+            'your business';
+
     // 2. Dispatch Email alert to business owner via Resend
     let emailSuccess = false;
     try {
@@ -197,7 +216,7 @@ export async function POST(req: NextRequest) {
         customerEmail,
         rating: effectiveRating,
         feedbackText: effectiveText || 'No comments provided',
-        businessName,
+        businessName: resolvedBusinessName,
       });
       emailSuccess = emailResult.success;
     } catch (emailErr) {
@@ -210,7 +229,8 @@ export async function POST(req: NextRequest) {
       try {
         const formattedPhone = formatE164(destinationPhone);
         if (formattedPhone) {
-          const smsText = `⚠️ RatingPulse Alert: A customer (${customerName || 'Customer'}) left a ${effectiveRating}-star review with note: '${effectiveText || 'No comments'}'. Log into your dashboard to respond.`;
+          const commentText = effectiveText ? (effectiveText.length > 120 ? `${effectiveText.slice(0, 120)}...` : effectiveText) : 'No comment left';
+          const smsText = `⚠️ RatingPulse Alert: ${customerName || 'A customer'} left a ${effectiveRating}★ review for ${resolvedBusinessName}:\n"${commentText}"\n\nView & reply:\nhttps://ratingpulse.co/dashboard/reviews\n\nReply STOP to unsubscribe.`;
           const smsResult = await sendTwilioSms(formattedPhone, smsText);
           smsSuccess = smsResult.success;
           if (!smsResult.success) {

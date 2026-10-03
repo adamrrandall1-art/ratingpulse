@@ -52,7 +52,8 @@ export async function POST(req: NextRequest) {
       inviteId,
       token,
       id,
-      businessName = 'RatingPulse Business',
+      business_name,
+      businessName,
       ownerEmail,
       businessOwnerEmail,
       ownerPhone,
@@ -82,16 +83,17 @@ export async function POST(req: NextRequest) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
     let resolvedUserId: string | null = null;
+    let inviteBusinessName: string | null = null;
     if (rawUserId && isUuid.test(rawUserId)) {
       resolvedUserId = rawUserId;
     }
 
     // Lookup via review_invites table if invite ID/token is present
-    if (!resolvedUserId && targetInviteId) {
+    if (targetInviteId) {
       try {
         let inviteQuery = supabaseAdmin
           .from('review_invites')
-          .select('id, user_id, business_id, customer_name, customer_phone');
+          .select('id, user_id, business_id, business_name, customer_name, customer_phone');
 
         if (isUuid.test(targetInviteId)) {
           inviteQuery = inviteQuery.eq('id', targetInviteId);
@@ -101,12 +103,16 @@ export async function POST(req: NextRequest) {
 
         const { data: inviteData, error: inviteErr } = await inviteQuery.maybeSingle();
 
-        if (inviteData?.user_id) {
+        if (inviteData?.user_id && !resolvedUserId) {
           resolvedUserId = inviteData.user_id;
-        } else if (inviteData?.business_id) {
+        } else if (inviteData?.business_id && !resolvedUserId) {
           resolvedUserId = inviteData.business_id;
         } else if (inviteErr) {
           console.warn('[Feedback Flow]: Invite lookup warning:', inviteErr.message);
+        }
+
+        if (inviteData?.business_name) {
+          inviteBusinessName = inviteData.business_name;
         }
 
         // Update invite record if found
@@ -286,6 +292,16 @@ export async function POST(req: NextRequest) {
       dbErrorDetails = insertEx?.message || 'Database insert exception';
     }
 
+    // Resolve dynamic business name (prioritize body and invite over static profile fallback)
+    const resolvedBusinessName =
+      (business_name && business_name !== 'RatingPulse Business')
+        ? business_name
+        : (businessName && businessName !== 'RatingPulse Business')
+          ? businessName
+          : inviteBusinessName ||
+            profile?.business_name ||
+            'your business';
+
     // 8. Dispatch Email Alert
     if (isNegative && isNegativeAlertEnabled && isNegativeEmailEnabled && effectiveOwnerEmail) {
       try {
@@ -296,7 +312,7 @@ export async function POST(req: NextRequest) {
           customerPhone: effectiveCustomerPhone || 'Not provided',
           rating: effectiveRating,
           feedbackText: effectiveText,
-          businessName: profile?.business_name || businessName,
+          businessName: resolvedBusinessName,
         });
         emailSent = emailResult?.success ?? false;
         console.log('[Feedback Alert Email]: successfully sent to', effectiveOwnerEmail);
@@ -310,7 +326,7 @@ export async function POST(req: NextRequest) {
       try {
         const sanitizedPhone = formatE164(destinationPhone);
         if (sanitizedPhone) {
-          const bizTitle = profile?.business_name || businessName || 'Your Business';
+          const bizTitle = resolvedBusinessName || 'your business';
           const commentText = effectiveText ? (effectiveText.length > 120 ? `${effectiveText.slice(0, 120)}...` : effectiveText) : 'No comment left';
           const smsText = `⚠️ RatingPulse Alert: ${effectiveName} left a ${effectiveRating}★ review for ${bizTitle}:\n"${commentText}"\n\nView & reply:\nhttps://ratingpulse.co/dashboard/reviews\n\nReply STOP to unsubscribe.`;
           const smsResult = await sendTwilioSms(sanitizedPhone, smsText);
