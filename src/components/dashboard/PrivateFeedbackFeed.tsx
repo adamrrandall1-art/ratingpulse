@@ -21,19 +21,26 @@ import { useRatingPulseStore, isLowStarOrFeedback } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { Invite } from '@/lib/supabase/types';
 
+export type FeedbackFilter = 'needs_follow_up' | 'all' | 'contacted' | 'resolved' | 'archived';
+
 interface PrivateFeedbackFeedProps {
   liveFeedback?: any[];
   highlightId?: string;
   onFeedbackUpdated?: () => void;
+  subFilter?: FeedbackFilter;
+  onSubFilterChange?: (filter: FeedbackFilter) => void;
 }
 
 export default function PrivateFeedbackFeed({
   liveFeedback = [],
   highlightId,
   onFeedbackUpdated,
+  subFilter,
+  onSubFilterChange,
 }: PrivateFeedbackFeedProps) {
   const { profile, invites, updateInviteResolution, searchQuery } = useRatingPulseStore();
-  const [filter, setFilter] = useState<'needs_follow_up' | 'all' | 'contacted' | 'resolved' | 'archived'>('needs_follow_up');
+  const [internalFilter, setInternalFilter] = useState<FeedbackFilter>('needs_follow_up');
+  const activeFilter = subFilter || internalFilter;
   const [supabaseFeedback, setSupabaseFeedback] = useState<any[]>(liveFeedback);
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(highlightId || null);
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({});
@@ -42,6 +49,11 @@ export default function PrivateFeedbackFeed({
   const [contactedItems, setContactedItems] = useState<Record<string, boolean>>({});
   const [archivedItems, setArchivedItems] = useState<Record<string, boolean>>({});
   const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const handleFilterSelect = (newFilter: FeedbackFilter) => {
+    setInternalFilter(newFilter);
+    onSubFilterChange?.(newFilter);
+  };
 
   // 1. Fetch live feedback rows from Supabase
   useEffect(() => {
@@ -68,7 +80,7 @@ export default function PrivateFeedbackFeed({
   useEffect(() => {
     if (highlightId) {
       setActiveHighlightId(highlightId);
-      setFilter('all');
+      handleFilterSelect('all');
     }
   }, [highlightId]);
 
@@ -148,16 +160,16 @@ export default function PrivateFeedbackFeed({
     const isResolved = item.resolution_status === 'resolved' || item.status === 'resolved';
     const isContacted = contactedItems[item.id] || item.status === 'contacted' || item.resolution_status === 'contacted';
 
-    if (filter === 'archived') return isArchived;
-    if (isArchived && filter !== 'all') return false;
+    if (activeFilter === 'archived') return isArchived;
+    if (isArchived && activeFilter !== 'all') return false;
 
-    if (filter === 'needs_follow_up') {
+    if (activeFilter === 'needs_follow_up') {
       return !isResolved && !isArchived;
     }
-    if (filter === 'contacted') {
+    if (activeFilter === 'contacted') {
       return isContacted && !isResolved && !isArchived;
     }
-    if (filter === 'resolved') {
+    if (activeFilter === 'resolved') {
       return isResolved;
     }
     return true; // 'all' tab shows all records
@@ -243,110 +255,24 @@ export default function PrivateFeedbackFeed({
     }
   };
 
-  return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-2xs overflow-hidden space-y-0">
-      
-      {/* Refined Header */}
-      <div className="p-5 bg-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200">
-              <ShieldAlert className="w-4 h-4 text-slate-600" />
-            </div>
-            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
-              <span>Private Feedback & Gated Inquiries</span>
-            </h2>
-
-            {activeUnresolvedCount > 0 ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                {activeUnresolvedCount} Needs Attention
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-                All Resolved
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Private 1–3 star ratings intercepted before reaching public Google listings.
-          </p>
+  if (feedbackItems.length === 0) {
+    return (
+      <div className="p-10 sm:p-14 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-2xs">
+        <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto text-xl font-bold border border-slate-200 mb-3">
+          <CheckCircle2 className="w-6 h-6 text-emerald-600" />
         </div>
-
-        {/* Filter Tabs - Clean Segmented Control */}
-        <div className="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setFilter('needs_follow_up')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              filter === 'needs_follow_up'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Needs Follow-up</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('all')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-              filter === 'all'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            All ({mergedItems.length})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('contacted')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              filter === 'contacted'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Contacted</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('resolved')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              filter === 'resolved'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            <span>Resolved</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilter('archived')}
-            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
-              filter === 'archived'
-                ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                : 'text-slate-500 hover:text-slate-800'
-            }`}
-          >
-            <span>Archived</span>
-          </button>
-        </div>
+        <h3 className="text-sm font-bold text-slate-800">
+          No private feedback in this view.
+        </h3>
+        <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+          When customers leave 1–3 star ratings on your review gate, their submissions appear here for private follow-up.
+        </p>
       </div>
+    );
+  }
 
-      {/* Feedback List Body */}
-      {feedbackItems.length === 0 ? (
-        <div className="p-10 sm:p-14 text-center space-y-3 bg-slate-50/50">
-          <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-500 flex items-center justify-center mx-auto text-xl font-bold border border-slate-200">
-            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-800">
-            No private feedback in this view.
-          </h3>
-          <p className="text-xs text-slate-500 max-w-sm mx-auto">
-            When customers leave 1–3 star ratings on your review gate, their submissions appear here for private follow-up.
-          </p>
-        </div>
-      ) : (
-        <div className="p-4 sm:p-5 space-y-3 bg-slate-50/40">
+  return (
+    <div className="space-y-3">
           {feedbackItems.map((item) => {
             const rawRating = item.rating_received !== undefined && item.rating_received !== null ? item.rating_received : item.rating;
             const rating = Number(rawRating) || 2;
@@ -569,9 +495,6 @@ export default function PrivateFeedbackFeed({
               </div>
             );
           })}
-        </div>
-      )}
-
     </div>
   );
 }

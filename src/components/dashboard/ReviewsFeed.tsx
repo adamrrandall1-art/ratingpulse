@@ -65,6 +65,8 @@ export default function ReviewsFeed({
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published' | 'private'>(
     tabParam === 'private' || tabParam === 'gated' ? 'private' : initialFilter
   );
+  const [publicFilter, setPublicFilter] = useState<'all' | 'pending' | 'published'>('all');
+  const [privateSubFilter, setPrivateSubFilter] = useState<'needs_follow_up' | 'all' | 'contacted' | 'resolved' | 'archived'>('needs_follow_up');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [justApprovedId, setJustApprovedId] = useState<string | null>(null);
@@ -169,6 +171,7 @@ export default function ReviewsFeed({
     }
     setTimeout(() => {
       setIsSimulating(false);
+      setPublicFilter('pending');
       setStatusFilter('pending');
     }, 400);
   };
@@ -188,123 +191,238 @@ export default function ReviewsFeed({
     } finally {
       setIsSyncing(false);
     }
-  };  return (
+  };
+
+  return (
     <div className="w-full max-w-full overflow-x-hidden space-y-4">
       
-      {/* Header & Filter Controls */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Unified Feed Header Box */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs space-y-4">
         
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-            <Sparkles className="w-5 h-5" />
+        {/* Top Row: Left Title/Subtitle + Right Tab Switcher */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md transition-colors ${
+              statusFilter === 'private' ? 'bg-slate-900 shadow-slate-900/20' : 'bg-blue-600 shadow-blue-500/20'
+            }`}>
+              {statusFilter === 'private' ? <ShieldAlert className="w-5 h-5 text-white" /> : <Sparkles className="w-5 h-5 text-white" />}
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                {statusFilter === 'private' ? (
+                  <>
+                    <span>Private Feedback Hub</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      Gated Private Reviews
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>Google Reviews Feed</span>
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xs">
+                      <Sparkles className="w-3 h-3 text-amber-300" />
+                      Powered by Gemini
+                    </span>
+                  </>
+                )}
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {statusFilter === 'private'
+                  ? 'Private 1–3 star ratings intercepted before reaching public Google listings.'
+                  : 'Auto-syncs Google reviews & drafts local SEO keyword replies for 1-tap approval.'}
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-              Incoming Google Reviews Feed
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-2xs">
-                <Sparkles className="w-3 h-3 text-amber-300" />
-                Powered by Gemini
-              </span>
-            </h2>
-            <p className="text-xs text-slate-500">
-              Auto-syncs Google reviews & drafts local SEO keyword replies for 1-tap approval.
-            </p>
-          </div>
-        </div>
 
-        {/* Right Actions: Filter Tabs + Sync + Simulate Review */}
-        <div className="flex flex-wrap items-center gap-2">
-          
-          {/* Status Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold">
+          {/* Right: Segmented Tab Switcher */}
+          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-semibold self-start sm:self-auto">
             <button
-              onClick={() => setStatusFilter('all')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                statusFilter === 'all'
+              type="button"
+              onClick={() => setStatusFilter(publicFilter)}
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
+                statusFilter !== 'private'
                   ? 'bg-white text-slate-900 shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              All ({reviews.length})
+              <span>Google Reviews ({reviews.length})</span>
             </button>
             <button
-              onClick={() => setStatusFilter('pending')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
-                statusFilter === 'pending'
-                  ? 'bg-blue-600 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Pending Approval
-              {pendingReviewsCount > 0 && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                  statusFilter === 'pending' ? 'bg-blue-800 text-white' : 'bg-blue-100 text-blue-800'
-                }`}>
-                  {pendingReviewsCount}
-                </span>
-              )}
-            </button>
-            <button
-              onClick={() => setStatusFilter('published')}
-              className={`px-3 py-1.5 rounded-lg transition-all ${
-                statusFilter === 'published'
-                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Published ({publishedReviewsCount})
-            </button>
-            <button
+              type="button"
               onClick={() => setStatusFilter('private')}
-              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 rounded-lg transition-all cursor-pointer flex items-center gap-1.5 ${
                 statusFilter === 'private'
-                  ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                  ? 'bg-white text-slate-900 shadow-2xs font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              <ShieldAlert className="w-3.5 h-3.5" />
-              <span>Private Feedback (Gated)</span>
+              <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+              <span>Gated Feedback ({privateFeedbackCount || unresolvedFeedbackCount || 0})</span>
               {(privateFeedbackCount > 0 || unresolvedFeedbackCount > 0) && (
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                  statusFilter === 'private' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-800'
-                }`}>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full font-bold bg-slate-200 text-slate-700">
                   {privateFeedbackCount || unresolvedFeedbackCount}
                 </span>
               )}
             </button>
           </div>
+        </div>
 
-          {/* Sync Google Reviews Button */}
-          {statusFilter !== 'private' && (
-            <button
-              onClick={handleSyncGoogleReviews}
-              disabled={isSyncing}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
-            </button>
+        {/* Secondary Toolbar Row */}
+        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-3 min-h-[42px]">
+          {statusFilter !== 'private' ? (
+            <>
+              {/* Public Sub-filters */}
+              <div className="flex items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200/60 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPublicFilter('all');
+                    setStatusFilter('all');
+                  }}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    statusFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All ({reviews.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPublicFilter('pending');
+                    setStatusFilter('pending');
+                  }}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer flex items-center gap-1.5 ${
+                    statusFilter === 'pending'
+                      ? 'bg-blue-600 text-white font-bold shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <span>Pending Approval</span>
+                  {pendingReviewsCount > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                      statusFilter === 'pending' ? 'bg-blue-800 text-white' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {pendingReviewsCount}
+                    </span>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPublicFilter('published');
+                    setStatusFilter('published');
+                  }}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    statusFilter === 'published'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Published ({publishedReviewsCount})
+                </button>
+              </div>
+
+              {/* Public Action Buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleSyncGoogleReviews}
+                  disabled={isSyncing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+                  <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
+                </button>
+                {showSimulateButton && (
+                  <button
+                    onClick={handleSimulate}
+                    disabled={isSimulating}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-medium transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-blue-400" />
+                    <span>{isSimulating ? 'Simulating...' : 'Simulate Review'}</span>
+                  </button>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Private Sub-filters */}
+              <div className="flex flex-wrap items-center gap-1 bg-slate-50 p-1 rounded-lg border border-slate-200/60 text-xs font-medium">
+                <button
+                  type="button"
+                  onClick={() => setPrivateSubFilter('needs_follow_up')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    privateSubFilter === 'needs_follow_up'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Needs Follow-up
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivateSubFilter('all')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    privateSubFilter === 'all'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivateSubFilter('contacted')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    privateSubFilter === 'contacted'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Contacted
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivateSubFilter('resolved')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    privateSubFilter === 'resolved'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Resolved
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPrivateSubFilter('archived')}
+                  className={`px-2.5 py-1 rounded-md transition-all cursor-pointer ${
+                    privateSubFilter === 'archived'
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  Archived
+                </button>
+              </div>
+
+              <div className="text-xs text-slate-500 font-normal">
+                Private submissions intercepted before Google Maps
+              </div>
+            </>
           )}
-
-          {/* Simulate New Google Review Button */}
-          {showSimulateButton && statusFilter !== 'private' && (
-            <button
-              onClick={handleSimulate}
-              disabled={isSimulating}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
-            >
-              <Plus className="w-3.5 h-3.5 text-blue-400" />
-              <span>{isSimulating ? 'Simulating...' : 'Simulate Review'}</span>
-            </button>
-          )}
-
         </div>
 
       </div>
 
       {/* Main Tab Content */}
       {statusFilter === 'private' ? (
-        <PrivateFeedbackFeed highlightId={idParam || undefined} />
+        <PrivateFeedbackFeed
+          highlightId={idParam || undefined}
+          subFilter={privateSubFilter}
+          onSubFilterChange={setPrivateSubFilter}
+        />
       ) : displayedReviews.length === 0 ? (
         <div className="p-12 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center shadow-sm">
           <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
