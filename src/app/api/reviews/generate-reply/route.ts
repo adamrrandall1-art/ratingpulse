@@ -32,17 +32,17 @@ export async function POST(req: NextRequest) {
 
     if (apiKey) {
       try {
-        const prompt = `You are the owner of "${businessName}". Write a friendly, 2-sentence response to this Google review.
+        const prompt = `You are the owner of "${businessName}". Write a genuine, warm 2-sentence response to this Google review.
 
-Customer Name: ${authorName}
+Reviewer: ${authorName}
 Rating: ${rating} Stars
-Review: "${reviewText || 'Great service!'}"
+Review Content: "${reviewText || 'Great service!'}"
 
-Rules:
-- Speak strictly as the owner of ${businessName}.
-- Reference details from their review (e.g., food, service, atmosphere).
-- Absolutely do NOT mention dental care, medical treatments, or unrelated industries unless explicitly referenced in the customer review.
-- No hashtags.`;
+STRICT GUIDELINES:
+1. HIGHLIGHT SPECIFIC ITEMS: If the reviewer mentions specific menu items, products, or service highlights (for example: ice cream flavors, tacos, slices, portion sizes, staff names), you MUST explicitly mention those exact items/details in your reply. Do not give generic compliments when specific items were praised.
+2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a local shop owner. Avoid corporate jargon like "our team puts a lot of passion into crafting every order".
+3. NO HASHTAGS: Strictly forbidden. Do not include any # tags.
+4. FRESH DIVERSITY: Provide a distinct and creative phrasing variation each time this runs.`;
 
         const response = await fetch(
           `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
@@ -57,7 +57,7 @@ Rules:
                 },
               ],
               generationConfig: {
-                temperature: 0.7,
+                temperature: 0.85,
                 maxOutputTokens: 250,
               },
             }),
@@ -134,16 +134,27 @@ function generateDynamicTailoredReply({
 
   // 1. High Rating (5 Stars)
   if (rating >= 5) {
-    // Food / Dining / Hospitality
+    // Specific item detection (e.g. ice cream tacos, tacos, ice cream, pizza, burger, etc.)
+    const itemMatch = textLower.match(/(?:ice cream tacos?|ice cream|tacos?|pizza|slices?|burgers?|pasta|fries|coffee|latte|sandwiches?|wings?|sushi|salad|shakes?|desserts?|specials?)/i);
+    if (itemMatch) {
+      const item = itemMatch[0];
+      const itemVariants = [
+        `Hi ${firstName}, thank you so much for the 5-star review! We're so glad you loved the ${item} at ${businessName}. Can't wait to see you again soon!`,
+        `Thanks for the awesome review, ${firstName}! Hearing how much you enjoyed the ${item} made our day here at ${businessName}. See you next time!`,
+        `Hi ${firstName}, we really appreciate your 5-star review! The ${item} is definitely one of our favorites too. Hope to have you back at ${businessName} soon!`,
+      ];
+      return itemVariants[Math.floor(Math.random() * itemVariants.length)];
+    }
+
+    // Food / Dining / Hospitality general
     if (
-      textLower.includes('pizza') || textLower.includes('crust') || textLower.includes('slice') ||
       textLower.includes('delicious') || textLower.includes('tasty') || textLower.includes('food') ||
-      textLower.includes('meal') || textLower.includes('burger') || textLower.includes('coffee') ||
-      textLower.includes('flavor') || textLower.includes('drink') || textLower.includes('dish')
+      textLower.includes('meal') || textLower.includes('flavor') || textLower.includes('drink') || textLower.includes('dish')
     ) {
       const foodVariants = [
-        `Hi ${firstName}, thank you so much for the 5-star review! We are thrilled you loved your meal and enjoyed your visit to ${businessName}. See you again soon!`,
-        `Thanks a million, ${firstName}! Our entire team takes pride in delivering fresh, delicious flavors, and hearing that you had a great experience made our day.`,
+        `Hi ${firstName}, thank you so much for the 5-star review! We are thrilled you enjoyed your visit to ${businessName}. See you again soon!`,
+        `Thanks a million, ${firstName}! We love hearing that you enjoyed everything during your visit to ${businessName}.`,
+        `Hi ${firstName}! Appreciate the great review—delivering delicious flavors is our passion here at ${businessName}.`,
       ];
       return foodVariants[Math.floor(Math.random() * foodVariants.length)];
     }
@@ -151,8 +162,8 @@ function generateDynamicTailoredReply({
     // Cleanliness / Atmosphere
     if (textLower.includes('clean') || textLower.includes('modern') || textLower.includes('atmosphere') || textLower.includes('vibe') || textLower.includes('space') || textLower.includes('beautiful')) {
       const cleanVariants = [
-        `Thank you so much, ${firstName}! We are thrilled you enjoyed our clean, welcoming space and had a wonderful experience at ${businessName}.`,
-        `Hi ${firstName}, hearing that you enjoyed our atmosphere made our day! We put a lot of care into maintaining a spotless, welcoming environment for all our guests. See you next time!`,
+        `Thank you so much, ${firstName}! We are thrilled you enjoyed the atmosphere and had a wonderful experience at ${businessName}.`,
+        `Hi ${firstName}, hearing that you enjoyed the vibe made our day! We put a lot of care into maintaining a welcoming spot at ${businessName}. See you next time!`,
       ];
       return cleanVariants[Math.floor(Math.random() * cleanVariants.length)];
     }
@@ -165,8 +176,8 @@ function generateDynamicTailoredReply({
     // Fast / Prompt service / Friendly staff
     if (textLower.includes('fast') || textLower.includes('quick') || textLower.includes('prompt') || textLower.includes('wait') || textLower.includes('friendly') || textLower.includes('staff') || textLower.includes('service') || textLower.includes('recommend')) {
       const serviceVariants = [
-        `Hi ${firstName}, thank you for highlighting our prompt service and welcoming team! We respect your time and love making every visit to ${businessName} as seamless as possible.`,
-        `Hello ${firstName}! Your recommendation means the world to everyone at ${businessName}. Providing attentive, high-standard care is what drives us every single day.`,
+        `Hi ${firstName}, thank you for highlighting our prompt service and welcoming team! We love making every visit to ${businessName} as seamless as possible.`,
+        `Hello ${firstName}! Your recommendation means the world to everyone at ${businessName}. We appreciate your support!`,
         `Thanks a million, ${firstName}! We're honored by your 5-star review and thrilled you had such a pleasant experience with our team at ${businessName}.`,
       ];
       return serviceVariants[Math.floor(Math.random() * serviceVariants.length)];
@@ -174,8 +185,8 @@ function generateDynamicTailoredReply({
 
     // Generic 5-Star Varied Pool
     const default5Star = [
-      `Thank you so much for the 5-star review, ${firstName}! We are dedicated to providing personalized, high-quality service and can't wait to welcome you back to ${businessName}.`,
-      `Hi ${firstName}, we truly appreciate your generous feedback! Knowing you had an exceptional visit inspires our whole team at ${businessName} to keep setting the standard.`,
+      `Thank you so much for the 5-star review, ${firstName}! We appreciate your support and can't wait to welcome you back to ${businessName}.`,
+      `Hi ${firstName}, we truly appreciate your generous feedback! Knowing you had an exceptional visit inspires our whole team at ${businessName}.`,
       `Wonderful feedback like yours makes our day, ${firstName}! Thank you for choosing ${businessName} and taking the time to share your experience.`,
       `Hello ${firstName}! We are deeply grateful for your support and thrilled you had such a positive experience. Looking forward to your next visit to ${businessName}!`,
     ];

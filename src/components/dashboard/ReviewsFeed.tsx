@@ -128,10 +128,13 @@ export default function ReviewsFeed({
 
   const handleRegenerate = async (id: string) => {
     setRegeneratingId(id);
-    await regenerateAiReply(id);
-    setTimeout(() => {
+    try {
+      await regenerateAiReply(id);
+    } catch (err) {
+      console.error('Error regenerating AI reply:', err);
+    } finally {
       setRegeneratingId(null);
-    }, 450);
+    }
   };
 
   const handleSimulate = () => {
