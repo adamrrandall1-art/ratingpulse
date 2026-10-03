@@ -258,15 +258,15 @@ export default function ReviewsFeed({
               onClick={() => setStatusFilter('private')}
               className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
                 statusFilter === 'private'
-                  ? 'bg-rose-600 text-white shadow-2xs font-bold'
-                  : 'text-slate-600 hover:text-rose-600'
+                  ? 'bg-slate-900 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <ShieldAlert className="w-3.5 h-3.5" />
               <span>Private Feedback (Gated)</span>
               {(privateFeedbackCount > 0 || unresolvedFeedbackCount > 0) && (
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                  statusFilter === 'private' ? 'bg-rose-800 text-white' : 'bg-rose-100 text-rose-800 animate-pulse'
+                  statusFilter === 'private' ? 'bg-slate-700 text-white' : 'bg-slate-200 text-slate-800'
                 }`}>
                   {privateFeedbackCount || unresolvedFeedbackCount}
                 </span>

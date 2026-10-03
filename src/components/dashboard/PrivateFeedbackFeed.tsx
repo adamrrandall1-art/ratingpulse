@@ -250,15 +250,15 @@ export default function PrivateFeedbackFeed({
       <div className="p-5 bg-white border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
-            <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-sm border border-rose-100">
-              <ShieldAlert className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm border border-slate-200">
+              <ShieldAlert className="w-4 h-4 text-slate-600" />
             </div>
             <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-1.5">
               <span>Private Feedback & Gated Inquiries</span>
             </h2>
 
             {activeUnresolvedCount > 0 ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
                 {activeUnresolvedCount} Needs Attention
               </span>
             ) : (
@@ -367,9 +367,9 @@ export default function PrivateFeedbackFeed({
                 key={item.id}
                 ref={(el) => { itemRefs.current[item.id] = el; }}
                 id={`feedback-${item.id}`}
-                className={`rounded-xl border bg-white p-5 shadow-sm space-y-3 transition-all ${
+                className={`bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-3 transition-all ${
                   isHighlighted
-                    ? 'ring-2 ring-rose-400 border-rose-300 bg-rose-50/30'
+                    ? 'ring-2 ring-blue-400/50 border-blue-300 bg-blue-50/10'
                     : isResolved
                     ? 'border-slate-200 bg-slate-50/40'
                     : 'border-slate-200'
@@ -377,15 +377,15 @@ export default function PrivateFeedbackFeed({
               >
                 {/* Highlight Alert Banner if deep linked */}
                 {isHighlighted && (
-                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold">
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-xs font-medium">
                     <span className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" />
                       Selected from Alert Notification ({customerName})
                     </span>
                     <button
                       type="button"
                       onClick={() => setActiveHighlightId(null)}
-                      className="text-rose-600 hover:text-rose-900 text-[11px] underline cursor-pointer"
+                      className="text-blue-600 hover:text-blue-900 text-[11px] underline cursor-pointer"
                     >
                       Dismiss
                     </button>
@@ -397,10 +397,10 @@ export default function PrivateFeedbackFeed({
                   
                   {/* Left: Customer Info & Star Badge */}
                   <div className="flex items-start gap-3 min-w-0">
-                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
                       <div className="flex items-center gap-0.5">
                         {[...Array(rating)].map((_, i) => (
-                          <Star key={i} className="w-3 h-3 fill-rose-500 text-rose-500" />
+                          <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-500" />
                         ))}
                       </div>
                       <span>{rating}.0 Star</span>
@@ -423,10 +423,8 @@ export default function PrivateFeedbackFeed({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-2 text-xs text-slate-400 font-medium mt-0.5">
-                        <span>{new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-                        <span>•</span>
-                        <span>Intercepted before Google Maps</span>
+                      <div className="text-xs text-slate-500 font-normal mt-0.5">
+                        Gated Private Feedback • {new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                       </div>
                     </div>
                   </div>
@@ -437,7 +435,7 @@ export default function PrivateFeedbackFeed({
                     {customerPhone && !customerPhone.includes('@') && (
                       <a
                         href={`tel:${customerPhone}`}
-                        className="border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors font-medium"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-sm transition"
                         title={`Call ${customerPhone}`}
                       >
                         <Phone className="w-3.5 h-3.5 text-slate-500" />
@@ -449,7 +447,7 @@ export default function PrivateFeedbackFeed({
                     {customerEmail && (
                       <a
                         href={`mailto:${customerEmail}?subject=Following up on your recent experience with our team`}
-                        className="border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors font-medium"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 text-xs font-medium shadow-sm transition"
                         title={`Email ${customerEmail}`}
                       >
                         <Mail className="w-3.5 h-3.5 text-slate-500" />
@@ -461,10 +459,10 @@ export default function PrivateFeedbackFeed({
                     <button
                       type="button"
                       onClick={() => handleToggleContacted(item.id)}
-                      className={`text-xs px-3 py-1.5 rounded-lg transition-colors font-medium flex items-center gap-1.5 cursor-pointer ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition cursor-pointer ${
                         isContacted
-                          ? 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
-                          : 'border border-slate-200 hover:bg-slate-50 text-slate-700'
+                          ? 'border border-blue-300 bg-blue-50 hover:bg-blue-100 text-blue-700'
+                          : 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
                       }`}
                     >
                       <PhoneCall className="w-3.5 h-3.5" />
@@ -475,10 +473,10 @@ export default function PrivateFeedbackFeed({
                     <button
                       type="button"
                       onClick={() => handleToggleResolution(item.id, isResolved ? 'needs_follow_up' : 'resolved')}
-                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer flex items-center gap-1.5 ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm transition cursor-pointer ${
                         isResolved
-                          ? 'border border-slate-200 bg-slate-100 hover:bg-slate-200 text-slate-700'
-                          : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-2xs'
+                          ? 'border border-slate-300 bg-white hover:bg-slate-50 text-slate-700'
+                          : 'bg-emerald-600 hover:bg-emerald-700 text-white'
                       }`}
                     >
                       <Check className="w-3.5 h-3.5" />
@@ -490,7 +488,7 @@ export default function PrivateFeedbackFeed({
                       type="button"
                       onClick={() => handleToggleArchive(item.id)}
                       title={isArchived ? 'Unarchive feedback' : 'Archive feedback'}
-                      className="text-slate-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                      className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition cursor-pointer"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -499,7 +497,7 @@ export default function PrivateFeedbackFeed({
                 </div>
 
                 {/* Customer Feedback Quote Block */}
-                <div className="p-3.5 rounded-lg bg-slate-50/80 border border-slate-100 text-xs text-slate-700 leading-relaxed italic">
+                <div className="p-3.5 rounded-lg bg-slate-50 border border-slate-200 text-sm text-slate-800 leading-relaxed font-normal italic">
                   &quot;{feedbackText || 'Customer submitted a low-star rating on the review gate without additional comments.'}&quot;
                 </div>
 
@@ -526,7 +524,7 @@ export default function PrivateFeedbackFeed({
                         className="text-xs text-slate-500 hover:text-slate-800 font-medium flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         <MessageSquare className="w-3.5 h-3.5 text-slate-400" />
-                        <span>+ Add note / log summary</span>
+                        <span>+ Add internal note</span>
                       </button>
                     )
                   ) : (
