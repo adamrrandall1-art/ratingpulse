@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import {
   Star,
   Sparkles,
   MessageSquareCheck,
   ShieldCheck,
+  ShieldAlert,
   Zap,
   TrendingUp
 } from 'lucide-react';
@@ -14,7 +15,7 @@ import ReviewsFeed from '@/components/dashboard/ReviewsFeed';
 import Link from 'next/link';
 
 export default function ReviewsPage() {
-  const { profile, reviews, pendingReviewsCount, publishedReviewsCount } = useRatingPulseStore();
+  const { profile, reviews, pendingReviewsCount, publishedReviewsCount, privateFeedbackCount, unresolvedFeedbackCount } = useRatingPulseStore();
 
   return (
     <div className="w-full max-w-full overflow-x-hidden space-y-6 pb-24 md:pb-8">
@@ -32,7 +33,7 @@ export default function ReviewsPage() {
         </div>
 
         {/* Quick KPI stats */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="px-3.5 py-2 rounded-xl bg-blue-50 border border-blue-200/80 text-blue-800 text-xs font-bold flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
             {pendingReviewsCount} Awaiting 1-Tap
@@ -41,11 +42,19 @@ export default function ReviewsPage() {
             <ShieldCheck className="w-4 h-4 text-emerald-600" />
             {publishedReviewsCount} Live on Google
           </div>
+          {(privateFeedbackCount > 0 || unresolvedFeedbackCount > 0) && (
+            <div className="px-3.5 py-2 rounded-xl bg-rose-50 border border-rose-200/80 text-rose-800 text-xs font-bold flex items-center gap-1.5">
+              <ShieldAlert className="w-4 h-4 text-rose-600" />
+              {privateFeedbackCount || unresolvedFeedbackCount} Gated Low-Star
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Main Reviews Feed Component */}
-      <ReviewsFeed initialFilter="all" showSimulateButton={true} />
+      {/* Main Reviews Feed Component wrapped in Suspense for useSearchParams */}
+      <Suspense fallback={<div className="p-12 text-center text-xs text-slate-400">Loading reviews...</div>}>
+        <ReviewsFeed initialFilter="all" showSimulateButton={true} />
+      </Suspense>
 
       {/* SEO & Gemini Tips Card */}
       <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">

@@ -206,6 +206,9 @@ export async function POST(req: NextRequest) {
             profileBusinessName ||
             'your business';
 
+    const feedbackRecordId = recordId || effectiveTargetId || '';
+    const feedbackDirectLink = `https://ratingpulse.co/dashboard/reviews?tab=private${feedbackRecordId ? `&id=${feedbackRecordId}` : ''}`;
+
     // 2. Dispatch Email alert to business owner via Resend
     let emailSuccess = false;
     try {
@@ -217,6 +220,7 @@ export async function POST(req: NextRequest) {
         rating: effectiveRating,
         feedbackText: effectiveText || 'No comments provided',
         businessName: resolvedBusinessName,
+        feedbackId: feedbackRecordId,
       });
       emailSuccess = emailResult.success;
     } catch (emailErr) {
@@ -230,7 +234,7 @@ export async function POST(req: NextRequest) {
         const formattedPhone = formatE164(destinationPhone);
         if (formattedPhone) {
           const commentText = effectiveText ? (effectiveText.length > 120 ? `${effectiveText.slice(0, 120)}...` : effectiveText) : 'No comment left';
-          const smsText = `⚠️ RatingPulse Alert: ${customerName || 'A customer'} left a ${effectiveRating}★ review for ${resolvedBusinessName}:\n"${commentText}"\n\nView & reply:\nhttps://ratingpulse.co/dashboard/reviews\n\nReply STOP to unsubscribe.`;
+          const smsText = `⚠️ RatingPulse Alert: ${customerName || 'A customer'} left a ${effectiveRating}★ review for ${resolvedBusinessName}:\n"${commentText}"\n\nView & reply:\n${feedbackDirectLink}\n\nReply STOP to unsubscribe.`;
           const smsResult = await sendTwilioSms(formattedPhone, smsText);
           smsSuccess = smsResult.success;
           if (!smsResult.success) {

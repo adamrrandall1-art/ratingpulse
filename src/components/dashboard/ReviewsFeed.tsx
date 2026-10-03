@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import {
   Star,
   Sparkles,
@@ -15,15 +16,17 @@ import {
   Send,
   ExternalLink,
   ShieldCheck,
+  ShieldAlert,
   ChevronRight,
   Zap,
   Building
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import PrivateFeedbackFeed from './PrivateFeedbackFeed';
 import confetti from 'canvas-confetti';
 
 interface Props {
-  initialFilter?: 'all' | 'pending' | 'published';
+  initialFilter?: 'all' | 'pending' | 'published' | 'private';
   showSimulateButton?: boolean;
   maxItems?: number;
 }
@@ -33,6 +36,10 @@ export default function ReviewsFeed({
   showSimulateButton = true,
   maxItems,
 }: Props) {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams?.get('tab');
+  const idParam = searchParams?.get('id');
+
   const {
     profile,
     reviews,
@@ -43,6 +50,8 @@ export default function ReviewsFeed({
     syncGoogleReviews,
     pendingReviewsCount,
     publishedReviewsCount,
+    privateFeedbackCount,
+    unresolvedFeedbackCount,
     toggleDemoMode,
     searchQuery,
   } = useRatingPulseStore();
@@ -53,13 +62,21 @@ export default function ReviewsFeed({
     profile.google_connected !== false
   );
 
-  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published'>(initialFilter);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published' | 'private'>(
+    tabParam === 'private' || tabParam === 'gated' ? 'private' : initialFilter
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedText, setEditedText] = useState<string>('');
   const [justApprovedId, setJustApprovedId] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tabParam === 'private' || tabParam === 'gated' || idParam) {
+      setStatusFilter('private');
+    }
+  }, [tabParam, idParam]);
 
   if (!isConnected) {
     return (
@@ -237,20 +254,40 @@ export default function ReviewsFeed({
             >
               Published ({publishedReviewsCount})
             </button>
+            <button
+              onClick={() => setStatusFilter('private')}
+              className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                statusFilter === 'private'
+                  ? 'bg-rose-600 text-white shadow-2xs font-bold'
+                  : 'text-slate-600 hover:text-rose-600'
+              }`}
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Private Feedback (Gated)</span>
+              {(privateFeedbackCount > 0 || unresolvedFeedbackCount > 0) && (
+                <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
+                  statusFilter === 'private' ? 'bg-rose-800 text-white' : 'bg-rose-100 text-rose-800 animate-pulse'
+                }`}>
+                  {privateFeedbackCount || unresolvedFeedbackCount}
+                </span>
+              )}
+            </button>
           </div>
 
           {/* Sync Google Reviews Button */}
-          <button
-            onClick={handleSyncGoogleReviews}
-            disabled={isSyncing}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
-          </button>
+          {statusFilter !== 'private' && (
+            <button
+              onClick={handleSyncGoogleReviews}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-bold transition-all shadow-xs transform active:scale-95 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
+            </button>
+          )}
 
           {/* Simulate New Google Review Button */}
-          {showSimulateButton && (
+          {showSimulateButton && statusFilter !== 'private' && (
             <button
               onClick={handleSimulate}
               disabled={isSimulating}
@@ -265,8 +302,10 @@ export default function ReviewsFeed({
 
       </div>
 
-      {/* Reviews Content */}
-      {displayedReviews.length === 0 ? (
+      {/* Main Tab Content */}
+      {statusFilter === 'private' ? (
+        <PrivateFeedbackFeed highlightId={idParam || undefined} />
+      ) : displayedReviews.length === 0 ? (
         <div className="p-12 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center shadow-sm">
           <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
             <Sparkles className="w-6 h-6" />

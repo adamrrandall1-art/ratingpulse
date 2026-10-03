@@ -27,6 +27,7 @@ export interface FeedbackAlertParams {
   rating: number;
   feedbackText: string;
   businessName?: string;
+  feedbackId?: string;
 }
 
 /**
@@ -125,8 +126,11 @@ export async function sendFeedbackAlert({
   rating,
   feedbackText,
   businessName = 'RatingPulse Business',
+  feedbackId,
 }: FeedbackAlertParams) {
   const resend = getResendClient();
+
+  const feedbackDashboardUrl = `https://ratingpulse.co/dashboard/reviews?tab=private${feedbackId ? `&id=${feedbackId}` : ''}`;
 
   if (!resend) {
     console.log('[Resend Alert Simulated] Alert to:', businessOwnerEmail, 'Rating:', rating, 'Feedback:', feedbackText);
@@ -198,12 +202,12 @@ export async function sendFeedbackAlert({
 
               <!-- CTA Action Button -->
               <div style="margin-top: 24px; margin-bottom: 24px; text-align: center;">
-                <a href="https://ratingpulse.co/dashboard/reviews" 
+                <a href="${feedbackDashboardUrl}" 
                    style="background-color: #2563eb; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; display: inline-block; box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);">
                   View Feedback in Dashboard
                 </a>
                 <p style="margin-top: 14px; font-size: 13px; color: #6b7280;">
-                  Or visit directly: <a href="https://ratingpulse.co/dashboard/reviews" style="color: #2563eb; text-decoration: underline;">https://ratingpulse.co/dashboard/reviews</a>
+                  Or visit directly: <a href="${feedbackDashboardUrl}" style="color: #2563eb; text-decoration: underline;">${feedbackDashboardUrl}</a>
                 </p>
               </div>
 
@@ -235,7 +239,7 @@ Customer Feedback:
 "${feedbackText || 'No comments provided'}"
 
 View and respond to this feedback:
-https://ratingpulse.co/dashboard/reviews
+${feedbackDashboardUrl}
 `;
 
   const fallbackRecipient = process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
