@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 interface GenerateReplyPayload {
   reviewText?: string;
@@ -28,60 +29,53 @@ export async function POST(req: NextRequest) {
     const apiKey =
       process.env.GEMINI_API_KEY ||
       process.env.GOOGLE_API_KEY ||
-      process.env.GOOGLE_GENAI_API_KEY;
+      process.env.GOOGLE_GENAI_API_KEY ||
+      '';
+
+    if (!apiKey) {
+      console.error('[Gemini API] GEMINI_API_KEY environment variable is not set! Missing API Key.');
+    }
 
     if (apiKey) {
       try {
-        const prompt = `You are the owner of "${businessName}". Write a genuine, warm 2-sentence response to this Google review.
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({
+          model: 'gemini-1.5-flash',
+          generationConfig: {
+            temperature: 0.9,
+            maxOutputTokens: 150,
+          },
+        });
+
+        const prompt = `You are the owner of "${businessName || 'our business'}". Write a natural, warm, and authentic 2-sentence response to this customer review.
 
 Reviewer: ${authorName}
 Rating: ${rating} Stars
-Review Content: "${reviewText || 'Great service!'}"
+Review: "${reviewText || 'Great service!'}"
 
-STRICT GUIDELINES:
-1. HIGHLIGHT SPECIFIC ITEMS: If the reviewer mentions specific menu items, products, or service highlights (for example: ice cream flavors, tacos, slices, portion sizes, staff names), you MUST explicitly mention those exact items/details in your reply. Do not give generic compliments when specific items were praised.
-2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a local shop owner. Avoid corporate jargon like "our team puts a lot of passion into crafting every order".
-3. NO HASHTAGS: Strictly forbidden. Do not include any # tags.
-4. FRESH DIVERSITY: Provide a distinct and creative phrasing variation each time this runs.`;
+MANDATORY RULES:
+1. NEVER use generic templates or robotic formulas (e.g., do NOT say "We are grateful for your review and can't wait to provide you with another 5-star experience").
+2. CONCRETE SPECIFICS: Look at what the reviewer actually wrote. If they mention specific items, flavors, portion sizes, prices, or details (like "ice cream tacos", "Dole whip", "gelato", "creative twists", "slices", "tacos", "coffee"), you MUST mention those exact highlights.
+3. NO HASHTAGS: Do not include hashtags.
+4. PERSONAL TONE: Speak casually and genuinely, like a proud local business owner speaking to a valued neighbor.`;
 
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [
-                {
-                  role: 'user',
-                  parts: [{ text: prompt }],
-                },
-              ],
-              generationConfig: {
-                temperature: 0.85,
-                maxOutputTokens: 250,
-              },
-            }),
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (generatedText && generatedText.trim()) {
-            const cleaned = generatedText
-              .trim()
-              .replace(/^["']|["']$/g, '')
-              .replace(/#\w+/g, '')
-              .trim();
-            return NextResponse.json({
-              success: true,
-              reply: cleaned,
-              model: 'gemini-1.5-flash',
-            });
-          }
+        const result = await model.generateContent(prompt);
+        const rawReply = result.response.text();
+        if (rawReply && rawReply.trim()) {
+          const cleaned = rawReply
+            .trim()
+            .replace(/^["']|["']$/g, '')
+            .replace(/#\w+/g, '')
+            .trim();
+          return NextResponse.json({
+            success: true,
+            reply: cleaned,
+            replyText: cleaned,
+            model: 'gemini-1.5-flash',
+          });
         }
       } catch (geminiErr) {
-        console.warn('Gemini API call failed, using intelligent dynamic fallback engine:', geminiErr);
+        console.error('[Gemini API Error]:', geminiErr);
       }
     }
 

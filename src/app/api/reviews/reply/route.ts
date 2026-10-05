@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createClient } from '@supabase/supabase-js';
 import { getValidAccessTokenForProfile, replyToGBPReview } from '@/lib/google-gbp';
 import { Profile } from '@/lib/supabase/types';
@@ -20,9 +21,6 @@ export async function POST(req: NextRequest) {
       replyText,
       userId,
       action,
-      businessCategory = 'Local Business',
-      tone = 'friendly_professional',
-      keywords = [],
     } = body;
 
     const reviewerName = body.reviewerName || body.authorName || 'Valued Customer';
@@ -30,81 +28,98 @@ export async function POST(req: NextRequest) {
     const rating = Number(body.rating) || 5;
     const businessName = body.businessName || 'our business';
 
-    // If generation/regeneration is requested (or replyText is omitted):
-    if (action === 'generate' || action === 'regenerate' || (!replyText && (effectiveReviewText || reviewId))) {
+    // If generation or regeneration is requested (or replyText is omitted):
+    if (action === 'generate' || action === 'regenerate' || (!replyText && (effectiveReviewText || reviewId || reviewerName))) {
       const apiKey =
         process.env.GEMINI_API_KEY ||
         process.env.GOOGLE_API_KEY ||
-        process.env.GOOGLE_GENAI_API_KEY;
+        process.env.GOOGLE_GENAI_API_KEY ||
+        '';
+
+      if (!apiKey) {
+        console.error('[Gemini API] GEMINI_API_KEY environment variable is not set! Missing API Key.');
+      }
 
       if (apiKey) {
         try {
-          const prompt = `You are the owner of "${businessName}". Write a genuine, warm 2-sentence response to this Google review.
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({
+            model: 'gemini-1.5-flash',
+            generationConfig: {
+              temperature: 0.9, // Ensures creative and diverse phrasing on every regeneration
+              maxOutputTokens: 150,
+            },
+          });
+
+          const prompt = `You are the owner of "${businessName || 'our business'}". Write a natural, warm, and authentic 2-sentence response to this customer review.
 
 Reviewer: ${reviewerName}
-Rating: ${rating} Stars
-Review Content: "${effectiveReviewText || 'Great service!'}"
+Rating: ${rating || 5} Stars
+Review: "${effectiveReviewText || 'Great experience!'}"
 
-STRICT GUIDELINES:
-1. HIGHLIGHT SPECIFIC ITEMS: If the reviewer mentions specific menu items, products, or service highlights, explicitly mention them.
-2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a genuine local business owner.
-3. NO HASHTAGS: Strictly forbidden.
-4. FRESH DIVERSITY: Provide a distinct, creative phrasing variation each time.`;
+MANDATORY RULES:
+1. NEVER use generic templates or robotic formulas (e.g., do NOT say "We are grateful for your review and can't wait to provide you with another 5-star experience").
+2. CONCRETE SPECIFICS: Look at what the reviewer actually wrote. If they mention specific items, flavors, portion sizes, prices, or details (like "ice cream tacos", "Dole whip", "gelato", "creative twists", "slices", "tacos", "coffee"), you MUST mention those exact highlights.
+3. NO HASHTAGS: Do not include hashtags.
+4. PERSONAL TONE: Speak casually and genuinely, like a proud local business owner speaking to a valued neighbor.`;
 
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-            {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: {
-                  temperature: 0.9,
-                  maxOutputTokens: 250,
-                },
-              }),
-            }
-          );
+          const result = await model.generateContent(prompt);
+          const rawReply = result.response.text();
+          if (rawReply && rawReply.trim()) {
+            const cleaned = rawReply
+              .trim()
+              .replace(/^["']|["']$/g, '')
+              .replace(/#\w+/g, '')
+              .trim();
 
-          if (response.ok) {
-            const data = await response.json();
-            const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (generatedText && generatedText.trim()) {
-              const cleaned = generatedText
-                .trim()
-                .replace(/^["']|["']$/g, '')
-                .replace(/#\w+/g, '')
-                .trim();
-              return NextResponse.json({
-                success: true,
-                reply: cleaned,
-                replyText: cleaned,
-                model: 'gemini-1.5-flash',
-              });
-            }
+            return NextResponse.json({
+              success: true,
+              reply: cleaned,
+              replyText: cleaned,
+              model: 'gemini-1.5-flash',
+            });
           }
-        } catch (geminiErr) {
-          console.warn('[API /api/reviews/reply Gemini Exception]:', geminiErr);
+        } catch (geminiError: any) {
+          console.error('[Gemini API Error]:', geminiError);
         }
       }
 
-      // Dynamic Contextual Fallback Generator (No static modulo rotation)
+      // Dynamic Contextual Item-Aware Generator (Guarantees specific detail extraction even if API key is not active)
       const firstName = reviewerName.split(' ')[0] || 'there';
-      const fallbackTemplates = [
-        `Hi ${firstName}, thank you so much for taking the time to share your feedback with us! We appreciate your support of ${businessName} and look forward to welcoming you back soon.`,
-        `Hello ${firstName}! We are thrilled to hear you had a great experience with our team at ${businessName}. Thank you for your support and see you next time!`,
-        `Hi ${firstName}, thanks a million for the positive rating! Hearing from wonderful customers like you truly makes our day at ${businessName}.`,
-        `Thanks for visiting ${businessName}, ${firstName}! We are grateful for your review and can't wait to provide you with another 5-star experience on your next visit.`,
-      ];
-      const randomFallback = fallbackTemplates[Math.floor(Math.random() * fallbackTemplates.length)];
+      const textLower = effectiveReviewText.toLowerCase();
+
+      // Specific item matcher (e.g., ice cream tacos, dole whip, gelato, flavors, tacos, pizza, etc.)
+      const itemMatch = textLower.match(/(?:ice cream tacos?|dole whip|gelato|sorbet|ice cream|twist|waffle cones?|sundaes?|tacos?|pizza|slices?|burgers?|pasta|fries|coffee|latte|sandwiches?|wings?|sushi|salad|shakes?|desserts?|specials?)/i);
+      
+      let fallbackReply = '';
+      if (itemMatch) {
+        const item = itemMatch[0];
+        const itemVariants = [
+          `Hi ${firstName}, thank you so much for the review! We're thrilled that you loved the ${item} at ${businessName}, and we can't wait to have you back for more soon!`,
+          `Thanks for stopping by, ${firstName}! Hearing how much you enjoyed the ${item} totally made our day here at ${businessName}. See you next time!`,
+          `Hi ${firstName}, we really appreciate your support! The ${item} is a huge favorite around ${businessName} too—so glad it hit the spot for you!`,
+        ];
+        fallbackReply = itemVariants[Math.floor(Math.random() * itemVariants.length)];
+      } else if (rating >= 5) {
+        const fiveStarPool = [
+          `Hi ${firstName}, thank you so much for the fantastic 5-star rating! Everyone at ${businessName} appreciates your support and we're looking forward to seeing you again soon.`,
+          `Thanks a ton, ${firstName}! We love making every visit special at ${businessName} and truly appreciate you taking the time to share your experience.`,
+          `Hello ${firstName}! Your kind words mean the world to our team at ${businessName}. We can't wait to welcome you back!`,
+        ];
+        fallbackReply = fiveStarPool[Math.floor(Math.random() * fiveStarPool.length)];
+      } else {
+        fallbackReply = `Hi ${firstName}, thank you for your feedback. We always strive to give everyone the best experience at ${businessName}, and we'd love the opportunity to welcome you back soon.`;
+      }
+
       return NextResponse.json({
         success: true,
-        reply: randomFallback,
-        replyText: randomFallback,
-        model: 'dynamic-fallback',
+        reply: fallbackReply,
+        replyText: fallbackReply,
+        model: 'dynamic-contextual-fallback',
       });
     }
 
+    // Handle Review Publishing to GBP and Database
     if (!reviewId || !replyText || typeof replyText !== 'string' || !replyText.trim()) {
       return NextResponse.json(
         { success: false, error: 'Both reviewId and a non-empty replyText are required.' },
@@ -117,7 +132,6 @@ STRICT GUIDELINES:
     let localReviewRecord: any = null;
 
     if (supabase) {
-      // 1. Locate review in local database
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(reviewId);
       if (isUuid) {
         const { data: revData } = await supabase
@@ -129,7 +143,6 @@ STRICT GUIDELINES:
       }
 
       const targetUserId = userId || localReviewRecord?.user_id;
-
       if (targetUserId) {
         const { data: profData } = await supabase
           .from('profiles')
@@ -144,7 +157,6 @@ STRICT GUIDELINES:
     const effectiveLocationId = profile?.google_location_id;
     const cleanGoogleReviewId = reviewId.replace(/^rev_gbp_/, '').replace(/^rev_google_/, '').replace(/^rev_/, '');
 
-    // 2. Publish to Google Business Profile via API if OAuth is connected
     let gbpPublished = false;
     let publishError: string | null = null;
 
@@ -173,7 +185,6 @@ STRICT GUIDELINES:
       }
     }
 
-    // 3. Update local database record
     const repliedAt = new Date().toISOString();
     if (supabase && localReviewRecord?.id) {
       await supabase
@@ -194,10 +205,10 @@ STRICT GUIDELINES:
       replied_at: repliedAt,
       warning: publishError || undefined,
     });
-  } catch (err: any) {
-    console.error('[API /api/reviews/reply Exception]:', err);
+  } catch (error: any) {
+    console.error('[API /api/reviews/reply Error]:', error);
     return NextResponse.json(
-      { success: false, error: err?.message || 'Failed to publish review reply' },
+      { error: error?.message || 'Failed to process review reply' },
       { status: 500 }
     );
   }
