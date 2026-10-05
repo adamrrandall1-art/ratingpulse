@@ -135,7 +135,7 @@ STRICT RULES:
 2. NATURAL TONE: Talk like a proud local business owner speaking directly to a community customer.
 3. NO HASHTAGS.`;
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError: any = null;
 
