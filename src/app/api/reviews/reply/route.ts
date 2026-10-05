@@ -27,6 +27,7 @@ export async function POST(req: NextRequest) {
 
     const reviewerName = body.reviewerName || body.authorName || 'Valued Customer';
     const effectiveReviewText = body.reviewText || body.text || '';
+    const rating = Number(body.rating) || 5;
     const businessName = body.businessName || 'our business';
 
     // If publishing an existing approved reply:
@@ -121,15 +122,20 @@ export async function POST(req: NextRequest) {
     // Call Gemini to generate a response
     if (!process.env.GEMINI_API_KEY) {
       console.error('Missing GEMINI_API_KEY in environment');
-      return NextResponse.json({ error: 'Missing API Key' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
     }
 
-    const prompt = `You are the owner of "${businessName || 'our business'}". Write a warm, genuine 2-sentence reply to this review. Do not use generic corporate language or rigid templates. Celebrate specific things they mentioned (like menu items or atmosphere).
-
+    const prompt = `You are the local business owner of "${businessName || 'our business'}". Write a warm, authentic, 2-sentence response to this Google review.
 Reviewer: ${reviewerName}
-Review: "${effectiveReviewText}"`;
+Rating: ${rating || 5} Stars
+Review Content: "${effectiveReviewText}"
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+STRICT RULES:
+1. SPECIFICS: Explicitly highlight and celebrate whatever specific items or details they mention (e.g. ice cream tacos, dole whip, flavors, friendly service). Never give a generic copy-paste reply.
+2. NATURAL TONE: Talk like a proud local business owner speaking directly to a community customer.
+3. NO HASHTAGS.`;
+
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError: any = null;
 
@@ -137,14 +143,17 @@ Review: "${effectiveReviewText}"`;
       try {
         const model = genAI.getGenerativeModel({
           model: modelName,
-          generationConfig: { temperature: 0.95 },
+          generationConfig: {
+            temperature: 0.85,
+            maxOutputTokens: 150,
+          },
         });
         const result = await model.generateContent(prompt);
         reply = result.response.text().trim();
         if (reply) break;
       } catch (e: any) {
         lastError = e;
-        console.warn(`[Gemini API] Candidate model ${modelName} failed:`, e?.message || e);
+        console.warn(`[Gemini API] Model ${modelName} failed:`, e?.message || e);
       }
     }
 
@@ -153,8 +162,8 @@ Review: "${effectiveReviewText}"`;
     }
 
     return NextResponse.json({ reply, replyText: reply });
-  } catch (err: any) {
-    console.error('Gemini API execution error:', err);
-    return NextResponse.json({ error: err.message || 'Failed to generate reply' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[Gemini API Route Error]:', error);
+    return NextResponse.json({ error: error?.message || 'Failed to generate reply' }, { status: 500 });
   }
 }

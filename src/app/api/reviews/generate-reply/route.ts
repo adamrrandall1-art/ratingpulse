@@ -50,7 +50,7 @@ MANDATORY RULES:
 3. NO HASHTAGS: Do not include hashtags.
 4. PERSONAL TONE: Speak casually and genuinely, like a proud local business owner speaking to a valued neighbor.`;
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError: any = null;
 
