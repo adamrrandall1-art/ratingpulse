@@ -38,17 +38,16 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const prompt = `You are the owner of "${businessName || 'our business'}". Write a natural, warm, and authentic 2-sentence response to this customer review.
+    const prompt = `Write a friendly, authentic 2-sentence reply from the owner of "${businessName || "Scoop 'n Twist"}" to this Google review.
 
-Reviewer: ${authorName}
+Customer Name: ${authorName}
 Rating: ${rating} Stars
 Review: "${reviewText || 'Great service!'}"
 
-MANDATORY RULES:
-1. NEVER use generic templates or robotic formulas.
-2. CONCRETE SPECIFICS: Look at what the reviewer actually wrote. If they mention specific items, flavors, portion sizes, prices, or details (like "ice cream tacos", "Dole whip", "gelato", "creative twists", "slices", "tacos", "coffee"), you MUST mention those exact highlights.
-3. NO HASHTAGS: Do not include hashtags.
-4. PERSONAL TONE: Speak casually and genuinely, like a proud local business owner speaking to a valued neighbor.`;
+Guidelines:
+- Speak directly to the customer in a warm, appreciative tone.
+- Mention and celebrate at least one specific detail or item they brought up in their review (e.g., flavors, ice cream tacos, customer service).
+- Return ONLY the final reply text. Do not include quotes, greetings like "Here is a reply:", instructions, or extra commentary.`;
 
     const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
@@ -59,8 +58,8 @@ MANDATORY RULES:
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            temperature: 0.95,
-            maxOutputTokens: 150,
+            temperature: 0.7,
+            maxOutputTokens: 300,
           },
         });
         const result = await model.generateContent(prompt);

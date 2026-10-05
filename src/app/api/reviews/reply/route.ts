@@ -125,15 +125,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
     }
 
-    const prompt = `You are the local business owner of "${businessName || 'our business'}". Write a warm, authentic, 2-sentence response to this Google review.
-Reviewer: ${reviewerName}
-Rating: ${rating || 5} Stars
-Review Content: "${effectiveReviewText}"
+    const prompt = `Write a friendly, authentic 2-sentence reply from the owner of "${businessName || "Scoop 'n Twist"}" to this Google review.
 
-STRICT RULES:
-1. SPECIFICS: Explicitly highlight and celebrate whatever specific items or details they mention (e.g. ice cream tacos, dole whip, flavors, friendly service). Never give a generic copy-paste reply.
-2. NATURAL TONE: Talk like a proud local business owner speaking directly to a community customer.
-3. NO HASHTAGS.`;
+Customer Name: ${reviewerName}
+Rating: ${rating || 5} Stars
+Review: "${effectiveReviewText}"
+
+Guidelines:
+- Speak directly to the customer in a warm, appreciative tone.
+- Mention and celebrate at least one specific detail or item they brought up in their review (e.g., flavors, ice cream tacos, customer service).
+- Return ONLY the final reply text. Do not include quotes, greetings like "Here is a reply:", instructions, or extra commentary.`;
 
     const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
@@ -144,8 +145,8 @@ STRICT RULES:
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
-            temperature: 0.85,
-            maxOutputTokens: 150,
+            temperature: 0.7,
+            maxOutputTokens: 300,
           },
         });
         const result = await model.generateContent(prompt);
