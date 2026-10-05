@@ -13,6 +13,7 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: NextRequest) {
@@ -126,46 +127,57 @@ export async function POST(req: NextRequest) {
     }
 
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
-Write a complete, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
+Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
 Customer review: "${effectiveReviewText}"
 
-Requirements:
+Rules:
 - Mention at least one specific item or detail they wrote about.
-- Keep it natural, appreciative, and concise.
-- Output ONLY the final response text with no quotes, preamble, or markdown.`;
+- Output ONLY the final response text with no quotes, greetings, or commentary.`;
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash'];
+    // Candidate models in order of priority
+    const modelNames = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelCandidates) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            // Turn off thinking / reasoning tokens so it returns ONLY the final reply
-            // @ts-ignore
-            thinkingConfig: { thinkingBudget: 0 },
-            temperature: 0.7,
-            maxOutputTokens: 250,
-          },
-        });
-        const result = await model.generateContent(prompt);
-        let rawReply = result.response.text().trim();
-        // Strip any accidental markdown formatting or surrounding quotes
-        rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
-        if (rawReply) {
-          reply = rawReply;
+    for (const modelName of modelNames) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              // @ts-ignore
+              thinkingConfig: { thinkingBudget: 0 },
+              temperature: 0.75,
+              maxOutputTokens: 250,
+            },
+          });
+
+          const result = await model.generateContent(prompt);
+          reply = result.response.text().trim().replace(/^["']|["']$/g, '');
+          if (reply) break;
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Gemini API] Model ${modelName} attempt ${attempt + 1} failed:`, err?.message || err);
+          // If 503 high demand or 429, wait 600ms and try next attempt/model
+          if (
+            err?.status === 503 ||
+            err?.status === 429 ||
+            err?.message?.includes('503') ||
+            err?.message?.includes('429') ||
+            err?.message?.includes('high demand') ||
+            err?.message?.includes('overloaded')
+          ) {
+            await sleep(600);
+            continue;
+          }
           break;
         }
-      } catch (e: any) {
-        lastError = e;
-        console.warn(`[Gemini API] Model ${modelName} failed:`, e?.message || e);
       }
+      if (reply) break;
     }
 
-    if (!reply && lastError) {
-      throw lastError;
+    if (!reply) {
+      throw lastError || new Error('All model attempts failed');
     }
 
     console.log("Full generated reply from Gemini:", reply);
@@ -173,6 +185,6 @@ Requirements:
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
     console.error('[Gemini API Route Error]:', error);
-    return NextResponse.json({ error: error?.message || 'Failed to generate reply' }, { status: 500 });
+    return NextResponse.json({ error: 'AI generation temporarily busy. Please tap regenerate again.' }, { status: 500 });
   }
 }

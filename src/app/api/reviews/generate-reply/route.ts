@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing Gemini API Key' }, { status: 500 });
     }
 
+    const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
     const genAI = new GoogleGenerativeAI(apiKey);
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
 Write a complete, authentic 2-sentence reply thanking ${authorName} for their ${rating}-star review.
@@ -47,43 +48,58 @@ Requirements:
 - Keep it natural, appreciative, and concise.
 - Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash'];
+    const modelNames = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelCandidates) {
-      try {
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: {
-            // @ts-ignore
-            thinkingConfig: { thinkingBudget: 0 },
-            temperature: 0.7,
-            maxOutputTokens: 250,
-          },
-        });
-        const result = await model.generateContent(prompt);
-        let rawReply = result.response.text().trim();
-        rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
-        if (rawReply) {
-          reply = rawReply;
+    for (const modelName of modelNames) {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const model = genAI.getGenerativeModel({
+            model: modelName,
+            generationConfig: {
+              // @ts-ignore
+              thinkingConfig: { thinkingBudget: 0 },
+              temperature: 0.75,
+              maxOutputTokens: 250,
+            },
+          });
+          const result = await model.generateContent(prompt);
+          let rawReply = result.response.text().trim();
+          rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
+          if (rawReply) {
+            reply = rawReply;
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          console.warn(`[Gemini API] Model ${modelName} attempt ${attempt + 1} failed:`, err?.message || err);
+          if (
+            err?.status === 503 ||
+            err?.status === 429 ||
+            err?.message?.includes('503') ||
+            err?.message?.includes('429') ||
+            err?.message?.includes('high demand') ||
+            err?.message?.includes('overloaded')
+          ) {
+            await sleep(600);
+            continue;
+          }
           break;
         }
-      } catch (e: any) {
-        lastError = e;
-        console.warn(`[Gemini API] Candidate model ${modelName} failed:`, e?.message || e);
       }
+      if (reply) break;
     }
 
-    if (!reply && lastError) {
-      throw lastError;
+    if (!reply) {
+      throw lastError || new Error('All model attempts failed');
     }
 
     return NextResponse.json({
       success: true,
       reply,
       replyText: reply,
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
     });
   } catch (error: any) {
     console.error('Review Reply Generation API error:', error);
