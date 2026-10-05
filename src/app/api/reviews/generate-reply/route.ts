@@ -48,12 +48,12 @@ Requirements:
 - Keep it natural, appreciative, and concise.
 - Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-    const modelNames = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelNames) {
-      for (let attempt = 0; attempt < 2; attempt++) {
+    for (const modelName of modelsToTry) {
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const model = genAI.getGenerativeModel({
             model: modelName,
@@ -65,24 +65,24 @@ Requirements:
             },
           });
           const result = await model.generateContent(prompt);
-          let rawReply = result.response.text().trim();
-          rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
-          if (rawReply) {
-            reply = rawReply;
+          const rawText = result.response.text();
+          if (rawText && rawText.trim().length > 0) {
+            reply = rawText.trim().replace(/^["']|["']$/g, '');
             break;
           }
         } catch (err: any) {
           lastError = err;
-          console.warn(`[Gemini API] Model ${modelName} attempt ${attempt + 1} failed:`, err?.message || err);
-          if (
-            err?.status === 503 ||
+          const isThrottle =
             err?.status === 429 ||
-            err?.message?.includes('503') ||
+            err?.status === 503 ||
             err?.message?.includes('429') ||
+            err?.message?.includes('503') ||
             err?.message?.includes('high demand') ||
-            err?.message?.includes('overloaded')
-          ) {
-            await sleep(600);
+            err?.message?.includes('overloaded') ||
+            err?.message?.includes('Resource has been exhausted');
+
+          if (isThrottle && attempt < 3) {
+            await sleep(1200 * attempt);
             continue;
           }
           break;
@@ -92,7 +92,8 @@ Requirements:
     }
 
     if (!reply) {
-      throw lastError || new Error('All model attempts failed');
+      console.error('All Gemini attempts failed:', lastError);
+      return NextResponse.json({ error: 'Google AI is currently busy. Please wait a few seconds and try again.' }, { status: 503 });
     }
 
     return NextResponse.json({

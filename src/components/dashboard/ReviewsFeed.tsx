@@ -727,10 +727,10 @@ export default function ReviewsFeed({
                                     type="button"
                                     onClick={() => handleRegenerate(rev.id)}
                                     disabled={isRegenerating}
-                                    className="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-[10px] cursor-pointer"
+                                    className="text-slate-400 hover:text-blue-600 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1 text-[10px] cursor-pointer"
                                   >
                                     <RefreshCw className={`w-2.5 h-2.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                                    <span>↻ Regenerate</span>
+                                    <span>{isRegenerating ? 'Drafting...' : '↻ Regenerate'}</span>
                                   </button>
                                 )}
                               </div>

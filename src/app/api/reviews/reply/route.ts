@@ -131,16 +131,17 @@ Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${ra
 Customer review: "${effectiveReviewText}"
 
 Rules:
-- Mention at least one specific item or detail they wrote about.
-- Output ONLY the final response text with no quotes, greetings, or commentary.`;
+- Mention at least one specific detail or menu item they wrote about.
+- Keep it natural and neighborly.
+- Output ONLY the final response text without quotes or commentary.`;
 
-    // Candidate models in order of priority
-    const modelNames = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelNames) {
-      for (let attempt = 0; attempt < 2; attempt++) {
+    for (const modelName of modelsToTry) {
+      // Attempt up to 3 times per model with increasing backoff
+      for (let attempt = 1; attempt <= 3; attempt++) {
         try {
           const model = genAI.getGenerativeModel({
             model: modelName,
@@ -153,38 +154,44 @@ Rules:
           });
 
           const result = await model.generateContent(prompt);
-          reply = result.response.text().trim().replace(/^["']|["']$/g, '');
-          if (reply) break;
+          const rawText = result.response.text();
+          if (rawText && rawText.trim().length > 0) {
+            reply = rawText.trim().replace(/^["']|["']$/g, '');
+            break;
+          }
         } catch (err: any) {
           lastError = err;
-          console.warn(`[Gemini API] Model ${modelName} attempt ${attempt + 1} failed:`, err?.message || err);
-          // If 503 high demand or 429, wait 600ms and try next attempt/model
-          if (
-            err?.status === 503 ||
+          const isThrottle =
             err?.status === 429 ||
-            err?.message?.includes('503') ||
+            err?.status === 503 ||
             err?.message?.includes('429') ||
+            err?.message?.includes('503') ||
             err?.message?.includes('high demand') ||
-            err?.message?.includes('overloaded')
-          ) {
-            await sleep(600);
+            err?.message?.includes('overloaded') ||
+            err?.message?.includes('Resource has been exhausted');
+
+          if (isThrottle && attempt < 3) {
+            // Wait 1.2s on first retry, 2.4s on second retry
+            console.warn(`[Gemini API] Throttled on ${modelName} (attempt ${attempt}), backing off for ${1200 * attempt}ms...`);
+            await sleep(1200 * attempt);
             continue;
           }
-          break;
+          break; // If non-throttle error, move to next model
         }
       }
       if (reply) break;
     }
 
     if (!reply) {
-      throw lastError || new Error('All model attempts failed');
+      console.error('All Gemini attempts failed:', lastError);
+      return NextResponse.json({ error: 'Google AI is currently busy. Please wait a few seconds and try again.' }, { status: 503 });
     }
 
     console.log("Full generated reply from Gemini:", reply);
 
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
-    console.error('[Gemini API Route Error]:', error);
-    return NextResponse.json({ error: 'AI generation temporarily busy. Please tap regenerate again.' }, { status: 500 });
+    console.error('[Gemini Route Error]:', error);
+    return NextResponse.json({ error: 'Server error processing reply' }, { status: 500 });
   }
 }
