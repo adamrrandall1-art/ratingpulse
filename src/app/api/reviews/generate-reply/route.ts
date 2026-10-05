@@ -34,66 +34,45 @@ export async function POST(req: NextRequest) {
 
     if (!apiKey) {
       console.error('[Gemini API] GEMINI_API_KEY environment variable is not set! Missing API Key.');
+      return NextResponse.json({ error: 'Missing Gemini API Key' }, { status: 500 });
     }
 
-    if (apiKey) {
-      try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-          model: 'gemini-1.5-flash',
-          generationConfig: {
-            temperature: 0.9,
-            maxOutputTokens: 150,
-          },
-        });
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      generationConfig: {
+        temperature: 0.95,
+        maxOutputTokens: 150,
+      },
+    });
 
-        const prompt = `You are the owner of "${businessName || 'our business'}". Write a natural, warm, and authentic 2-sentence response to this customer review.
+    const prompt = `You are the owner of "${businessName || 'our business'}". Write a natural, warm, and authentic 2-sentence response to this customer review.
 
 Reviewer: ${authorName}
 Rating: ${rating} Stars
 Review: "${reviewText || 'Great service!'}"
 
 MANDATORY RULES:
-1. NEVER use generic templates or robotic formulas (e.g., do NOT say "We are grateful for your review and can't wait to provide you with another 5-star experience").
+1. NEVER use generic templates or robotic formulas.
 2. CONCRETE SPECIFICS: Look at what the reviewer actually wrote. If they mention specific items, flavors, portion sizes, prices, or details (like "ice cream tacos", "Dole whip", "gelato", "creative twists", "slices", "tacos", "coffee"), you MUST mention those exact highlights.
 3. NO HASHTAGS: Do not include hashtags.
 4. PERSONAL TONE: Speak casually and genuinely, like a proud local business owner speaking to a valued neighbor.`;
 
-        const result = await model.generateContent(prompt);
-        const rawReply = result.response.text();
-        if (rawReply && rawReply.trim()) {
-          const cleaned = rawReply
-            .trim()
-            .replace(/^["']|["']$/g, '')
-            .replace(/#\w+/g, '')
-            .trim();
-          return NextResponse.json({
-            success: true,
-            reply: cleaned,
-            replyText: cleaned,
-            model: 'gemini-1.5-flash',
-          });
-        }
-      } catch (geminiErr) {
-        console.error('[Gemini API Error]:', geminiErr);
-      }
-    }
-
-    // Dynamic Context-Aware Fallback Generator (Produces distinct, tailored variations)
-    const reply = generateDynamicTailoredReply({
-      reviewText,
-      authorName,
-      rating,
-      businessName,
-      businessCategory,
-      tone,
-      keywords,
-    });
+    const result = await model.generateContent(prompt);
+    const rawReply = result.response.text();
+    const cleaned = rawReply
+      ? rawReply
+          .trim()
+          .replace(/^["']|["']$/g, '')
+          .replace(/#\w+/g, '')
+          .trim()
+      : '';
 
     return NextResponse.json({
       success: true,
-      reply,
-      model: 'intelligent-engine',
+      reply: cleaned,
+      replyText: cleaned,
+      model: 'gemini-1.5-flash',
     });
   } catch (error: any) {
     console.error('Review Reply Generation API error:', error);

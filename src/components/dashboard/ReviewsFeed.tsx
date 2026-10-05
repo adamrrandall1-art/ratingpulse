@@ -146,7 +146,7 @@ export default function ReviewsFeed({
     }, 1200);
   };
 
-  const handleRegenerate = async (reviewOrId: Review | string) => {
+  const handleRegenerate = async (reviewOrId: any) => {
     const review = typeof reviewOrId === 'string' ? reviews.find((r) => r.id === reviewOrId) : reviewOrId;
     if (!review) return;
     setRegeneratingId(review.id);
@@ -155,27 +155,24 @@ export default function ReviewsFeed({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          action: 'regenerate',
-          reviewId: review.id,
           reviewerName: review.author_name,
-          rating: review.rating,
-          reviewText: review.review_text || (review as any).text || '',
-          businessName: profile?.business_name || 'our business',
+          reviewText: review.review_text || review.text || '',
+          businessName: profile?.business_name || "Scoop 'n Twist",
         }),
       });
       const data = await res.json();
-      const newReply = data?.reply || data?.replyText;
-      if (newReply) {
-        setReviewDrafts((prev) => ({ ...prev, [review.id]: newReply }));
-        updateDraftText(review.id, newReply);
-      } else {
-        const storeReply = await regenerateAiReply(review.id);
-        if (storeReply) {
-          setReviewDrafts((prev) => ({ ...prev, [review.id]: storeReply }));
-        }
+      if (!res.ok) {
+        alert("Gemini Error: " + (data.error || "Failed to generate"));
+        return;
       }
-    } catch (err) {
-      console.error('Error regenerating AI reply:', err);
+      // Set the updated reply directly in state
+      const generatedReply = data.reply || data.replyText;
+      if (generatedReply) {
+        setReviewDrafts((prev) => ({ ...prev, [review.id]: generatedReply }));
+        updateDraftText(review.id, generatedReply);
+      }
+    } catch (err: any) {
+      alert("Network error: " + err.message);
     } finally {
       setRegeneratingId(null);
     }
