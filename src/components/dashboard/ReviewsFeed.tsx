@@ -67,8 +67,7 @@ export default function ReviewsFeed({
   );
   const [publicFilter, setPublicFilter] = useState<'all' | 'pending' | 'published'>('all');
   const [privateSubFilter, setPrivateSubFilter] = useState<'needs_follow_up' | 'all' | 'contacted' | 'resolved' | 'archived'>('needs_follow_up');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editedText, setEditedText] = useState<string>('');
+  const [reviewDrafts, setReviewDrafts] = useState<Record<string, string>>({});
   const [justApprovedId, setJustApprovedId] = useState<string | null>(null);
   const [isSimulating, setIsSimulating] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -128,7 +127,9 @@ export default function ReviewsFeed({
 
   const handleApprove = async (id: string, text?: string) => {
     setJustApprovedId(id);
-    await approveReview(id, text);
+    const targetRev = reviews.find((r) => r.id === id);
+    const finalReply = text !== undefined ? text : (reviewDrafts[id] ?? targetRev?.ai_draft_reply ?? '');
+    await approveReview(id, finalReply);
     try {
       confetti({
         particleCount: 70,
@@ -141,14 +142,16 @@ export default function ReviewsFeed({
     }
     setTimeout(() => {
       setJustApprovedId(null);
-      setEditingId(null);
     }, 1200);
   };
 
   const handleRegenerate = async (id: string) => {
     setRegeneratingId(id);
     try {
-      await regenerateAiReply(id);
+      const newReply = await regenerateAiReply(id);
+      if (newReply) {
+        setReviewDrafts((prev) => ({ ...prev, [id]: newReply }));
+      }
     } catch (err) {
       console.error('Error regenerating AI reply:', err);
     } finally {
@@ -461,7 +464,6 @@ export default function ReviewsFeed({
           {/* MOBILE VIEW: Stacked Responsive Cards (< 768px: block md:hidden) */}
           <div className="block md:hidden space-y-3">
             {displayedReviews.map((rev) => {
-              const isEditing = editingId === rev.id;
               const isJustApproved = justApprovedId === rev.id;
               const isPublished = rev.status === 'published';
               const isRegenerating = regeneratingId === rev.id;
@@ -535,38 +537,27 @@ export default function ReviewsFeed({
                           className="text-blue-600 hover:text-blue-700 active:text-blue-800 flex items-center gap-1 text-[11px] font-semibold cursor-pointer disabled:opacity-50 p-1"
                         >
                           <RefreshCw className={`w-3 h-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-                          <span>{isRegenerating ? 'Drafting...' : 'Regenerate'}</span>
+                          <span>{isRegenerating ? 'Drafting...' : '↻ Regenerate'}</span>
                         </button>
                       )}
                     </div>
 
-                    {isEditing ? (
-                      <div className="space-y-2 pt-1">
-                        <textarea
-                          value={editedText}
-                          onChange={(e) => setEditedText(e.target.value)}
-                          rows={3}
-                          className="w-full p-2.5 text-xs rounded-lg border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-slate-900 leading-relaxed"
-                        />
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-200 bg-slate-100 rounded-lg"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => handleApprove(rev.id, editedText)}
-                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm"
-                          >
-                            Save & Publish
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
+                    {isPublished ? (
                       <p className="text-xs text-slate-700 leading-relaxed">
                         {rev.published_reply || rev.ai_draft_reply || 'No draft generated yet.'}
                       </p>
+                    ) : (
+                      <textarea
+                        value={reviewDrafts[rev.id] ?? rev.ai_draft_reply ?? ''}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setReviewDrafts((prev) => ({ ...prev, [rev.id]: val }));
+                          updateDraftText(rev.id, val);
+                        }}
+                        rows={3}
+                        className="w-full resize-y rounded-md border border-blue-200 bg-white/90 p-2 text-xs text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
+                        placeholder="Type or tweak your reply..."
+                      />
                     )}
                   </div>
 
@@ -588,36 +579,23 @@ export default function ReviewsFeed({
 
                     <div className="flex items-center gap-2">
                       {!isPublished && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setEditingId(rev.id);
-                              setEditedText(rev.ai_draft_reply || '');
-                            }}
-                            className="min-h-[42px] px-3 py-2 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 text-xs font-semibold flex items-center justify-center gap-1 transition-colors"
-                            title="Edit reply text"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                            <span>Edit</span>
-                          </button>
-                          <button
-                            onClick={() => handleApprove(rev.id)}
-                            disabled={isJustApproved}
-                            className="min-h-[42px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5"
-                          >
-                            {isJustApproved ? (
-                              <>
-                                <Check className="w-4 h-4" />
-                                <span>Approved!</span>
-                              </>
-                            ) : (
-                              <>
-                                <Sparkles className="w-4 h-4" />
-                                <span>Approve</span>
-                              </>
-                            )}
-                          </button>
-                        </>
+                        <button
+                          onClick={() => handleApprove(rev.id, reviewDrafts[rev.id] ?? rev.ai_draft_reply ?? '')}
+                          disabled={isJustApproved}
+                          className="min-h-[42px] px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          {isJustApproved ? (
+                            <>
+                              <Check className="w-4 h-4" />
+                              <span>Approved!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-4 h-4" />
+                              <span>Approve</span>
+                            </>
+                          )}
+                        </button>
                       )}
                       {isPublished && (
                         <a
@@ -653,7 +631,6 @@ export default function ReviewsFeed({
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
                   {displayedReviews.map((rev) => {
-                    const isEditing = editingId === rev.id;
                     const isJustApproved = justApprovedId === rev.id;
                     const isPublished = rev.status === 'published';
                     const isRegenerating = regeneratingId === rev.id;
@@ -726,38 +703,27 @@ export default function ReviewsFeed({
                                     className="text-slate-400 hover:text-blue-600 flex items-center gap-1 text-[10px] cursor-pointer"
                                   >
                                     <RefreshCw className={`w-2.5 h-2.5 ${isRegenerating ? 'animate-spin' : ''}`} />
-                                    <span>Regenerate</span>
+                                    <span>↻ Regenerate</span>
                                   </button>
                                 )}
                               </div>
 
-                              {isEditing ? (
-                                <div className="space-y-1.5">
-                                  <textarea
-                                    value={editedText}
-                                    onChange={(e) => setEditedText(e.target.value)}
-                                    rows={2}
-                                    className="w-full p-2 text-xs rounded border border-blue-300 focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white text-slate-900"
-                                  />
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    <button
-                                      onClick={() => setEditingId(null)}
-                                      className="px-2 py-0.5 text-[10px] font-medium text-slate-500 hover:bg-slate-200 rounded"
-                                    >
-                                      Cancel
-                                    </button>
-                                    <button
-                                      onClick={() => handleApprove(rev.id, editedText)}
-                                      className="px-2 py-0.5 text-[10px] font-bold text-white bg-blue-600 hover:bg-blue-700 rounded"
-                                    >
-                                      Save & Publish
-                                    </button>
-                                  </div>
-                                </div>
-                              ) : (
+                              {isPublished ? (
                                 <p className="text-[11px] text-slate-600 leading-normal">
                                   {rev.published_reply || rev.ai_draft_reply || 'No draft generated yet.'}
                                 </p>
+                              ) : (
+                                <textarea
+                                  value={reviewDrafts[rev.id] ?? rev.ai_draft_reply ?? ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setReviewDrafts((prev) => ({ ...prev, [rev.id]: val }));
+                                    updateDraftText(rev.id, val);
+                                  }}
+                                  rows={2}
+                                  className="w-full resize-y rounded-md border border-blue-200 bg-white/90 p-2 text-xs text-slate-800 focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 leading-relaxed"
+                                  placeholder="Type or tweak your reply..."
+                                />
                               )}
                             </div>
                           </div>
@@ -782,35 +748,23 @@ export default function ReviewsFeed({
                         <td className="px-4 py-3 align-top text-right whitespace-nowrap">
                           <div className="flex items-center justify-end gap-1.5">
                             {!isPublished && (
-                              <>
-                                <button
-                                  onClick={() => {
-                                    setEditingId(rev.id);
-                                    setEditedText(rev.ai_draft_reply || '');
-                                  }}
-                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-100 text-slate-600 transition-colors"
-                                  title="Edit reply text"
-                                >
-                                  <Edit3 className="w-3.5 h-3.5" />
-                                </button>
-                                <button
-                                  onClick={() => handleApprove(rev.id)}
-                                  disabled={isJustApproved}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95"
-                                >
-                                  {isJustApproved ? (
-                                    <>
-                                      <Check className="w-3.5 h-3.5" />
-                                      <span>Approved!</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Sparkles className="w-3.5 h-3.5" />
-                                      <span>Approve</span>
-                                    </>
-                                  )}
-                                </button>
-                              </>
+                              <button
+                                onClick={() => handleApprove(rev.id, reviewDrafts[rev.id] ?? rev.ai_draft_reply ?? '')}
+                                disabled={isJustApproved}
+                                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all active:scale-95 cursor-pointer"
+                              >
+                                {isJustApproved ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5" />
+                                    <span>Approved!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Sparkles className="w-3.5 h-3.5" />
+                                    <span>Approve</span>
+                                  </>
+                                )}
+                              </button>
                             )}
                             {isPublished && (
                               <a

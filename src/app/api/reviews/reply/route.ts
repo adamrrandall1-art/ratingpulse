@@ -15,7 +15,88 @@ function getSupabaseAdmin() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { reviewId, replyText, userId } = body;
+    const {
+      reviewId,
+      replyText,
+      userId,
+      action,
+      reviewText = '',
+      authorName = 'Valued Customer',
+      rating = 5,
+      businessName = 'our team',
+      businessCategory = 'Local Business',
+      tone = 'friendly_professional',
+      keywords = [],
+    } = body;
+
+    // If generation/regeneration is requested:
+    if (action === 'generate' || action === 'regenerate' || (!replyText && (reviewText || reviewId))) {
+      const apiKey =
+        process.env.GEMINI_API_KEY ||
+        process.env.GOOGLE_API_KEY ||
+        process.env.GOOGLE_GENAI_API_KEY;
+
+      if (apiKey) {
+        try {
+          const prompt = `You are the owner of "${businessName}". Write a genuine, warm 2-sentence response to this Google review.
+
+Reviewer: ${authorName}
+Rating: ${rating} Stars
+Review Content: "${reviewText || 'Great service!'}"
+
+STRICT GUIDELINES:
+1. HIGHLIGHT SPECIFIC ITEMS: If the reviewer mentions specific menu items, products, or service highlights, explicitly mention them.
+2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a local business owner.
+3. NO HASHTAGS: Strictly forbidden.
+4. FRESH DIVERSITY: Provide a distinct, creative phrasing variation each time.`;
+
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: {
+                  temperature: 0.85,
+                  maxOutputTokens: 250,
+                },
+              }),
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const generatedText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (generatedText && generatedText.trim()) {
+              const cleaned = generatedText
+                .trim()
+                .replace(/^["']|["']$/g, '')
+                .replace(/#\w+/g, '')
+                .trim();
+              return NextResponse.json({
+                success: true,
+                reply: cleaned,
+                replyText: cleaned,
+                model: 'gemini-1.5-flash',
+              });
+            }
+          }
+        } catch (geminiErr) {
+          console.warn('[API /api/reviews/reply Gemini Exception]:', geminiErr);
+        }
+      }
+
+      // Fallback dynamic generation
+      const firstName = authorName.split(' ')[0] || 'there';
+      const fallbackText = `Hi ${firstName}, thank you for your review and support of ${businessName}! We truly appreciate your feedback and look forward to welcoming you back soon.`;
+      return NextResponse.json({
+        success: true,
+        reply: fallbackText,
+        replyText: fallbackText,
+        model: 'dynamic-fallback',
+      });
+    }
 
     if (!reviewId || !replyText || typeof replyText !== 'string' || !replyText.trim()) {
       return NextResponse.json(

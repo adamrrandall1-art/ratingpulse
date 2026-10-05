@@ -43,7 +43,7 @@ export interface RatingPulseStoreContextType {
   isDemoMode: boolean;
   toggleDemoMode: (enable?: boolean) => void;
   approveReview: (reviewId: string, customReply?: string) => Promise<void>;
-  regenerateAiReply: (reviewId: string, customKeywords?: string[]) => Promise<void>;
+  regenerateAiReply: (reviewId: string, customKeywords?: string[]) => Promise<string | null>;
   updateDraftText: (reviewId: string, text: string) => void;
   simulateIncomingGoogleReview: () => Review;
   sendSmsInvite: (customerName: string, customerPhone: string, serviceType?: string) => Promise<Invite>;
@@ -495,12 +495,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setIsSaving(false);
   };
 
-  const regenerateAiReply = async (reviewId: string, customKeywords?: string[]) => {
+  const regenerateAiReply = async (reviewId: string, customKeywords?: string[]): Promise<string | null> => {
     setIsSaving(true);
     const target = reviews.find((r) => r.id === reviewId);
     if (!target) {
       setIsSaving(false);
-      return;
+      return null;
     }
 
     let keywords = customKeywords || settings.custom_keywords || [];
@@ -519,6 +519,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          reviewId: target.id,
           reviewText: target.review_text,
           authorName: target.author_name,
           rating: target.rating,
@@ -531,13 +532,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.reply) {
+        const newReply = data.replyText || data.reply;
+        if (newReply) {
           const updated = reviews.map((r) =>
-            r.id === reviewId ? { ...r, ai_draft_reply: data.reply } : r
+            r.id === reviewId ? { ...r, ai_draft_reply: newReply } : r
           );
           setReviews(updated);
           globalReviewsCache = updated;
           persistState(updated, invites, settings, profile);
+          return newReply;
         }
       }
     } catch (e) {
@@ -545,6 +548,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setIsSaving(false);
     }
+    return null;
   };
 
   const updateDraftText = (reviewId: string, text: string) => {
@@ -1510,7 +1514,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     isDemoMode: true,
     toggleDemoMode: () => {},
     approveReview: async () => {},
-    regenerateAiReply: async () => {},
+    regenerateAiReply: async () => null,
     updateDraftText: () => {},
     simulateIncomingGoogleReview: () => initialReviews[0],
     sendSmsInvite: async () => initialInvites[0],
