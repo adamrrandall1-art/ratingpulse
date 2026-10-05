@@ -125,18 +125,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
     }
 
-    const prompt = `Write a friendly, authentic 2-sentence reply from the owner of "${businessName || "Scoop 'n Twist"}" to this Google review.
+    const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
+Write a complete, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
+Customer review: "${effectiveReviewText}"
 
-Customer Name: ${reviewerName}
-Rating: ${rating || 5} Stars
-Review: "${effectiveReviewText}"
+Requirements:
+- Mention at least one specific item or detail they wrote about.
+- Keep it natural, appreciative, and concise.
+- Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-Guidelines:
-- Speak directly to the customer in a warm, appreciative tone.
-- Mention and celebrate at least one specific detail or item they brought up in their review (e.g., flavors, ice cream tacos, customer service).
-- Return ONLY the final reply text. Do not include quotes, greetings like "Here is a reply:", instructions, or extra commentary.`;
-
-    const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash'];
     let reply = '';
     let lastError: any = null;
 
@@ -145,13 +143,21 @@ Guidelines:
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
+            // Turn off thinking / reasoning tokens so it returns ONLY the final reply
+            // @ts-ignore
+            thinkingConfig: { thinkingBudget: 0 },
             temperature: 0.7,
-            maxOutputTokens: 300,
+            maxOutputTokens: 250,
           },
         });
         const result = await model.generateContent(prompt);
-        reply = result.response.text().trim();
-        if (reply) break;
+        let rawReply = result.response.text().trim();
+        // Strip any accidental markdown formatting or surrounding quotes
+        rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
+        if (rawReply) {
+          reply = rawReply;
+          break;
+        }
       } catch (e: any) {
         lastError = e;
         console.warn(`[Gemini API] Model ${modelName} failed:`, e?.message || e);
@@ -161,6 +167,8 @@ Guidelines:
     if (!reply && lastError) {
       throw lastError;
     }
+
+    console.log("Full generated reply from Gemini:", reply);
 
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {

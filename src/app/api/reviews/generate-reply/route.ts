@@ -38,18 +38,16 @@ export async function POST(req: NextRequest) {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const prompt = `Write a friendly, authentic 2-sentence reply from the owner of "${businessName || "Scoop 'n Twist"}" to this Google review.
+    const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
+Write a complete, authentic 2-sentence reply thanking ${authorName} for their ${rating}-star review.
+Customer review: "${reviewText || 'Great service!'}"
 
-Customer Name: ${authorName}
-Rating: ${rating} Stars
-Review: "${reviewText || 'Great service!'}"
+Requirements:
+- Mention at least one specific item or detail they wrote about.
+- Keep it natural, appreciative, and concise.
+- Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-Guidelines:
-- Speak directly to the customer in a warm, appreciative tone.
-- Mention and celebrate at least one specific detail or item they brought up in their review (e.g., flavors, ice cream tacos, customer service).
-- Return ONLY the final reply text. Do not include quotes, greetings like "Here is a reply:", instructions, or extra commentary.`;
-
-    const modelCandidates = ['gemini-3.8-flash', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-3.8-flash'];
     let reply = '';
     let lastError: any = null;
 
@@ -58,18 +56,17 @@ Guidelines:
         const model = genAI.getGenerativeModel({
           model: modelName,
           generationConfig: {
+            // @ts-ignore
+            thinkingConfig: { thinkingBudget: 0 },
             temperature: 0.7,
-            maxOutputTokens: 300,
+            maxOutputTokens: 250,
           },
         });
         const result = await model.generateContent(prompt);
-        const raw = result.response.text();
-        if (raw && raw.trim()) {
-          reply = raw
-            .trim()
-            .replace(/^["']|["']$/g, '')
-            .replace(/#\w+/g, '')
-            .trim();
+        let rawReply = result.response.text().trim();
+        rawReply = rawReply.replace(/^["']|["']$/g, '').trim();
+        if (rawReply) {
+          reply = rawReply;
           break;
         }
       } catch (e: any) {
