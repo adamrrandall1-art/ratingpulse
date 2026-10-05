@@ -22,6 +22,7 @@ import {
   Building
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { Review } from '@/lib/supabase/types';
 import PrivateFeedbackFeed from './PrivateFeedbackFeed';
 import confetti from 'canvas-confetti';
 
@@ -145,12 +146,33 @@ export default function ReviewsFeed({
     }, 1200);
   };
 
-  const handleRegenerate = async (id: string) => {
-    setRegeneratingId(id);
+  const handleRegenerate = async (reviewOrId: Review | string) => {
+    const review = typeof reviewOrId === 'string' ? reviews.find((r) => r.id === reviewOrId) : reviewOrId;
+    if (!review) return;
+    setRegeneratingId(review.id);
     try {
-      const newReply = await regenerateAiReply(id);
+      const res = await fetch('/api/reviews/reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'regenerate',
+          reviewId: review.id,
+          reviewerName: review.author_name,
+          rating: review.rating,
+          reviewText: review.review_text || (review as any).text || '',
+          businessName: profile?.business_name || 'our business',
+        }),
+      });
+      const data = await res.json();
+      const newReply = data?.reply || data?.replyText;
       if (newReply) {
-        setReviewDrafts((prev) => ({ ...prev, [id]: newReply }));
+        setReviewDrafts((prev) => ({ ...prev, [review.id]: newReply }));
+        updateDraftText(review.id, newReply);
+      } else {
+        const storeReply = await regenerateAiReply(review.id);
+        if (storeReply) {
+          setReviewDrafts((prev) => ({ ...prev, [review.id]: storeReply }));
+        }
       }
     } catch (err) {
       console.error('Error regenerating AI reply:', err);

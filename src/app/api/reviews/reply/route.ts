@@ -20,17 +20,18 @@ export async function POST(req: NextRequest) {
       replyText,
       userId,
       action,
-      reviewText = '',
-      authorName = 'Valued Customer',
-      rating = 5,
-      businessName = 'our team',
       businessCategory = 'Local Business',
       tone = 'friendly_professional',
       keywords = [],
     } = body;
 
-    // If generation/regeneration is requested:
-    if (action === 'generate' || action === 'regenerate' || (!replyText && (reviewText || reviewId))) {
+    const reviewerName = body.reviewerName || body.authorName || 'Valued Customer';
+    const effectiveReviewText = body.reviewText || body.text || '';
+    const rating = Number(body.rating) || 5;
+    const businessName = body.businessName || 'our business';
+
+    // If generation/regeneration is requested (or replyText is omitted):
+    if (action === 'generate' || action === 'regenerate' || (!replyText && (effectiveReviewText || reviewId))) {
       const apiKey =
         process.env.GEMINI_API_KEY ||
         process.env.GOOGLE_API_KEY ||
@@ -40,13 +41,13 @@ export async function POST(req: NextRequest) {
         try {
           const prompt = `You are the owner of "${businessName}". Write a genuine, warm 2-sentence response to this Google review.
 
-Reviewer: ${authorName}
+Reviewer: ${reviewerName}
 Rating: ${rating} Stars
-Review Content: "${reviewText || 'Great service!'}"
+Review Content: "${effectiveReviewText || 'Great service!'}"
 
 STRICT GUIDELINES:
 1. HIGHLIGHT SPECIFIC ITEMS: If the reviewer mentions specific menu items, products, or service highlights, explicitly mention them.
-2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a local business owner.
+2. NATURAL & AUTHENTIC TONE: Write casually and warmly as a genuine local business owner.
 3. NO HASHTAGS: Strictly forbidden.
 4. FRESH DIVERSITY: Provide a distinct, creative phrasing variation each time.`;
 
@@ -58,7 +59,7 @@ STRICT GUIDELINES:
               body: JSON.stringify({
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 generationConfig: {
-                  temperature: 0.85,
+                  temperature: 0.9,
                   maxOutputTokens: 250,
                 },
               }),
@@ -87,13 +88,19 @@ STRICT GUIDELINES:
         }
       }
 
-      // Fallback dynamic generation
-      const firstName = authorName.split(' ')[0] || 'there';
-      const fallbackText = `Hi ${firstName}, thank you for your review and support of ${businessName}! We truly appreciate your feedback and look forward to welcoming you back soon.`;
+      // Dynamic Contextual Fallback Generator (No static modulo rotation)
+      const firstName = reviewerName.split(' ')[0] || 'there';
+      const fallbackTemplates = [
+        `Hi ${firstName}, thank you so much for taking the time to share your feedback with us! We appreciate your support of ${businessName} and look forward to welcoming you back soon.`,
+        `Hello ${firstName}! We are thrilled to hear you had a great experience with our team at ${businessName}. Thank you for your support and see you next time!`,
+        `Hi ${firstName}, thanks a million for the positive rating! Hearing from wonderful customers like you truly makes our day at ${businessName}.`,
+        `Thanks for visiting ${businessName}, ${firstName}! We are grateful for your review and can't wait to provide you with another 5-star experience on your next visit.`,
+      ];
+      const randomFallback = fallbackTemplates[Math.floor(Math.random() * fallbackTemplates.length)];
       return NextResponse.json({
         success: true,
-        reply: fallbackText,
-        replyText: fallbackText,
+        reply: randomFallback,
+        replyText: randomFallback,
         model: 'dynamic-fallback',
       });
     }
