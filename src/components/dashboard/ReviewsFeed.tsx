@@ -25,6 +25,7 @@ import { useRatingPulseStore } from '@/lib/store';
 import { Review } from '@/lib/supabase/types';
 import PrivateFeedbackFeed from './PrivateFeedbackFeed';
 import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 
 interface Props {
   initialFilter?: 'all' | 'pending' | 'published' | 'private';
@@ -162,7 +163,10 @@ export default function ReviewsFeed({
       });
       const data = await res.json();
       if (!res.ok) {
-        alert("Gemini Error: " + (data.error || "Failed to generate"));
+        console.error('Gemini regeneration error:', data.error || 'Failed to generate');
+        toast.error('Could not generate AI reply', {
+          description: data.error || 'Please check your Gemini API key configuration.',
+        });
         return;
       }
       // Set the updated reply directly in state
@@ -170,9 +174,13 @@ export default function ReviewsFeed({
       if (generatedReply) {
         setReviewDrafts((prev) => ({ ...prev, [review.id]: generatedReply }));
         updateDraftText(review.id, generatedReply);
+        toast.success('AI reply generated!');
       }
     } catch (err: any) {
-      alert("Network error: " + err.message);
+      console.error('Network error regenerating AI reply:', err);
+      toast.error('Network Error', {
+        description: err.message || 'Failed to communicate with AI server.',
+      });
     } finally {
       setRegeneratingId(null);
     }

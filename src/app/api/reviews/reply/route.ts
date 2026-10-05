@@ -124,20 +124,33 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing API Key' }, { status: 500 });
     }
 
-    console.log('Calling Gemini API for review:', effectiveReviewText);
-
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      generationConfig: { temperature: 0.95 },
-    });
-
     const prompt = `You are the owner of "${businessName || 'our business'}". Write a warm, genuine 2-sentence reply to this review. Do not use generic corporate language or rigid templates. Celebrate specific things they mentioned (like menu items or atmosphere).
 
 Reviewer: ${reviewerName}
 Review: "${effectiveReviewText}"`;
 
-    const result = await model.generateContent(prompt);
-    const reply = result.response.text().trim();
+    const modelCandidates = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+    let reply = '';
+    let lastError: any = null;
+
+    for (const modelName of modelCandidates) {
+      try {
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { temperature: 0.95 },
+        });
+        const result = await model.generateContent(prompt);
+        reply = result.response.text().trim();
+        if (reply) break;
+      } catch (e: any) {
+        lastError = e;
+        console.warn(`[Gemini API] Candidate model ${modelName} failed:`, e?.message || e);
+      }
+    }
+
+    if (!reply && lastError) {
+      throw lastError;
+    }
 
     return NextResponse.json({ reply, replyText: reply });
   } catch (err: any) {
