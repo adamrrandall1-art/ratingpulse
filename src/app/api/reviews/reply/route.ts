@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 import { createClient } from '@supabase/supabase-js';
 import { getValidAccessTokenForProfile, replyToGBPReview } from '@/lib/google-gbp';
 import { Profile } from '@/lib/supabase/types';
@@ -12,9 +12,6 @@ function getSupabaseAdmin() {
   if (!supabaseUrl || !supabaseKey) return null;
   return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
 }
-
-const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
 
 export async function POST(req: NextRequest) {
   try {
@@ -124,19 +121,10 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
     if (!apiKey) {
       console.error('[Gemini API] Missing GEMINI_API_KEY');
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY in environment' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
     }
 
-    const genAIInstance = new GoogleGenerativeAI(apiKey);
-    const model = genAIInstance.getGenerativeModel({
-      model: 'gemini-3.8-flash',
-      generationConfig: {
-        // @ts-ignore
-        thinkingConfig: { thinkingBudget: 0 },
-        temperature: 0.7,
-        maxOutputTokens: 250,
-      },
-    });
+    const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
 Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
@@ -147,14 +135,22 @@ Rules:
 - Keep it natural and neighborly.
 - Output ONLY the final response text without quotes or preamble.`;
 
-    console.log('[Gemini API] Calling gemini-3.8-flash for review reply generation...');
-    const result = await model.generateContent(prompt);
-    const reply = result.response.text().trim().replace(/^["']|["']$/g, '');
+    console.log('[Gemini API] Generating reply with @google/genai...');
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        temperature: 0.75,
+        maxOutputTokens: 250,
+      },
+    });
 
+    const reply = (response.text || '').trim().replace(/^["']|["']$/g, '');
     console.log('[Gemini API] Generated reply:', reply);
+
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
-    console.error('[Gemini API Detailed Error]:', error);
+    console.error('[Gemini Route Error]:', error);
     return NextResponse.json(
       { error: error?.message || 'Failed to generate reply' },
       { status: 500 }

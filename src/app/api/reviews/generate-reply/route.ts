@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GoogleGenAI } from '@google/genai';
 
 interface GenerateReplyPayload {
   reviewText?: string;
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing Gemini API Key' }, { status: 500 });
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+    const ai = new GoogleGenAI({ apiKey });
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
 Write a complete, authentic 2-sentence reply thanking ${authorName} for their ${rating}-star review.
 Customer review: "${reviewText || 'Great service!'}"
@@ -47,26 +47,23 @@ Requirements:
 - Keep it natural, appreciative, and concise.
 - Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-3.8-flash',
-      generationConfig: {
-        // @ts-ignore
-        thinkingConfig: { thinkingBudget: 0 },
-        temperature: 0.7,
+    console.log('[Gemini API] Calling generateContent via @google/genai in generate-reply...');
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: prompt,
+      config: {
+        temperature: 0.75,
         maxOutputTokens: 250,
       },
     });
 
-    console.log('[Gemini API] Calling gemini-3.8-flash in generate-reply...');
-    const result = await model.generateContent(prompt);
-    const rawText = result?.response?.text ? result.response.text() : '';
-    const reply = rawText.trim().replace(/^["']|["']$/g, '');
+    const reply = (response.text || '').trim().replace(/^["']|["']$/g, '');
 
     return NextResponse.json({
       success: true,
       reply,
       replyText: reply,
-      model: 'gemini-3.8-flash',
+      model: 'gemini-2.5-flash',
     });
   } catch (error: any) {
     console.error('[Gemini API Detailed Error in generate-reply]:', error);
