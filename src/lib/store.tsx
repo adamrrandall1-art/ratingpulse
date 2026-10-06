@@ -449,17 +449,20 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     // Call 1-Tap Google Business Profile Review Reply API
     try {
       const uid = user?.id || profile.id;
-      await fetch('/api/reviews/reply', {
+      await fetch('/api/reviews/approve', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reviewId,
           replyText: finalReply,
           userId: uid,
+          accountId: profile.google_account_id,
+          locationId: profile.google_location_id,
+          googleAccessToken: profile.google_access_token,
         }),
       });
     } catch (err) {
-      console.warn('[approveReview /api/reviews/reply warning]:', err);
+      console.warn('[approveReview /api/reviews/approve warning]:', err);
     }
 
     if (isSupabaseConfigured && supabase) {
