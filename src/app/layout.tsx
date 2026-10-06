@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 import "./globals.css";
+import { ClerkProvider } from "@clerk/nextjs";
 import { AuthProvider } from "@/lib/auth-context";
 import { StoreProvider } from "@/lib/store";
 import { Toaster } from "sonner";
@@ -63,25 +64,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
-    >
-      <head>
-        <script
-          src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDdAZozLUaoBAoemqT38_bdE3QBNoFuOpY&libraries=places"
-          async
-          defer
-        ></script>
-      </head>
-      <body className="min-h-full flex flex-col bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
-        <AuthProvider>
-          <StoreProvider>
-            {children}
-            <Toaster position="top-right" richColors />
-          </StoreProvider>
-        </AuthProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased scroll-smooth`}
+      >
+        <head>
+          <script
+            src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDdAZozLUaoBAoemqT38_bdE3QBNoFuOpY&libraries=places"
+            async
+            defer
+          ></script>
+        </head>
+        <body className="min-h-full flex flex-col bg-white text-slate-900 font-sans selection:bg-blue-600 selection:text-white">
+          <AuthProvider>
+            <StoreProvider>
+              {children}
+              <Toaster position="top-right" richColors />
+            </StoreProvider>
+          </AuthProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }

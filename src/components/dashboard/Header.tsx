@@ -25,6 +25,7 @@ import Link from 'next/link';
 import { useRatingPulseStore } from '@/lib/store';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { UserButton, useUser, SignedIn, SignedOut } from '@clerk/nextjs';
 import { toast } from 'sonner';
 import SendInviteModal from './SendInviteModal';
 import confetti from 'canvas-confetti';
@@ -45,19 +46,21 @@ export default function Header({
     setSearchQuery
   } = useRatingPulseStore();
   const { user, signOut } = useAuth();
+  const { user: clerkUser } = useUser();
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
-  const [showNotification, setShowNotification] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const displayName =
+    clerkUser?.fullName ||
+    clerkUser?.firstName ||
     user?.user_metadata?.full_name?.trim() ||
     profile?.full_name?.trim() ||
     (user?.email ? user.email.split('@')[0] : '') ||
     'Account';
-  const displayEmail = user?.email || profile.email;
+  const displayEmail = clerkUser?.primaryEmailAddress?.emailAddress || user?.email || profile.email;
   const isPro =
     profile.plan_status === 'active' ||
     profile.plan_status === 'pro' ||
@@ -211,114 +214,92 @@ export default function Header({
             <span className="md:hidden">Send</span>
           </button>
 
-          {/* User Profile Dropdown */}
-          <div className="relative pl-2 border-l border-slate-200">
-            <button
-              onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-              className="flex items-center gap-3 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
-            >
-              <img
-                src="https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=100&h=100&fit=crop&crop=face"
-                alt={displayName}
-                className="w-9 h-9 rounded-full object-cover ring-2 ring-blue-100 self-center shrink-0"
-              />
-              <div className="hidden sm:flex flex-col items-start text-left">
-                <span className="text-xs font-bold text-slate-900 leading-tight">
-                  {displayName}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
-                  {profile.business_name || 'No Business Connected'}
-                </span>
-                {isPro && (
-                  <div className="mt-1.5 inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-[10px] font-extrabold bg-blue-600 text-white shadow-2xs w-fit">
-                    PRO
+          {/* Clerk UserButton & Account Profile Area */}
+          <div className="pl-2 border-l border-slate-200 flex items-center gap-2.5">
+            <SignedIn>
+              <div className="flex items-center gap-2.5">
+                <UserButton
+                  appearance={{
+                    elements: {
+                      userButtonAvatarBox: "w-9 h-9 ring-2 ring-blue-100 shadow-2xs",
+                    }
+                  }}
+                />
+                <div className="hidden sm:flex flex-col items-start text-left">
+                  <span className="text-xs font-bold text-slate-900 leading-tight">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
+                    {profile.business_name || 'No Business Connected'}
+                  </span>
+                  {isPro && (
+                    <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.2 rounded-md text-[9px] font-extrabold bg-blue-600 text-white shadow-2xs w-fit">
+                      PRO
+                    </div>
+                  )}
+                </div>
+              </div>
+            </SignedIn>
+
+            <SignedOut>
+              <div className="relative">
+                <button
+                  onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
+                  className="flex items-center gap-2 p-1 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer text-left"
+                >
+                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs ring-2 ring-blue-200">
+                    {displayName ? displayName.charAt(0).toUpperCase() : 'U'}
                   </div>
+                  <div className="hidden sm:flex flex-col items-start text-left">
+                    <span className="text-xs font-bold text-slate-900 leading-tight">
+                      {displayName}
+                    </span>
+                    <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
+                      {profile.business_name || 'Demo Mode'}
+                    </span>
+                  </div>
+                </button>
+
+                {profileDropdownOpen && (
+                  <>
+                    <div
+                      className="fixed inset-0 z-20"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      aria-hidden="true"
+                    />
+                    <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100 text-slate-900">
+                      <div className="p-2.5 border-b border-slate-100">
+                        <div className="flex items-center justify-between gap-1">
+                          <span className="text-xs font-bold text-slate-900 truncate">{displayName}</span>
+                          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200 shrink-0">
+                            Demo Mode
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-slate-500 truncate mt-0.5">{displayEmail}</div>
+                      </div>
+
+                      <Link
+                        href="/sign-in"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-blue-600 hover:bg-blue-50 transition-colors"
+                      >
+                        <User className="w-4 h-4 text-blue-600" />
+                        <span>Sign into Clerk Account</span>
+                      </Link>
+
+                      <Link
+                        href="/dashboard/settings"
+                        onClick={() => setProfileDropdownOpen(false)}
+                        className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
+                      >
+                        <Settings className="w-4 h-4 text-slate-400" />
+                        <span>Settings &amp; Integrations</span>
+                      </Link>
+                    </div>
+                  </>
                 )}
               </div>
-            </button>
-
-            {/* Dropdown Menu & Click-away Backdrop */}
-            {profileDropdownOpen && (
-              <>
-                <div
-                  className="fixed inset-0 z-20"
-                  onClick={() => setProfileDropdownOpen(false)}
-                  aria-hidden="true"
-                />
-                <div className="absolute right-0 mt-2 w-60 bg-white rounded-2xl border border-slate-200 shadow-xl p-2 space-y-1 z-30 animate-in fade-in zoom-in-95 duration-100 text-slate-900">
-                  <div className="p-2.5 border-b border-slate-100">
-                    <div className="flex items-center justify-between gap-1">
-                      <span className="text-xs font-bold text-slate-900 truncate">{displayName}</span>
-                      {isPro ? (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-600 text-white shadow-2xs shrink-0">
-                          PRO
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200 shrink-0">
-                          Trial
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-slate-500 truncate mt-0.5">{displayEmail}</div>
-                    <div className="text-[10px] text-blue-600 font-semibold truncate mt-0.5">{profile.business_name || 'No Business Connected'}</div>
-                  </div>
-
-                  <Link
-                    href="/dashboard/settings"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
-                  >
-                    <Settings className="w-4 h-4 text-slate-400" />
-                    <span>Account Settings</span>
-                  </Link>
-
-                  <Link
-                    href="/dashboard/settings"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Zap className={`w-4 h-4 ${isPro ? 'text-blue-600' : 'text-amber-500'}`} />
-                      <span>{isPro ? 'Manage Billing' : 'Upgrade to Pro'}</span>
-                    </div>
-                    <span className="text-[10px] font-bold text-slate-400">$25/mo</span>
-                  </Link>
-
-                  <Link
-                    href="/onboarding"
-                    onClick={() => setProfileDropdownOpen(false)}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 hover:bg-slate-50 hover:text-blue-600 transition-colors"
-                  >
-                    <Sparkles className="w-4 h-4 text-blue-600" />
-                    <span>Onboarding Wizard</span>
-                  </Link>
-
-                  <div className="pt-1 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setProfileDropdownOpen(false);
-                        try {
-                          if (signOut) {
-                            await signOut();
-                          }
-                          toast.success('Signed out successfully');
-                          window.location.assign('/login');
-                        } catch {
-                          window.location.assign('/login');
-                        }
-                      }}
-                      className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-rose-600 hover:bg-rose-50 transition-colors text-left cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4 text-rose-600" />
-                      <span>Sign Out</span>
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
+            </SignedOut>
           </div>
 
         </div>
