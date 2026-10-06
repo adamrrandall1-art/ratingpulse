@@ -157,32 +157,28 @@ export default function ReviewsFeed({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           reviewerName: review.author_name,
+          rating: review.rating,
           reviewText: review.review_text || review.text || '',
-          businessName: profile?.business_name || "Scoop 'n Twist",
-        }),
+          businessName: profile?.business_name || "Scoop 'n Twist"
+        })
       });
       const data = await res.json();
       if (!res.ok) {
-        console.error('Gemini regeneration error:', data.error || 'Failed to generate');
-        toast.error('Could not generate AI reply', {
-          description: data.error || 'Please check your Gemini API key configuration.',
-        });
-        return;
+        throw new Error(data.error || 'Failed to generate');
       }
-      // Set the updated reply directly in state
       const generatedReply = data.reply || data.replyText;
       if (generatedReply) {
-        setReviewDrafts((prev) => ({ ...prev, [review.id]: generatedReply }));
+        setReviewDrafts(prev => ({ ...prev, [review.id]: generatedReply }));
         updateDraftText(review.id, generatedReply);
         toast.success('AI reply generated!');
       }
     } catch (err: any) {
-      console.error('Network error regenerating AI reply:', err);
-      toast.error('Network Error', {
-        description: err.message || 'Failed to communicate with AI server.',
+      console.error("Regenerate error:", err);
+      toast.error('Could not generate AI reply', {
+        description: err.message || 'Please check your Gemini API key configuration.',
       });
     } finally {
-      setRegeneratingId(null);
+      setRegeneratingId(null); // Always unlock the spinner
     }
   };
 
