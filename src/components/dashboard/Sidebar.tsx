@@ -16,7 +16,8 @@ import {
   X,
   Zap,
   Loader2,
-  LogOut
+  LogOut,
+  BarChart3
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
@@ -104,9 +105,15 @@ export default function Sidebar({
       badgeColor: 'bg-[#00d2c4] text-slate-950',
     },
     {
-      name: 'SMS Invites',
+      name: 'Review Invites',
       href: '/dashboard/invites',
       icon: Send,
+      badge: null,
+    },
+    {
+      name: 'Reports & Analytics',
+      href: '/dashboard/reports',
+      icon: BarChart3,
       badge: null,
     },
     {
