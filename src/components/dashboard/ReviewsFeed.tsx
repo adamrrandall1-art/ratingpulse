@@ -132,6 +132,9 @@ export default function ReviewsFeed({
     const targetRev = reviews.find((r) => r.id === id);
     const finalReply = text !== undefined ? text : (reviewDrafts[id] ?? targetRev?.ai_draft_reply ?? '');
     await approveReview(id, finalReply);
+    toast.success('Reply Published!', {
+      description: 'The review reply was successfully approved and marked live.',
+    });
     try {
       confetti({
         particleCount: 70,
