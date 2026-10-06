@@ -17,6 +17,7 @@ import {
   KeyRound,
   Lock,
   Flame,
+  Globe,
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -46,6 +47,8 @@ export default function SettingsPage() {
     settings,
     updateSettings,
     updateProfile,
+    isDemoMode,
+    toggleDemoMode,
   } = useRatingPulseStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>('gbp');
@@ -476,7 +479,70 @@ export default function SettingsPage() {
         </div>
       </div>
 
-      {/* 2. Modern Tab Navigation */}
+      {/* 2. Prominent Environment Mode Alert & Toggle Card */}
+      <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-blue-50/90 via-indigo-50/70 to-purple-50/70 border border-blue-200 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Sparkles className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-slate-900">Environment Mode</h3>
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${isDemoMode ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
+                {isDemoMode ? '🟢 Demo Sandbox Active' : '⚪ Live Google Production'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+              Switch between interactive Demo Mode (safe sandbox with sample reviews &amp; simulated publishing) and Live Google Production.
+            </p>
+          </div>
+        </div>
+
+        {/* Segmented Pill Control */}
+        <div className="flex items-center gap-1.5 self-start sm:self-center bg-white/95 p-1 rounded-xl border border-slate-200 shadow-2xs shrink-0">
+          <button
+            type="button"
+            onClick={() => {
+              if (!isDemoMode) {
+                toggleDemoMode(true);
+                toast.success('Switched to Demo Sandbox', {
+                  description: 'Safe sandbox active with sample reviews and simulated dispatches.',
+                });
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              isDemoMode
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${isDemoMode ? 'bg-emerald-300 animate-pulse' : 'bg-slate-300'}`}></span>
+            <span>🟢 Demo Mode Active</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (isDemoMode) {
+                toggleDemoMode(false);
+                toast.success('Switched to Live Google Profile', {
+                  description: 'Live profile active. Real Google API connections and live dispatch enabled.',
+                });
+              }
+            }}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              !isDemoMode
+                ? 'bg-slate-900 text-white shadow-xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+            }`}
+          >
+            <span className={`w-2 h-2 rounded-full ${!isDemoMode ? 'bg-emerald-400' : 'bg-slate-300'}`}></span>
+            <span>⚪ Live Google Profile</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Modern Tab Navigation */}
       <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto">
         {SETTINGS_TABS.map((tab) => {
           const Icon = tab.icon;
@@ -500,7 +566,7 @@ export default function SettingsPage() {
         })}
       </div>
 
-      {/* 3. Tab Contents */}
+      {/* 4. Tab Contents */}
       <div className="space-y-6">
         {/* TAB 1: GOOGLE BUSINESS PROFILE */}
         {activeTab === 'gbp' && (

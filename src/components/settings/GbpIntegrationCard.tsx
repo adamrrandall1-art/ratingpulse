@@ -23,7 +23,7 @@ interface GbpIntegrationCardProps {
 }
 
 export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCardProps) {
-  const { profile, syncGoogleReviews, disconnectBusiness, isDemoMode } = useRatingPulseStore();
+  const { profile, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
@@ -157,6 +157,43 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
             <span>1-Tap Publish Enabled</span>
           </div>
         </div>
+      </div>
+
+      {/* Dedicated Simulation Mode Toggle Row */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-slate-50 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+            <Sparkles className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+              Simulation Mode
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isDemoMode ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
+                {isDemoMode ? 'Active (Safe Sandbox)' : 'Inactive (Live Production)'}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+              When enabled, 1-Tap approvals and test invites simulate successful API dispatches without touching live Google profiles or sending real carrier SMS.
+            </p>
+          </div>
+        </div>
+
+        <label className="relative inline-flex items-center cursor-pointer shrink-0 self-start sm:self-center">
+          <input
+            type="checkbox"
+            checked={isDemoMode}
+            onChange={(e) => {
+              toggleDemoMode(e.target.checked);
+              toast.success(e.target.checked ? 'Simulation Mode Activated' : 'Live Mode Activated', {
+                description: e.target.checked
+                  ? 'Sample business profile and simulated Google API responses are now active.'
+                  : 'Live mode active. Real Google API tokens and carrier endpoints will be used.',
+              });
+            }}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
       </div>
 
       {/* Action Controls */}
