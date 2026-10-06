@@ -47,9 +47,9 @@ Requirements:
 - Keep it natural, appreciative, and concise.
 - Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-    console.log('[Gemini API] Calling generateContent via @google/genai in generate-reply...');
+    console.log('[Gemini API] Calling generateContent via @google/genai in generate-reply (gemini-3.8-flash)...');
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         temperature: 0.75,
@@ -63,7 +63,7 @@ Requirements:
       success: true,
       reply,
       replyText: reply,
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
     });
   } catch (error: any) {
     console.error('[Gemini API Detailed Error in generate-reply]:', error);

@@ -135,9 +135,9 @@ Rules:
 - Keep it natural and neighborly.
 - Output ONLY the final response text without quotes or preamble.`;
 
-    console.log('[Gemini API] Generating reply with @google/genai...');
+    console.log('[Gemini API] Generating reply with @google/genai (gemini-3.8-flash)...');
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
         temperature: 0.75,
