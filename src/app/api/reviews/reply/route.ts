@@ -135,26 +135,38 @@ Rules:
 - Keep it natural and neighborly.
 - Output ONLY the final response text without quotes or commentary.`;
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+    const targetModels = ['gemini-2.5-flash', 'gemini-1.5-flash-latest'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelsToTry) {
-      // Attempt up to 3 times per model with increasing backoff
-      for (let attempt = 1; attempt <= 3; attempt++) {
+    for (const modelName of targetModels) {
+      // Attempt up to 2 times per model with backoff
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          const model = genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-              // @ts-ignore
-              thinkingConfig: { thinkingBudget: 0 },
-              temperature: 0.75,
-              maxOutputTokens: 250,
+          const model = genAI.getGenerativeModel(
+            {
+              model: modelName,
+              generationConfig: {
+                // @ts-ignore
+                thinkingConfig: { thinkingBudget: 0 },
+                temperature: 0.75,
+                maxOutputTokens: 250,
+              },
             },
-          });
+            { timeout: 8000 }
+          );
 
-          const result = await model.generateContent(prompt);
-          const rawText = result.response.text();
+          // Guarantee 8-second timeout window
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out after 8 seconds')), 8000)
+          );
+
+          const result: any = await Promise.race([
+            model.generateContent(prompt),
+            timeoutPromise,
+          ]);
+
+          const rawText = result?.response?.text ? result.response.text() : '';
           if (rawText && rawText.trim().length > 0) {
             reply = rawText.trim().replace(/^["']|["']$/g, '');
             break;
@@ -168,23 +180,26 @@ Rules:
             err?.message?.includes('503') ||
             err?.message?.includes('high demand') ||
             err?.message?.includes('overloaded') ||
-            err?.message?.includes('Resource has been exhausted');
+            err?.message?.includes('Resource has been exhausted') ||
+            err?.message?.includes('timed out');
 
-          if (isThrottle && attempt < 3) {
-            // Wait 1.2s on first retry, 2.4s on second retry
-            console.warn(`[Gemini API] Throttled on ${modelName} (attempt ${attempt}), backing off for ${1200 * attempt}ms...`);
-            await sleep(1200 * attempt);
+          if (isThrottle && attempt < 2) {
+            console.warn(`[Gemini API] Retrying ${modelName} after throttle/timeout (attempt ${attempt})...`);
+            await sleep(1000 * attempt);
             continue;
           }
-          break; // If non-throttle error, move to next model
+          break; // Move to next model
         }
       }
       if (reply) break;
     }
 
     if (!reply) {
-      console.error('All Gemini attempts failed:', lastError);
-      return NextResponse.json({ error: 'Google AI is currently busy. Please wait a few seconds and try again.' }, { status: 503 });
+      console.warn('Gemini model calls exhausted or temporarily busy:', lastError?.message || lastError);
+      return NextResponse.json(
+        { error: 'Google AI servers are momentarily busy. Please try again in a few seconds.' },
+        { status: 503 }
+      );
     }
 
     console.log("Full generated reply from Gemini:", reply);
@@ -192,6 +207,9 @@ Rules:
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
     console.error('[Gemini Route Error]:', error);
-    return NextResponse.json({ error: 'Server error processing reply' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Google AI servers are momentarily busy. Please try again in a few seconds.' },
+      { status: 503 }
+    );
   }
 }

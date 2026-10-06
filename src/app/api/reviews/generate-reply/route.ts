@@ -48,24 +48,36 @@ Requirements:
 - Keep it natural, appreciative, and concise.
 - Output ONLY the final response text with no quotes, preamble, or markdown.`;
 
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-2.5-flash'];
+    const targetModels = ['gemini-2.5-flash', 'gemini-1.5-flash-latest'];
     let reply = '';
     let lastError: any = null;
 
-    for (const modelName of modelsToTry) {
-      for (let attempt = 1; attempt <= 3; attempt++) {
+    for (const modelName of targetModels) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          const model = genAI.getGenerativeModel({
-            model: modelName,
-            generationConfig: {
-              // @ts-ignore
-              thinkingConfig: { thinkingBudget: 0 },
-              temperature: 0.75,
-              maxOutputTokens: 250,
+          const model = genAI.getGenerativeModel(
+            {
+              model: modelName,
+              generationConfig: {
+                // @ts-ignore
+                thinkingConfig: { thinkingBudget: 0 },
+                temperature: 0.75,
+                maxOutputTokens: 250,
+              },
             },
-          });
-          const result = await model.generateContent(prompt);
-          const rawText = result.response.text();
+            { timeout: 8000 }
+          );
+
+          const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Request timed out after 8 seconds')), 8000)
+          );
+
+          const result: any = await Promise.race([
+            model.generateContent(prompt),
+            timeoutPromise,
+          ]);
+
+          const rawText = result?.response?.text ? result.response.text() : '';
           if (rawText && rawText.trim().length > 0) {
             reply = rawText.trim().replace(/^["']|["']$/g, '');
             break;
@@ -79,10 +91,11 @@ Requirements:
             err?.message?.includes('503') ||
             err?.message?.includes('high demand') ||
             err?.message?.includes('overloaded') ||
-            err?.message?.includes('Resource has been exhausted');
+            err?.message?.includes('Resource has been exhausted') ||
+            err?.message?.includes('timed out');
 
-          if (isThrottle && attempt < 3) {
-            await sleep(1200 * attempt);
+          if (isThrottle && attempt < 2) {
+            await sleep(1000 * attempt);
             continue;
           }
           break;
@@ -92,8 +105,11 @@ Requirements:
     }
 
     if (!reply) {
-      console.error('All Gemini attempts failed:', lastError);
-      return NextResponse.json({ error: 'Google AI is currently busy. Please wait a few seconds and try again.' }, { status: 503 });
+      console.warn('All Gemini attempts failed in generate-reply:', lastError?.message || lastError);
+      return NextResponse.json(
+        { error: 'Google AI servers are momentarily busy. Please try again in a few seconds.' },
+        { status: 503 }
+      );
     }
 
     return NextResponse.json({
