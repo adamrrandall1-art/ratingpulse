@@ -1,6 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { FileText, ArrowLeft, CheckCircle2, MessageSquare, AlertTriangle, CreditCard } from 'lucide-react';
+import { FileText, ArrowLeft, CheckCircle2, MessageSquare, AlertTriangle, CreditCard, ShieldAlert } from 'lucide-react';
 
 export const metadata = {
   title: 'Terms of Service | RatingPulse.co',
@@ -184,24 +184,44 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 5. SMS Obligations */}
+          {/* 5. SMS Obligations & TCPA Representation */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">5. SMS Messaging Obligations &amp; Disclosures</h2>
+            <h2 className="text-xl font-bold text-white mb-4">5. SMS Messaging Obligations &amp; TCPA Representation</h2>
             <div className="p-4 rounded-xl bg-slate-800/60 border border-teal-500/30 text-sm text-teal-300 font-medium leading-relaxed mb-4">
               Adam Randall / RatingPulse provides SMS notifications for service feedback and review collection. Message frequency varies. Message and data rates may apply. Reply STOP to cancel at any time. Reply HELP for assistance.
             </div>
-            <div className="space-y-3 text-sm text-slate-300 leading-relaxed">
+            <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
+              <div className="p-4 rounded-xl bg-slate-950/60 border border-emerald-500/30">
+                <h3 className="text-sm font-bold text-emerald-400 mb-1">Telephone Consumer Protection Act (TCPA) &amp; SMS Compliance Representation</h3>
+                <p className="text-slate-200">
+                  You represent, warrant, and certify that you have obtained prior express written or verbal consent from each recipient in accordance with the Telephone Consumer Protection Act (TCPA) and applicable state laws before uploading or initiating SMS review invite requests. You agree to indemnify and hold harmless RatingPulse against any claims, regulatory enforcement, fines, or liabilities arising from unauthorized text messages sent on your behalf.
+                </p>
+              </div>
               <p>You are solely responsible for compliance with all applicable laws governing SMS communications, including but not limited to the Telephone Consumer Protection Act (TCPA), CAN-SPAM Act, and applicable state laws.</p>
               <p><strong className="text-slate-200">Consent requirement:</strong> You represent and warrant that all phone numbers uploaded to the platform have provided valid prior express written consent to receive SMS marketing communications from your business.</p>
               <p><strong className="text-slate-200">Opt-out compliance:</strong> You agree to honor all STOP requests within the platform and must not attempt to re-contact opted-out numbers.</p>
               <p><strong className="text-slate-200">Content standards:</strong> All SMS messages sent via RatingPulse must identify your business by name, include a clear opt-out mechanism, and comply with CTIA Messaging Principles and Best Practices.</p>
-              <p><strong className="text-slate-200">Indemnification:</strong> You agree to indemnify and hold harmless RatingPulse and Adam Randall from any claims, fines, or damages arising from your violation of SMS messaging laws or regulations.</p>
+              <p><strong className="text-slate-200">Quiet Hours delivery:</strong> You agree that SMS invitations are only to be initiated during compliant daytime hours in the recipient&apos;s local timezone (8:00 AM – 9:00 PM).</p>
             </div>
           </section>
 
-          {/* 6. Intellectual Property */}
+          {/* 6. HIPAA & PHI Notice */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">6. Intellectual Property</h2>
+            <div className="flex items-center gap-3 mb-4">
+              <ShieldAlert className="w-5 h-5 text-amber-400" />
+              <h2 className="text-xl font-bold text-white">6. HIPAA &amp; Protected Health Information (PHI) Notice</h2>
+            </div>
+            <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-sm leading-relaxed mb-4 font-medium">
+              RatingPulse is not a Business Associate under the Health Insurance Portability and Accountability Act (HIPAA). RatingPulse does not enter into Business Associate Agreements (BAAs), nor is the Service designed, intended, or certified to store, transmit, or process Protected Health Information (PHI). Users in healthcare, medical, dental, or allied practices agree not to upload, transmit, or request reviews containing PHI or patient-identifiable clinical details.
+            </div>
+            <p className="text-sm text-slate-300 leading-relaxed">
+              If your business operates in the medical, dental, behavioral health, or healthcare sectors, you are solely responsible for ensuring that customer review invitations, AI prompts, and automated workflows do not expose, request, or disclose protected patient identities, diagnoses, treatment records, or medical conditions.
+            </p>
+          </section>
+
+          {/* 7. Intellectual Property */}
+          <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
+            <h2 className="text-xl font-bold text-white mb-4">7. Intellectual Property</h2>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
               The Service, including its software, design, branding, and all content created by RatingPulse, is owned by RatingPulse and protected by intellectual property laws.
             </p>
@@ -210,9 +230,9 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 7. Disclaimers */}
+          {/* 8. Disclaimers */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">7. Disclaimers &amp; Limitation of Liability</h2>
+            <h2 className="text-xl font-bold text-white mb-4">8. Disclaimers &amp; Limitation of Liability</h2>
             <div className="space-y-3 text-sm text-slate-300 leading-relaxed">
               <p>The Service is provided "as is" without warranty of any kind. RatingPulse does not guarantee specific outcomes, including review volume, rating improvements, or Google Maps ranking changes.</p>
               <p><strong className="text-slate-200">Google compliance:</strong> RatingPulse does not guarantee compliance with Google's review policies on your behalf. You are responsible for ensuring your use of the Service complies with Google's Terms of Service and Review Policy.</p>
@@ -220,9 +240,9 @@ export default function TermsPage() {
             </div>
           </section>
 
-          {/* 8. Termination */}
+          {/* 9. Termination */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">8. Termination</h2>
+            <h2 className="text-xl font-bold text-white mb-4">9. Termination</h2>
             <p className="text-sm text-slate-300 leading-relaxed mb-3">
               Either party may terminate this agreement at any time. RatingPulse reserves the right to suspend or terminate your account immediately, without notice, for violation of these Terms, non-payment, or any activity that poses a risk to the Service or other users.
             </p>
@@ -231,17 +251,17 @@ export default function TermsPage() {
             </p>
           </section>
 
-          {/* 9. Governing Law */}
+          {/* 10. Governing Law */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">9. Governing Law</h2>
+            <h2 className="text-xl font-bold text-white mb-4">10. Governing Law</h2>
             <p className="text-sm text-slate-300 leading-relaxed">
               These Terms are governed by the laws of the United States and the State of New York, without regard to conflict of law principles. Any disputes shall be resolved through binding arbitration in New York, NY, except where prohibited by law. You waive the right to participate in class action lawsuits.
             </p>
           </section>
 
-          {/* 10. Changes & Contact */}
+          {/* 11. Changes & Contact */}
           <section className="bg-slate-900/50 border border-slate-800/60 rounded-2xl p-7">
-            <h2 className="text-xl font-bold text-white mb-4">10. Changes to Terms &amp; Contact</h2>
+            <h2 className="text-xl font-bold text-white mb-4">11. Changes to Terms &amp; Contact</h2>
             <p className="text-sm text-slate-300 leading-relaxed mb-4">
               We reserve the right to modify these Terms at any time. We will notify you of material changes via email or in-app notification at least 14 days before they take effect. Continued use of the Service after the effective date constitutes acceptance.
             </p>
