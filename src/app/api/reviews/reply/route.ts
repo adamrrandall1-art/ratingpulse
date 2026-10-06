@@ -120,11 +120,9 @@ export async function POST(req: NextRequest) {
     // Call Gemini to generate a response
     const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
     if (!apiKey) {
-      console.error('[Gemini API] Missing GEMINI_API_KEY');
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
+      return NextResponse.json({ error: 'Missing GEMINI_API_KEY in environment' }, { status: 500 });
     }
 
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
     const ai = new GoogleGenAI({ apiKey });
 
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
@@ -132,66 +130,29 @@ Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${ra
 Customer review: "${effectiveReviewText}"
 
 Rules:
-- Mention at least one specific detail or menu item they wrote about.
+- Mention at least one specific item or detail they wrote about.
 - Keep it natural and neighborly.
 - Output ONLY the final response text without quotes or preamble.`;
 
-    // Try primary gemini-3.8-flash first, fall back to gemini-3.5-flash if high demand occurs
-    const modelsToTry = ['gemini-3.8-flash', 'gemini-3.5-flash'];
-    let reply = '';
-    let lastError: any = null;
+    console.log('[Gemini API] Calling generateContent with 8s timeout...');
+    const callPromise = ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        temperature: 0.75,
+        maxOutputTokens: 250,
+      },
+    });
 
-    for (const model of modelsToTry) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          // Use modern Interactions API recommended by Google if available
-          if ((ai as any).interactions && typeof (ai as any).interactions.create === 'function') {
-            const interaction = await (ai as any).interactions.create({
-              model,
-              input: prompt,
-            });
-            reply = (interaction?.output_text || interaction?.text || '').trim();
-          } else {
-            // Fallback to models.generateContent if interactions client is unavailable
-            const response = await ai.models.generateContent({
-              model,
-              contents: prompt,
-              config: {
-                temperature: 0.75,
-                maxOutputTokens: 250,
-              },
-            });
-            reply = (response.text || '').trim();
-          }
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Generation timed out. Please try again.')), 8000)
+    );
 
-          if (reply) {
-            reply = reply.replace(/^["']|["']$/g, '');
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          console.warn(`[Gemini API Attempt Failed] model=${model}, attempt=${attempt}:`, err?.message || err);
-          // If 503 high demand or 429 rate limit, wait 750ms and retry
-          if (
-            err?.status === 503 ||
-            err?.status === 429 ||
-            err?.message?.includes('503') ||
-            err?.message?.includes('429') ||
-            err?.message?.includes('high demand') ||
-            err?.message?.includes('overloaded') ||
-            err?.message?.includes('Resource has been exhausted')
-          ) {
-            await sleep(750);
-            continue;
-          }
-          break;
-        }
-      }
-      if (reply) break;
-    }
+    const response: any = await Promise.race([callPromise, timeoutPromise]);
+    const reply = (response?.text || '').trim().replace(/^["']|["']$/g, '');
 
     if (!reply) {
-      throw lastError || new Error('All model endpoints busy');
+      return NextResponse.json({ error: 'Empty response returned from AI' }, { status: 500 });
     }
 
     console.log('[Gemini API] Generated reply:', reply);
@@ -199,8 +160,8 @@ Rules:
   } catch (error: any) {
     console.error('[Gemini Route Error]:', error);
     return NextResponse.json(
-      { error: 'AI is temporarily experiencing high traffic. Please tap regenerate again in a moment.' },
-      { status: 503 }
+      { error: error?.message || 'Server error generating reply' },
+      { status: 500 }
     );
   }
 }
