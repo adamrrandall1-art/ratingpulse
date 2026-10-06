@@ -139,8 +139,12 @@ Rules:
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
-        temperature: 0.75,
-        maxOutputTokens: 250,
+        // Turn off thinking tokens so 100% of token budget goes to the response
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+        temperature: 0.7,
+        maxOutputTokens: 500,
       },
     });
 
@@ -155,7 +159,7 @@ Rules:
       return NextResponse.json({ error: 'Empty response returned from AI' }, { status: 500 });
     }
 
-    console.log('[Gemini API] Generated reply:', reply);
+    console.log('[Generated Reply Length]:', reply.length, reply);
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
     console.error('[Gemini Route Error]:', error);

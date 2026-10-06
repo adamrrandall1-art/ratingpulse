@@ -52,8 +52,11 @@ Requirements:
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
-        temperature: 0.75,
-        maxOutputTokens: 250,
+        thinkingConfig: {
+          thinkingBudget: 0,
+        },
+        temperature: 0.7,
+        maxOutputTokens: 500,
       },
     });
 
@@ -68,6 +71,7 @@ Requirements:
       return NextResponse.json({ error: 'Empty response returned from AI' }, { status: 500 });
     }
 
+    console.log('[Generated Reply Length in generate-reply]:', reply.length, reply);
     return NextResponse.json({
       success: true,
       reply,
