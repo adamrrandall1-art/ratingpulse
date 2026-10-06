@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164, appendComplianceFooter } from '@/lib/twilio';
+import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
 
 // ─── E.164 formatter (inlined for extra safety) ──────────────────────────────
@@ -67,7 +68,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 4. Build SMS body
+  // 4. TCPA Quiet Hours Compliance Check (8:00 AM - 9:00 PM local time)
+  const timeZone = (body.timeZone as string) || (body.timezone as string) || 'America/New_York';
+  const { isWithinAllowedWindow, currentHour } = checkQuietHours(timeZone);
+  if (!isWithinAllowedWindow) {
+    console.warn(`[SMS] TCPA Quiet Hours: Blocked message at local hour ${currentHour}:00 in ${timeZone}`);
+    return NextResponse.json(
+      {
+        success: false,
+        error: `SMS delivery is restricted during TCPA quiet hours (current local hour: ${currentHour}:00). Allowed delivery window is 8:00 AM – 9:00 PM local time.`,
+        quietHoursBlocked: true,
+        currentHour,
+      },
+      { status: 403 }
+    );
+  }
+
+  // 5. Build SMS body
   const customerName = (body.customerName as string) || 'Valued Customer';
   const businessName = (body.businessName as string) || 'Our Business';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
@@ -81,7 +98,7 @@ export async function POST(req: NextRequest) {
 
   console.log('[SMS] dispatching to:', formattedTo, '| from:', twilioPhoneNumber || 'unset');
 
-  // 5. Send via Twilio — wrap in try/catch so any throw becomes a 400/500 JSON response
+  // 6. Send via Twilio — wrap in try/catch so any throw becomes a 400/500 JSON response
   let result;
   try {
     result = await sendTwilioSms(formattedTo, messageBody);

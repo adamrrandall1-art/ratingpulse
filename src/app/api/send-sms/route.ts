@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
+import { checkQuietHours } from '@/lib/compliance/quietHours';
 
 export async function POST(req: NextRequest) {
   try {
@@ -36,6 +37,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'Invalid phone number format.' },
         { status: 400 }
+      );
+    }
+
+    // TCPA Quiet Hours Compliance Check (8:00 AM - 9:00 PM local time)
+    const timeZone = body.timeZone || body.timezone || 'America/New_York';
+    const { isWithinAllowedWindow, currentHour } = checkQuietHours(timeZone);
+    if (!isWithinAllowedWindow) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `SMS delivery is restricted during TCPA quiet hours (current local hour: ${currentHour}:00). Allowed delivery window is 8:00 AM – 9:00 PM local time.`,
+          quietHoursBlocked: true,
+          currentHour,
+        },
+        { status: 403 }
       );
     }
 
