@@ -71,6 +71,7 @@ export default function Footer() {
               <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
               <li><Link href="/sms-consent" className="hover:text-white transition-colors">SMS Consent &amp; 10DLC</Link></li>
+              <li><Link href="/support" className="hover:text-white transition-colors">Help &amp; Support</Link></li>
               <li>
                 <a
                   href="mailto:support@ratingpulse.co"
@@ -90,9 +91,9 @@ export default function Footer() {
             © {new Date().getFullYear()} RatingPulse.co. All rights reserved.
           </div>
           <div className="flex items-center gap-4 text-slate-500">
-            <a href="mailto:support@ratingpulse.co" className="hover:text-slate-300 transition-colors">
+            <Link href="/support" className="hover:text-slate-300 transition-colors">
               Contact Support
-            </a>
+            </Link>
             <Link href="/privacy" className="hover:text-slate-300 transition-colors">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-slate-300 transition-colors">Terms of Service</Link>
             <Link href="/sms-consent" className="hover:text-slate-300 transition-colors">SMS Consent</Link>
