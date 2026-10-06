@@ -121,95 +121,43 @@ export async function POST(req: NextRequest) {
     }
 
     // Call Gemini to generate a response
-    if (!process.env.GEMINI_API_KEY) {
-      console.error('Missing GEMINI_API_KEY in environment');
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY' }, { status: 500 });
+    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
+    if (!apiKey) {
+      console.error('[Gemini API] Missing GEMINI_API_KEY');
+      return NextResponse.json({ error: 'Missing GEMINI_API_KEY in environment' }, { status: 500 });
     }
+
+    const genAIInstance = new GoogleGenerativeAI(apiKey);
+    const model = genAIInstance.getGenerativeModel({
+      model: 'gemini-3.8-flash',
+      generationConfig: {
+        // @ts-ignore
+        thinkingConfig: { thinkingBudget: 0 },
+        temperature: 0.7,
+        maxOutputTokens: 250,
+      },
+    });
 
     const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
 Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
 Customer review: "${effectiveReviewText}"
 
 Rules:
-- Mention at least one specific detail or menu item they wrote about.
+- Mention at least one specific item or detail they wrote about.
 - Keep it natural and neighborly.
-- Output ONLY the final response text without quotes or commentary.`;
+- Output ONLY the final response text without quotes or preamble.`;
 
-    const targetModels = ['gemini-2.5-flash', 'gemini-1.5-flash-latest'];
-    let reply = '';
-    let lastError: any = null;
+    console.log('[Gemini API] Calling gemini-3.8-flash for review reply generation...');
+    const result = await model.generateContent(prompt);
+    const reply = result.response.text().trim().replace(/^["']|["']$/g, '');
 
-    for (const modelName of targetModels) {
-      // Attempt up to 2 times per model with backoff
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const model = genAI.getGenerativeModel(
-            {
-              model: modelName,
-              generationConfig: {
-                // @ts-ignore
-                thinkingConfig: { thinkingBudget: 0 },
-                temperature: 0.75,
-                maxOutputTokens: 250,
-              },
-            },
-            { timeout: 8000 }
-          );
-
-          // Guarantee 8-second timeout window
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Request timed out after 8 seconds')), 8000)
-          );
-
-          const result: any = await Promise.race([
-            model.generateContent(prompt),
-            timeoutPromise,
-          ]);
-
-          const rawText = result?.response?.text ? result.response.text() : '';
-          if (rawText && rawText.trim().length > 0) {
-            reply = rawText.trim().replace(/^["']|["']$/g, '');
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          const isThrottle =
-            err?.status === 429 ||
-            err?.status === 503 ||
-            err?.message?.includes('429') ||
-            err?.message?.includes('503') ||
-            err?.message?.includes('high demand') ||
-            err?.message?.includes('overloaded') ||
-            err?.message?.includes('Resource has been exhausted') ||
-            err?.message?.includes('timed out');
-
-          if (isThrottle && attempt < 2) {
-            console.warn(`[Gemini API] Retrying ${modelName} after throttle/timeout (attempt ${attempt})...`);
-            await sleep(1000 * attempt);
-            continue;
-          }
-          break; // Move to next model
-        }
-      }
-      if (reply) break;
-    }
-
-    if (!reply) {
-      console.warn('Gemini model calls exhausted or temporarily busy:', lastError?.message || lastError);
-      return NextResponse.json(
-        { error: 'Google AI servers are momentarily busy. Please try again in a few seconds.' },
-        { status: 503 }
-      );
-    }
-
-    console.log("Full generated reply from Gemini:", reply);
-
+    console.log('[Gemini API] Generated reply:', reply);
     return NextResponse.json({ reply, replyText: reply });
   } catch (error: any) {
-    console.error('[Gemini Route Error]:', error);
+    console.error('[Gemini API Detailed Error]:', error);
     return NextResponse.json(
-      { error: 'Google AI servers are momentarily busy. Please try again in a few seconds.' },
-      { status: 503 }
+      { error: error?.message || 'Failed to generate reply' },
+      { status: 500 }
     );
   }
 }
