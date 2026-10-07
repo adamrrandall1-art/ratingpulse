@@ -2,6 +2,9 @@ import { Profile, Review } from './supabase/types';
 
 export const GOOGLE_OAUTH_SCOPES = [
   'https://www.googleapis.com/auth/business.manage',
+  'openid',
+  'email',
+  'profile',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/userinfo.profile',
 ].join(' ');
@@ -60,7 +63,7 @@ export function getGoogleOAuthConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/google/callback`;
+  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/callback/google`;
 
   return {
     clientId,
@@ -92,11 +95,13 @@ export function generateGoogleAuthUrl(stateData: { userId?: string; returnUrl?: 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
 
-export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenResponse> {
+export async function exchangeCodeForTokens(code: string, customRedirectUri?: string): Promise<GoogleTokenResponse> {
   const { clientId, clientSecret, redirectUri } = getGoogleOAuthConfig();
   if (!clientId || !clientSecret) {
     throw new Error('Google OAuth credentials are missing from environment');
   }
+
+  const effectiveRedirectUri = customRedirectUri || redirectUri;
 
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
@@ -105,7 +110,7 @@ export async function exchangeCodeForTokens(code: string): Promise<GoogleTokenRe
       code,
       client_id: clientId,
       client_secret: clientSecret,
-      redirect_uri: redirectUri,
+      redirect_uri: effectiveRedirectUri,
       grant_type: 'authorization_code',
     }),
   });
