@@ -48,7 +48,7 @@ function BusinessSetupContent() {
   } = useRatingPulseStore();
 
   const isConnected = Boolean(
-    profile.google_place_id && profile.business_name && profile.google_connected !== false
+    (profile.google_place_id && profile.business_name && profile.google_connected !== false) || isDemoMode
   );
 
   const isOauthVerified = Boolean(
@@ -56,22 +56,30 @@ function BusinessSetupContent() {
   );
 
   // Business Profile Form States
-  const [businessName, setBusinessName] = useState(profile.business_name || '');
-  const [businessAddress, setBusinessAddress] = useState(profile.formatted_address || '');
-  const [businessPhone, setBusinessPhone] = useState(profile.phone || '');
-  const [businessCategory, setBusinessCategory] = useState(profile.business_category || 'Local Business');
+  const [businessName, setBusinessName] = useState(
+    profile.business_name || (isDemoMode ? "Scoop 'n Twist" : '')
+  );
+  const [businessAddress, setBusinessAddress] = useState(
+    profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : '')
+  );
+  const [businessPhone, setBusinessPhone] = useState(
+    profile.phone || (isDemoMode ? '+1 (555) 234-5678' : '')
+  );
+  const [businessCategory, setBusinessCategory] = useState(
+    profile.business_category || (isDemoMode ? 'Ice Cream & Desserts' : 'Local Business')
+  );
   const [reviewUrl, setReviewUrl] = useState(
-    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
+    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
   );
 
   // Place Search & Location States
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlaceData>({
-    placeId: profile.google_place_id || '',
-    businessName: profile.business_name || '',
-    formattedAddress: profile.formatted_address || '',
-    rating: profile.google_rating || 0,
-    reviewCount: profile.google_review_count || 0,
-    reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
+    placeId: profile.google_place_id || (isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : ''),
+    businessName: profile.business_name || (isDemoMode ? "Scoop 'n Twist" : ''),
+    formattedAddress: profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : ''),
+    rating: profile.google_rating || (isDemoMode ? 4.9 : 0),
+    reviewCount: profile.google_review_count || (isDemoMode ? 128 : 0),
+    reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
   });
 
   // Sync & Toggles
@@ -117,26 +125,33 @@ function BusinessSetupContent() {
 
   useEffect(() => {
     if (isLoaded) {
-      if (isConnected) {
-        setBusinessName(profile.business_name || '');
-        setBusinessAddress(profile.formatted_address || '');
-        setBusinessPhone(profile.phone || '');
-        setBusinessCategory(profile.business_category || 'Local Business');
-        setReviewUrl(profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : ''));
+      if (isConnected || isDemoMode) {
+        const effectiveName = profile.business_name || (isDemoMode ? "Scoop 'n Twist" : '');
+        const effectiveAddress = profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : '');
+        const effectivePhone = profile.phone || (isDemoMode ? '+1 (555) 234-5678' : '');
+        const effectiveCategory = profile.business_category || (isDemoMode ? 'Ice Cream & Desserts' : 'Local Business');
+        const effectivePlaceId = profile.google_place_id || (isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : '');
+        const effectiveReviewUrl = profile.review_url || (effectivePlaceId ? generateGoogleReviewUrl(effectivePlaceId) : '');
+
+        setBusinessName(effectiveName);
+        setBusinessAddress(effectiveAddress);
+        setBusinessPhone(effectivePhone);
+        setBusinessCategory(effectiveCategory);
+        setReviewUrl(effectiveReviewUrl);
         setSelectedPlace({
-          placeId: profile.google_place_id || '',
-          businessName: profile.business_name || '',
-          formattedAddress: profile.formatted_address || '',
-          rating: profile.google_rating || 0,
-          reviewCount: profile.google_review_count || 0,
-          reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : '')
+          placeId: effectivePlaceId,
+          businessName: effectiveName,
+          formattedAddress: effectiveAddress,
+          rating: profile.google_rating || (isDemoMode ? 4.9 : 0),
+          reviewCount: profile.google_review_count || (isDemoMode ? 128 : 0),
+          reviewUrl: effectiveReviewUrl,
         });
       }
       if (settings) {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, profile.google_place_id, profile.business_name, profile.formatted_address, profile.phone, profile.business_category, settings, isConnected]);
+  }, [isLoaded, profile.google_place_id, profile.business_name, profile.formatted_address, profile.phone, profile.business_category, settings, isConnected, isDemoMode]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);
@@ -367,10 +382,15 @@ function BusinessSetupContent() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Verified Owner via Google OAuth 🟢
             </span>
+          ) : isDemoMode ? (
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Demo Connected (Scoop &apos;n Twist) 🟢
+            </span>
           ) : isConnected ? (
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-blue-500" />
-              {isDemoMode ? 'Demo Simulation Active 🟢' : 'Place ID Attached (Pending OAuth)'}
+              Place ID Attached (Pending OAuth)
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">

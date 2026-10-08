@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -38,11 +38,11 @@ interface GooglePlacesSearchProps {
 }
 
 export default function GooglePlacesSearch({
-  initialPlaceId = 'ChIJN1t_tDeuEmsRUsoyG83frY4',
-  initialBusinessName = 'Apex Dental & Aesthetics',
-  initialAddress = '1400 Broadway, New York, NY 10018',
+  initialPlaceId = 'ChIJawEUC_oN04kRB70LP1wHuPg',
+  initialBusinessName = "Scoop 'n Twist",
+  initialAddress = '315 S Broadway, Hicksville, NY 11801',
   initialRating = 4.9,
-  initialReviewCount = 284,
+  initialReviewCount = 128,
   initialReviewUrl = '',
   onPlaceSelect,
   showPreviewCard = true,
@@ -181,7 +181,7 @@ export default function GooglePlacesSearch({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Type your business name or address (e.g. Apex Dental)..."
+            placeholder="Type your business name or address (e.g. Scoop 'n Twist)..."
             className="w-full pl-10 pr-10 py-3 rounded-xl border border-slate-300 text-xs text-slate-900 font-medium placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 focus:outline-none bg-white shadow-2xs"
           />
 

@@ -206,13 +206,13 @@ export default function Hero() {
                           <span className="text-xs font-medium ml-1">Generating personalized reply...</span>
                         </div>
                       ) : (
-                        <p>&quot;Thank you so much, Sarah! We take pride in gentle, painless dental care at Apex Dental. We look forward to seeing you at your next checkup!&quot;</p>
+                        <p>&quot;Thank you so much, Sarah! We take pride in artisan ice cream and friendly service at Scoop &apos;n Twist. We look forward to scooping your favorite flavors again soon!&quot;</p>
                       )}
                     </div>
 
                     <div className="mt-2 flex items-center gap-1.5 text-[10px] text-teal-400 font-medium bg-teal-500/10 border border-teal-500/20 px-2 py-1 rounded">
                       <Zap className="w-3 h-3" />
-                      Keywords: <strong className="text-teal-300">gentle dental care</strong>, <strong className="text-teal-300">painless</strong>
+                      Keywords: <strong className="text-teal-300">artisan ice cream</strong>, <strong className="text-teal-300">friendly service</strong>
                     </div>
                   </div>
 
@@ -247,8 +247,8 @@ export default function Hero() {
                     </div>
                     <div className="bg-slate-900/80 border border-slate-700/30 p-3 rounded-lg text-xs leading-relaxed text-slate-300">
                       <p>
-                        &quot;Hi Sarah! Thank you for trusting Apex Dental today. Could you take 20 seconds to share your experience on Google? It means the world to our team:{' '}
-                        <span className="text-emerald-400 underline">g.page/r/apex-review</span>&quot;
+                        &quot;Hi Sarah! Thank you for visiting Scoop &apos;n Twist today. Could you take 30 seconds to share your experience on Google? It means the world to our team:{' '}
+                        <span className="text-emerald-400 underline">https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg</span>&quot;
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500">

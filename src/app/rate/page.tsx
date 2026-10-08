@@ -27,13 +27,13 @@ function ReviewGateContent() {
   const ownerEmailParam = searchParams.get('ownerEmail');
 
   const [businessName, setBusinessName] = useState<string>(
-    businessParam || 'Apex Dental & Aesthetics'
+    businessParam || "Scoop 'n Twist"
   );
   const [placeId, setPlaceId] = useState<string>(
-    placeIdParam || ''
+    placeIdParam || 'ChIJawEUC_oN04kRB70LP1wHuPg'
   );
   const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(
-    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : '')
+    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg')
   );
   const [ownerEmail, setOwnerEmail] = useState<string>(
     ownerEmailParam || 'notifications@ratingpulse.co'

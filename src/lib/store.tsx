@@ -9,6 +9,7 @@ import {
 } from './supabase/types';
 import {
   initialProfile,
+  demoProfile,
   initialSettings,
   initialReviews,
   initialInvites,
@@ -69,14 +70,14 @@ const RatingPulseStoreContext = createContext<RatingPulseStoreContextType | null
 
 // Global in-memory cache guard to prevent duplicate network calls
 let globalHasLoaded = false;
-let globalProfileCache = initialProfile;
+let globalProfileCache = demoProfile;
 let globalSettingsCache = initialSettings;
 let globalReviewsCache: Review[] = [];
 let globalInvitesCache = initialInvites;
 
 // Register global in-memory cache clearer with workspace-cleanup
 registerCacheResetListener(() => {
-  globalProfileCache = initialProfile;
+  globalProfileCache = demoProfile;
   globalSettingsCache = initialSettings;
   globalReviewsCache = [];
   globalInvitesCache = [];
@@ -413,13 +414,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     if (nextMode) {
       setReviews(initialReviews);
       setInvites(initialInvites);
-      setProfile(initialProfile);
+      setProfile(demoProfile);
       setSettings(initialSettings);
-      persistState(initialReviews, initialInvites, initialSettings, initialProfile);
+      persistState(initialReviews, initialInvites, initialSettings, demoProfile);
     } else {
       setReviews([]);
       setInvites([]);
-      persistState([], [], settings, profile);
+      setProfile(initialProfile);
+      persistState([], [], settings, initialProfile);
     }
   };
 
@@ -661,16 +663,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sendSmsInvite = async (
     customerName: string,
     customerPhone: string,
-    serviceType: string = 'General Consultation'
+    serviceType: string = 'Ice Cream Catering'
   ): Promise<Invite> => {
     setIsSaving(true);
     const validUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
+
+    const effectiveBusinessName = isDemoMode ? "Scoop 'n Twist" : (profile.business_name || 'our business');
+    const effectivePlaceId = isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : (profile.google_place_id || undefined);
+    const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+    const effectiveReviewUrl = isDemoMode ? demoReviewUrl : (profile.review_url || undefined);
 
     const newInvite: Invite = {
       id: validUuid,
       user_id: profile.id,
       business_id: profile.id,
-      place_id: profile.google_place_id || undefined,
+      place_id: effectivePlaceId,
       customer_name: customerName,
       customer_phone: customerPhone,
       service_type: serviceType,
@@ -685,13 +692,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     const appUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
     const qParams = new URLSearchParams();
-    if (profile.business_name) qParams.set('business', profile.business_name);
-    if (profile.google_place_id) qParams.set('placeId', profile.google_place_id);
-    if (profile.review_url) qParams.set('reviewUrl', profile.review_url);
+    qParams.set('business', effectiveBusinessName);
+    if (effectivePlaceId) qParams.set('placeId', effectivePlaceId);
+    if (effectiveReviewUrl) qParams.set('reviewUrl', effectiveReviewUrl);
     if (profile.email) qParams.set('ownerEmail', profile.email);
     const reviewGateUrl = `${appUrl}/rate/${validUuid}?${qParams.toString()}`;
 
-    const businessId = profile.google_place_id || profile.id;
+    const businessId = effectivePlaceId || profile.id;
     const ownerEmail = profile.email || 'notifications@ratingpulse.co';
 
     try {
@@ -701,14 +708,15 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({
           toPhone: customerPhone,
           customerName,
-          businessName: profile.business_name,
+          businessName: effectiveBusinessName,
           businessId,
-          placeId: profile.google_place_id,
-          reviewLink: reviewGateUrl,
-          reviewUrl: reviewGateUrl,
+          placeId: effectivePlaceId,
+          reviewLink: isDemoMode ? demoReviewUrl : reviewGateUrl,
+          reviewUrl: isDemoMode ? demoReviewUrl : reviewGateUrl,
           reviewGateUrl,
           inviteId: validUuid,
           ownerEmail,
+          isDemoMode,
         }),
       });
 
@@ -1448,7 +1456,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetDemoData = () => {
-    setProfile(initialProfile);
+    setProfile(demoProfile);
     setSettings(initialSettings);
     setReviews(initialReviews);
     setInvites(initialInvites);
@@ -1458,11 +1466,25 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
-    persistState(initialReviews, initialInvites, initialSettings, initialProfile);
+    persistState(initialReviews, initialInvites, initialSettings, demoProfile);
   };
 
+  const activeProfile: Profile = isDemoMode
+    ? {
+        ...demoProfile,
+        ...profile,
+        business_name: profile.business_name || demoProfile.business_name,
+        google_place_id: profile.google_place_id || demoProfile.google_place_id,
+        review_url: profile.review_url || demoProfile.review_url,
+        formatted_address: profile.formatted_address || demoProfile.formatted_address,
+        google_rating: profile.google_rating || demoProfile.google_rating,
+        google_review_count: profile.google_review_count || demoProfile.google_review_count,
+        google_connected: true,
+      }
+    : profile;
+
   const value: RatingPulseStoreContextType = {
-    profile,
+    profile: activeProfile,
     settings,
     reviews,
     invites,

@@ -12,7 +12,7 @@ export default function QuickReviewSender() {
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
-  const [serviceType, setServiceType] = useState('Dental Cleaning');
+  const [serviceType, setServiceType] = useState('Ice Cream Flight');
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
 

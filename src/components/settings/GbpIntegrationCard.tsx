@@ -33,11 +33,11 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
     (profile.google_place_id || isDemoMode)
   );
 
-  const businessName = profile.business_name || (isDemoMode ? "Scoop 'n Twist Ice Cream" : 'No Business Connected');
+  const businessName = isDemoMode ? "Scoop 'n Twist" : (profile.business_name || 'No Business Connected');
   const rating = Number(profile.google_rating) > 0 ? Number(profile.google_rating).toFixed(1) : (isDemoMode ? '4.9' : '0.0');
   const reviewCount = profile.google_review_count || (isDemoMode ? 128 : 0);
-  const placeId = profile.google_place_id || (isDemoMode ? 'ChIJN1t_tDeuEmsRUsoyG83frY4 (Demo Place ID)' : 'Not configured');
-  const address = profile.formatted_address || (isDemoMode ? '142 S Main Street, Cityville, NY 10001' : 'Address not set');
+  const placeId = isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : (profile.google_place_id || 'Not configured');
+  const address = isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : (profile.formatted_address || 'Address not set');
 
   const handleSync = async () => {
     setIsSyncing(true);
@@ -93,7 +93,7 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
           {isConnected ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              {isDemoMode ? 'Demo / Simulation Active 🟢' : 'Connected to Google 🟢'}
+              {isDemoMode ? "Demo Connected (Scoop 'n Twist) 🟢" : 'Connected to Google 🟢'}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">

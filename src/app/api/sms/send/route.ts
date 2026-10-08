@@ -85,15 +85,21 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Build SMS body
-  const customerName = (body.customerName as string) || 'Valued Customer';
-  const businessName = (body.businessName as string) || 'Our Business';
+  const isDemoMode   = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
+  const customerName = (body.customerName as string) || (body.name as string) || 'Valued Customer';
+  const businessName = isDemoMode
+    ? "Scoop 'n Twist"
+    : ((body.businessName as string) || ((body.business as any)?.name as string) || 'our business');
+  const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-  const reviewLink   = (body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || `${appUrl}/rate`;
+  const reviewLink   = isDemoMode
+    ? ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || demoReviewUrl)
+    : ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || `${appUrl}/rate`);
   const serviceType  = (body.serviceType  as string) || 'General Service';
   const userId       = (body.userId       as string) || '';
 
   const rawMessage = (body.message as string) ||
-    `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
+    `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;
   const messageBody = appendComplianceFooter(rawMessage);
 
   console.log('[SMS] dispatching to:', formattedTo, '| from:', twilioPhoneNumber || 'unset');

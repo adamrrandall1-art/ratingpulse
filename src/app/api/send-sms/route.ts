@@ -17,10 +17,16 @@ export async function POST(req: NextRequest) {
       body.phone_number ||
       body.mobile;
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const isDemoMode = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
+    const customerName = body.customerName || body.name || 'Valued Customer';
+    const businessName = isDemoMode
+      ? "Scoop 'n Twist"
+      : (body.businessName || body.business?.name || 'our business');
+    const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+    const reviewLink = isDemoMode
+      ? (body.reviewGateUrl || body.reviewLink || body.reviewUrl || demoReviewUrl)
+      : (body.reviewGateUrl || body.reviewLink || body.reviewUrl || `${appUrl}/rate`);
     const {
-      customerName = 'Valued Customer',
-      businessName = 'Our Business',
-      reviewLink = body.reviewGateUrl || body.reviewUrl || `${appUrl}/rate`,
       message,
       serviceType,
     } = body;
@@ -55,7 +61,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const defaultTemplate = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
+    const defaultTemplate = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;
     const rawMessage = message || defaultTemplate;
     const messageBody = appendComplianceFooter(rawMessage);
 

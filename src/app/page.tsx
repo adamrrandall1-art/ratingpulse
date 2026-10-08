@@ -478,7 +478,7 @@ export default function LandingPage() {
                     />
                     <div>
                       <p className="text-sm font-bold text-slate-900">Marcus Vance</p>
-                      <p className="text-xs text-slate-500">Apex Auto Precision</p>
+                      <p className="text-xs text-slate-500">Precision Auto Spa</p>
                     </div>
                   </div>
                 </div>
