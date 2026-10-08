@@ -129,11 +129,11 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Service / Treatment
+                  Service / Item Provided
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. Dental Cleaning"
+                  placeholder="e.g. Waffle Cone Duo"
                   value={serviceType}
                   onChange={(e) => setServiceType(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 text-slate-900 placeholder:text-slate-400"

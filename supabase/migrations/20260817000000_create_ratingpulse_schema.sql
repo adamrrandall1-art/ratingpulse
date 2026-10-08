@@ -40,11 +40,11 @@ create table if not exists public.subscriptions (
 alter table public.profiles add column if not exists id uuid references auth.users on delete cascade;
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
-alter table public.profiles add column if not exists business_name text default 'Apex Dental & Aesthetics';
-alter table public.profiles add column if not exists business_category text default 'Healthcare / Dental';
-alter table public.profiles add column if not exists google_place_id text default 'ChIJN1t_tDeuEmsRUsoyG83frY4';
-alter table public.profiles add column if not exists formatted_address text default '1400 Broadway, New York, NY 10018';
-alter table public.profiles add column if not exists review_url text default 'https://search.google.com/local/writereview?placeid=ChIJN1t_tDeuEmsRUsoyG83frY4';
+alter table public.profiles add column if not exists business_name text default 'Scoop ''n Twist';
+alter table public.profiles add column if not exists business_category text default 'Ice Cream & Desserts';
+alter table public.profiles add column if not exists google_place_id text default 'ChIJawEUC_oN04kRB70LP1wHuPg';
+alter table public.profiles add column if not exists formatted_address text default '750 Ridge Rd, Webster, NY 14580';
+alter table public.profiles add column if not exists review_url text default 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
 alter table public.profiles add column if not exists google_rating numeric(2,1) default 4.9;
 alter table public.profiles add column if not exists google_review_count integer default 284;
 alter table public.profiles add column if not exists google_connected boolean default true;

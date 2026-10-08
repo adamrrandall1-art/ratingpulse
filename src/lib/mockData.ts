@@ -1,33 +1,22 @@
-import { Review, Invite, BusinessSettings, Profile } from './supabase/types';
+﻿import { Review, Invite, BusinessSettings, Profile } from './supabase/types';
 
-export { DEMO_BUSINESS, DEMO_PROFILE, DEMO_SETTINGS, DEMO_REVIEWS, DEMO_INVITES } from './mockData';
-
-export const initialProfile: Profile = {
-  id: '',
-  email: '',
-  full_name: '',
-  business_name: '',
-  business_category: '',
-  google_place_id: '',
-  formatted_address: '',
-  review_url: '',
-  google_rating: 0,
-  google_review_count: 0,
-  google_connected: false,
-  phone: '',
-  stripe_customer_id: null,
-  stripe_subscription_id: null,
-  plan_status: 'trialing',
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
+export const DEMO_BUSINESS = {
+  id: "demo-scoop-n-twist",
+  name: "Scoop 'n Twist",
+  category: "Ice Cream Shop",
+  address: "750 Ridge Rd, Webster, NY 14580",
+  placeId: "ChIJawEUC_oN04kRB70LP1wHuPg",
+  rating: 4.9,
+  totalReviews: 128,
+  reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg",
 };
 
-export const demoProfile: Profile = {
+export const DEMO_PROFILE: Profile = {
   id: 'usr_mock_001',
   email: 'scoopntwist@example.com',
   full_name: 'Alex Rivera',
   business_name: "Scoop 'n Twist",
-  business_category: 'Ice Cream & Desserts',
+  business_category: 'Ice Cream Shop',
   google_place_id: 'ChIJawEUC_oN04kRB70LP1wHuPg',
   formatted_address: '750 Ridge Rd, Webster, NY 14580',
   review_url: 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg',
@@ -42,12 +31,12 @@ export const demoProfile: Profile = {
   updated_at: new Date().toISOString(),
 };
 
-export const initialSettings: BusinessSettings = {
+export const DEMO_SETTINGS: BusinessSettings = {
   id: 'set_mock_001',
   user_id: 'usr_mock_001',
   brand_voice: 'friendly_professional',
   auto_publish_5_star: false,
-  custom_keywords: [],
+  custom_keywords: ['artisanal waffle cone', 'salted caramel', 'gelato', 'sundae'],
   sms_template: 'Hi {{customer_name}}, thank you for visiting {{business_name}} today! Could you take 30 seconds to leave us a quick review on Google? {{review_link}}',
   notify_email: true,
   notify_sms: true,
@@ -58,12 +47,12 @@ export const initialSettings: BusinessSettings = {
   notify_positive_enabled: true,
   notify_positive_email: true,
   notify_positive_sms: false,
-  notification_email: '',
-  notification_phone: '',
+  notification_email: 'alex@scoopntwist.com',
+  notification_phone: '+1 (555) 234-5678',
   created_at: new Date().toISOString(),
 };
 
-export const initialReviews: Review[] = [
+export const DEMO_REVIEWS: Review[] = [
   {
     id: 'rev-101',
     user_id: 'usr_mock_001',
@@ -74,7 +63,7 @@ export const initialReviews: Review[] = [
     rating: 5,
     review_text: 'Best artisanal ice cream in town! The salted caramel twist in a fresh homemade waffle cone is out of this world. Super clean shop and friendly crew.',
     review_date: new Date(Date.now() - 2 * 3600000).toISOString(),
-    ai_draft_reply: 'Hi Sarah, thank you for visiting Scoop \'n Twist! We are so glad you loved our salted caramel twist and fresh waffle cones. Looking forward to scooping your favorite flavor again soon!',
+    ai_draft_reply: "Hi Sarah, thank you for visiting Scoop 'n Twist! We are so glad you loved our salted caramel twist and fresh waffle cones. Looking forward to scooping your favorite flavor again soon!",
     published_reply: null,
     status: 'pending_approval',
     sentiment: 'positive',
@@ -89,9 +78,9 @@ export const initialReviews: Review[] = [
     author_name: 'David Montgomery',
     author_avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop&crop=face',
     rating: 5,
-    review_text: 'Super efficient service, clean modern vibe, and the dairy-free passionfruit gelato exceeded all my expectations. Highly recommend Scoop \'n Twist!',
+    review_text: "Super efficient service, clean modern vibe, and the dairy-free passionfruit gelato exceeded all my expectations. Highly recommend Scoop 'n Twist!",
     review_date: new Date(Date.now() - 5 * 3600000).toISOString(),
-    ai_draft_reply: 'Hi David! Thank you for visiting Scoop \'n Twist. We are delighted to hear you loved the passionfruit gelato and friendly atmosphere. See you next time!',
+    ai_draft_reply: "Hi David! Thank you for visiting Scoop 'n Twist. We are delighted to hear you loved the passionfruit gelato and friendly atmosphere. See you next time!",
     published_reply: null,
     status: 'pending_approval',
     sentiment: 'positive',
@@ -108,11 +97,11 @@ export const initialReviews: Review[] = [
     rating: 5,
     review_text: 'The whole staff is incredible with kids. My daughter was so excited building her custom sundae bowl, and the team was patient and sweet.',
     review_date: new Date(Date.now() - 24 * 3600000).toISOString(),
-    ai_draft_reply: 'Thank you for your heartwarming feedback, Elena! Helping young dessert lovers create their dream custom sundaes is a joy for our entire team. Send our warmest regards to your daughter!',
-    published_reply: 'Thank you for your heartwarming feedback, Elena! Helping young dessert lovers create their dream custom sundaes is a joy for our entire team. Send our warmest regards to your daughter!',
+    ai_draft_reply: "Thank you for your heartwarming feedback, Elena! Helping young dessert lovers create their dream custom sundaes is a joy for our entire team. Send our warmest regards to your daughter!",
+    published_reply: "Thank you for your heartwarming feedback, Elena! Helping young dessert lovers create their dream custom sundaes is a joy for our entire team. Send our warmest regards to your daughter!",
     status: 'published',
     sentiment: 'positive',
-    keywords_used: ['custom sundae', 'friendly team', 'Scoop \'n Twist'],
+    keywords_used: ['custom sundae', 'friendly team', "Scoop 'n Twist"],
     published_at: new Date(Date.now() - 22 * 3600000).toISOString(),
     created_at: new Date(Date.now() - 24 * 3600000).toISOString(),
   },
@@ -126,17 +115,17 @@ export const initialReviews: Review[] = [
     rating: 4,
     review_text: 'Great dessert spot and very friendly staff. Only reason for 4 stars is parking was a bit tight around 8 PM on Friday, but the ice cream flight was top notch.',
     review_date: new Date(Date.now() - 48 * 3600000).toISOString(),
-    ai_draft_reply: 'Hi Robert, thank you for your honest 4-star review and kind words about our ice cream flights! We appreciate your note regarding the Friday evening parking rush—we have additional parking spaces behind the building for your future convenience.',
-    published_reply: 'Hi Robert, thank you for your honest 4-star review and kind words about our ice cream flights! We appreciate your note regarding the Friday evening parking rush—we have additional parking spaces behind the building for your future convenience.',
+    ai_draft_reply: "Hi Robert, thank you for your honest 4-star review and kind words about our ice cream flights! We appreciate your note regarding the Friday evening parking rush—we have additional parking spaces behind the building for your future convenience.",
+    published_reply: "Hi Robert, thank you for your honest 4-star review and kind words about our ice cream flights! We appreciate your note regarding the Friday evening parking rush—we have additional parking spaces behind the building for your future convenience.",
     status: 'published',
     sentiment: 'neutral',
-    keywords_used: ['ice cream flight', 'Scoop \'n Twist', 'dessert'],
+    keywords_used: ['ice cream flight', "Scoop 'n Twist", 'dessert'],
     published_at: new Date(Date.now() - 45 * 3600000).toISOString(),
     created_at: new Date(Date.now() - 48 * 3600000).toISOString(),
   }
 ];
 
-export const initialInvites: Invite[] = [
+export const DEMO_INVITES: Invite[] = [
   {
     id: 'inv-301',
     user_id: 'usr_mock_001',
@@ -188,54 +177,3 @@ export const initialInvites: Invite[] = [
     rating_received: 5,
   }
 ];
-
-export const landingFaqs = [
-  {
-    question: "How does RatingPulse help me get more 5-star Google reviews?",
-    answer: "Most happy customers simply forget to leave a review if not asked immediately. RatingPulse sends a perfectly-timed, friction-free SMS invite right after their visit with a direct 1-tap link to your Google Business Profile review form. Our clients see an average 340% surge in monthly reviews."
-  },
-  {
-    question: "Is RatingPulse 100% compliant with Google's review policies?",
-    answer: "Yes, 100%. RatingPulse strictly follows Google's anti-review-gating terms of service. We do not gate, block, or incentivize reviews. We simply make it effortless for all genuine customers to share their legitimate feedback on Google."
-  },
-  {
-    question: "How does the AI Reply Drafting feature work?",
-    answer: "When a new Google review lands on your profile, our AI immediately generates a personalized, highly professional reply that seamlessly weaves in your local SEO keywords. You can approve or edit the reply in 1 tap directly from your phone or dashboard."
-  },
-  {
-    question: "Can I try RatingPulse before paying?",
-    answer: "Absolutely! Every account starts with a 14-day free trial. No credit card is required to sign up, connect your Google Business Profile, and start collecting reviews."
-  },
-  {
-    question: "What happens after the 14-day free trial?",
-    answer: "You can continue on our simple, all-inclusive Growth Plan for just $25/month. There are no setup fees, hidden limits, or long-term contracts. You can cancel with 1 click at any time."
-  }
-];
-
-export const testimonials = [
-  {
-    quote: "We went from 3 reviews a month to over 35 five-star reviews in our very first month. Our Google Maps ranking jumped to #1 in our zip code!",
-    author: "Alex Rivera",
-    role: "Owner, Scoop 'n Twist Ice Cream",
-    location: "Hicksville, NY",
-    avatar: "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=120&h=120&fit=crop&crop=face",
-    metrics: "+410% Monthly Reviews"
-  },
-  {
-    quote: "The 1-tap AI replies save me 3 hours every week. I get a ping on my phone, review the draft, tap approve, and it's live on Google. Absolute game changer.",
-    author: "Jason Miller",
-    role: "Founder, Miller Elite Auto Spa",
-    location: "Scottsdale, AZ",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&h=120&fit=crop&crop=face",
-    metrics: "4.95 Google Rating (320+ Reviews)"
-  },
-  {
-    quote: "Our competitors were dominating the local 3-pack search results. RatingPulse flipped that within 60 days. Our phone rings with new client inquiries daily.",
-    author: "Elena Rostova",
-    role: "Managing Partner, Rostova Legal Group",
-    location: "Miami, FL",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&h=120&fit=crop&crop=face",
-    metrics: "+$18.4k Est. Monthly Inflow"
-  }
-];
-
