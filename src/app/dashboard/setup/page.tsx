@@ -395,7 +395,7 @@ function BusinessSetupContent() {
           ) : isDemoMode ? (
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Demo Connected (Scoop &apos;n Twist) 🟢
+              Demo Connected ({activeBusiness.name}) 🟢
             </span>
           ) : isConnected ? (
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
@@ -683,7 +683,7 @@ function BusinessSetupContent() {
             </label>
             <input
               type="text"
-              placeholder="e.g. Scoop 'n Twist Ice Cream"
+              placeholder="e.g. RatingPulse"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"

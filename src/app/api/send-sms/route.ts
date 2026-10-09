@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     const isDemoMode = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
     const customerName = body.customerName || body.name || 'Valued Customer';
     const businessName = isDemoMode
-      ? "Scoop 'n Twist"
+      ? "RatingPulse"
       : (body.businessName || body.business?.name || 'our business');
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'

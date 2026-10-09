@@ -37,13 +37,13 @@ function maskEmail(email: string): string {
   return `${maskedUser}@${domain}`;
 }
 
-const DEFAULT_SCOOP_INVITES = [
+const DEFAULT_SAMPLE_INVITES = [
   {
     id: 'mock-1',
     customer_name: 'Marcus Vance',
     customer_phone: '+15552348910',
     customer_email: 'marcus.vance@gmail.com',
-    service_type: 'Waffle Cone & Gelato',
+    service_type: 'Software Setup & Onboarding',
     channel: 'sms',
     status: 'delivered',
     sent_at: '2026-10-06T14:15:00Z',
@@ -53,7 +53,7 @@ const DEFAULT_SCOOP_INVITES = [
     customer_name: 'Elena Rostova',
     customer_phone: '+15553459021',
     customer_email: 'elena.r@outlook.com',
-    service_type: 'Ice Cream Flight Box',
+    service_type: 'Google Review Campaign',
     channel: 'both',
     status: 'reviewed',
     sent_at: '2026-10-06T13:40:00Z',
@@ -63,7 +63,7 @@ const DEFAULT_SCOOP_INVITES = [
     customer_name: 'Devon Hayes',
     customer_phone: '+15554560132',
     customer_email: 'dhayes@techcorp.io',
-    service_type: 'Corporate Sundae Bar',
+    service_type: 'Reputation Management Audit',
     channel: 'sms',
     status: 'queued',
     sent_at: '2026-10-06T22:30:00Z',
@@ -73,7 +73,7 @@ const DEFAULT_SCOOP_INVITES = [
     customer_name: 'Chloe Bennett',
     customer_phone: '+15555671243',
     customer_email: 'chloe.bennett@yahoo.com',
-    service_type: 'Birthday Cake Dip Cone',
+    service_type: 'Review Ingestion Consultation',
     channel: 'sms',
     status: 'delivered',
     sent_at: '2026-10-06T11:20:00Z',
@@ -83,7 +83,7 @@ const DEFAULT_SCOOP_INVITES = [
     customer_name: 'Jordan Rivera',
     customer_phone: '+15556782354',
     customer_email: 'jrivera@gmail.com',
-    service_type: 'Family Pint 4-Pack',
+    service_type: 'AI Review Reply Setup',
     channel: 'email',
     status: 'delivered',
     sent_at: '2026-10-05T16:45:00Z',
@@ -93,7 +93,7 @@ const DEFAULT_SCOOP_INVITES = [
     customer_name: 'Aaliyah Patel',
     customer_phone: '+15557893465',
     customer_email: 'aaliyah.p@icloud.com',
-    service_type: 'Catering Delivery',
+    service_type: 'Growth Plan Consultation',
     channel: 'both',
     status: 'pending',
     sent_at: '2026-10-05T15:10:00Z',
@@ -106,7 +106,7 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
   const [statusFilter, setStatusFilter] = useState<'all' | 'delivered' | 'reviewed' | 'queued' | 'pending'>('all');
 
   // Merge store invites with realistic defaults
-  const mergedInvites = [...(invites || []), ...DEFAULT_SCOOP_INVITES].filter(
+  const mergedInvites = [...(invites || []), ...DEFAULT_SAMPLE_INVITES].filter(
     (inv, idx, self) => idx === self.findIndex((t) => t.id === inv.id || (t.customer_phone && t.customer_phone === inv.customer_phone))
   );
 

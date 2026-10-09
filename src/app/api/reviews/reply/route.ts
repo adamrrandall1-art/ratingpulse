@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const prompt = `You are the owner of "${businessName || "Scoop 'n Twist"}".
+    const prompt = `You are the owner of "${businessName || "RatingPulse"}".
 Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
 Customer review: "${effectiveReviewText}"
 

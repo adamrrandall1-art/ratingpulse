@@ -43,6 +43,7 @@ export default function ReviewsFeed({
   const idParam = searchParams?.get('id');
 
   const {
+    activeBusiness,
     profile,
     reviews,
     approveReview,
@@ -162,7 +163,7 @@ export default function ReviewsFeed({
           reviewerName: review.author_name,
           rating: review.rating,
           reviewText: review.review_text || review.text || '',
-          businessName: profile?.business_name || "Scoop 'n Twist"
+          businessName: activeBusiness?.name || "RatingPulse"
         })
       });
       const data = await res.json();

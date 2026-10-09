@@ -11,7 +11,7 @@ interface Props {
 export default function GooglePlacesAutocomplete({
   onPlaceSelect,
   defaultValue = '',
-  placeholder = "Search business name (e.g., Scoop 'n Twist)...",
+  placeholder = "Search business name (e.g., RatingPulse)...",
   className = ''
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);

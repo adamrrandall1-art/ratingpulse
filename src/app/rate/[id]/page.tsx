@@ -27,7 +27,7 @@ function ReviewGateContent() {
   const ownerEmailParam = searchParams.get('ownerEmail');
 
   const [businessName, setBusinessName] = useState<string>(
-    businessParam || "Scoop 'n Twist"
+    businessParam || "RatingPulse"
   );
   const [placeId, setPlaceId] = useState<string>(
     placeIdParam || 'ChIJawEUC_oN04kRB70LP1wHuPg'

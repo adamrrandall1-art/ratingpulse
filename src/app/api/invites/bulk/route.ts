@@ -14,7 +14,7 @@ function toE164(raw: string): string | null {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { contacts = [], timeZone = 'America/New_York', businessName = "Scoop 'n Twist" } = body;
+    const { contacts = [], timeZone = 'America/New_York', businessName = "RatingPulse" } = body;
 
     if (!Array.isArray(contacts) || contacts.length === 0) {
       return NextResponse.json(
@@ -55,8 +55,8 @@ export async function POST(req: NextRequest) {
 
     const isDemoMode = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
     const resolvedBusinessName = isDemoMode
-      ? "Scoop 'n Twist"
-      : (body.businessName || body.business?.name || "Scoop 'n Twist");
+      ? "RatingPulse"
+      : (body.businessName || body.business?.name || "RatingPulse");
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');

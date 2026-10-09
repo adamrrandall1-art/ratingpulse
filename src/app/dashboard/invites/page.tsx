@@ -26,7 +26,7 @@ import BulkCsvCard from '@/components/invites/BulkCsvCard';
 import InviteHistoryTable from '@/components/invites/InviteHistoryTable';
 
 export default function InvitesPage() {
-  const { profile, invites } = useRatingPulseStore();
+  const { activeBusiness, invites } = useRatingPulseStore();
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const [quietHoursState, setQuietHoursState] = useState<{ isWithinAllowedWindow: boolean; currentHour: number }>({
     isWithinAllowedWindow: true,
@@ -159,7 +159,7 @@ export default function InvitesPage() {
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-medium">
             <span>Business:</span>
             <strong className="text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200 font-semibold">
-              {profile?.business_name || "Scoop 'n Twist"}
+              {activeBusiness.name || "RatingPulse"}
             </strong>
           </div>
         </div>

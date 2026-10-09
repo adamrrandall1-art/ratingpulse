@@ -28,7 +28,8 @@
     "sonner": "^2.0.8",
     "stripe": "^22.5.0",
     "tailwind-merge": "^3.6.0",
-    "twilio": "^6.1.0"
+    "twilio": "^6.1.0",
+    "zustand": "^5.0.15"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

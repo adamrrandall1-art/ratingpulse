@@ -75,7 +75,7 @@ export default function GooglePlacesInput({ onPlaceSelect, apiKey }: GooglePlace
     <input
       ref={inputRef}
       type="text"
-      placeholder="Search business name (e.g., Scoop 'n Twist)..."
+      placeholder="Search business name (e.g., RatingPulse)..."
       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
   );

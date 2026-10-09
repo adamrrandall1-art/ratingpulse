@@ -50,6 +50,7 @@ export interface BusinessSettings {
   brand_voice: 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic';
   auto_publish_5_star: boolean;
   custom_keywords: string[];
+  seo_keywords?: string[];
   sms_template: string;
   notification_email?: string | null;
   notification_phone?: string | null;
@@ -78,9 +79,13 @@ export interface Review {
   review_text: string;
   review_date: string;
   ai_draft_reply: string;
+  draft_reply_text?: string;
+  ai_reply_draft?: string;
+  final_reply_text?: string;
   review_reply?: string | null;
   published_reply?: string | null;
   replied_at?: string | null;
+  reply_published_at?: string | null;
   published_at?: string | null;
   status: 'pending_approval' | 'published' | 'ignored';
   sentiment: 'positive' | 'neutral' | 'negative';
@@ -97,6 +102,7 @@ export interface Invite {
   customer_phone: string;
   customer_email?: string | null;
   service_type: string;
+  channel?: string;
   status: 'sent' | 'delivered' | 'opened' | 'reviewed' | 'feedback_submitted' | string;
   sent_at: string;
   review_received_at?: string | null;

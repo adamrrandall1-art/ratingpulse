@@ -309,7 +309,7 @@ export default function AuthModal({
                         <input
                           type="text"
                           required
-                          placeholder="e.g. Scoop 'n Twist"
+                          placeholder="e.g. RatingPulse"
                           value={businessName}
                           onChange={(e) => setBusinessName(e.target.value)}
                           className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
