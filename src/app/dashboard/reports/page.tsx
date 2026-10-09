@@ -38,6 +38,30 @@ export default function ReportsPage() {
     ? (activeBusiness.reviewCount || 128)
     : (reviews.length || activeBusiness.reviewCount || 0);
 
+  if (!isDemoMode && !activeBusiness.isConnected) {
+    return (
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <div className="p-10 sm:p-14 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3">
+            <BarChart3 className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">No Business Connected</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md leading-relaxed">
+            Connect your Google Business Profile in Setup to view review velocity, invite conversion rates, and performance analytics.
+          </p>
+          <div className="mt-5">
+            <Link
+              href="/dashboard/setup"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20"
+            >
+              Connect Google Business Profile →
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const hasRatings = isDemoMode
     ? true
     : (activeBusiness.rating > 0 || reviews.length > 0);

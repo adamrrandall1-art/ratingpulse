@@ -361,7 +361,7 @@ export default function ReviewsFeed({
                   <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
                   <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
                 </button>
-                {showSimulateButton && (
+                {showSimulateButton && isDemoMode && (
                   <button
                     onClick={handleSimulate}
                     disabled={isSimulating}
@@ -456,7 +456,7 @@ export default function ReviewsFeed({
             <Sparkles className="w-6 h-6" />
           </div>
           <h3 className="text-sm font-bold text-slate-900">
-            {reviews.length === 0 ? 'No Google reviews yet' : 'No Reviews to Display'}
+            {reviews.length === 0 ? 'No Google reviews found yet.' : 'No Reviews to Display'}
           </h3>
           <p className="text-xs text-slate-500 max-w-md leading-relaxed">
             {reviews.length === 0

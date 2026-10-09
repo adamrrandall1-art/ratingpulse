@@ -162,7 +162,7 @@ export default function InvitesPage() {
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-medium">
             <span>Business:</span>
             <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              {activeBusiness.name}
+              {activeBusiness.name || 'Not Connected'}
             </span>
           </div>
         </div>

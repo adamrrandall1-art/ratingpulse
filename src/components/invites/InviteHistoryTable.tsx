@@ -115,10 +115,12 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
       : 'https://ratingpulse.co/rate'
   );
 
-  // Merge store invites with realistic defaults
-  const mergedInvites = [...(invites || []), ...DEFAULT_SAMPLE_INVITES].filter(
-    (inv, idx, self) => idx === self.findIndex((t) => t.id === inv.id || (t.customer_phone && t.customer_phone === inv.customer_phone))
-  );
+  // In Live Mode, only show real database invites; in Demo Mode, populate sample invites
+  const mergedInvites = isDemoMode
+    ? [...(invites || []), ...DEFAULT_SAMPLE_INVITES].filter(
+        (inv, idx, self) => idx === self.findIndex((t) => t.id === inv.id || (t.customer_phone && t.customer_phone === inv.customer_phone))
+      )
+    : (invites || []);
 
   const filtered = mergedInvites.filter((inv) => {
     const q = search.trim().toLowerCase();
@@ -185,9 +187,17 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
 
       {/* Table Body */}
       {filtered.length === 0 ? (
-        <div className="p-12 text-center max-w-sm mx-auto">
-          <p className="text-xs font-bold text-slate-700">No matching invitations found</p>
-          <p className="text-xs text-slate-400 mt-1">Try adjusting your search query or status filter.</p>
+        <div className="p-12 text-center max-w-md mx-auto space-y-2">
+          <p className="text-xs font-bold text-slate-800">
+            {mergedInvites.length === 0
+              ? "No invites sent yet. Click 'Send SMS Invite' to get started."
+              : "No matching invitations found"}
+          </p>
+          <p className="text-xs text-slate-400">
+            {mergedInvites.length === 0
+              ? "Dispatched customer review invitations and delivery statuses will appear here in real time."
+              : "Try adjusting your search query or status filter."}
+          </p>
         </div>
       ) : (
         <div className="overflow-x-auto">

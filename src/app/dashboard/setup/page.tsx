@@ -755,157 +755,117 @@ function BusinessSetupContent() {
               </p>
             </div>
           </div>
-        ) : !isDemoMode && !isGoogleAccountConnected ? (
-          /* LIVE MODE UNCONNECTED STATE */
-          <div className="p-6 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-4 text-left">
-            <div className="flex items-start gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
-                <Lock className="w-5 h-5 text-amber-700" />
-              </div>
-              <div className="space-y-1">
-                <h4 className="text-sm font-bold text-slate-900">
-                  Google OAuth Verification Required in Live Production
+        ) : null}
+
+        {/* Search Autocomplete */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-semibold text-slate-700">
+              Search Business Listing on Google Maps
+            </label>
+            <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
+              Google Maps Search
+            </span>
+          </div>
+          <GooglePlacesAutocomplete
+            initialBusinessName={selectedPlace.businessName}
+            initialPlaceId={selectedPlace.placeId}
+            initialAddress={selectedPlace.formattedAddress}
+            initialRating={selectedPlace.rating}
+            initialReviewCount={selectedPlace.reviewCount}
+            onPlaceSelect={handlePlaceSelect}
+            showPreviewCard={false}
+          />
+          <p className="text-[11px] text-slate-400">
+            Type your business name or address to search Google Maps and link your listing.
+          </p>
+        </div>
+
+        {/* Selected Location Card */}
+        {((isDemoMode && (selectedPlace.placeId || activeBusiness.placeId)) || (!isDemoMode && selectedPlace.placeId && !selectedPlace.placeId.startsWith('demo_'))) ? (
+          <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-150">
+            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
+                  {selectedPlace.businessName || profile.business_name}
+                  {(selectedPlace.rating || profile.google_rating) ? (
+                    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 ml-1">
+                      <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
+                      {(selectedPlace.rating || profile.google_rating || 5.0).toFixed(1)} ({selectedPlace.reviewCount || profile.google_review_count || 0} reviews)
+                    </span>
+                  ) : null}
                 </h4>
-                <p className="text-xs text-slate-600 leading-relaxed">
-                  To protect listing integrity and prevent unauthorized claiming of Google listings, manual Place ID search is locked in Live Production. Please authenticate with Google OAuth to automatically import your verified Google Business Profile.
+                <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>{selectedPlace.formattedAddress || profile.formatted_address || 'Address on file'}</span>
                 </p>
               </div>
+
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
+                {(selectedPlace.placeId || profile.google_place_id || '').slice(0, 14)}...
+              </span>
             </div>
 
-            <div className="pt-2 flex flex-wrap items-center gap-3">
-              <a
-                href={`/api/auth/google?userId=${user?.id || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
-                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-              >
-                <Sparkles className="w-4 h-4 text-blue-200" />
-                <span>Authenticate via Google OAuth →</span>
-              </a>
+            <div className="pt-2 border-t border-blue-100/80 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
+              <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Place ID connected'}
+              </span>
 
-              <Link
-                href="/dashboard/settings"
-                className="text-xs font-semibold text-slate-600 hover:text-slate-900 px-3 py-2"
-              >
-                Switch to Demo Sandbox in Settings
-              </Link>
+              {(selectedPlace.reviewUrl || profile.review_url) && (
+                <a
+                  href={selectedPlace.reviewUrl || profile.review_url || '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline flex items-center gap-1 text-xs font-semibold"
+                >
+                  <span>Test Google Review Link</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
             </div>
           </div>
         ) : (
-          <>
-            {/* Search Autocomplete (Enabled in Demo Mode) */}
-            {isDemoMode && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    Search Business Listing on Google Maps (Sandbox Mode)
-                  </label>
-                  <span className="text-[10px] uppercase font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                    Demo Sandbox
-                  </span>
-                </div>
-                <GooglePlacesAutocomplete
-                  initialBusinessName={selectedPlace.businessName}
-                  initialPlaceId={selectedPlace.placeId}
-                  initialAddress={selectedPlace.formattedAddress}
-                  initialRating={selectedPlace.rating}
-                  initialReviewCount={selectedPlace.reviewCount}
-                  onPlaceSelect={handlePlaceSelect}
-                  showPreviewCard={false}
-                />
-                <p className="text-[11px] text-slate-400">
-                  Type any business name to test Place ID auto-detection and review sync simulation.
-                </p>
-              </div>
-            )}
-
-            {/* Selected Location Card */}
-            {(isDemoMode && selectedPlace.placeId) || (hasVerifiedPlaceId && (selectedPlace.placeId || profile.google_place_id)) ? (
-              <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-150">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                  <div>
-                    <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                      {selectedPlace.businessName || profile.business_name}
-                      {(selectedPlace.rating || profile.google_rating) ? (
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 ml-1">
-                          <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                          {(selectedPlace.rating || profile.google_rating || 5.0).toFixed(1)} ({selectedPlace.reviewCount || profile.google_review_count || 0} reviews)
-                        </span>
-                      ) : null}
-                    </h4>
-                    <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1">
-                      <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{selectedPlace.formattedAddress || profile.formatted_address || 'Address on file'}</span>
-                    </p>
-                  </div>
-
-                  <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
-                    {(selectedPlace.placeId || profile.google_place_id || '').slice(0, 14)}...
-                  </span>
-                </div>
-
-                <div className="pt-2 border-t border-blue-100/80 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
-                  <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Place ID connected'}
-                  </span>
-
-                  {(selectedPlace.reviewUrl || profile.review_url) && (
-                    <a
-                      href={selectedPlace.reviewUrl || profile.review_url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline flex items-center gap-1 text-xs font-semibold"
-                    >
-                      <span>Test Google Review Link</span>
-                      <ExternalLink className="w-3 h-3" />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="p-8 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 text-xs">
-                <p>No business connected yet. Authenticate via Google OAuth above to link your listing.</p>
-              </div>
-            )}
-
-            {/* Place Actions */}
-            {isDemoMode && (
-              <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                {isConnected ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowDisconnectModal(true)}
-                    disabled={isDisconnecting}
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Disconnect Business</span>
-                  </button>
-                ) : (
-                  <div />
-                )}
-
-                <button
-                  type="button"
-                  onClick={handleConfirmAndConnectPlace}
-                  disabled={isConnectingPlace || !selectedPlace.placeId}
-                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
-                >
-                  {isConnectingPlace ? (
-                    <>
-                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Connecting & Syncing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>Confirm & Connect Location</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            )}
-          </>
+          <div className="p-8 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 text-xs">
+            <p>No business connected yet. Search your Google Maps listing above or authenticate with Google OAuth to connect.</p>
+          </div>
         )}
+
+        {/* Place Actions */}
+        <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          {isConnected ? (
+            <button
+              type="button"
+              onClick={() => setShowDisconnectModal(true)}
+              disabled={isDisconnecting}
+              className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Disconnect Business</span>
+            </button>
+          ) : (
+            <div />
+          )}
+
+          <button
+            type="button"
+            onClick={handleConfirmAndConnectPlace}
+            disabled={isConnectingPlace || !selectedPlace.placeId}
+            className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all transform active:scale-95 disabled:opacity-50 cursor-pointer"
+          >
+            {isConnectingPlace ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Connecting & Syncing...</span>
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Confirm & Connect Location</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* 3. BUSINESS PROFILE DETAILS FORM CARD */}
@@ -958,7 +918,7 @@ function BusinessSetupContent() {
             </label>
             <input
               type="text"
-              placeholder="123 Main St, Suite 400, New York, NY 10001"
+              placeholder="e.g. 100 Main St, Rochester, NY 14604"
               value={businessAddress}
               onChange={(e) => setBusinessAddress(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
@@ -973,7 +933,7 @@ function BusinessSetupContent() {
             </label>
             <input
               type="tel"
-              placeholder="(555) 123-4567"
+              placeholder="e.g. (585) 360-2026"
               value={businessPhone}
               onChange={(e) => setBusinessPhone(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"

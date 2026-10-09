@@ -16,7 +16,6 @@ import {
   Store,
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
-import { DEMO_BUSINESS } from '@/lib/mockData';
 import { toast } from 'sonner';
 
 interface GbpIntegrationCardProps {
@@ -101,110 +100,96 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
         </div>
       </div>
 
-      {/* Main Connected Business Info Box */}
-      <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/20 border border-slate-200/80 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2">
-              <Building2 className="w-4 h-4 text-slate-400" />
-              <h4 className="text-base font-bold text-slate-900">{businessName}</h4>
-              {isDemoMode && (
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
-                  Sample Business
-                </span>
-              )}
-            </div>
-
-            <div className="flex items-center gap-1.5 text-xs text-slate-500">
-              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span>{address}</span>
-            </div>
-
-            <div className="flex items-center gap-3 pt-1 text-xs">
-              <div className="flex items-center gap-1 text-amber-600 font-bold">
-                <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                <span>{rating} Google Rating</span>
+      {/* Main Connected Business Info Box / Unconnected State */}
+      {isConnected ? (
+        <div className="p-5 rounded-2xl bg-gradient-to-br from-slate-50 to-blue-50/20 border border-slate-200/80 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-slate-400" />
+                <h4 className="text-base font-bold text-slate-900">{businessName}</h4>
+                {isDemoMode && (
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-blue-100 text-blue-800 border border-blue-200">
+                    Sample Business
+                  </span>
+                )}
               </div>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-600 font-medium">{reviewCount} Total Verified Reviews</span>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <span>{address || 'Address configured'}</span>
+              </div>
+
+              <div className="flex items-center gap-3 pt-1 text-xs">
+                <div className="flex items-center gap-1 text-amber-600 font-bold">
+                  <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
+                  <span>{rating} Google Rating</span>
+                </div>
+                <span className="text-slate-300">•</span>
+                <span className="text-slate-600 font-medium">{reviewCount} Total Verified Reviews</span>
+              </div>
+            </div>
+
+            {/* Place ID Badge */}
+            <div className="sm:text-right">
+              <div className="text-[11px] font-semibold text-slate-500">Google Place ID</div>
+              <code className="text-xs font-mono bg-white px-2 py-1 rounded-md border border-slate-200 text-slate-700 inline-block mt-1 max-w-[220px] truncate">
+                {placeId}
+              </code>
             </div>
           </div>
 
-          {/* Place ID Badge */}
-          <div className="sm:text-right">
-            <div className="text-[11px] font-semibold text-slate-500">Google Place ID</div>
-            <code className="text-xs font-mono bg-white px-2 py-1 rounded-md border border-slate-200 text-slate-700 inline-block mt-1 max-w-[220px] truncate">
-              {placeId}
-            </code>
-          </div>
-        </div>
-
-        {/* API Connection Metadata Row */}
-        <div className="pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
-          <div className="flex items-center gap-2 text-slate-600">
-            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>OAuth 2.0 Business API Active</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-600">
-            <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>Auto-Sync Frequency: Every 15 min</span>
-          </div>
-          <div className="flex items-center gap-2 text-slate-600">
-            <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-            <span>1-Tap Publish Enabled</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Dedicated Simulation Mode Toggle Row */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/60 via-indigo-50/40 to-slate-50 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
-            <Sparkles className="w-4 h-4 text-blue-600" />
-          </div>
-          <div>
-            <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-              Simulation Mode
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${isDemoMode ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}>
-                {isDemoMode ? 'Active (Safe Sandbox)' : 'Inactive (Live Production)'}
-              </span>
+          {/* API Connection Metadata Row */}
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+            <div className="flex items-center gap-2 text-slate-600">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>OAuth 2.0 Business API Active</span>
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-              When enabled, 1-Tap approvals and test invites simulate successful API dispatches without touching live Google profiles or sending real carrier SMS.
-            </p>
+            <div className="flex items-center gap-2 text-slate-600">
+              <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+              <span>Auto-Sync Frequency: Every 15 min</span>
+            </div>
+            <div className="flex items-center gap-2 text-slate-600">
+              <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
+              <span>1-Tap Publish Enabled</span>
+            </div>
           </div>
         </div>
-
-        <label className="relative inline-flex items-center cursor-pointer shrink-0 self-start sm:self-center">
-          <input
-            type="checkbox"
-            checked={isDemoMode}
-            onChange={(e) => {
-              toggleDemoMode(e.target.checked);
-              toast.success(e.target.checked ? 'Simulation Mode Activated' : 'Live Mode Activated', {
-                description: e.target.checked
-                  ? 'Sample business profile and simulated Google API responses are now active.'
-                  : 'Live mode active. Real Google API tokens and carrier endpoints will be used.',
-              });
-            }}
-            className="sr-only peer"
-          />
-          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-        </label>
-      </div>
+      ) : (
+        <div className="p-8 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 text-center space-y-3">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+            <Store className="w-6 h-6" />
+          </div>
+          <h4 className="text-sm font-bold text-slate-900">No Business Profile Connected</h4>
+          <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+            Connect your Google Business Profile to verify ownership, sync authentic Google Maps reviews, and enable 1-tap AI responses.
+          </p>
+          <div className="pt-2">
+            <Link
+              href="/dashboard/setup"
+              className="inline-flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-blue-600/20"
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>Connect Google Profile in Setup →</span>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Action Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
         <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            onClick={handleSync}
-            disabled={isSyncing}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing Reviews...' : 'Sync Reviews Now'}
-          </button>
+          {isConnected && (
+            <button
+              type="button"
+              onClick={handleSync}
+              disabled={isSyncing}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
+              {isSyncing ? 'Syncing Reviews...' : 'Sync Reviews Now'}
+            </button>
+          )}
 
           <Link
             href="/dashboard/setup"

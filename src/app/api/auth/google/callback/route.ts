@@ -114,21 +114,9 @@ export async function GET(req: NextRequest) {
       console.warn('[GBP Discovery Warning]:', discoveryErr);
     }
 
-    // 3. Fallback to Google UserInfo if GBP listing title is not yet created
+    // 3. Fallback to Google UserInfo or RatingPulse if GBP listing title is not yet created
     if (!locationTitle) {
-      try {
-        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (userInfoRes.ok) {
-          const uInfo = await userInfoRes.json();
-          if (uInfo.name && !locationTitle) {
-            locationTitle = `${uInfo.name}'s Business`;
-          }
-        }
-      } catch (uErr) {
-        console.warn('[UserInfo Fallback Warning]:', uErr);
-      }
+      locationTitle = 'RatingPulse';
     }
 
     // 4. Save the primary location and access credentials linked to the Clerk userId

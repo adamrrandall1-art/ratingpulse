@@ -104,20 +104,20 @@ const defaultDemoBusiness: ActiveBusiness = {
   rating: DEFAULT_BUSINESS.rating || 5.0,
   reviewCount: DEFAULT_BUSINESS.totalReviews || 48,
   isConnected: true,
-  isDemoMode: true,
+  isDemoMode: false,
 };
 
 export const useRatingPulseZustand = create<RatingPulseStoreState>()(
   persist(
     (set, get) => ({
       hasHydrated: false,
-      isDemoMode: true,
+      isDemoMode: false,
       demoBusiness: defaultDemoBusiness,
       liveBusiness: null,
       profile: initialProfile,
-      settings: DEMO_SETTINGS || initialSettings,
-      reviews: DEMO_REVIEWS || initialReviews,
-      invites: DEMO_INVITES || initialInvites,
+      settings: initialSettings,
+      reviews: initialReviews,
+      invites: initialInvites,
       isLoaded: false,
       isSaving: false,
       searchQuery: '',
@@ -130,15 +130,16 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           if (next) {
             return {
               isDemoMode: true,
-              reviews: DEMO_REVIEWS || initialReviews,
-              invites: DEMO_INVITES || initialInvites,
-              settings: DEMO_SETTINGS || initialSettings,
+              reviews: DEMO_REVIEWS,
+              invites: DEMO_INVITES,
+              settings: DEMO_SETTINGS,
             };
           } else {
             return {
               isDemoMode: false,
               reviews: state.liveBusiness?.placeId ? state.reviews : [],
               invites: state.liveBusiness?.placeId ? state.invites : [],
+              settings: state.settings?.user_id ? state.settings : initialSettings,
             };
           }
         });
@@ -553,7 +554,13 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           if (state.demoBusiness && state.demoBusiness.name && /scoop|twist|apex/i.test(state.demoBusiness.name)) {
             state.setDemoBusiness(defaultDemoBusiness);
           }
-          if (state.liveBusiness && (state.liveBusiness.placeId?.startsWith('demo_') || state.liveBusiness.id?.startsWith('demo_'))) {
+          if (
+            state.liveBusiness &&
+            (state.liveBusiness.placeId?.startsWith('demo_') ||
+              state.liveBusiness.id?.startsWith('demo_') ||
+              /adam randall|my business|123 main/i.test(state.liveBusiness.name || '') ||
+              /123 main/i.test(state.liveBusiness.address || ''))
+          ) {
             state.setLiveBusiness(null);
           }
         }
@@ -646,38 +653,56 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const prof = profileData as Profile;
           zustandStore.setProfile(prof);
 
-          if (prof.google_connected) {
-            const hasRealPlaceId = Boolean(prof.google_place_id && !prof.google_place_id.startsWith('demo_'));
+          if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
+            const hasRealPlaceId = true;
             zustandStore.setLiveBusiness({
               id: prof.id,
-              name: prof.business_name || 'RatingPulse',
+              name: prof.business_name || '',
               category: prof.business_category || 'Local Business',
               address: prof.formatted_address || '',
               phone: prof.phone || '',
               placeId: prof.google_place_id || '',
-              reviewUrl: prof.review_url || (hasRealPlaceId ? `https://search.google.com/local/writereview?placeid=${prof.google_place_id}` : ''),
+              reviewUrl: prof.review_url || `https://search.google.com/local/writereview?placeid=${prof.google_place_id}`,
               rating: Number(prof.google_rating) || 0,
               reviewCount: prof.google_review_count || 0,
               isConnected: true,
               isDemoMode: false,
-              isPendingPlaceId: !hasRealPlaceId,
+              isPendingPlaceId: false,
               googleLocationId: (prof as any).google_location_id || undefined,
             });
-            zustandStore.toggleDemoMode(false);
 
-            if (hasRealPlaceId) {
-              // Fetch live reviews
-              const { data: revsData } = await supabase
-                .from('reviews')
-                .select('*')
-                .eq('user_id', currentUserId)
-                .eq('place_id', prof.google_place_id);
+            // Fetch live reviews
+            const { data: revsData } = await supabase
+              .from('reviews')
+              .select('*')
+              .eq('user_id', currentUserId)
+              .eq('place_id', prof.google_place_id);
 
-              if (revsData && revsData.length > 0) {
-                zustandStore.setReviews(revsData as Review[]);
-              }
+            if (revsData && revsData.length > 0) {
+              zustandStore.setReviews(revsData as Review[]);
             }
+          } else if (prof.google_connected) {
+            // Google OAuth connected but place ID is pending publication
+            zustandStore.setLiveBusiness({
+              id: prof.id,
+              name: prof.business_name || '',
+              category: prof.business_category || 'Local Business',
+              address: prof.formatted_address || '',
+              phone: prof.phone || '',
+              placeId: '',
+              reviewUrl: '',
+              rating: 0,
+              reviewCount: 0,
+              isConnected: true,
+              isDemoMode: false,
+              isPendingPlaceId: true,
+              googleLocationId: (prof as any).google_location_id || undefined,
+            });
+          } else {
+            zustandStore.setLiveBusiness(null);
           }
+        } else {
+          zustandStore.setLiveBusiness(null);
         }
 
         const { data: settingsData } = await supabase
@@ -743,12 +768,13 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       reviewCount: 0,
       isConnected: false,
       isDemoMode: false,
+      isPendingPlaceId: false,
     };
   }, [store.isDemoMode, store.demoBusiness, store.liveBusiness]);
 
   const activeReviews = useMemo(() => {
     if (store.isDemoMode) {
-      return store.reviews && store.reviews.length > 0 ? store.reviews : (DEMO_REVIEWS || initialReviews);
+      return store.reviews && store.reviews.length > 0 ? store.reviews : DEMO_REVIEWS;
     }
     if (store.liveBusiness && store.liveBusiness.isConnected) {
       return store.reviews;
@@ -758,7 +784,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
 
   const activeInvites = useMemo(() => {
     if (store.isDemoMode) {
-      return store.invites && store.invites.length > 0 ? store.invites : (DEMO_INVITES || initialInvites);
+      return store.invites && store.invites.length > 0 ? store.invites : DEMO_INVITES;
     }
     if (store.liveBusiness && store.liveBusiness.isConnected) {
       return store.invites;

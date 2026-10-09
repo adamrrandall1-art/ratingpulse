@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
                 {
                   id: data.user.id,
                   email: data.user.email,
-                  full_name: data.user.user_metadata?.full_name || 'Business Owner',
-                  business_name: data.user.user_metadata?.business_name || 'My Business',
+                  full_name: data.user.user_metadata?.full_name || '',
+                  business_name: data.user.user_metadata?.business_name || null,
                   welcome_email_sent: true,
                   created_at: new Date().toISOString(),
                   updated_at: new Date().toISOString(),

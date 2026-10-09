@@ -67,7 +67,7 @@ export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) 
   };
 
   const displayName = customerName.trim() || 'Valued Customer';
-  const bizName = activeBusiness.name;
+  const bizName = activeBusiness.name || 'our business';
   const reviewLink = activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
 
   const noteText = serviceNote.trim() ? ` for ${serviceNote.trim()}` : '';

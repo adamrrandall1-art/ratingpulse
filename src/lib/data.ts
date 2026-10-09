@@ -50,9 +50,28 @@ export const demoProfile: Profile = {
   updated_at: new Date().toISOString(),
 };
 
-export const initialSettings: BusinessSettings = DEMO_SETTINGS;
-export const initialReviews: Review[] = DEMO_REVIEWS;
-export const initialInvites: Invite[] = DEMO_INVITES;
+export const initialSettings: BusinessSettings = {
+  id: '',
+  user_id: '',
+  brand_voice: 'friendly_professional',
+  auto_publish_5_star: false,
+  custom_keywords: [],
+  sms_template: 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to leave us a quick review on Google? {{review_link}}',
+  notify_email: true,
+  notify_sms: false,
+  notify_negative_enabled: true,
+  notify_negative_email: true,
+  notify_negative_sms: false,
+  notify_negative_phone: '',
+  notify_positive_enabled: true,
+  notify_positive_email: true,
+  notify_positive_sms: false,
+  notification_email: '',
+  notification_phone: '',
+  created_at: new Date().toISOString(),
+};
+export const initialReviews: Review[] = [];
+export const initialInvites: Invite[] = [];
 
 export const landingFaqs = [
   {
