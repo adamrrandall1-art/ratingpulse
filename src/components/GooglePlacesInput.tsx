@@ -13,8 +13,27 @@ export default function GooglePlacesInput({ onPlaceSelect, apiKey }: GooglePlace
     const initAutocomplete = () => {
       if (!inputRef.current || !(window as any).google?.maps?.places) return;
 
+      const rochesterCenter = new (window as any).google.maps.LatLng(43.1566, -77.6088);
+      const defaultBounds = new (window as any).google.maps.Circle({
+        center: rochesterCenter,
+        radius: 35000, // ~22 miles
+      }).getBounds();
+
       const autocomplete = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-        fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'address_components', 'types', 'geometry']
+        fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'address_components', 'types', 'geometry'],
+        bounds: defaultBounds || undefined,
+        strictBounds: false,
+        componentRestrictions: { country: 'us' },
+        types: ['establishment'],
+      });
+
+      if (defaultBounds) {
+        autocomplete.setBounds(defaultBounds);
+      }
+      autocomplete.setOptions({
+        strictBounds: false, // Soft bias: prioritizes Rochester without blocking other areas
+        componentRestrictions: { country: 'us' },
+        types: ['establishment'],
       });
 
       autocomplete.addListener('place_changed', () => {
@@ -56,7 +75,7 @@ export default function GooglePlacesInput({ onPlaceSelect, apiKey }: GooglePlace
     <input
       ref={inputRef}
       type="text"
-      placeholder="Search business name..."
+      placeholder="Search business name (e.g., Scoop 'n Twist)..."
       className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
     />
   );

@@ -45,9 +45,10 @@ export async function GET(req: NextRequest) {
 
     // 2. Search Autocomplete / TextSearch if query is provided
     if (query) {
+      // Prioritize Rochester, NY (lat: 43.1566, lng: -77.6088, radius: 35000m / ~22 miles) with US component restriction
       const autocompleteUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
         query
-      )}&key=${apiKey}`;
+      )}&location=43.1566,-77.6088&radius=35000&components=country:us&types=establishment&key=${apiKey}`;
 
       const res = await fetch(autocompleteUrl);
       const data = await res.json();
@@ -63,11 +64,11 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ success: true, predictions });
       }
 
-      // Fallback: Query Google Places Text Search for complex or full-address queries
+      // Fallback: Query Google Places Text Search for complex or full-address queries biased to Rochester, NY
       try {
         const textSearchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
           query
-        )}&key=${apiKey}`;
+        )}&location=43.1566,-77.6088&radius=35000&key=${apiKey}`;
 
         const textRes = await fetch(textSearchUrl);
         const textData = await textRes.json();
