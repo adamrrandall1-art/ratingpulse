@@ -7,12 +7,12 @@ import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
 export default function QuickReviewSender() {
-  const { profile, settings, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
+  const { activeBusiness, settings, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
   const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms');
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [emailAddress, setEmailAddress] = useState('');
-  const [serviceType, setServiceType] = useState('Ice Cream Flight');
+  const [serviceType, setServiceType] = useState('Software Setup & Onboarding');
   const [isSending, setIsSending] = useState(false);
   const [sentSuccess, setSentSuccess] = useState(false);
 
@@ -109,7 +109,7 @@ export default function QuickReviewSender() {
 
   const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30s to rate your experience on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName.trim() || 'Customer')
-    .replace('{{business_name}}', profile.business_name)
+    .replace('{{business_name}}', activeBusiness.name || 'RatingPulse')
     .replace('{{review_link}}', 'ratingpulse.co/rate/...');
 
   const previewMessage = /stop|unsubscribe/i.test(rawPreview)
@@ -388,8 +388,8 @@ export default function QuickReviewSender() {
               {channel === 'sms'
                 ? `SMS Preview: "${previewMessage}"`
                 : channel === 'email'
-                ? `Email Subject: "Quick note from ${profile.business_name || 'Our Team'}"`
-                : `SMS: "${previewMessage.slice(0, 45)}..." • Email: "Quick note from ${profile.business_name || 'Our Team'}"`}
+                ? `Email Subject: "Quick note from ${activeBusiness.name || 'Our Team'}"`
+                : `SMS: "${previewMessage.slice(0, 45)}..." • Email: "Quick note from ${activeBusiness.name || 'Our Team'}"`}
             </span>
           </div>
           <span className="text-[11px] text-blue-600 font-semibold shrink-0">

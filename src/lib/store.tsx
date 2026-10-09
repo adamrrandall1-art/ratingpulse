@@ -546,6 +546,9 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           state.setHasHydrated(true);
+          if (state.demoBusiness && state.demoBusiness.name && /scoop|twist|apex/i.test(state.demoBusiness.name)) {
+            state.setDemoBusiness(defaultDemoBusiness);
+          }
         }
       },
     }
@@ -602,7 +605,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const zustandStore = useRatingPulseZustand();
 
   useEffect(() => {
-    useRatingPulseZustand.getState().setHasHydrated(true);
+    const store = useRatingPulseZustand.getState();
+    store.setHasHydrated(true);
+
+    // Migration guard: clean legacy localStorage entries if they contain Scoop or food data
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = localStorage.getItem('ratingpulse-storage');
+        if (raw && /scoop|twist|apex|cone|sundae|flight/i.test(raw)) {
+          store.resetDemoData();
+        }
+      }
+    } catch {}
   }, []);
 
   // Sync Supabase live profile when authenticated

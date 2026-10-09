@@ -101,9 +101,19 @@ const DEFAULT_SAMPLE_INVITES = [
 ];
 
 export default function InviteHistoryTable({ customInvites }: InviteHistoryTableProps) {
-  const { invites } = useRatingPulseStore();
+  const { invites, activeBusiness, isDemoMode } = useRatingPulseStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'delivered' | 'reviewed' | 'queued' | 'pending'>('all');
+
+  const currentBusinessName = isDemoMode
+    ? (activeBusiness?.name || 'RatingPulse')
+    : (activeBusiness?.name || 'our business');
+
+  const currentReviewUrl = activeBusiness?.reviewUrl || (
+    activeBusiness?.placeId
+      ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}`
+      : 'https://ratingpulse.co/rate'
+  );
 
   // Merge store invites with realistic defaults
   const mergedInvites = [...(invites || []), ...DEFAULT_SAMPLE_INVITES].filter(
@@ -139,7 +149,7 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
         <div>
           <h3 className="text-base font-bold text-slate-900">Invite Activity Log</h3>
           <p className="text-xs text-slate-500 mt-0.5">
-            Real-time delivery records, dispatch channels, and customer review outcomes.
+            Real-time delivery records, dispatch channels, and customer review outcomes for {currentBusinessName}.
           </p>
         </div>
 
@@ -187,7 +197,7 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
                 <th className="px-6 py-3">Recipient</th>
                 <th className="px-6 py-3">Contact</th>
                 <th className="px-6 py-3">Channel</th>
-                <th className="px-6 py-3">Service Note</th>
+                <th className="px-6 py-3">Service &amp; Dispatched SMS</th>
                 <th className="px-6 py-3">Sent / Scheduled</th>
                 <th className="px-6 py-3">Status</th>
               </tr>
@@ -206,6 +216,8 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
                       minute: '2-digit',
                     })
                   : 'Recent';
+
+                const messageSnippet = `“Hi ${inv.customer_name || 'Customer'}, thank you for choosing ${currentBusinessName}! Could you take 30s to rate your experience on Google? ${currentReviewUrl}”`;
 
                 return (
                   <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
@@ -244,9 +256,12 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
                       )}
                     </td>
 
-                    {/* Service Note */}
-                    <td className="px-6 py-3.5 text-slate-600 whitespace-nowrap">
-                      {inv.service_type || 'General Visit'}
+                    {/* Service Note & Dispatched Message */}
+                    <td className="px-6 py-3.5 max-w-xs">
+                      <div className="font-semibold text-slate-800">{inv.service_type || 'Service Consultation'}</div>
+                      <div className="text-[10px] text-slate-500 line-clamp-1 mt-0.5 italic" title={messageSnippet}>
+                        {messageSnippet}
+                      </div>
                     </td>
 
                     {/* Scheduled / Sent Date */}
