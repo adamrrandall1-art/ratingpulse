@@ -38,6 +38,7 @@ function BusinessSetupContent() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
   const {
+    activeBusiness,
     profile,
     settings,
     updateProfile,
@@ -48,9 +49,7 @@ function BusinessSetupContent() {
     isDemoMode,
   } = useRatingPulseStore();
 
-  const isConnected = Boolean(
-    (profile.google_place_id && profile.business_name && profile.google_connected !== false) || isDemoMode
-  );
+  const isConnected = activeBusiness.isConnected;
 
   const isOauthVerified = Boolean(
     profile.google_access_token || (profile.google_connected && !isDemoMode)
@@ -126,33 +125,26 @@ function BusinessSetupContent() {
 
   useEffect(() => {
     if (isLoaded) {
-      if (isConnected || isDemoMode) {
-        const effectiveName = profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '');
-        const effectiveAddress = profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '');
-        const effectivePhone = profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '');
-        const effectiveCategory = profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business');
-        const effectivePlaceId = profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : '');
-        const effectiveReviewUrl = profile.review_url || (effectivePlaceId ? generateGoogleReviewUrl(effectivePlaceId) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''));
-
-        setBusinessName(effectiveName);
-        setBusinessAddress(effectiveAddress);
-        setBusinessPhone(effectivePhone);
-        setBusinessCategory(effectiveCategory);
-        setReviewUrl(effectiveReviewUrl);
+      if (isConnected) {
+        setBusinessName(activeBusiness.name);
+        setBusinessAddress(activeBusiness.address);
+        setBusinessPhone(activeBusiness.phone);
+        setBusinessCategory(activeBusiness.category);
+        setReviewUrl(activeBusiness.reviewUrl);
         setSelectedPlace({
-          placeId: effectivePlaceId,
-          businessName: effectiveName,
-          formattedAddress: effectiveAddress,
-          rating: profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
-          reviewCount: profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
-          reviewUrl: effectiveReviewUrl,
+          placeId: activeBusiness.placeId,
+          businessName: activeBusiness.name,
+          formattedAddress: activeBusiness.address,
+          rating: activeBusiness.rating,
+          reviewCount: activeBusiness.reviewCount,
+          reviewUrl: activeBusiness.reviewUrl,
         });
       }
       if (settings) {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, profile.google_place_id, profile.business_name, profile.formatted_address, profile.phone, profile.business_category, settings, isConnected, isDemoMode]);
+  }, [isLoaded, activeBusiness, settings, isConnected]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);

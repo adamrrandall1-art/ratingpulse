@@ -53,34 +53,48 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const isDemoMode = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
+    const resolvedBusinessName = isDemoMode
+      ? "Scoop 'n Twist"
+      : (body.businessName || body.business?.name || "Scoop 'n Twist");
+    const placeId = isDemoMode
+      ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
+      : (body.placeId || body.google_place_id || '');
+    const userId = body.userId || '';
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const reviewLink = body.reviewLink || body.reviewUrl || directReviewUrl;
+
     const status = isWithinAllowedWindow ? 'SENT' : 'QUEUED_FOR_DAYLIGHT';
 
     // If within daytime, dispatch SMS via Twilio; otherwise queue for 8 AM
     if (isWithinAllowedWindow) {
       // Async dispatch batch with rate limiting
       void (async () => {
-        const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
         const sb = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
 
         for (const contact of validContacts) {
           try {
-            const rawMessage = `Hi ${contact.name}, thanks for choosing ${businessName}! Could you take 30s to rate your experience on Google? ${appUrl}/rate`;
+            const rawMessage = `Hi ${contact.name}, thanks for choosing ${resolvedBusinessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
             const messageBody = appendComplianceFooter(rawMessage);
             await sendTwilioSms(contact.formattedPhone, messageBody);
 
             if (sb) {
-              await sb.from('review_invites').insert([
-                {
-                  customer_name: contact.name,
-                  customer_phone: contact.formattedPhone,
-                  customer_email: contact.email || null,
-                  service_type: 'Bulk Upload Campaign',
-                  status: 'sent',
-                  sent_at: new Date().toISOString(),
-                },
-              ]);
+              const payload: Record<string, unknown> = {
+                customer_name: contact.name,
+                customer_phone: contact.formattedPhone,
+                customer_email: contact.email || null,
+                service_type: 'Bulk Upload Campaign',
+                place_id: placeId || null,
+                status: 'sent',
+                sent_at: new Date().toISOString(),
+              };
+              if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+                payload.user_id = userId;
+              }
+              await sb.from('review_invites').insert([payload]);
             }
           } catch (err) {
             console.error(`[Bulk Invites] Error dispatching to ${contact.formattedPhone}:`, err);

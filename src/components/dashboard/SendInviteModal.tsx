@@ -11,7 +11,7 @@ interface Props {
 }
 
 export default function SendInviteModal({ isOpen, onClose }: Props) {
-  const { profile, settings, sendSmsInvite, isDemoMode } = useRatingPulseStore();
+  const { activeBusiness, settings, sendSmsInvite } = useRatingPulseStore();
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [serviceType, setServiceType] = useState('Ice Cream Flight');
@@ -48,9 +48,8 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
     }, 1500);
   };
 
-  const effectiveBiz = profile.business_name || (isDemoMode ? "Scoop 'n Twist" : 'our business');
-  const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
-  const effectiveReviewUrl = isDemoMode ? demoReviewUrl : (profile.review_url || 'https://ratingpulse.co/rate');
+  const effectiveBiz = activeBusiness.name;
+  const effectiveReviewUrl = activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
 
   const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30 seconds to leave us a quick review on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName || 'Sarah')

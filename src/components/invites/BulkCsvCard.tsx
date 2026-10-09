@@ -48,7 +48,7 @@ function parseCSVLine(line: string): string[] {
 }
 
 export default function BulkCsvCard({ onBulkProcessed }: BulkCsvCardProps) {
-  const { profile } = useRatingPulseStore();
+  const { activeBusiness } = useRatingPulseStore();
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
   const [contacts, setContacts] = useState<ParsedContact[]>([]);
@@ -174,7 +174,10 @@ export default function BulkCsvCard({ onBulkProcessed }: BulkCsvCardProps) {
         body: JSON.stringify({
           contacts: valid,
           timeZone: userTz,
-          businessName: profile?.business_name || "Scoop 'n Twist",
+          businessName: activeBusiness.name,
+          placeId: activeBusiness.placeId,
+          reviewLink: activeBusiness.reviewUrl,
+          isDemoMode: activeBusiness.isDemoMode,
         }),
       });
 

@@ -40,7 +40,7 @@ interface QuickSenderCardProps {
 }
 
 export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) {
-  const { profile, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
+  const { activeBusiness, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
   const [channel, setChannel] = useState<ChannelType>('sms');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -67,8 +67,8 @@ export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) 
   };
 
   const displayName = customerName.trim() || 'Valued Customer';
-  const bizName = profile?.business_name || "Scoop 'n Twist";
-  const reviewLink = profile?.review_url || (profile?.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : 'https://ratingpulse.co/rate');
+  const bizName = activeBusiness.name;
+  const reviewLink = activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
 
   const noteText = serviceNote.trim() ? ` for ${serviceNote.trim()}` : '';
   const smsMessageText = `Hi ${displayName}, thank you for choosing ${bizName}${noteText}! Would you take 30 seconds to share your experience on Google? ${reviewLink}`;

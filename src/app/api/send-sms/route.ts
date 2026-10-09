@@ -22,10 +22,11 @@ export async function POST(req: NextRequest) {
     const businessName = isDemoMode
       ? "Scoop 'n Twist"
       : (body.businessName || body.business?.name || 'our business');
-    const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
-    const reviewLink = isDemoMode
-      ? (body.reviewGateUrl || body.reviewLink || body.reviewUrl || demoReviewUrl)
-      : (body.reviewGateUrl || body.reviewLink || body.reviewUrl || `${appUrl}/rate`);
+    const placeId = isDemoMode
+      ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
+      : (body.placeId || body.google_place_id || '');
+    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const reviewLink = body.reviewGateUrl || body.reviewLink || body.reviewUrl || directReviewUrl;
     const {
       message,
       serviceType,

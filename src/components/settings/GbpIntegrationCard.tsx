@@ -24,21 +24,17 @@ interface GbpIntegrationCardProps {
 }
 
 export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCardProps) {
-  const { profile, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
+  const { activeBusiness, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
 
-  const isConnected = Boolean(
-    profile.google_connected !== false &&
-    (profile.google_place_id || isDemoMode)
-  );
-
-  const businessName = isDemoMode ? DEMO_BUSINESS.name : (profile.business_name || 'No Business Connected');
-  const rating = Number(profile.google_rating) > 0 ? Number(profile.google_rating).toFixed(1) : (isDemoMode ? DEMO_BUSINESS.rating.toFixed(1) : '0.0');
-  const reviewCount = profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0);
-  const placeId = isDemoMode ? DEMO_BUSINESS.placeId : (profile.google_place_id || 'Not configured');
-  const address = isDemoMode ? DEMO_BUSINESS.address : (profile.formatted_address || 'Address not set');
+  const isConnected = activeBusiness.isConnected;
+  const businessName = activeBusiness.name;
+  const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
+  const reviewCount = activeBusiness.reviewCount;
+  const placeId = activeBusiness.placeId || 'Not configured';
+  const address = activeBusiness.address;
 
   const handleSync = async () => {
     setIsSyncing(true);

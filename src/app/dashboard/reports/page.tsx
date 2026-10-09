@@ -26,13 +26,13 @@ import RatingTrendCard from '@/components/reports/RatingTrendCard';
 type TimeRangeOption = '30d' | '60d' | '90d' | 'all';
 
 export default function ReportsPage() {
-  const { profile, reviews, invites } = useRatingPulseStore();
+  const { activeBusiness, reviews, invites } = useRatingPulseStore();
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('30d');
   const [isExporting, setIsExporting] = useState(false);
 
-  const businessName = profile?.business_name || "Scoop 'n Twist";
-  const totalReviews = profile?.google_review_count || (reviews?.length ? reviews.length + 120 : 128);
-  const ratingScore = profile?.google_rating ? profile.google_rating.toFixed(1) : '4.9';
+  const businessName = activeBusiness.name;
+  const totalReviews = activeBusiness.reviewCount || (reviews?.length ? reviews.length : 128);
+  const ratingScore = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '4.9';
 
   const handleExportReport = () => {
     setIsExporting(true);

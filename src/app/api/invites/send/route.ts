@@ -62,11 +62,14 @@ export async function POST(req: NextRequest) {
     const businessName = isDemoMode
       ? "Scoop 'n Twist"
       : ((body.businessName as string) || ((body.business as any)?.name as string) || 'our business');
-    const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+    const placeId      = isDemoMode
+      ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
+      : ((body.placeId as string) || (body.google_place_id as string) || '');
     const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
     const reviewLink   = isDemoMode
-      ? ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || demoReviewUrl)
-      : ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || `${appUrl}/rate`);
+      ? ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || directReviewUrl)
+      : ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || directReviewUrl);
     const serviceType  = (body.serviceType  as string) || 'General Service';
     const userId       = (body.userId       as string) || '';
 
@@ -98,6 +101,7 @@ export async function POST(req: NextRequest) {
             customer_name:  customerName,
             customer_phone: formattedTo,
             service_type:   serviceType,
+            place_id:       placeId || null,
             status:         'sent',
             sent_at:        new Date().toISOString(),
           };

@@ -6,17 +6,14 @@ import { Star, Building2, ArrowRight, ShieldCheck } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 
 export default function DashboardOverviewPage() {
-  const { profile, reviews: storeReviews } = useRatingPulseStore();
+  const { activeBusiness, reviews: storeReviews } = useRatingPulseStore();
 
-  const isGoogleConnected = Boolean(
-    profile.google_place_id && profile.business_name && profile.google_connected !== false
-  );
+  const isGoogleConnected = activeBusiness.isConnected;
+  const businessName = isGoogleConnected ? activeBusiness.name : null;
+  const businessAddress = isGoogleConnected ? activeBusiness.address : null;
 
-  const businessName = profile.business_name || null;
-  const businessAddress = (profile as any)?.business_address || (profile as any)?.city || (businessName ? 'Verified Location' : null);
-
-  const ratingScore = profile.google_rating ? profile.google_rating.toFixed(1) : '—';
-  const reviewCount = profile.google_review_count || storeReviews.length || 0;
+  const ratingScore = isGoogleConnected && activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '—';
+  const reviewCount = isGoogleConnected ? (activeBusiness.reviewCount || storeReviews.length || 0) : 0;
 
   // Strict guard: if not connected, reviews are strictly empty
   const reviews = isGoogleConnected ? storeReviews.slice(0, 10) : [];
