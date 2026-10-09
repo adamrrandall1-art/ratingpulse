@@ -42,6 +42,7 @@ function BusinessSetupContent() {
     profile,
     settings,
     updateProfile,
+    setActiveBusiness,
     updateSettings,
     disconnectBusiness,
     syncGoogleReviews,
@@ -57,29 +58,29 @@ function BusinessSetupContent() {
 
   // Business Profile Form States
   const [businessName, setBusinessName] = useState(
-    profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '')
+    activeBusiness.name || profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '')
   );
   const [businessAddress, setBusinessAddress] = useState(
-    profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '')
+    activeBusiness.address || profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '')
   );
   const [businessPhone, setBusinessPhone] = useState(
-    profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '')
+    activeBusiness.phone || profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '')
   );
   const [businessCategory, setBusinessCategory] = useState(
-    profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business')
+    activeBusiness.category || profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business')
   );
   const [reviewUrl, setReviewUrl] = useState(
-    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
+    activeBusiness.reviewUrl || profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
   );
 
   // Place Search & Location States
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlaceData>({
-    placeId: profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : ''),
-    businessName: profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : ''),
-    formattedAddress: profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : ''),
-    rating: profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
-    reviewCount: profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
-    reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
+    placeId: activeBusiness.placeId || profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : ''),
+    businessName: activeBusiness.name || profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : ''),
+    formattedAddress: activeBusiness.address || profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : ''),
+    rating: activeBusiness.rating || profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
+    reviewCount: activeBusiness.reviewCount || profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
+    reviewUrl: activeBusiness.reviewUrl || profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
   });
 
   // Sync & Toggles
@@ -189,7 +190,10 @@ function BusinessSetupContent() {
     }
   };
 
-  const handleConfirmAndConnectPlace = async () => {
+  const handleConfirmAndConnectPlace = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+    }
     if (!selectedPlace.placeId || !selectedPlace.businessName) {
       toast.error('Please search and select a Google business location first.');
       return;
@@ -220,6 +224,18 @@ function BusinessSetupContent() {
       } else if (nameLower.includes('law') || nameLower.includes('attorney') || nameLower.includes('legal')) {
         inferredCategory = 'Legal Services';
       }
+
+      // Persist active business in store & localStorage
+      setActiveBusiness({
+        name: selectedPlace.businessName,
+        placeId: selectedPlace.placeId,
+        address: selectedPlace.formattedAddress || '',
+        category: inferredCategory,
+        rating: selectedPlace.rating || 5.0,
+        reviewCount: selectedPlace.reviewCount || 0,
+        reviewUrl: gReviewUrl,
+        isConnected: true,
+      });
 
       await updateProfile({
         business_name: selectedPlace.businessName,
@@ -258,8 +274,9 @@ function BusinessSetupContent() {
         // ignore
       }
 
-      toast.success('Google Business Location Connected!', {
+      toast.success(`Connected to ${selectedPlace.businessName}`, {
         description: `Now actively syncing ${selectedPlace.businessName}`,
+        duration: 5000,
       });
     } catch (err: any) {
       toast.error('Connection failed', {

@@ -14,7 +14,7 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
   const { activeBusiness, settings, sendSmsInvite } = useRatingPulseStore();
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
-  const [serviceType, setServiceType] = useState('Ice Cream Flight');
+  const [serviceType, setServiceType] = useState('General Service');
   const [isSending, setIsSending] = useState(false);
   const [success, setSuccess] = useState(false);
 

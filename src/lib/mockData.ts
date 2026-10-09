@@ -1,28 +1,31 @@
 import { Review, Invite, BusinessSettings, Profile } from './supabase/types';
 
-export const DEMO_BUSINESS = {
-  id: "demo-scoop-n-twist",
-  name: "Scoop 'n Twist",
-  category: "Ice Cream & Frozen Dessert",
-  address: "932 S Winton Rd, Rochester, NY 14618",
+export const DEFAULT_BUSINESS = {
+  id: "demo-ratingpulse",
+  name: "RatingPulse",
+  category: "Software & Reputation Management",
+  address: "Rochester, NY",
   phone: "(585) 360-2026",
-  placeId: "ChIJawEUC_oN04kRB70LP1wHuPg",
-  rating: 4.9,
-  totalReviews: 128,
-  reviewUrl: "https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg",
+  placeId: "demo_ratingpulse_place_id",
+  rating: 5.0,
+  totalReviews: 48,
+  reviewUrl: "https://search.google.com/local/writereview?placeid=demo_ratingpulse_place_id",
+  isVerified: true,
 };
+
+export const DEMO_BUSINESS = DEFAULT_BUSINESS;
 
 export const DEMO_PROFILE: Profile = {
   id: 'usr_mock_001',
-  email: 'scoopntwist@example.com',
+  email: 'team@ratingpulse.co',
   full_name: 'Alex Rivera',
-  business_name: "Scoop 'n Twist",
-  business_category: 'Ice Cream & Frozen Dessert',
-  google_place_id: 'ChIJawEUC_oN04kRB70LP1wHuPg',
-  formatted_address: '932 S Winton Rd, Rochester, NY 14618',
-  review_url: 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg',
-  google_rating: 4.9,
-  google_review_count: 128,
+  business_name: 'RatingPulse',
+  business_category: 'Software & Reputation Management',
+  google_place_id: 'demo_ratingpulse_place_id',
+  formatted_address: 'Rochester, NY',
+  review_url: 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_place_id',
+  google_rating: 5.0,
+  google_review_count: 48,
   google_connected: true,
   phone: '(585) 360-2026',
   stripe_customer_id: null,

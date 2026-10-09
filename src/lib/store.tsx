@@ -13,6 +13,7 @@ import {
   initialSettings,
   initialReviews,
   initialInvites,
+  DEFAULT_BUSINESS,
   DEMO_BUSINESS,
 } from './data';
 import { supabase, isSupabaseConfigured } from './supabase/client';
@@ -47,10 +48,12 @@ const STORAGE_KEYS = {
   REVIEWS: 'ratingpulse_reviews_v1',
   INVITES: 'ratingpulse_invites_v1',
   DEMO_MODE: 'ratingpulse_demo_mode_v1',
+  ACTIVE_BUSINESS: 'ratingpulse_active_business_v1',
 };
 
 export interface RatingPulseStoreContextType {
   activeBusiness: ActiveBusiness;
+  setActiveBusiness: (newBusiness: Partial<ActiveBusiness>) => void;
   profile: Profile;
   settings: BusinessSettings;
   reviews: Review[];
@@ -87,6 +90,7 @@ const RatingPulseStoreContext = createContext<RatingPulseStoreContextType | null
 // Global in-memory cache guard to prevent duplicate network calls
 let globalHasLoaded = false;
 let globalProfileCache = demoProfile;
+let globalSelectedBusinessCache: Partial<ActiveBusiness> | null = null;
 let globalSettingsCache = initialSettings;
 let globalReviewsCache: Review[] = [];
 let globalInvitesCache = initialInvites;
@@ -94,6 +98,7 @@ let globalInvitesCache = initialInvites;
 // Register global in-memory cache clearer with workspace-cleanup
 registerCacheResetListener(() => {
   globalProfileCache = demoProfile;
+  globalSelectedBusinessCache = null;
   globalSettingsCache = initialSettings;
   globalReviewsCache = [];
   globalInvitesCache = [];
@@ -103,6 +108,7 @@ registerCacheResetListener(() => {
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const { user, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<Profile>(globalProfileCache);
+  const [selectedBusiness, setSelectedBusiness] = useState<Partial<ActiveBusiness> | null>(globalSelectedBusinessCache);
   const [settings, setSettings] = useState<BusinessSettings>(globalSettingsCache);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [invites, setInvites] = useState<Invite[]>(globalInvitesCache);
@@ -280,6 +286,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       // 3. Local storage fallback
       try {
+        const storedActiveBiz = localStorage.getItem(STORAGE_KEYS.ACTIVE_BUSINESS);
+        if (storedActiveBiz) {
+          try {
+            const parsedBiz = JSON.parse(storedActiveBiz);
+            if (parsedBiz && (parsedBiz.name || parsedBiz.placeId)) {
+              setSelectedBusiness(parsedBiz);
+              globalSelectedBusinessCache = parsedBiz;
+            }
+          } catch {}
+        }
+
         const storedProfile = localStorage.getItem(STORAGE_KEYS.PROFILE);
         const storedSettings = localStorage.getItem(STORAGE_KEYS.SETTINGS);
         const storedReviews = localStorage.getItem(STORAGE_KEYS.REVIEWS);
@@ -294,6 +311,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             if (parsedProfile.notify_negative_phone && parsedProfile.notify_negative_phone.includes('555')) parsedProfile.notify_negative_phone = '';
             setProfile(parsedProfile);
             globalProfileCache = parsedProfile;
+
+            if (!globalSelectedBusinessCache && parsedProfile.business_name) {
+              const seededBiz: Partial<ActiveBusiness> = {
+                name: parsedProfile.business_name,
+                placeId: parsedProfile.google_place_id || '',
+                address: parsedProfile.formatted_address || '',
+                reviewUrl: parsedProfile.review_url || '',
+                rating: Number(parsedProfile.google_rating) || 5.0,
+                reviewCount: Number(parsedProfile.google_review_count) || 0,
+                category: parsedProfile.business_category || 'Local Business',
+                isConnected: Boolean(parsedProfile.google_connected),
+              };
+              setSelectedBusiness(seededBiz);
+              globalSelectedBusinessCache = seededBiz;
+            }
           }
         }
         if (storedSettings) {
@@ -416,6 +448,38 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch (e) {
       console.error('LocalStorage write error', e);
     }
+  };
+
+  const setActiveBusiness = (newBusiness: Partial<ActiveBusiness>) => {
+    setSelectedBusiness((prev) => {
+      const merged = { ...(prev || {}), ...newBusiness };
+      globalSelectedBusinessCache = merged;
+      try {
+        localStorage.setItem(STORAGE_KEYS.ACTIVE_BUSINESS, JSON.stringify(merged));
+      } catch (e) {
+        console.error('Failed writing active business to localStorage', e);
+      }
+      return merged;
+    });
+
+    setProfile((prev) => {
+      const updatedProfile: Profile = {
+        ...prev,
+        business_name: newBusiness.name !== undefined ? newBusiness.name : prev.business_name,
+        formatted_address: newBusiness.address !== undefined ? newBusiness.address : prev.formatted_address,
+        google_place_id: newBusiness.placeId !== undefined ? newBusiness.placeId : prev.google_place_id,
+        review_url: newBusiness.reviewUrl !== undefined ? newBusiness.reviewUrl : prev.review_url,
+        google_rating: newBusiness.rating !== undefined ? newBusiness.rating : prev.google_rating,
+        google_review_count: newBusiness.reviewCount !== undefined ? newBusiness.reviewCount : prev.google_review_count,
+        business_category: newBusiness.category !== undefined ? newBusiness.category : prev.business_category,
+        google_connected: newBusiness.isConnected !== undefined ? newBusiness.isConnected : true,
+      };
+      globalProfileCache = updatedProfile;
+      try {
+        localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(updatedProfile));
+      } catch {}
+      return updatedProfile;
+    });
   };
 
   const toggleDemoMode = (enable?: boolean) => {
@@ -679,7 +743,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   const sendSmsInvite = async (
     customerName: string,
     customerPhone: string,
-    serviceType: string = 'Ice Cream Catering'
+    serviceType: string = 'General Consultation'
   ): Promise<Invite> => {
     setIsSaving(true);
     const validUuid = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inv-${Date.now()}`;
@@ -983,6 +1047,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     const updated = { ...profile, ...newProfile };
     setProfile(updated);
     globalProfileCache = updated;
+
+    if (newProfile.business_name !== undefined || newProfile.google_place_id !== undefined || newProfile.formatted_address !== undefined) {
+      setSelectedBusiness((prev) => {
+        const updatedBiz: Partial<ActiveBusiness> = {
+          ...(prev || {}),
+          name: newProfile.business_name !== undefined ? newProfile.business_name : prev?.name,
+          placeId: newProfile.google_place_id !== undefined ? (newProfile.google_place_id || '') : prev?.placeId,
+          address: newProfile.formatted_address !== undefined ? (newProfile.formatted_address || '') : prev?.address,
+          reviewUrl: newProfile.review_url !== undefined ? (newProfile.review_url || '') : prev?.reviewUrl,
+          rating: newProfile.google_rating !== undefined ? Number(newProfile.google_rating) : prev?.rating,
+          reviewCount: newProfile.google_review_count !== undefined ? Number(newProfile.google_review_count) : prev?.reviewCount,
+          category: newProfile.business_category !== undefined ? newProfile.business_category : prev?.category,
+          isConnected: newProfile.google_connected !== undefined ? Boolean(newProfile.google_connected) : prev?.isConnected,
+        };
+        globalSelectedBusinessCache = updatedBiz;
+        try {
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_BUSINESS, JSON.stringify(updatedBiz));
+        } catch {}
+        return updatedBiz;
+      });
+    }
+
     persistState(updatedReviews, invites, settings, updated);
 
     const uid = user?.id || updated.id;
@@ -1265,6 +1351,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     setProfile(clearedProfile);
     globalProfileCache = clearedProfile;
+    setSelectedBusiness(null);
+    globalSelectedBusinessCache = null;
     setSettings(clearedSettings);
     globalSettingsCache = clearedSettings;
     setReviews([]);
@@ -1275,6 +1363,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     try {
       localStorage.removeItem(STORAGE_KEYS.INVITES);
       localStorage.removeItem(STORAGE_KEYS.REVIEWS);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_BUSINESS);
     } catch {}
 
     const uid = user?.id || profile.id;
@@ -1387,6 +1476,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     globalReviewsCache = [];
     setInvites([]);
     globalInvitesCache = [];
+    setSelectedBusiness(null);
+    globalSelectedBusinessCache = null;
     setProfile(clearedProfile);
     globalProfileCache = clearedProfile;
     setSettings(clearedSettings);
@@ -1400,6 +1491,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem(STORAGE_KEYS.REVIEWS);
       localStorage.removeItem(STORAGE_KEYS.INVITES);
       localStorage.removeItem(STORAGE_KEYS.DEMO_MODE);
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_BUSINESS);
       localStorage.removeItem('ratingpulse_is_pro');
       localStorage.removeItem('ratingpulse_demo_auth');
       localStorage.removeItem('ratingpulse_places_recent');
@@ -1479,9 +1571,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     setSettings(initialSettings);
     setReviews(initialReviews);
     setInvites(initialInvites);
+    setSelectedBusiness(null);
+    globalSelectedBusinessCache = null;
     setIsDemoMode(true);
     try {
       localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'true');
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_BUSINESS);
     } catch {
       // ignore
     }
@@ -1489,59 +1584,94 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   };
 
   const activeBusiness: ActiveBusiness = useMemo(() => {
+    const effectiveName = selectedBusiness?.name || profile.business_name;
+    const effectivePlaceId = selectedBusiness?.placeId || profile.google_place_id;
+    const effectiveAddress = selectedBusiness?.address || profile.formatted_address;
+    const effectiveCategory = selectedBusiness?.category || profile.business_category;
+    const effectiveRating = selectedBusiness?.rating !== undefined ? selectedBusiness.rating : (Number(profile.google_rating) || 0);
+    const effectiveReviewCount = selectedBusiness?.reviewCount !== undefined ? selectedBusiness.reviewCount : (Number(profile.google_review_count) || 0);
+    const effectivePhone = selectedBusiness?.phone || profile.phone;
+    const effectiveReviewUrl =
+      selectedBusiness?.reviewUrl ||
+      profile.review_url ||
+      (effectivePlaceId ? `https://search.google.com/local/writereview?placeid=${effectivePlaceId}` : '');
+
+    const hasExplicitSelection = Boolean(
+      (effectiveName && effectiveName.trim() !== '' && effectiveName !== DEFAULT_BUSINESS.name) ||
+      (effectivePlaceId && effectivePlaceId.trim() !== '' && effectivePlaceId !== DEFAULT_BUSINESS.placeId)
+    );
+
     if (isDemoMode) {
+      if (hasExplicitSelection || (effectiveName && effectiveName.trim() !== '')) {
+        return {
+          id: selectedBusiness?.id || profile.id || DEFAULT_BUSINESS.id,
+          name: effectiveName || DEFAULT_BUSINESS.name,
+          category: effectiveCategory || DEFAULT_BUSINESS.category,
+          address: effectiveAddress || DEFAULT_BUSINESS.address,
+          phone: effectivePhone || DEFAULT_BUSINESS.phone || '',
+          placeId: effectivePlaceId || DEFAULT_BUSINESS.placeId,
+          reviewUrl: effectiveReviewUrl || DEFAULT_BUSINESS.reviewUrl,
+          rating: effectiveRating > 0 ? effectiveRating : DEFAULT_BUSINESS.rating,
+          reviewCount: effectiveReviewCount > 0 ? effectiveReviewCount : (profile.google_review_count || DEFAULT_BUSINESS.totalReviews),
+          isConnected: true,
+          isDemoMode: true,
+        };
+      }
+
+      // Default fallback in Demo Mode: DEFAULT_BUSINESS (RatingPulse)
       return {
-        id: DEMO_BUSINESS.id,
-        name: DEMO_BUSINESS.name,
-        category: DEMO_BUSINESS.category,
-        address: DEMO_BUSINESS.address,
-        phone: DEMO_BUSINESS.phone,
-        placeId: DEMO_BUSINESS.placeId,
-        reviewUrl: DEMO_BUSINESS.reviewUrl,
-        rating: DEMO_BUSINESS.rating,
-        reviewCount: profile.google_review_count || DEMO_BUSINESS.totalReviews,
+        id: DEFAULT_BUSINESS.id,
+        name: DEFAULT_BUSINESS.name,
+        category: DEFAULT_BUSINESS.category,
+        address: DEFAULT_BUSINESS.address,
+        phone: '',
+        placeId: DEFAULT_BUSINESS.placeId,
+        reviewUrl: DEFAULT_BUSINESS.reviewUrl,
+        rating: DEFAULT_BUSINESS.rating,
+        reviewCount: DEFAULT_BUSINESS.totalReviews,
         isConnected: true,
         isDemoMode: true,
       };
     }
 
     const isConnected = Boolean(
-      profile.google_place_id &&
-      profile.business_name &&
+      effectivePlaceId &&
+      effectiveName &&
       profile.google_connected !== false
     );
 
     return {
       id: profile.id || user?.id || 'live-business',
-      name: profile.business_name || 'No Business Connected',
-      category: profile.business_category || 'Local Business',
-      address: profile.formatted_address || 'Address not set',
-      phone: profile.phone || '',
-      placeId: profile.google_place_id || '',
-      reviewUrl: profile.review_url || (profile.google_place_id ? `https://search.google.com/local/writereview?placeid=${profile.google_place_id}` : ''),
-      rating: Number(profile.google_rating) || 0,
-      reviewCount: Number(profile.google_review_count) || 0,
+      name: effectiveName || 'No Business Connected',
+      category: effectiveCategory || 'Local Business',
+      address: effectiveAddress || 'Address not set',
+      phone: effectivePhone || '',
+      placeId: effectivePlaceId || '',
+      reviewUrl: effectiveReviewUrl,
+      rating: effectiveRating,
+      reviewCount: effectiveReviewCount,
       isConnected,
       isDemoMode: false,
     };
-  }, [isDemoMode, profile, user?.id]);
+  }, [isDemoMode, selectedBusiness, profile, user?.id]);
 
   const activeProfile: Profile = isDemoMode
     ? {
         ...demoProfile,
         ...profile,
-        business_name: profile.business_name || demoProfile.business_name,
-        google_place_id: profile.google_place_id || demoProfile.google_place_id,
-        review_url: profile.review_url || demoProfile.review_url,
-        formatted_address: profile.formatted_address || demoProfile.formatted_address,
-        google_rating: profile.google_rating || demoProfile.google_rating,
-        google_review_count: profile.google_review_count || demoProfile.google_review_count,
+        business_name: selectedBusiness?.name || profile.business_name || demoProfile.business_name,
+        google_place_id: selectedBusiness?.placeId || profile.google_place_id || demoProfile.google_place_id,
+        review_url: selectedBusiness?.reviewUrl || profile.review_url || demoProfile.review_url,
+        formatted_address: selectedBusiness?.address || profile.formatted_address || demoProfile.formatted_address,
+        google_rating: selectedBusiness?.rating || profile.google_rating || demoProfile.google_rating,
+        google_review_count: selectedBusiness?.reviewCount || profile.google_review_count || demoProfile.google_review_count,
         google_connected: true,
       }
     : profile;
 
   const value: RatingPulseStoreContextType = {
     activeBusiness,
+    setActiveBusiness,
     profile: activeProfile,
     settings,
     reviews,
@@ -1588,21 +1718,22 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
 
   // Standalone fallback if used outside Provider
   const fallbackActiveBusiness: ActiveBusiness = {
-    id: DEMO_BUSINESS.id,
-    name: DEMO_BUSINESS.name,
-    category: DEMO_BUSINESS.category,
-    address: DEMO_BUSINESS.address,
-    phone: DEMO_BUSINESS.phone,
-    placeId: DEMO_BUSINESS.placeId,
-    reviewUrl: DEMO_BUSINESS.reviewUrl,
-    rating: DEMO_BUSINESS.rating,
-    reviewCount: DEMO_BUSINESS.totalReviews,
+    id: DEFAULT_BUSINESS.id,
+    name: DEFAULT_BUSINESS.name,
+    category: DEFAULT_BUSINESS.category,
+    address: DEFAULT_BUSINESS.address,
+    phone: '',
+    placeId: DEFAULT_BUSINESS.placeId,
+    reviewUrl: DEFAULT_BUSINESS.reviewUrl,
+    rating: DEFAULT_BUSINESS.rating,
+    reviewCount: DEFAULT_BUSINESS.totalReviews,
     isConnected: true,
     isDemoMode: true,
   };
 
   return {
     activeBusiness: fallbackActiveBusiness,
+    setActiveBusiness: () => {},
     profile: globalProfileCache,
     settings: globalSettingsCache,
     reviews: globalReviewsCache,
