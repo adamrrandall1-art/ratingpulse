@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
     const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/google/callback`;
-    const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || '/dashboard/setup?oauth=success';
+    const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || '/dashboard/setup?connected=true';
 
     const statePayload = Buffer.from(
       JSON.stringify({ userId, returnUrl })

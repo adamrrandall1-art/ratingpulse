@@ -25,16 +25,24 @@ export async function GET(req: NextRequest) {
   let stateData: { userId?: string; returnUrl?: string } = {};
   if (stateRaw) {
     try {
-      stateData = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8'));
+      stateData = JSON.parse(stateRaw);
     } catch {
-      // fallback
+      try {
+        stateData = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8'));
+      } catch {
+        try {
+          stateData = JSON.parse(decodeURIComponent(stateRaw));
+        } catch {
+          // fallback
+        }
+      }
     }
   }
 
   const clerkAuth = await auth().catch(() => null);
   const activeUserId = stateData.userId || clerkAuth?.userId || '';
 
-  const destination = stateData.returnUrl || '/dashboard/setup?oauth=success';
+  const destination = stateData.returnUrl || '/dashboard/setup?connected=true';
   const redirectBase = destination.startsWith('http')
     ? destination
     : `${appUrl.replace(/\/$/, '')}${destination.startsWith('/') ? destination : `/${destination}`}`;
@@ -77,6 +85,8 @@ export async function GET(req: NextRequest) {
     const refreshToken = (tokenData.refresh_token as string) || null;
     const expiresIn = Number(tokenData.expires_in) || 3600;
     const expiryDate = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    console.log(`[OAuth Callback] Saving tokens for user: ${activeUserId}`);
 
     // 2. Query Google Business Profile API for verified locations
     let accountId: string | null = null;
@@ -122,6 +132,15 @@ export async function GET(req: NextRequest) {
     // 4. Save the primary location and access credentials linked to the Clerk userId
     const supabase = getSupabaseAdmin();
     if (supabase && activeUserId) {
+      // Fetch existing profile to retain existing refresh_token if new one was not sent in response
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('google_refresh_token, google_place_id')
+        .eq('id', activeUserId)
+        .maybeSingle();
+
+      const finalRefreshToken = refreshToken || existingProfile?.google_refresh_token || null;
+
       const profileUpdates: Record<string, unknown> = {
         id: activeUserId,
         google_access_token: accessToken,
@@ -130,7 +149,7 @@ export async function GET(req: NextRequest) {
         updated_at: new Date().toISOString(),
       };
 
-      if (refreshToken) profileUpdates.google_refresh_token = refreshToken;
+      if (finalRefreshToken) profileUpdates.google_refresh_token = finalRefreshToken;
       if (accountId) profileUpdates.google_account_id = accountId;
       if (accountName) profileUpdates.google_account_name = accountName;
       if (locationId) profileUpdates.google_location_id = locationId;
@@ -139,7 +158,6 @@ export async function GET(req: NextRequest) {
         profileUpdates.google_place_id = placeId;
         profileUpdates.review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
       } else {
-        // Pending place ID: do not overwrite with null if existing placeId exists unless clean
         profileUpdates.google_place_id = null;
       }
       if (formattedAddress) profileUpdates.formatted_address = formattedAddress;
@@ -160,7 +178,7 @@ export async function GET(req: NextRequest) {
             business_name: locationTitle,
             place_id: placeId || null,
             google_access_token: accessToken,
-            google_refresh_token: refreshToken || null,
+            google_refresh_token: finalRefreshToken,
             connected_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           }, { onConflict: 'user_id' });
@@ -169,8 +187,9 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // 5. Redirect back to /dashboard/setup?oauth=success
+    // 5. Redirect back to /dashboard/setup?connected=true
     const redirectUrl = new URL(redirectBase);
+    redirectUrl.searchParams.set('connected', 'true');
     redirectUrl.searchParams.set('oauth', 'success');
     redirectUrl.searchParams.set('google', 'connected');
     if (locationTitle) redirectUrl.searchParams.set('business', locationTitle);

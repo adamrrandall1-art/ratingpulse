@@ -55,7 +55,12 @@ function BusinessSetupContent() {
 
   const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
-    (profile.google_connected || profile.google_access_token || searchParams.get('oauth') === 'success' || activeBusiness.isConnected)
+    (profile.google_connected ||
+      profile.google_access_token ||
+      searchParams.get('connected') === 'true' ||
+      searchParams.get('oauth') === 'success' ||
+      searchParams.get('google') === 'connected' ||
+      activeBusiness.isConnected)
   );
 
   const hasVerifiedPlaceId = Boolean(
@@ -124,6 +129,7 @@ function BusinessSetupContent() {
 
   // Check for OAuth Callback query parameters
   useEffect(() => {
+    const isConnectedParam = searchParams.get('connected') === 'true';
     const oauthStatus = searchParams.get('oauth');
     const googleStatus = searchParams.get('google');
     const googleError = searchParams.get('google_error');
@@ -131,13 +137,13 @@ function BusinessSetupContent() {
     const returnedPlaceId = searchParams.get('placeId');
     const isPendingParam = searchParams.get('pending_place_id') === 'true';
 
-    if (oauthStatus === 'success' || googleStatus === 'connected') {
+    if (isConnectedParam || oauthStatus === 'success' || googleStatus === 'connected') {
       const isPending = isPendingParam || !returnedPlaceId;
       if (returnedBiz) setBusinessName(returnedBiz);
 
       setActiveBusiness({
         name: returnedBiz || activeBusiness.name,
-        placeId: returnedPlaceId || '',
+        placeId: returnedPlaceId || activeBusiness.placeId || '',
         isConnected: true,
         isDemoMode: false,
         isPendingPlaceId: isPending,
@@ -149,9 +155,9 @@ function BusinessSetupContent() {
         google_place_id: returnedPlaceId || profile.google_place_id,
       });
 
-      const activeId = clerkUser?.id || supabaseUser?.id || profile.id;
+      const activeId = activeUserId || profile.id;
       if (activeId && !activeId.startsWith('usr_mock')) {
-        fetch(`/api/settings?userId=${encodeURIComponent(activeId)}`)
+        fetch(`/api/business/status?userId=${encodeURIComponent(activeId)}`)
           .then((res) => res.json())
           .then((data) => {
             if (data.success && data.profile) {

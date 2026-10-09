@@ -698,40 +698,52 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     async function loadUserData() {
       try {
-        // Fetch via service-role /api/settings endpoint
-        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}`);
+        // Fetch via service-role /api/business/status endpoint
+        const res = await fetch(`/api/business/status?userId=${encodeURIComponent(activeUserId)}`);
         if (res.ok) {
           const json = await res.json();
           if (!isMounted) return;
 
-          if (json.success && json.profile) {
-            const prof = json.profile as Profile;
-            zustandStore.setProfile(prof);
+          if (json.success) {
+            const prof = (json.profile || {}) as Profile;
+            const isGoogleConnected = Boolean(json.isGoogleConnected || prof.google_connected || prof.google_access_token);
+            const mergedProfile: Profile = {
+              ...zustandStore.profile,
+              ...prof,
+              google_connected: isGoogleConnected,
+              google_place_id: json.placeId || prof.google_place_id || '',
+              business_name: json.businessName || prof.business_name || '',
+              formatted_address: json.formattedAddress || prof.formatted_address || '',
+              review_url: json.reviewUrl || prof.review_url || '',
+              google_rating: json.rating || prof.google_rating || 0,
+              google_review_count: json.reviewCount || prof.google_review_count || 0,
+            };
+            zustandStore.setProfile(mergedProfile);
 
-            if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
+            if (isGoogleConnected && json.placeId && !json.placeId.startsWith('demo_')) {
               zustandStore.setLiveBusiness({
-                id: prof.id,
-                name: prof.business_name || '',
+                id: prof.id || activeUserId,
+                name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
-                address: prof.formatted_address || '',
-                phone: prof.phone || '',
-                placeId: prof.google_place_id || '',
-                reviewUrl: prof.review_url || `https://search.google.com/local/writereview?placeid=${prof.google_place_id}`,
-                rating: Number(prof.google_rating) || 0,
-                reviewCount: prof.google_review_count || 0,
+                address: json.formattedAddress || prof.formatted_address || '',
+                phone: json.phone || prof.phone || '',
+                placeId: json.placeId,
+                reviewUrl: json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
+                rating: Number(json.rating) || 0,
+                reviewCount: Number(json.reviewCount) || 0,
                 isConnected: true,
                 isDemoMode: false,
                 isPendingPlaceId: false,
                 googleLocationId: (prof as any).google_location_id || undefined,
               });
-            } else if (prof.google_connected) {
+            } else if (isGoogleConnected) {
               // Google OAuth connected but place ID is pending publication
               zustandStore.setLiveBusiness({
-                id: prof.id,
-                name: prof.business_name || '',
+                id: prof.id || activeUserId,
+                name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
-                address: prof.formatted_address || '',
-                phone: prof.phone || '',
+                address: json.formattedAddress || prof.formatted_address || '',
+                phone: json.phone || prof.phone || '',
                 placeId: '',
                 reviewUrl: '',
                 rating: 0,
