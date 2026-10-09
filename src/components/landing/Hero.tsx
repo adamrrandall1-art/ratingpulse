@@ -206,7 +206,7 @@ export default function Hero() {
                           <span className="text-xs font-medium ml-1">Generating personalized reply...</span>
                         </div>
                       ) : (
-                        <p>&quot;Thank you so much, Sarah! We take pride in artisan ice cream and friendly service at Scoop &apos;n Twist. We look forward to scooping your favorite flavors again soon!&quot;</p>
+                        <p>&quot;Thank you so much, Sarah! We take pride in artisan ice cream and friendly service at RatingPulse. We look forward to scooping your favorite flavors again soon!&quot;</p>
                       )}
                     </div>
 
@@ -247,7 +247,7 @@ export default function Hero() {
                     </div>
                     <div className="bg-slate-900/80 border border-slate-700/30 p-3 rounded-lg text-xs leading-relaxed text-slate-300">
                       <p>
-                        &quot;Hi Sarah! Thank you for visiting Scoop &apos;n Twist today. Could you take 30 seconds to share your experience on Google? It means the world to our team:{' '}
+                        &quot;Hi Sarah! Thank you for visiting RatingPulse today. Could you take 30 seconds to share your experience on Google? It means the world to our team:{' '}
                         <span className="text-emerald-400 underline">https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg</span>&quot;
                       </p>
                     </div>

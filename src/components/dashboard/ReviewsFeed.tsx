@@ -56,14 +56,11 @@ export default function ReviewsFeed({
     privateFeedbackCount,
     unresolvedFeedbackCount,
     toggleDemoMode,
+    isDemoMode,
     searchQuery,
   } = useRatingPulseStore();
 
-  const isConnected = Boolean(
-    profile.google_place_id &&
-    profile.google_place_id.trim() !== '' &&
-    profile.google_connected !== false
-  );
+  const isConnected = activeBusiness.isConnected;
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published' | 'private'>(
     tabParam === 'private' || tabParam === 'gated' ? 'private' : initialFilter
@@ -454,33 +451,41 @@ export default function ReviewsFeed({
           onSubFilterChange={setPrivateSubFilter}
         />
       ) : displayedReviews.length === 0 ? (
-        <div className="p-12 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center shadow-sm">
-          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mb-3">
+        <div className="p-12 bg-white rounded-xl border border-slate-200 text-center flex flex-col items-center shadow-sm space-y-3">
+          <div className="w-12 h-12 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
             <Sparkles className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-slate-900">No Reviews to Display</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-sm">
+          <h3 className="text-sm font-bold text-slate-900">
+            {reviews.length === 0 ? 'No Google reviews yet' : 'No Reviews to Display'}
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md leading-relaxed">
             {reviews.length === 0
-              ? 'Click below to sync Google reviews for your connected business listing.'
+              ? 'Start sending SMS invites to generate your first reviews! Once reviews arrive on Google, they will appear here with AI response drafts ready for 1-tap approval.'
               : 'Zero reviews match the selected filter.'}
           </p>
-          <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+          <div className="pt-2 flex flex-wrap items-center justify-center gap-2.5">
+            <Link
+              href="/dashboard/invites"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
+            >
+              <span>Send Review Invite →</span>
+            </Link>
             <button
               onClick={handleSyncGoogleReviews}
               disabled={isSyncing}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? 'animate-spin' : ''}`} />
-              {isSyncing ? 'Syncing...' : 'Sync Google Reviews'}
+              <span>{isSyncing ? 'Syncing...' : 'Sync Google Reviews'}</span>
             </button>
-            {showSimulateButton && (
+            {showSimulateButton && isDemoMode && (
               <button
                 onClick={handleSimulate}
                 disabled={isSimulating}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer disabled:opacity-50"
               >
                 <Plus className="w-3.5 h-3.5 text-blue-400" />
-                {isSimulating ? 'Simulating...' : 'Simulate Review'}
+                <span>{isSimulating ? 'Simulating...' : 'Simulate Review'}</span>
               </button>
             )}
           </div>

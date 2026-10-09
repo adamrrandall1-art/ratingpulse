@@ -26,18 +26,53 @@ import RatingTrendCard from '@/components/reports/RatingTrendCard';
 type TimeRangeOption = '30d' | '60d' | '90d' | 'all';
 
 export default function ReportsPage() {
-  const { activeBusiness, reviews, invites } = useRatingPulseStore();
+  const { activeBusiness, reviews, invites, isDemoMode } = useRatingPulseStore();
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('30d');
   const [isExporting, setIsExporting] = useState(false);
 
-  const businessName = activeBusiness.name;
-  const totalReviews = activeBusiness.reviewCount || (reviews?.length ? reviews.length : 128);
-  const ratingScore = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '4.9';
+  const businessName = isDemoMode
+    ? (activeBusiness.name || 'RatingPulse')
+    : (activeBusiness.name || 'Your Business');
+
+  const totalReviews = isDemoMode
+    ? (activeBusiness.reviewCount || 128)
+    : (reviews.length || activeBusiness.reviewCount || 0);
+
+  const hasRatings = isDemoMode
+    ? true
+    : (activeBusiness.rating > 0 || reviews.length > 0);
+
+  const ratingScore = isDemoMode
+    ? (activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '4.9')
+    : (hasRatings
+        ? (activeBusiness.rating > 0
+            ? activeBusiness.rating.toFixed(1)
+            : (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
+        : '—');
+
+  const totalInvitesSent = isDemoMode ? 153 : invites.length;
+  const completedReviewsFromInvites = isDemoMode
+    ? 48
+    : invites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
+  const conversionRate = totalInvitesSent > 0
+    ? `${((completedReviewsFromInvites / totalInvitesSent) * 100).toFixed(1)}%`
+    : '0.0%';
+
+  const reviewedWithAiReply = isDemoMode
+    ? 124
+    : reviews.filter(r => r.status === 'published' || r.review_reply || r.published_reply).length;
+  const aiResponseRate = totalReviews > 0
+    ? `${((reviewedWithAiReply / totalReviews) * 100).toFixed(1)}%`
+    : '0.0%';
+
+  const reviewVelocity = isDemoMode
+    ? '+24'
+    : (reviews.length > 0 ? `+${reviews.length}` : '0');
 
   const handleExportReport = () => {
     setIsExporting(true);
     try {
-      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,4.9 / 5.0 (+0.3 growth)\nMonthly Review Velocity,+24 new reviews\nInvite Conversion Rate,31.4% (48 completed / 153 sent)\nAI Response Rate,96.8% (< 2 hr turnaround)\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,98,99.0%,48.2% click rate,34,34.7%\nEmail Invites,55,98.1%,62.4% open rate,14,25.4%\n\nRating Breakdown\n5 Stars,88%\n4 Stars,9%\n3 Stars,2%\n2 Stars,1%\n1 Stars,0%`;
+      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,${ratingScore} / 5.0\nMonthly Review Velocity,${reviewVelocity} new reviews\nInvite Conversion Rate,${conversionRate} (${completedReviewsFromInvites} completed / ${totalInvitesSent} sent)\nAI Response Rate,${aiResponseRate}\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,${totalInvitesSent},100.0%,50.0% click rate,${completedReviewsFromInvites},${conversionRate}\n\nExported from RatingPulse`;
 
       const blob = new Blob([csvReport], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
@@ -70,7 +105,7 @@ export default function ReportsPage() {
               Performance &amp; Review Analytics
             </h1>
             <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
-              Live Sync Active
+              {isDemoMode ? 'Demo Analytics' : 'Live Sync Active'}
             </span>
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
@@ -133,12 +168,16 @@ export default function ReportsPage() {
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
               <span className="text-3xl font-extrabold text-slate-900">{ratingScore}</span>
-              <span className="text-sm font-semibold text-slate-400">/ 5.0</span>
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
-                <ArrowUpRight className="w-3 h-3" /> +0.3 vs last mo
-              </span>
+              {hasRatings && <span className="text-sm font-semibold text-slate-400">/ 5.0</span>}
+              {isDemoMode && (
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+                  <ArrowUpRight className="w-3 h-3" /> +0.3 vs last mo
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-500">Based on {totalReviews} total reviews</p>
+            <p className="text-xs text-slate-500">
+              {totalReviews > 0 ? `Based on ${totalReviews} total reviews` : 'No ratings recorded yet'}
+            </p>
           </div>
         </div>
 
@@ -155,11 +194,13 @@ export default function ReportsPage() {
 
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-slate-900">+24</span>
+              <span className="text-3xl font-extrabold text-slate-900">{reviewVelocity}</span>
               <span className="text-xs text-slate-400 font-medium">reviews</span>
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
-                <ArrowUpRight className="w-3 h-3" /> +18%
-              </span>
+              {isDemoMode && (
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+                  <ArrowUpRight className="w-3 h-3" /> +18%
+                </span>
+              )}
             </div>
             <p className="text-xs text-slate-500">New reviews received in the last 30 days</p>
           </div>
@@ -178,12 +219,16 @@ export default function ReportsPage() {
 
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-slate-900">31.4%</span>
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
-                <ArrowUpRight className="w-3 h-3" /> +4.2% lift
-              </span>
+              <span className="text-3xl font-extrabold text-slate-900">{conversionRate}</span>
+              {isDemoMode && (
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
+                  <ArrowUpRight className="w-3 h-3" /> +4.2% lift
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-500">48 reviews generated from 153 sent invites</p>
+            <p className="text-xs text-slate-500">
+              {completedReviewsFromInvites} reviews generated from {totalInvitesSent} sent invites
+            </p>
           </div>
         </div>
 
@@ -200,7 +245,7 @@ export default function ReportsPage() {
 
           <div className="space-y-1">
             <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-extrabold text-slate-900">96.8%</span>
+              <span className="text-3xl font-extrabold text-slate-900">{aiResponseRate}</span>
               <span className="inline-flex items-center gap-0.5 text-[11px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full ml-auto">
                 <CheckCircle2 className="w-3 h-3" /> Active
               </span>
@@ -212,18 +257,31 @@ export default function ReportsPage() {
       </div>
 
       {/* 3. Section 3: 30-Day Trajectory Trend Chart */}
-      <RatingTrendCard timeRange={timeRange} />
+      <RatingTrendCard
+        timeRange={timeRange}
+        reviews={reviews}
+        isDemoMode={isDemoMode}
+      />
 
       {/* 4. Section 1 & Section 2 Grid: Sentiment Breakdown & Channel Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Column: Star Rating Breakdown (5 cols) */}
         <div className="lg:col-span-5">
-          <RatingDistributionCard totalReviews={totalReviews} timeRange={timeRange} />
+          <RatingDistributionCard
+            totalReviews={totalReviews}
+            timeRange={timeRange}
+            reviews={reviews}
+            isDemoMode={isDemoMode}
+          />
         </div>
 
         {/* Right Column: SMS vs Email Performance (7 cols) */}
         <div className="lg:col-span-7">
-          <ChannelPerformanceCard timeRange={timeRange} />
+          <ChannelPerformanceCard
+            timeRange={timeRange}
+            invites={invites}
+            isDemoMode={isDemoMode}
+          />
         </div>
       </div>
 

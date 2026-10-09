@@ -2,61 +2,61 @@
 
 import React from 'react';
 import { Star, CheckCircle2, ThumbsUp, Heart } from 'lucide-react';
+import { Review } from '@/lib/supabase/types';
 
 interface RatingDistributionCardProps {
   totalReviews?: number;
   timeRange?: string;
+  reviews?: Review[];
+  isDemoMode?: boolean;
 }
 
 export default function RatingDistributionCard({
-  totalReviews = 128,
+  totalReviews = 0,
   timeRange = '30d',
+  reviews = [],
+  isDemoMode = false,
 }: RatingDistributionCardProps) {
-  // Distribution data based on 128 reviews (88% 5★, 9% 4★, 2% 3★, 1% 2★, 0% 1★)
-  const distribution = [
-    {
-      stars: 5,
-      percentage: 88,
-      count: Math.round(totalReviews * 0.88),
-      color: 'bg-emerald-500',
-      textColor: 'text-emerald-700',
-      badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    },
-    {
-      stars: 4,
-      percentage: 9,
-      count: Math.round(totalReviews * 0.09),
-      color: 'bg-teal-500',
-      textColor: 'text-teal-700',
-      badgeBg: 'bg-teal-50 text-teal-700 border-teal-200',
-    },
-    {
-      stars: 3,
-      percentage: 2,
-      count: Math.max(1, Math.round(totalReviews * 0.02)),
-      color: 'bg-amber-400',
-      textColor: 'text-amber-700',
-      badgeBg: 'bg-amber-50 text-amber-700 border-amber-200',
-    },
-    {
-      stars: 2,
-      percentage: 1,
-      count: 1,
-      color: 'bg-orange-400',
-      textColor: 'text-orange-700',
-      badgeBg: 'bg-orange-50 text-orange-700 border-orange-200',
-    },
-    {
-      stars: 1,
-      percentage: 0,
-      count: 0,
-      color: 'bg-rose-400',
-      textColor: 'text-rose-700',
-      badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
-    },
-  ];
+  const isDemo = isDemoMode;
+  const countTotal = isDemo ? (totalReviews || 128) : (reviews.length || totalReviews || 0);
 
-  const positiveRate = 97; // 5★ + 4★ = 97%
+  let distribution = [];
+  let positiveRate = 0;
+
+  if (isDemo) {
+    distribution = [
+      { stars: 5, percentage: 88, count: Math.round(countTotal * 0.88), color: 'bg-emerald-500' },
+      { stars: 4, percentage: 9, count: Math.round(countTotal * 0.09), color: 'bg-teal-500' },
+      { stars: 3, percentage: 2, count: Math.max(1, Math.round(countTotal * 0.02)), color: 'bg-amber-400' },
+      { stars: 2, percentage: 1, count: 1, color: 'bg-orange-400' },
+      { stars: 1, percentage: 0, count: 0, color: 'bg-rose-400' },
+    ];
+    positiveRate = 97;
+  } else if (countTotal === 0) {
+    distribution = [
+      { stars: 5, percentage: 0, count: 0, color: 'bg-emerald-500' },
+      { stars: 4, percentage: 0, count: 0, color: 'bg-teal-500' },
+      { stars: 3, percentage: 0, count: 0, color: 'bg-amber-400' },
+      { stars: 2, percentage: 0, count: 0, color: 'bg-orange-400' },
+      { stars: 1, percentage: 0, count: 0, color: 'bg-rose-400' },
+    ];
+    positiveRate = 0;
+  } else {
+    const c5 = reviews.filter((r) => r.rating === 5).length;
+    const c4 = reviews.filter((r) => r.rating === 4).length;
+    const c3 = reviews.filter((r) => r.rating === 3).length;
+    const c2 = reviews.filter((r) => r.rating === 2).length;
+    const c1 = reviews.filter((r) => r.rating === 1).length;
+
+    distribution = [
+      { stars: 5, percentage: Math.round((c5 / countTotal) * 100), count: c5, color: 'bg-emerald-500' },
+      { stars: 4, percentage: Math.round((c4 / countTotal) * 100), count: c4, color: 'bg-teal-500' },
+      { stars: 3, percentage: Math.round((c3 / countTotal) * 100), count: c3, color: 'bg-amber-400' },
+      { stars: 2, percentage: Math.round((c2 / countTotal) * 100), count: c2, color: 'bg-orange-400' },
+      { stars: 1, percentage: Math.round((c1 / countTotal) * 100), count: c1, color: 'bg-rose-400' },
+    ];
+    positiveRate = Math.round(((c5 + c4) / countTotal) * 100);
+  }
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-7 flex flex-col justify-between space-y-6">
@@ -72,7 +72,7 @@ export default function RatingDistributionCard({
             </p>
           </div>
           <span className="text-xs font-extrabold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-full shrink-0">
-            {totalReviews} Total
+            {countTotal} Total
           </span>
         </div>
 
@@ -108,10 +108,12 @@ export default function RatingDistributionCard({
       <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2 text-emerald-700 font-bold">
           <ThumbsUp className="w-4 h-4 text-emerald-600" />
-          <span>{positiveRate}% Positive Sentiment (4★ &amp; 5★ Reviews)</span>
+          <span>
+            {countTotal > 0 ? `${positiveRate}% Positive Sentiment (4★ & 5★ Reviews)` : 'No reviews recorded yet'}
+          </span>
         </div>
         <span className="text-[11px] text-slate-400 font-medium">
-          Zero public 1★ reviews recorded
+          {countTotal > 0 ? 'Zero public 1★ reviews recorded' : 'Awaiting incoming reviews'}
         </span>
       </div>
     </div>

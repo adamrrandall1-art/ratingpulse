@@ -321,7 +321,7 @@ export default function SmsConsentPage() {
               <span>Sample Transactional SMS Content</span>
             </div>
             <div className="p-4 bg-white border border-slate-200 rounded-xl font-mono text-xs text-slate-700 leading-relaxed shadow-2xs">
-              &quot;Hi Jane, thank you for choosing Scoop &apos;n Twist! Could you take 30 seconds to share your feedback on Google? It means the world to our team: https://ratingpulse.co/rate/demo. Reply STOP to cancel.&quot;
+              &quot;Hi Jane, thank you for choosing RatingPulse! Could you take 30 seconds to share your feedback on Google? It means the world to our team: https://ratingpulse.co/rate/demo. Reply STOP to cancel.&quot;
             </div>
           </div>
 

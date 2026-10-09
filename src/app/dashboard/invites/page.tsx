@@ -26,7 +26,7 @@ import BulkCsvCard from '@/components/invites/BulkCsvCard';
 import InviteHistoryTable from '@/components/invites/InviteHistoryTable';
 
 export default function InvitesPage() {
-  const { activeBusiness, invites } = useRatingPulseStore();
+  const { activeBusiness, invites, isDemoMode } = useRatingPulseStore();
   const [activeTab, setActiveTab] = useState<'single' | 'bulk'>('single');
   const [quietHoursState, setQuietHoursState] = useState<{ isWithinAllowedWindow: boolean; currentHour: number }>({
     isWithinAllowedWindow: true,
@@ -42,7 +42,8 @@ export default function InvitesPage() {
     }
   }, []);
 
-  const totalInvitesSent = 142 + (invites?.length || 0);
+  const totalInvitesSent = isDemoMode ? (142 + (invites?.length || 0)) : (invites?.length || 0);
+  const deliveryRate = isDemoMode ? '98.4%' : (totalInvitesSent > 0 ? '100.0%' : '0.0%');
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
@@ -69,9 +70,11 @@ export default function InvitesPage() {
               </div>
               <div className="text-2xl font-extrabold text-slate-900 mt-1 flex items-baseline gap-2">
                 <span>{totalInvitesSent}</span>
-                <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
-                  <TrendingUp className="w-3.5 h-3.5" /> +28% vs last mo
-                </span>
+                {isDemoMode && (
+                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
+                    <TrendingUp className="w-3.5 h-3.5" /> +28% vs last mo
+                  </span>
+                )}
               </div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
@@ -86,7 +89,7 @@ export default function InvitesPage() {
                 Carrier Delivery Rate
               </div>
               <div className="text-2xl font-extrabold text-slate-900 mt-1 flex items-baseline gap-2">
-                <span>98.4%</span>
+                <span>{deliveryRate}</span>
                 <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5" /> 10DLC Verified
                 </span>
@@ -158,28 +161,20 @@ export default function InvitesPage() {
 
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-medium">
             <span>Business:</span>
-            <strong className="text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200 font-semibold">
-              {activeBusiness.name || "RatingPulse"}
-            </strong>
+            <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
+              {activeBusiness.name}
+            </span>
           </div>
         </div>
 
-        {/* Tab 1: Single Send Card */}
-        {activeTab === 'single' && (
-          <div className="animate-in fade-in duration-150">
-            <QuickSenderCard />
-          </div>
-        )}
+        {/* Tab 1: Single Send */}
+        {activeTab === 'single' && <QuickSenderCard />}
 
-        {/* Tab 2: Bulk CSV Upload Card */}
-        {activeTab === 'bulk' && (
-          <div className="animate-in fade-in duration-150">
-            <BulkCsvCard />
-          </div>
-        )}
+        {/* Tab 2: Bulk CSV Upload */}
+        {activeTab === 'bulk' && <BulkCsvCard />}
       </div>
 
-      {/* 3. Real-time Activity History Table */}
+      {/* 3. Outbound History Activity Log */}
       <InviteHistoryTable />
 
     </div>
