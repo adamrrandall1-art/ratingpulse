@@ -40,7 +40,7 @@ interface GooglePlacesSearchProps {
 export default function GooglePlacesSearch({
   initialPlaceId = 'ChIJawEUC_oN04kRB70LP1wHuPg',
   initialBusinessName = "Scoop 'n Twist",
-  initialAddress = '315 S Broadway, Hicksville, NY 11801',
+  initialAddress = '932 S Winton Rd, Rochester, NY 14618',
   initialRating = 4.9,
   initialReviewCount = 128,
   initialReviewUrl = '',

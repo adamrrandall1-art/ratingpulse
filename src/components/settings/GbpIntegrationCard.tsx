@@ -16,6 +16,7 @@ import {
   Store,
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
+import { DEMO_BUSINESS } from '@/lib/mockData';
 import { toast } from 'sonner';
 
 interface GbpIntegrationCardProps {
@@ -33,11 +34,11 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
     (profile.google_place_id || isDemoMode)
   );
 
-  const businessName = isDemoMode ? "Scoop 'n Twist" : (profile.business_name || 'No Business Connected');
-  const rating = Number(profile.google_rating) > 0 ? Number(profile.google_rating).toFixed(1) : (isDemoMode ? '4.9' : '0.0');
-  const reviewCount = profile.google_review_count || (isDemoMode ? 128 : 0);
-  const placeId = isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : (profile.google_place_id || 'Not configured');
-  const address = isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : (profile.formatted_address || 'Address not set');
+  const businessName = isDemoMode ? DEMO_BUSINESS.name : (profile.business_name || 'No Business Connected');
+  const rating = Number(profile.google_rating) > 0 ? Number(profile.google_rating).toFixed(1) : (isDemoMode ? DEMO_BUSINESS.rating.toFixed(1) : '0.0');
+  const reviewCount = profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0);
+  const placeId = isDemoMode ? DEMO_BUSINESS.placeId : (profile.google_place_id || 'Not configured');
+  const address = isDemoMode ? DEMO_BUSINESS.address : (profile.formatted_address || 'Address not set');
 
   const handleSync = async () => {
     setIsSyncing(true);

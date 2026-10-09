@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
+import { DEMO_BUSINESS } from '@/lib/mockData';
 import GooglePlacesAutocomplete, { SelectedPlaceData } from '@/components/google/GooglePlacesAutocomplete';
 import { generateGoogleReviewUrl } from '@/lib/google-places';
 import { toast } from 'sonner';
@@ -57,29 +58,29 @@ function BusinessSetupContent() {
 
   // Business Profile Form States
   const [businessName, setBusinessName] = useState(
-    profile.business_name || (isDemoMode ? "Scoop 'n Twist" : '')
+    profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '')
   );
   const [businessAddress, setBusinessAddress] = useState(
-    profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : '')
+    profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '')
   );
   const [businessPhone, setBusinessPhone] = useState(
-    profile.phone || (isDemoMode ? '+1 (555) 234-5678' : '')
+    profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '')
   );
   const [businessCategory, setBusinessCategory] = useState(
-    profile.business_category || (isDemoMode ? 'Ice Cream & Desserts' : 'Local Business')
+    profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business')
   );
   const [reviewUrl, setReviewUrl] = useState(
-    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
+    profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
   );
 
   // Place Search & Location States
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlaceData>({
-    placeId: profile.google_place_id || (isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : ''),
-    businessName: profile.business_name || (isDemoMode ? "Scoop 'n Twist" : ''),
-    formattedAddress: profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : ''),
-    rating: profile.google_rating || (isDemoMode ? 4.9 : 0),
-    reviewCount: profile.google_review_count || (isDemoMode ? 128 : 0),
-    reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
+    placeId: profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : ''),
+    businessName: profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : ''),
+    formattedAddress: profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : ''),
+    rating: profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
+    reviewCount: profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
+    reviewUrl: profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
   });
 
   // Sync & Toggles
@@ -126,12 +127,12 @@ function BusinessSetupContent() {
   useEffect(() => {
     if (isLoaded) {
       if (isConnected || isDemoMode) {
-        const effectiveName = profile.business_name || (isDemoMode ? "Scoop 'n Twist" : '');
-        const effectiveAddress = profile.formatted_address || (isDemoMode ? '315 S Broadway, Hicksville, NY 11801' : '');
-        const effectivePhone = profile.phone || (isDemoMode ? '+1 (555) 234-5678' : '');
-        const effectiveCategory = profile.business_category || (isDemoMode ? 'Ice Cream & Desserts' : 'Local Business');
-        const effectivePlaceId = profile.google_place_id || (isDemoMode ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : '');
-        const effectiveReviewUrl = profile.review_url || (effectivePlaceId ? generateGoogleReviewUrl(effectivePlaceId) : '');
+        const effectiveName = profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '');
+        const effectiveAddress = profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '');
+        const effectivePhone = profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '');
+        const effectiveCategory = profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business');
+        const effectivePlaceId = profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : '');
+        const effectiveReviewUrl = profile.review_url || (effectivePlaceId ? generateGoogleReviewUrl(effectivePlaceId) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''));
 
         setBusinessName(effectiveName);
         setBusinessAddress(effectiveAddress);
@@ -142,8 +143,8 @@ function BusinessSetupContent() {
           placeId: effectivePlaceId,
           businessName: effectiveName,
           formattedAddress: effectiveAddress,
-          rating: profile.google_rating || (isDemoMode ? 4.9 : 0),
-          reviewCount: profile.google_review_count || (isDemoMode ? 128 : 0),
+          rating: profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
+          reviewCount: profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
           reviewUrl: effectiveReviewUrl,
         });
       }
