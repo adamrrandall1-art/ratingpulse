@@ -50,39 +50,50 @@ function BusinessSetupContent() {
     isDemoMode,
   } = useRatingPulseStore();
 
-  const isConnected = activeBusiness.isConnected;
+  const isLiveConnected = Boolean(
+    !isDemoMode &&
+    activeBusiness.isConnected &&
+    activeBusiness.placeId &&
+    !activeBusiness.placeId.startsWith('demo_')
+  );
 
   const isOauthVerified = Boolean(
-    profile.google_access_token ||
-    searchParams.get('oauth') === 'success' ||
-    (profile.google_connected && !isDemoMode)
+    !isDemoMode && (
+      Boolean(profile.google_access_token && profile.google_connected && profile.google_place_id && !profile.google_place_id.startsWith('demo_')) ||
+      (searchParams.get('oauth') === 'success' && !isDemoMode) ||
+      (isLiveConnected && profile.google_connected)
+    )
   );
+
+  const isConnected = isDemoMode ? true : isLiveConnected;
 
   // Business Profile Form States
   const [businessName, setBusinessName] = useState(
-    activeBusiness.name || profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : '')
+    isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isLiveConnected ? activeBusiness.name : '')
   );
   const [businessAddress, setBusinessAddress] = useState(
-    activeBusiness.address || profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : '')
+    isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isLiveConnected ? activeBusiness.address : '')
   );
   const [businessPhone, setBusinessPhone] = useState(
-    activeBusiness.phone || profile.phone || (isDemoMode ? DEMO_BUSINESS.phone : '')
+    isDemoMode ? (activeBusiness.phone || DEMO_BUSINESS.phone) : (isLiveConnected ? activeBusiness.phone : '')
   );
   const [businessCategory, setBusinessCategory] = useState(
-    activeBusiness.category || profile.business_category || (isDemoMode ? DEMO_BUSINESS.category : 'Local Business')
+    isDemoMode ? (activeBusiness.category || DEMO_BUSINESS.category) : (isLiveConnected ? activeBusiness.category : 'Local Business')
   );
   const [reviewUrl, setReviewUrl] = useState(
-    activeBusiness.reviewUrl || profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
+    isDemoMode
+      ? (activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl)
+      : (isLiveConnected ? (activeBusiness.reviewUrl || profile.review_url || '') : '')
   );
 
   // Place Search & Location States
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlaceData>({
-    placeId: activeBusiness.placeId || profile.google_place_id || (isDemoMode ? DEMO_BUSINESS.placeId : ''),
-    businessName: activeBusiness.name || profile.business_name || (isDemoMode ? DEMO_BUSINESS.name : ''),
-    formattedAddress: activeBusiness.address || profile.formatted_address || (isDemoMode ? DEMO_BUSINESS.address : ''),
-    rating: activeBusiness.rating || profile.google_rating || (isDemoMode ? DEMO_BUSINESS.rating : 0),
-    reviewCount: activeBusiness.reviewCount || profile.google_review_count || (isDemoMode ? DEMO_BUSINESS.totalReviews : 0),
-    reviewUrl: activeBusiness.reviewUrl || profile.review_url || (profile.google_place_id ? generateGoogleReviewUrl(profile.google_place_id) : (isDemoMode ? DEMO_BUSINESS.reviewUrl : ''))
+    placeId: isDemoMode ? (activeBusiness.placeId || DEMO_BUSINESS.placeId) : (isLiveConnected ? activeBusiness.placeId : ''),
+    businessName: isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isLiveConnected ? activeBusiness.name : ''),
+    formattedAddress: isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isLiveConnected ? activeBusiness.address : ''),
+    rating: isDemoMode ? (activeBusiness.rating || DEMO_BUSINESS.rating) : (isLiveConnected ? activeBusiness.rating : 0),
+    reviewCount: isDemoMode ? (activeBusiness.reviewCount || DEMO_BUSINESS.totalReviews) : (isLiveConnected ? activeBusiness.reviewCount : 0),
+    reviewUrl: isDemoMode ? (activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl) : (isLiveConnected ? (activeBusiness.reviewUrl || profile.review_url || '') : '')
   });
 
   // Sync & Toggles
@@ -141,7 +152,21 @@ function BusinessSetupContent() {
 
   useEffect(() => {
     if (isLoaded) {
-      if (isConnected) {
+      if (isDemoMode) {
+        setBusinessName(activeBusiness.name || DEMO_BUSINESS.name);
+        setBusinessAddress(activeBusiness.address || DEMO_BUSINESS.address);
+        setBusinessPhone(activeBusiness.phone || DEMO_BUSINESS.phone);
+        setBusinessCategory(activeBusiness.category || DEMO_BUSINESS.category);
+        setReviewUrl(activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl);
+        setSelectedPlace({
+          placeId: activeBusiness.placeId || DEMO_BUSINESS.placeId,
+          businessName: activeBusiness.name || DEMO_BUSINESS.name,
+          formattedAddress: activeBusiness.address || DEMO_BUSINESS.address,
+          rating: activeBusiness.rating || DEMO_BUSINESS.rating,
+          reviewCount: activeBusiness.reviewCount || DEMO_BUSINESS.totalReviews,
+          reviewUrl: activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl,
+        });
+      } else if (isLiveConnected) {
         setBusinessName(activeBusiness.name);
         setBusinessAddress(activeBusiness.address);
         setBusinessPhone(activeBusiness.phone);
@@ -155,12 +180,26 @@ function BusinessSetupContent() {
           reviewCount: activeBusiness.reviewCount,
           reviewUrl: activeBusiness.reviewUrl,
         });
+      } else {
+        setBusinessName('');
+        setBusinessAddress('');
+        setBusinessPhone('');
+        setBusinessCategory('Local Business');
+        setReviewUrl('');
+        setSelectedPlace({
+          placeId: '',
+          businessName: '',
+          formattedAddress: '',
+          rating: 0,
+          reviewCount: 0,
+          reviewUrl: '',
+        });
       }
       if (settings) {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, activeBusiness, settings, isConnected]);
+  }, [isLoaded, activeBusiness, settings, isLiveConnected, isDemoMode]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);
@@ -500,10 +539,10 @@ function BusinessSetupContent() {
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500">Active Place ID:</span>
-            {profile.google_place_id ? (
+            {(isDemoMode ? activeBusiness.placeId : (isLiveConnected ? profile.google_place_id : '')) ? (
               <div className="flex items-center gap-1.5">
                 <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold border border-slate-200">
-                  {profile.google_place_id}
+                  {isDemoMode ? activeBusiness.placeId : profile.google_place_id}
                 </code>
                 {isDemoMode && (
                   <button
@@ -588,7 +627,7 @@ function BusinessSetupContent() {
             )}
 
             {/* Selected Location Card */}
-            {selectedPlace.placeId || profile.google_place_id ? (
+            {(isDemoMode && selectedPlace.placeId) || (isLiveConnected && (selectedPlace.placeId || profile.google_place_id)) ? (
               <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-150">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div>
@@ -597,7 +636,7 @@ function BusinessSetupContent() {
                       {(selectedPlace.rating || profile.google_rating) ? (
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 ml-1">
                           <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
-                          {(selectedPlace.rating || profile.google_rating || 5.0).toFixed(1)} ({selectedPlace.reviewCount || profile.google_review_count || 128} reviews)
+                          {(selectedPlace.rating || profile.google_rating || 5.0).toFixed(1)} ({selectedPlace.reviewCount || profile.google_review_count || 0} reviews)
                         </span>
                       ) : null}
                     </h4>
@@ -615,7 +654,7 @@ function BusinessSetupContent() {
                 <div className="pt-2 border-t border-blue-100/80 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
                   <span className="flex items-center gap-1 text-emerald-700 font-medium">
                     <Check className="w-3.5 h-3.5 text-emerald-600" />
-                    {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Place ID detected'}
+                    {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Place ID connected'}
                   </span>
 
                   {(selectedPlace.reviewUrl || profile.review_url) && (
@@ -633,7 +672,7 @@ function BusinessSetupContent() {
               </div>
             ) : (
               <div className="p-8 rounded-xl border border-dashed border-slate-200 bg-slate-50/50 text-center text-slate-400 text-xs">
-                <p>No business selected yet. Use Google OAuth or search above to link your listing.</p>
+                <p>No business connected yet. Authenticate via Google OAuth above to link your listing.</p>
               </div>
             )}
 

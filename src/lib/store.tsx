@@ -112,7 +112,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
       isDemoMode: true,
       demoBusiness: defaultDemoBusiness,
       liveBusiness: null,
-      profile: demoProfile,
+      profile: initialProfile,
       settings: DEMO_SETTINGS || initialSettings,
       reviews: DEMO_REVIEWS || initialReviews,
       invites: DEMO_INVITES || initialInvites,
@@ -549,6 +549,9 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           if (state.demoBusiness && state.demoBusiness.name && /scoop|twist|apex/i.test(state.demoBusiness.name)) {
             state.setDemoBusiness(defaultDemoBusiness);
           }
+          if (state.liveBusiness && (state.liveBusiness.placeId?.startsWith('demo_') || state.liveBusiness.id?.startsWith('demo_'))) {
+            state.setLiveBusiness(null);
+          }
         }
       },
     }
@@ -639,7 +642,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const prof = profileData as Profile;
           zustandStore.setProfile(prof);
 
-          if (prof.google_connected && prof.google_place_id) {
+          if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
             zustandStore.setLiveBusiness({
               id: prof.id,
               name: prof.business_name || '',
@@ -710,7 +713,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       };
     }
 
-    if (store.liveBusiness && store.liveBusiness.placeId) {
+    if (store.liveBusiness && store.liveBusiness.placeId && !store.liveBusiness.placeId.startsWith('demo_')) {
       return {
         ...store.liveBusiness,
         isConnected: true,
@@ -767,8 +770,25 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
         google_connected: true,
       };
     }
-    return store.profile;
-  }, [store.isDemoMode, store.profile, store.demoBusiness]);
+    if (store.liveBusiness && store.liveBusiness.isConnected && !store.liveBusiness.placeId?.startsWith('demo_')) {
+      return {
+        ...store.profile,
+        business_name: store.liveBusiness.name,
+        google_place_id: store.liveBusiness.placeId,
+        review_url: store.liveBusiness.reviewUrl,
+        formatted_address: store.liveBusiness.address,
+        google_rating: store.liveBusiness.rating,
+        google_review_count: store.liveBusiness.reviewCount,
+        google_connected: true,
+      };
+    }
+    return {
+      ...initialProfile,
+      ...store.profile,
+      google_connected: Boolean(store.profile.google_connected && store.profile.google_place_id && !store.profile.google_place_id.startsWith('demo_')),
+      google_place_id: store.profile.google_place_id?.startsWith('demo_') ? '' : (store.profile.google_place_id || ''),
+    };
+  }, [store.isDemoMode, store.profile, store.demoBusiness, store.liveBusiness]);
 
   return {
     activeBusiness,
