@@ -53,7 +53,9 @@ function BusinessSetupContent() {
   const isConnected = activeBusiness.isConnected;
 
   const isOauthVerified = Boolean(
-    profile.google_access_token || (profile.google_connected && !isDemoMode)
+    profile.google_access_token ||
+    searchParams.get('oauth') === 'success' ||
+    (profile.google_connected && !isDemoMode)
   );
 
   // Business Profile Form States
@@ -97,8 +99,20 @@ function BusinessSetupContent() {
     const oauthStatus = searchParams.get('oauth');
     const googleStatus = searchParams.get('google');
     const googleError = searchParams.get('google_error');
+    const returnedBiz = searchParams.get('business');
+    const returnedPlaceId = searchParams.get('placeId');
 
     if (oauthStatus === 'success' || googleStatus === 'connected') {
+      if (returnedBiz || returnedPlaceId) {
+        if (returnedBiz) setBusinessName(returnedBiz);
+        setActiveBusiness({
+          name: returnedBiz || activeBusiness.name,
+          placeId: returnedPlaceId || activeBusiness.placeId,
+          isConnected: true,
+          isDemoMode: false,
+        });
+      }
+
       try {
         confetti({
           particleCount: 90,
@@ -114,8 +128,9 @@ function BusinessSetupContent() {
         duration: 5000,
       });
 
-      if (profile.google_place_id) {
-        syncGoogleReviews(profile.google_place_id).catch(() => {});
+      const targetPlaceId = returnedPlaceId || profile.google_place_id;
+      if (targetPlaceId) {
+        syncGoogleReviews(targetPlaceId).catch(() => {});
       }
     } else if (googleError) {
       toast.error('Google OAuth failed', {

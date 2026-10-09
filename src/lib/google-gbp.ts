@@ -5,8 +5,6 @@ export const GOOGLE_OAUTH_SCOPES = [
   'openid',
   'email',
   'profile',
-  'https://www.googleapis.com/auth/userinfo.email',
-  'https://www.googleapis.com/auth/userinfo.profile',
 ].join(' ');
 
 export interface GoogleTokenResponse {
@@ -63,7 +61,7 @@ export function getGoogleOAuthConfig() {
   const clientId = process.env.GOOGLE_CLIENT_ID || '';
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET || '';
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/callback/google`;
+  const redirectUri = `${appUrl.replace(/\/$/, '')}/api/auth/google/callback`;
 
   return {
     clientId,
