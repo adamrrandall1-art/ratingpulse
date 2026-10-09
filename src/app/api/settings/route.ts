@@ -116,10 +116,22 @@ export async function POST(req: NextRequest) {
     };
     if (full_name !== undefined) profilePayload.full_name = full_name;
     if (effectiveEmail) profilePayload.notification_email = effectiveEmail;
-    profilePayload.notification_phone = effectivePhone || null;
-    profilePayload.notify_negative_phone = effectivePhone || null;
-    profilePayload.notify_positive_phone = effectivePhone || null;
-    profilePayload.phone = effectivePhone || null;
+    if (body.business_name !== undefined) profilePayload.business_name = body.business_name;
+    if (body.business_category !== undefined) profilePayload.business_category = body.business_category;
+    if (body.formatted_address !== undefined) profilePayload.formatted_address = body.formatted_address;
+    if (body.google_place_id !== undefined) profilePayload.google_place_id = body.google_place_id;
+    if (body.review_url !== undefined) profilePayload.review_url = body.review_url;
+    if (body.google_connected !== undefined) profilePayload.google_connected = body.google_connected;
+    if (body.google_access_token !== undefined) profilePayload.google_access_token = body.google_access_token;
+    if (body.google_refresh_token !== undefined) profilePayload.google_refresh_token = body.google_refresh_token;
+    if (body.google_rating !== undefined) profilePayload.google_rating = body.google_rating;
+    if (body.google_review_count !== undefined) profilePayload.google_review_count = body.google_review_count;
+    if (effectivePhone) {
+      profilePayload.notification_phone = effectivePhone;
+      profilePayload.notify_negative_phone = effectivePhone;
+      profilePayload.notify_positive_phone = effectivePhone;
+      profilePayload.phone = effectivePhone;
+    }
     if (sms_alerts_enabled !== undefined) profilePayload.sms_alerts_enabled = sms_alerts_enabled;
     if (notify_negative_enabled !== undefined) profilePayload.notify_negative_enabled = notify_negative_enabled;
     if (notify_negative_email !== undefined) profilePayload.notify_negative_email = notify_negative_email;
@@ -130,10 +142,12 @@ export async function POST(req: NextRequest) {
 
     const settingsPayload: Record<string, unknown> = {
       user_id: targetUserId,
-      notification_phone: effectivePhone || null,
-      notify_negative_phone: effectivePhone || null,
       updated_at: new Date().toISOString(),
     };
+    if (effectivePhone) {
+      settingsPayload.notification_phone = effectivePhone;
+      settingsPayload.notify_negative_phone = effectivePhone;
+    }
     if (effectiveEmail) settingsPayload.notification_email = effectiveEmail;
     if (sms_alerts_enabled !== undefined) settingsPayload.sms_alerts_enabled = sms_alerts_enabled;
     if (notify_negative_enabled !== undefined) settingsPayload.notify_negative_enabled = notify_negative_enabled;
@@ -142,13 +156,14 @@ export async function POST(req: NextRequest) {
     if (notify_positive_enabled !== undefined) settingsPayload.notify_positive_enabled = notify_positive_enabled;
     if (notify_positive_email !== undefined) settingsPayload.notify_positive_email = notify_positive_email;
     if (notify_positive_sms !== undefined) settingsPayload.notify_positive_sms = notify_positive_sms;
+    if (body.auto_publish_5_star !== undefined) settingsPayload.auto_publish_5_star = body.auto_publish_5_star;
     if (brand_voice !== undefined) settingsPayload.brand_voice = brand_voice;
     if (sms_template !== undefined) settingsPayload.sms_template = sms_template;
     if (custom_keywords !== undefined) settingsPayload.custom_keywords = custom_keywords;
 
     // Update both tables with service role client
     const [profileUpdateRes, settingsUpdateRes] = await Promise.allSettled([
-      supabase.from('profiles').update(profilePayload).eq('id', targetUserId),
+      supabase.from('profiles').upsert({ id: targetUserId, ...profilePayload }, { onConflict: 'id' }),
       supabase.from('business_settings').upsert(settingsPayload, { onConflict: 'user_id' }),
     ]);
 

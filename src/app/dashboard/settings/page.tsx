@@ -22,6 +22,7 @@ import {
 import { useRatingPulseStore } from '@/lib/store';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
+import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
 
 import GbpIntegrationCard from '@/components/settings/GbpIntegrationCard';
@@ -41,7 +42,15 @@ const SETTINGS_TABS: { key: TabKey; label: string; icon: React.ElementType }[] =
 ];
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { user: supabaseUser } = useAuth();
+  const user = clerkUser
+    ? {
+        id: clerkUser.id,
+        email: clerkUser.primaryEmailAddress?.emailAddress || '',
+        user_metadata: { full_name: clerkUser.fullName || '' },
+      }
+    : supabaseUser;
   const {
     profile,
     settings,
@@ -112,7 +121,7 @@ export default function SettingsPage() {
   // Hydrate on mount directly from live server/Supabase record
   useEffect(() => {
     async function loadFreshSettings() {
-      const activeUserId = user?.id || profile.id;
+      const activeUserId = clerkUser?.id || supabaseUser?.id || profile.id;
       if (!activeUserId || activeUserId.startsWith('usr_mock')) {
         if (profile.full_name && !fullName) setFullName(profile.full_name);
         if (profile.email && !adminEmail) setAdminEmail(profile.email);

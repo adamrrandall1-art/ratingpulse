@@ -23,6 +23,7 @@ import {
 } from './data';
 import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useAuth } from './auth-context';
+import { useUser } from '@clerk/nextjs';
 import { clearLocalWorkspaceState, registerCacheResetListener } from './workspace-cleanup';
 
 export interface ActiveBusiness {
@@ -196,28 +197,55 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
       setIsSaving: (val: boolean) => set({ isSaving: val }),
 
       disconnectBusiness: async () => {
+        const currentProfile = get().profile;
         set({
+          profile: {
+            ...currentProfile,
+            google_connected: false,
+            google_place_id: '',
+            google_access_token: undefined,
+            google_refresh_token: undefined,
+          },
           liveBusiness: null,
           reviews: [],
           invites: [],
         });
 
-        const currentProfile = get().profile;
-        if (isSupabaseConfigured && supabase && currentProfile?.id) {
+        if (currentProfile?.id) {
           try {
-            await supabase
-              .from('profiles')
-              .update({
+            if (isSupabaseConfigured && supabase) {
+              await supabase
+                .from('profiles')
+                .update({
+                  google_connected: false,
+                  google_place_id: null,
+                  google_access_token: null,
+                  google_refresh_token: null,
+                  business_name: null,
+                  formatted_address: null,
+                  review_url: null,
+                  google_rating: null,
+                  google_review_count: 0,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', currentProfile.id);
+            }
+            await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: currentProfile.id,
                 google_connected: false,
                 google_place_id: null,
+                google_access_token: null,
+                google_refresh_token: null,
                 business_name: null,
                 formatted_address: null,
                 review_url: null,
                 google_rating: null,
                 google_review_count: 0,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', currentProfile.id);
+              }),
+            }).catch(() => {});
           } catch (err) {
             console.error('Error disconnecting business in Supabase:', err);
           }
@@ -450,15 +478,25 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         }));
 
         const currentProfile = get().profile;
-        if (isSupabaseConfigured && supabase && currentProfile?.id && !get().isDemoMode) {
+        if (currentProfile?.id && !get().isDemoMode) {
           try {
-            await supabase
-              .from('business_settings')
-              .upsert({
-                user_id: currentProfile.id,
+            if (isSupabaseConfigured && supabase) {
+              await supabase
+                .from('business_settings')
+                .upsert({
+                  user_id: currentProfile.id,
+                  ...newSettings,
+                  updated_at: new Date().toISOString(),
+                });
+            }
+            await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: currentProfile.id,
                 ...newSettings,
-                updated_at: new Date().toISOString(),
-              });
+              }),
+            }).catch(() => {});
           } catch (err) {
             console.error('Failed to update settings in Supabase:', err);
           }
@@ -471,15 +509,25 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         }));
 
         const currentProfile = get().profile;
-        if (isSupabaseConfigured && supabase && currentProfile?.id && !get().isDemoMode) {
+        if (currentProfile?.id && !get().isDemoMode) {
           try {
-            await supabase
-              .from('profiles')
-              .update({
+            if (isSupabaseConfigured && supabase) {
+              await supabase
+                .from('profiles')
+                .update({
+                  ...newProfile,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq('id', currentProfile.id);
+            }
+            await fetch('/api/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: currentProfile.id,
                 ...newProfile,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', currentProfile.id);
+              }),
+            }).catch(() => {});
           } catch (err) {
             console.error('Failed to update profile in Supabase:', err);
           }
@@ -547,6 +595,8 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         isDemoMode: state.isDemoMode,
         demoBusiness: state.demoBusiness,
         liveBusiness: state.liveBusiness,
+        profile: state.profile,
+        settings: state.settings,
       }),
       onRehydrateStorage: () => (state) => {
         if (state) {
@@ -615,7 +665,8 @@ export interface RatingPulseStoreContextType {
 const RatingPulseStoreContext = createContext<RatingPulseStoreContextType | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user: clerkUser, isLoaded: clerkLoaded } = useUser();
+  const { user: supabaseUser, isLoading: authLoading } = useAuth();
   const zustandStore = useRatingPulseZustand();
 
   useEffect(() => {
@@ -633,105 +684,107 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  // Sync Supabase live profile when authenticated
+  const activeUserId = clerkUser?.id || supabaseUser?.id || zustandStore.profile?.id;
+
+  // Sync Supabase live profile & settings when authenticated
   useEffect(() => {
-    if (authLoading || !user?.id) return;
+    if (!clerkLoaded && authLoading) return;
+    if (!activeUserId || activeUserId.startsWith('usr_mock')) {
+      zustandStore.setIsLoaded(true);
+      return;
+    }
 
-    const currentUserId = user.id;
+    let isMounted = true;
 
-    async function loadSupabaseData() {
-      if (!isSupabaseConfigured || !supabase) return;
-
+    async function loadUserData() {
       try {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', currentUserId)
-          .maybeSingle();
+        // Fetch via service-role /api/settings endpoint
+        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (!isMounted) return;
 
-        if (profileData) {
-          const prof = profileData as Profile;
-          zustandStore.setProfile(prof);
+          if (json.success && json.profile) {
+            const prof = json.profile as Profile;
+            zustandStore.setProfile(prof);
 
-          if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
-            const hasRealPlaceId = true;
-            zustandStore.setLiveBusiness({
-              id: prof.id,
-              name: prof.business_name || '',
-              category: prof.business_category || 'Local Business',
-              address: prof.formatted_address || '',
-              phone: prof.phone || '',
-              placeId: prof.google_place_id || '',
-              reviewUrl: prof.review_url || `https://search.google.com/local/writereview?placeid=${prof.google_place_id}`,
-              rating: Number(prof.google_rating) || 0,
-              reviewCount: prof.google_review_count || 0,
-              isConnected: true,
-              isDemoMode: false,
-              isPendingPlaceId: false,
-              googleLocationId: (prof as any).google_location_id || undefined,
-            });
-
-            // Fetch live reviews
-            const { data: revsData } = await supabase
-              .from('reviews')
-              .select('*')
-              .eq('user_id', currentUserId)
-              .eq('place_id', prof.google_place_id);
-
-            if (revsData && revsData.length > 0) {
-              zustandStore.setReviews(revsData as Review[]);
+            if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
+              zustandStore.setLiveBusiness({
+                id: prof.id,
+                name: prof.business_name || '',
+                category: prof.business_category || 'Local Business',
+                address: prof.formatted_address || '',
+                phone: prof.phone || '',
+                placeId: prof.google_place_id || '',
+                reviewUrl: prof.review_url || `https://search.google.com/local/writereview?placeid=${prof.google_place_id}`,
+                rating: Number(prof.google_rating) || 0,
+                reviewCount: prof.google_review_count || 0,
+                isConnected: true,
+                isDemoMode: false,
+                isPendingPlaceId: false,
+                googleLocationId: (prof as any).google_location_id || undefined,
+              });
+            } else if (prof.google_connected) {
+              // Google OAuth connected but place ID is pending publication
+              zustandStore.setLiveBusiness({
+                id: prof.id,
+                name: prof.business_name || '',
+                category: prof.business_category || 'Local Business',
+                address: prof.formatted_address || '',
+                phone: prof.phone || '',
+                placeId: '',
+                reviewUrl: '',
+                rating: 0,
+                reviewCount: 0,
+                isConnected: true,
+                isDemoMode: false,
+                isPendingPlaceId: true,
+                googleLocationId: (prof as any).google_location_id || undefined,
+              });
+            } else {
+              zustandStore.setLiveBusiness(null);
             }
-          } else if (prof.google_connected) {
-            // Google OAuth connected but place ID is pending publication
-            zustandStore.setLiveBusiness({
-              id: prof.id,
-              name: prof.business_name || '',
-              category: prof.business_category || 'Local Business',
-              address: prof.formatted_address || '',
-              phone: prof.phone || '',
-              placeId: '',
-              reviewUrl: '',
-              rating: 0,
-              reviewCount: 0,
-              isConnected: true,
-              isDemoMode: false,
-              isPendingPlaceId: true,
-              googleLocationId: (prof as any).google_location_id || undefined,
-            });
-          } else {
-            zustandStore.setLiveBusiness(null);
+
+            if (json.settings) {
+              zustandStore.setSettings(json.settings as BusinessSettings);
+            }
           }
-        } else {
-          zustandStore.setLiveBusiness(null);
         }
 
-        const { data: settingsData } = await supabase
-          .from('business_settings')
-          .select('*')
-          .eq('user_id', currentUserId)
-          .maybeSingle();
+        // Fetch live reviews and invites from Supabase client if configured
+        if (isSupabaseConfigured && supabase) {
+          const { data: revsData } = await supabase
+            .from('reviews')
+            .select('*')
+            .eq('user_id', activeUserId);
 
-        if (settingsData) {
-          zustandStore.setSettings(settingsData as BusinessSettings);
+          if (isMounted && revsData && revsData.length > 0) {
+            zustandStore.setReviews(revsData as Review[]);
+          }
+
+          const { data: invitesData } = await supabase
+            .from('review_invites')
+            .select('*')
+            .eq('user_id', activeUserId);
+
+          if (isMounted && invitesData) {
+            zustandStore.setInvites(invitesData as Invite[]);
+          }
         }
 
-        const { data: invitesData } = await supabase
-          .from('review_invites')
-          .select('*')
-          .eq('user_id', currentUserId);
-
-        if (invitesData) {
-          zustandStore.setInvites(invitesData as Invite[]);
-        }
-
-        zustandStore.setIsLoaded(true);
+        if (isMounted) zustandStore.setIsLoaded(true);
       } catch (err) {
         console.error('Error fetching Supabase user data:', err);
+        if (isMounted) zustandStore.setIsLoaded(true);
       }
     }
 
-    loadSupabaseData();
-  }, [user?.id, authLoading]);
+    loadUserData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeUserId, clerkLoaded, authLoading]);
 
   return <>{children}</>;
 }

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
+import { useUser } from '@clerk/nextjs';
 import { DEMO_BUSINESS } from '@/lib/mockData';
 import GooglePlacesAutocomplete, { SelectedPlaceData } from '@/components/google/GooglePlacesAutocomplete';
 import { generateGoogleReviewUrl } from '@/lib/google-places';
@@ -35,7 +36,9 @@ import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
 function BusinessSetupContent() {
-  const { user } = useAuth();
+  const { user: clerkUser } = useUser();
+  const { user: supabaseUser } = useAuth();
+  const activeUserId = clerkUser?.id || supabaseUser?.id || '';
   const searchParams = useSearchParams();
   const {
     activeBusiness,
@@ -52,7 +55,7 @@ function BusinessSetupContent() {
 
   const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
-    (profile.google_connected || profile.google_access_token || searchParams.get('oauth') === 'success')
+    (profile.google_connected || profile.google_access_token || searchParams.get('oauth') === 'success' || activeBusiness.isConnected)
   );
 
   const hasVerifiedPlaceId = Boolean(
@@ -129,14 +132,34 @@ function BusinessSetupContent() {
     const isPendingParam = searchParams.get('pending_place_id') === 'true';
 
     if (oauthStatus === 'success' || googleStatus === 'connected') {
+      const isPending = isPendingParam || !returnedPlaceId;
       if (returnedBiz) setBusinessName(returnedBiz);
+
       setActiveBusiness({
         name: returnedBiz || activeBusiness.name,
         placeId: returnedPlaceId || '',
         isConnected: true,
         isDemoMode: false,
-        isPendingPlaceId: isPendingParam || !returnedPlaceId,
+        isPendingPlaceId: isPending,
       });
+
+      updateProfile({
+        google_connected: true,
+        business_name: returnedBiz || profile.business_name,
+        google_place_id: returnedPlaceId || profile.google_place_id,
+      });
+
+      const activeId = clerkUser?.id || supabaseUser?.id || profile.id;
+      if (activeId && !activeId.startsWith('usr_mock')) {
+        fetch(`/api/settings?userId=${encodeURIComponent(activeId)}`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.success && data.profile) {
+              updateProfile(data.profile);
+            }
+          })
+          .catch(() => {});
+      }
 
       try {
         confetti({
@@ -296,7 +319,7 @@ function BusinessSetupContent() {
       const res = await fetch('/api/google/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: user?.id || profile.id }),
+        body: JSON.stringify({ userId: activeUserId || profile.id }),
       });
       const data = await res.json();
       if (data.success) {
@@ -609,7 +632,7 @@ function BusinessSetupContent() {
               </span>
             ) : (
               <a
-                href={`/api/auth/google?userId=${user?.id || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
+                href={`/api/auth/google?userId=${activeUserId || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-blue-200" />
