@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import React, { useEffect, useRef } from 'react';
 
 interface Props {
@@ -20,8 +20,7 @@ export default function GooglePlacesAutocomplete({
     const init = () => {
       if (!inputRef.current || !(window as any).google?.maps?.places) return;
       const autocomplete = new (window as any).google.maps.places.Autocomplete(inputRef.current, {
-        types: ['establishment'],
-        fields: ['place_id', 'name', 'formatted_address']
+        fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'address_components', 'types', 'geometry']
       });
 
       autocomplete.addListener('place_changed', () => {

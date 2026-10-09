@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generateGoogleReviewUrl } from '@/lib/google-places';
 
 export async function GET(req: NextRequest) {
@@ -47,12 +47,12 @@ export async function GET(req: NextRequest) {
     if (query) {
       const autocompleteUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
         query
-      )}&types=establishment&key=${apiKey}`;
+      )}&key=${apiKey}`;
 
       const res = await fetch(autocompleteUrl);
       const data = await res.json();
 
-      if (data.status === 'OK' && data.predictions) {
+      if (data.status === 'OK' && data.predictions && data.predictions.length > 0) {
         const predictions = data.predictions.map((p: any) => ({
           placeId: p.place_id,
           businessName: p.structured_formatting?.main_text || p.description,
@@ -61,6 +61,31 @@ export async function GET(req: NextRequest) {
         }));
 
         return NextResponse.json({ success: true, predictions });
+      }
+
+      // Fallback: Query Google Places Text Search for complex or full-address queries
+      try {
+        const textSearchUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(
+          query
+        )}&key=${apiKey}`;
+
+        const textRes = await fetch(textSearchUrl);
+        const textData = await textRes.json();
+
+        if (textData.status === 'OK' && Array.isArray(textData.results) && textData.results.length > 0) {
+          const predictions = textData.results.map((r: any) => ({
+            placeId: r.place_id,
+            businessName: r.name,
+            formattedAddress: r.formatted_address || '',
+            description: `${r.name} - ${r.formatted_address || ''}`,
+            rating: r.rating || 5.0,
+            reviewCount: r.user_ratings_total || 0,
+          }));
+
+          return NextResponse.json({ success: true, predictions });
+        }
+      } catch (textErr) {
+        console.warn('[Places TextSearch fallback exception]:', textErr);
       }
 
       return NextResponse.json({

@@ -83,8 +83,7 @@ export default function GooglePlacesSearch({
         const autocomplete = new (window as any).google.maps.places.Autocomplete(
           inputRef.current,
           {
-            types: ['establishment'],
-            fields: ['place_id', 'name', 'formatted_address'],
+            fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'address_components', 'types', 'geometry'],
           }
         );
 
@@ -97,8 +96,8 @@ export default function GooglePlacesSearch({
             placeId: place.place_id,
             businessName: place.name || searchQuery,
             formattedAddress: place.formatted_address || '',
-            rating: place.rating || 5.0,
-            reviewCount: place.user_ratings_total || 0,
+            rating: place.rating !== undefined && place.rating !== null ? Number(place.rating) : 5.0,
+            reviewCount: place.user_ratings_total !== undefined && place.user_ratings_total !== null ? Number(place.user_ratings_total) : 0,
             reviewUrl: directReviewUrl,
           };
 
