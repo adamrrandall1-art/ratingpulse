@@ -37,6 +37,8 @@ export interface ActiveBusiness {
   reviewCount: number;
   isConnected: boolean;
   isDemoMode: boolean;
+  isPendingPlaceId?: boolean;
+  googleLocationId?: string;
 }
 
 export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
@@ -166,8 +168,10 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 reviewUrl: business.reviewUrl || '',
                 rating: business.rating || 0,
                 reviewCount: business.reviewCount || 0,
-                isConnected: Boolean(business.placeId && business.placeId.trim() !== ''),
+                isConnected: Boolean(business.isConnected !== undefined ? business.isConnected : (business.placeId && business.placeId.trim() !== '')),
                 isDemoMode: false,
+                isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (!business.placeId || business.placeId.trim() === ''),
+                googleLocationId: business.googleLocationId,
               }
             : null,
         }));
@@ -642,30 +646,36 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           const prof = profileData as Profile;
           zustandStore.setProfile(prof);
 
-          if (prof.google_connected && prof.google_place_id && !prof.google_place_id.startsWith('demo_')) {
+          if (prof.google_connected) {
+            const hasRealPlaceId = Boolean(prof.google_place_id && !prof.google_place_id.startsWith('demo_'));
             zustandStore.setLiveBusiness({
               id: prof.id,
-              name: prof.business_name || '',
-              category: prof.business_category || '',
+              name: prof.business_name || 'RatingPulse',
+              category: prof.business_category || 'Local Business',
               address: prof.formatted_address || '',
               phone: prof.phone || '',
-              placeId: prof.google_place_id,
-              reviewUrl: prof.review_url || `https://search.google.com/local/writereview?placeid=${prof.google_place_id}`,
+              placeId: prof.google_place_id || '',
+              reviewUrl: prof.review_url || (hasRealPlaceId ? `https://search.google.com/local/writereview?placeid=${prof.google_place_id}` : ''),
               rating: Number(prof.google_rating) || 0,
               reviewCount: prof.google_review_count || 0,
               isConnected: true,
               isDemoMode: false,
+              isPendingPlaceId: !hasRealPlaceId,
+              googleLocationId: (prof as any).google_location_id || undefined,
             });
+            zustandStore.toggleDemoMode(false);
 
-            // Fetch live reviews
-            const { data: revsData } = await supabase
-              .from('reviews')
-              .select('*')
-              .eq('user_id', currentUserId)
-              .eq('place_id', prof.google_place_id);
+            if (hasRealPlaceId) {
+              // Fetch live reviews
+              const { data: revsData } = await supabase
+                .from('reviews')
+                .select('*')
+                .eq('user_id', currentUserId)
+                .eq('place_id', prof.google_place_id);
 
-            if (revsData && revsData.length > 0) {
-              zustandStore.setReviews(revsData as Review[]);
+              if (revsData && revsData.length > 0) {
+                zustandStore.setReviews(revsData as Review[]);
+              }
             }
           }
         }
@@ -713,7 +723,7 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       };
     }
 
-    if (store.liveBusiness && store.liveBusiness.placeId && !store.liveBusiness.placeId.startsWith('demo_')) {
+    if (store.liveBusiness && store.liveBusiness.isConnected) {
       return {
         ...store.liveBusiness,
         isConnected: true,

@@ -23,8 +23,8 @@ import {
   Zap,
   Layers,
   Lock,
-  Store,
-  ArrowRight
+  Clock,
+  ArrowRight,
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
@@ -50,51 +50,65 @@ function BusinessSetupContent() {
     isDemoMode,
   } = useRatingPulseStore();
 
-  const isLiveConnected = Boolean(
+  const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
-    activeBusiness.isConnected &&
+    (profile.google_connected || profile.google_access_token || searchParams.get('oauth') === 'success')
+  );
+
+  const hasVerifiedPlaceId = Boolean(
+    !isDemoMode &&
     activeBusiness.placeId &&
-    !activeBusiness.placeId.startsWith('demo_')
+    !activeBusiness.placeId.startsWith('demo_') &&
+    activeBusiness.placeId.trim().length > 0
+  );
+
+  const isPendingPlaceId = Boolean(
+    !isDemoMode &&
+    isGoogleAccountConnected &&
+    !hasVerifiedPlaceId
   );
 
   const isOauthVerified = Boolean(
-    !isDemoMode && (
-      Boolean(profile.google_access_token && profile.google_connected && profile.google_place_id && !profile.google_place_id.startsWith('demo_')) ||
-      (searchParams.get('oauth') === 'success' && !isDemoMode) ||
-      (isLiveConnected && profile.google_connected)
-    )
+    !isDemoMode &&
+    isGoogleAccountConnected &&
+    hasVerifiedPlaceId
   );
 
-  const isConnected = isDemoMode ? true : isLiveConnected;
+  const isConnected = isDemoMode ? true : isGoogleAccountConnected;
 
   // Business Profile Form States
   const [businessName, setBusinessName] = useState(
-    isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isLiveConnected ? activeBusiness.name : '')
+    isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isGoogleAccountConnected ? (activeBusiness.name || profile.business_name || '') : '')
   );
   const [businessAddress, setBusinessAddress] = useState(
-    isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isLiveConnected ? activeBusiness.address : '')
+    isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isGoogleAccountConnected ? (activeBusiness.address || profile.formatted_address || '') : '')
   );
   const [businessPhone, setBusinessPhone] = useState(
-    isDemoMode ? (activeBusiness.phone || DEMO_BUSINESS.phone) : (isLiveConnected ? activeBusiness.phone : '')
+    isDemoMode ? (activeBusiness.phone || DEMO_BUSINESS.phone) : (isGoogleAccountConnected ? (activeBusiness.phone || profile.phone || '') : '')
   );
   const [businessCategory, setBusinessCategory] = useState(
-    isDemoMode ? (activeBusiness.category || DEMO_BUSINESS.category) : (isLiveConnected ? activeBusiness.category : 'Local Business')
+    isDemoMode ? (activeBusiness.category || DEMO_BUSINESS.category) : (isGoogleAccountConnected ? (activeBusiness.category || profile.business_category || 'Local Business') : 'Local Business')
   );
   const [reviewUrl, setReviewUrl] = useState(
     isDemoMode
       ? (activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl)
-      : (isLiveConnected ? (activeBusiness.reviewUrl || profile.review_url || '') : '')
+      : (isGoogleAccountConnected ? (activeBusiness.reviewUrl || profile.review_url || '') : '')
   );
 
   // Place Search & Location States
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlaceData>({
-    placeId: isDemoMode ? (activeBusiness.placeId || DEMO_BUSINESS.placeId) : (isLiveConnected ? activeBusiness.placeId : ''),
-    businessName: isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isLiveConnected ? activeBusiness.name : ''),
-    formattedAddress: isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isLiveConnected ? activeBusiness.address : ''),
-    rating: isDemoMode ? (activeBusiness.rating || DEMO_BUSINESS.rating) : (isLiveConnected ? activeBusiness.rating : 0),
-    reviewCount: isDemoMode ? (activeBusiness.reviewCount || DEMO_BUSINESS.totalReviews) : (isLiveConnected ? activeBusiness.reviewCount : 0),
-    reviewUrl: isDemoMode ? (activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl) : (isLiveConnected ? (activeBusiness.reviewUrl || profile.review_url || '') : '')
+    placeId: isDemoMode ? (activeBusiness.placeId || DEMO_BUSINESS.placeId) : (hasVerifiedPlaceId ? activeBusiness.placeId : ''),
+    businessName: isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isGoogleAccountConnected ? (activeBusiness.name || profile.business_name || '') : ''),
+    formattedAddress: isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isGoogleAccountConnected ? (activeBusiness.address || profile.formatted_address || '') : ''),
+    rating: isDemoMode ? (activeBusiness.rating || DEMO_BUSINESS.rating) : (activeBusiness.rating || 0),
+    reviewCount: isDemoMode ? (activeBusiness.reviewCount || DEMO_BUSINESS.totalReviews) : (activeBusiness.reviewCount || 0),
+    reviewUrl: isDemoMode ? (activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl) : (activeBusiness.reviewUrl || profile.review_url || '')
   });
+
+  // Manual Place ID / Review Link Override States
+  const [manualPlaceInput, setManualPlaceInput] = useState('');
+  const [isAttachingManualPlace, setIsAttachingManualPlace] = useState(false);
+  const [isCheckingGoogleStatus, setIsCheckingGoogleStatus] = useState(false);
 
   // Sync & Toggles
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
@@ -112,17 +126,17 @@ function BusinessSetupContent() {
     const googleError = searchParams.get('google_error');
     const returnedBiz = searchParams.get('business');
     const returnedPlaceId = searchParams.get('placeId');
+    const isPendingParam = searchParams.get('pending_place_id') === 'true';
 
     if (oauthStatus === 'success' || googleStatus === 'connected') {
-      if (returnedBiz || returnedPlaceId) {
-        if (returnedBiz) setBusinessName(returnedBiz);
-        setActiveBusiness({
-          name: returnedBiz || activeBusiness.name,
-          placeId: returnedPlaceId || activeBusiness.placeId,
-          isConnected: true,
-          isDemoMode: false,
-        });
-      }
+      if (returnedBiz) setBusinessName(returnedBiz);
+      setActiveBusiness({
+        name: returnedBiz || activeBusiness.name,
+        placeId: returnedPlaceId || '',
+        isConnected: true,
+        isDemoMode: false,
+        isPendingPlaceId: isPendingParam || !returnedPlaceId,
+      });
 
       try {
         confetti({
@@ -134,21 +148,25 @@ function BusinessSetupContent() {
       } catch {
         // ignore
       }
-      toast.success('Google Business Profile Connected! 🎉', {
-        description: 'Verified listing ownership confirmed via Google OAuth. Auto-syncing live reviews...',
-        duration: 5000,
-      });
 
-      const targetPlaceId = returnedPlaceId || profile.google_place_id;
-      if (targetPlaceId) {
-        syncGoogleReviews(targetPlaceId).catch(() => {});
+      if (returnedPlaceId) {
+        toast.success('Google Business Profile Connected! 🎉', {
+          description: 'Verified listing ownership confirmed via Google OAuth. Auto-syncing live reviews...',
+          duration: 5000,
+        });
+        syncGoogleReviews(returnedPlaceId).catch(() => {});
+      } else {
+        toast.info('Google Profile Connected (Verification Processing) 🟡', {
+          description: 'Authenticated with Google. Your Place ID is pending Google Maps verification.',
+          duration: 6000,
+        });
       }
     } else if (googleError) {
       toast.error('Google OAuth failed', {
         description: `Error: ${googleError}. Please try again or check permissions.`,
       });
     }
-  }, [searchParams, profile.google_place_id]);
+  }, [searchParams]);
 
   useEffect(() => {
     if (isLoaded) {
@@ -166,19 +184,19 @@ function BusinessSetupContent() {
           reviewCount: activeBusiness.reviewCount || DEMO_BUSINESS.totalReviews,
           reviewUrl: activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl,
         });
-      } else if (isLiveConnected) {
-        setBusinessName(activeBusiness.name);
-        setBusinessAddress(activeBusiness.address);
-        setBusinessPhone(activeBusiness.phone);
-        setBusinessCategory(activeBusiness.category);
-        setReviewUrl(activeBusiness.reviewUrl);
+      } else if (isGoogleAccountConnected) {
+        setBusinessName(activeBusiness.name || profile.business_name || '');
+        setBusinessAddress(activeBusiness.address || profile.formatted_address || '');
+        setBusinessPhone(activeBusiness.phone || profile.phone || '');
+        setBusinessCategory(activeBusiness.category || profile.business_category || 'Local Business');
+        setReviewUrl(activeBusiness.reviewUrl || profile.review_url || '');
         setSelectedPlace({
-          placeId: activeBusiness.placeId,
-          businessName: activeBusiness.name,
-          formattedAddress: activeBusiness.address,
-          rating: activeBusiness.rating,
-          reviewCount: activeBusiness.reviewCount,
-          reviewUrl: activeBusiness.reviewUrl,
+          placeId: activeBusiness.placeId || profile.google_place_id || '',
+          businessName: activeBusiness.name || profile.business_name || '',
+          formattedAddress: activeBusiness.address || profile.formatted_address || '',
+          rating: activeBusiness.rating || Number(profile.google_rating) || 0,
+          reviewCount: activeBusiness.reviewCount || profile.google_review_count || 0,
+          reviewUrl: activeBusiness.reviewUrl || profile.review_url || '',
         });
       } else {
         setBusinessName('');
@@ -199,7 +217,7 @@ function BusinessSetupContent() {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, activeBusiness, settings, isLiveConnected, isDemoMode]);
+  }, [isLoaded, activeBusiness, profile, settings, isGoogleAccountConnected, isDemoMode]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);
@@ -209,6 +227,105 @@ function BusinessSetupContent() {
     toast.info('Google Maps location selected', {
       description: `Selected ${data.businessName}. Click "Confirm & Connect Location" to link.`,
     });
+  };
+
+  const handleAttachManualPlaceId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const rawInput = manualPlaceInput.trim();
+    if (!rawInput) {
+      toast.error('Please enter a Google Place ID or Google Maps Review URL.');
+      return;
+    }
+
+    let extractedPlaceId = rawInput;
+    if (rawInput.includes('placeid=')) {
+      try {
+        const parsedUrl = new URL(rawInput);
+        extractedPlaceId = parsedUrl.searchParams.get('placeid') || rawInput;
+      } catch {
+        const match = rawInput.match(/placeid=([^&]+)/);
+        if (match) extractedPlaceId = match[1];
+      }
+    } else if (rawInput.startsWith('http')) {
+      const match = rawInput.match(/place_id=([^&]+)/) || rawInput.match(/placeid=([^&]+)/);
+      if (match) extractedPlaceId = match[1];
+    }
+
+    setIsAttachingManualPlace(true);
+    try {
+      const gReviewUrl = `https://search.google.com/local/writereview?placeid=${extractedPlaceId}`;
+      await updateProfile({
+        google_place_id: extractedPlaceId,
+        review_url: gReviewUrl,
+        google_connected: true,
+      });
+
+      setActiveBusiness({
+        ...activeBusiness,
+        placeId: extractedPlaceId,
+        reviewUrl: gReviewUrl,
+        isConnected: true,
+        isPendingPlaceId: false,
+      });
+
+      setReviewUrl(gReviewUrl);
+      setSelectedPlace(prev => ({
+        ...prev,
+        placeId: extractedPlaceId,
+        reviewUrl: gReviewUrl,
+      }));
+
+      toast.success('Place ID Attached Successfully! 🎯', {
+        description: `Attached Place ID: ${extractedPlaceId}. Syncing live reviews...`,
+      });
+
+      setManualPlaceInput('');
+      await syncGoogleReviews(extractedPlaceId).catch(() => {});
+    } catch (err: any) {
+      toast.error('Failed to attach Place ID', {
+        description: err?.message || 'Please check the ID and try again.',
+      });
+    } finally {
+      setIsAttachingManualPlace(false);
+    }
+  };
+
+  const handleCheckGoogleStatus = async () => {
+    setIsCheckingGoogleStatus(true);
+    try {
+      const res = await fetch('/api/google/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user?.id || profile.id }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (!data.isPending && data.placeId) {
+          toast.success('Google Maps Listing Verified! 🎉', {
+            description: `Google has published Place ID: ${data.placeId}`,
+          });
+          setActiveBusiness({
+            ...activeBusiness,
+            name: data.businessName || activeBusiness.name,
+            placeId: data.placeId,
+            reviewUrl: data.reviewUrl || `https://search.google.com/local/writereview?placeid=${data.placeId}`,
+            isConnected: true,
+            isPendingPlaceId: false,
+          });
+          await syncGoogleReviews(data.placeId).catch(() => {});
+        } else {
+          toast.info('Verification Processing by Google 🟡', {
+            description: data.message || 'Google is still processing your listing on Maps.',
+          });
+        }
+      } else {
+        toast.error('Status check error', { description: data.error });
+      }
+    } catch (err: any) {
+      toast.error('Failed to check Google status', { description: err?.message });
+    } finally {
+      setIsCheckingGoogleStatus(false);
+    }
   };
 
   const handleSaveProfileDetails = async (e: React.FormEvent) => {
@@ -342,14 +459,15 @@ function BusinessSetupContent() {
   };
 
   const handleForceSync = async () => {
-    if (!profile.google_place_id) {
+    if (!profile.google_place_id && !activeBusiness.placeId) {
       toast.error('Connect a Google Place ID first before syncing.');
       return;
     }
 
+    const targetPlaceId = profile.google_place_id || activeBusiness.placeId;
     setIsSyncingReviews(true);
     try {
-      const syncedCount = await syncGoogleReviews(profile.google_place_id);
+      const syncedCount = await syncGoogleReviews(targetPlaceId);
       toast.success('Google Reviews Synced! 🔄', {
         description: `Fetched latest reviews from Google. (${syncedCount} reviews updated).`,
       });
@@ -446,15 +564,15 @@ function BusinessSetupContent() {
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Verified Owner via Google OAuth 🟢
             </span>
+          ) : isPendingPlaceId ? (
+            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200 shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+              Verification Processing by Google (Place ID Pending) 🟡
+            </span>
           ) : isDemoMode ? (
             <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
               Demo Connected ({activeBusiness.name}) 🟢
-            </span>
-          ) : isConnected ? (
-            <span className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-2xs">
-              <span className="w-2 h-2 rounded-full bg-blue-500" />
-              Place ID Attached (Pending OAuth)
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
@@ -484,6 +602,11 @@ function BusinessSetupContent() {
                 <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                 Verified Owner via Google OAuth 🟢
               </span>
+            ) : isPendingPlaceId ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3.5 py-1.5 rounded-full shadow-2xs">
+                <Clock className="w-4 h-4 text-amber-600" />
+                Google Connected (Place ID Pending) 🟡
+              </span>
             ) : (
               <a
                 href={`/api/auth/google?userId=${user?.id || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
@@ -504,7 +627,7 @@ function BusinessSetupContent() {
               1-Tap Live Review Publishing
             </div>
             <p className="text-[11px] text-slate-500 leading-relaxed">
-              {isOauthVerified
+              {isGoogleAccountConnected
                 ? 'Your account is authorized to post AI-drafted replies straight to Google Maps reviews.'
                 : 'Connect via Google OAuth to publish responses directly to Google Business Profile without copying manually.'}
             </p>
@@ -522,7 +645,7 @@ function BusinessSetupContent() {
         </div>
       </div>
 
-      {/* 2. GOOGLE MAPS / PLACE ID DETECTION CARD (LOCKED IN LIVE MODE, OPEN IN DEMO MODE) */}
+      {/* 2. GOOGLE MAPS / PLACE ID DETECTION CARD */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
         <div className="border-b border-slate-100 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
@@ -539,10 +662,10 @@ function BusinessSetupContent() {
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500">Active Place ID:</span>
-            {(isDemoMode ? activeBusiness.placeId : (isLiveConnected ? profile.google_place_id : '')) ? (
+            {(isDemoMode ? activeBusiness.placeId : (hasVerifiedPlaceId ? (activeBusiness.placeId || profile.google_place_id) : '')) ? (
               <div className="flex items-center gap-1.5">
                 <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold border border-slate-200">
-                  {isDemoMode ? activeBusiness.placeId : profile.google_place_id}
+                  {isDemoMode ? activeBusiness.placeId : (activeBusiness.placeId || profile.google_place_id)}
                 </code>
                 {isDemoMode && (
                   <button
@@ -558,14 +681,82 @@ function BusinessSetupContent() {
               </div>
             ) : (
               <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] border border-slate-200">
-                None attached
+                {isPendingPlaceId ? 'Pending Google Publication' : 'None attached'}
               </span>
             )}
           </div>
         </div>
 
-        {/* LIVE MODE OWNERSHIP GUARD */}
-        {!isDemoMode && !isOauthVerified ? (
+        {/* PENDING PLACE ID STATE IN LIVE MODE */}
+        {isPendingPlaceId ? (
+          <div className="p-6 rounded-2xl bg-amber-50/70 border border-amber-200 space-y-5 text-left">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <Clock className="w-5 h-5 text-amber-700" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-slate-900">
+                    Verification Processing by Google (Place ID Pending) 🟡
+                  </h4>
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    Google OAuth Connected
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  Your Google Business Profile (<strong>{activeBusiness.name || profile.business_name || 'RatingPulse'}</strong>) is authenticated. Google is currently processing your listing for publication on Google Maps. Once verified on Maps, the Place ID will sync automatically.
+                </p>
+              </div>
+            </div>
+
+            {/* Manual Override & Refresh Status Actions */}
+            <div className="bg-white/80 backdrop-blur-xs p-4 rounded-xl border border-amber-200/80 space-y-3">
+              <div className="text-xs font-bold text-slate-900 flex items-center justify-between">
+                <span>Manual Place ID or Google Maps Link Override</span>
+                <button
+                  type="button"
+                  onClick={handleCheckGoogleStatus}
+                  disabled={isCheckingGoogleStatus}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-bold text-blue-600 hover:text-blue-700 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isCheckingGoogleStatus ? 'animate-spin' : ''}`} />
+                  <span>{isCheckingGoogleStatus ? 'Checking Google...' : 'Refresh Google Status'}</span>
+                </button>
+              </div>
+
+              <form onSubmit={handleAttachManualPlaceId} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="Paste Place ID (e.g. ChIJ...) or Google Maps Review URL"
+                  value={manualPlaceInput}
+                  onChange={(e) => setManualPlaceInput(e.target.value)}
+                  className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono text-[11px]"
+                />
+                <button
+                  type="submit"
+                  disabled={isAttachingManualPlace || !manualPlaceInput.trim()}
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                >
+                  {isAttachingManualPlace ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Attaching...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Save &amp; Attach Place ID</span>
+                    </>
+                  )}
+                </button>
+              </form>
+              <p className="text-[11px] text-slate-500">
+                Tip: You can copy your Place ID or direct Google Review URL from Google Maps and attach it immediately to begin review ingestion without waiting.
+              </p>
+            </div>
+          </div>
+        ) : !isDemoMode && !isGoogleAccountConnected ? (
+          /* LIVE MODE UNCONNECTED STATE */
           <div className="p-6 rounded-2xl bg-amber-50/60 border border-amber-200 space-y-4 text-left">
             <div className="flex items-start gap-3.5">
               <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
@@ -627,7 +818,7 @@ function BusinessSetupContent() {
             )}
 
             {/* Selected Location Card */}
-            {(isDemoMode && selectedPlace.placeId) || (isLiveConnected && (selectedPlace.placeId || profile.google_place_id)) ? (
+            {(isDemoMode && selectedPlace.placeId) || (hasVerifiedPlaceId && (selectedPlace.placeId || profile.google_place_id)) ? (
               <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-150">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
                   <div>
@@ -843,7 +1034,7 @@ function BusinessSetupContent() {
           <button
             type="button"
             onClick={handleForceSync}
-            disabled={isSyncingReviews || !profile.google_place_id}
+            disabled={isSyncingReviews || (!profile.google_place_id && !activeBusiness.placeId)}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isSyncingReviews ? 'animate-spin' : ''}`} />
@@ -902,7 +1093,7 @@ function BusinessSetupContent() {
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-slate-900">Disconnect Business Profile?</h3>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  Are you sure you want to disconnect <strong>{profile.business_name}</strong>? This will clear the active Place ID, Google OAuth credentials, and review stream from the dashboard.
+                  Are you sure you want to disconnect <strong>{profile.business_name || activeBusiness.name}</strong>? This will clear the active Place ID, Google OAuth credentials, and review stream from the dashboard.
                 </p>
               </div>
             </div>

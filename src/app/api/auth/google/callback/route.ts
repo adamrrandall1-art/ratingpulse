@@ -135,6 +135,7 @@ export async function GET(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     if (supabase && activeUserId) {
       const profileUpdates: Record<string, unknown> = {
+        id: activeUserId,
         google_access_token: accessToken,
         google_token_expiry: expiryDate,
         google_connected: true,
@@ -149,13 +150,15 @@ export async function GET(req: NextRequest) {
       if (placeId) {
         profileUpdates.google_place_id = placeId;
         profileUpdates.review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
+      } else {
+        // Pending place ID: do not overwrite with null if existing placeId exists unless clean
+        profileUpdates.google_place_id = null;
       }
       if (formattedAddress) profileUpdates.formatted_address = formattedAddress;
 
       const { error: dbError } = await supabase
         .from('profiles')
-        .update(profileUpdates)
-        .eq('id', activeUserId);
+        .upsert(profileUpdates, { onConflict: 'id' });
 
       if (dbError) {
         console.error('[Google OAuth Save Profile Error]:', dbError.message);
@@ -167,7 +170,7 @@ export async function GET(req: NextRequest) {
           .upsert({
             user_id: activeUserId,
             business_name: locationTitle,
-            place_id: placeId,
+            place_id: placeId || null,
             google_access_token: accessToken,
             google_refresh_token: refreshToken || null,
             connected_at: new Date().toISOString(),
@@ -183,7 +186,11 @@ export async function GET(req: NextRequest) {
     redirectUrl.searchParams.set('oauth', 'success');
     redirectUrl.searchParams.set('google', 'connected');
     if (locationTitle) redirectUrl.searchParams.set('business', locationTitle);
-    if (placeId) redirectUrl.searchParams.set('placeId', placeId);
+    if (placeId) {
+      redirectUrl.searchParams.set('placeId', placeId);
+    } else {
+      redirectUrl.searchParams.set('pending_place_id', 'true');
+    }
 
     return NextResponse.redirect(redirectUrl.toString());
   } catch (err: any) {
