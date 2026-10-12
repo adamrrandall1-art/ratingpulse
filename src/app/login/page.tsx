@@ -80,9 +80,9 @@ function LoginForm() {
   };
 
   return (
-    <div className="max-w-md w-full bg-white rounded-3xl border border-slate-200 shadow-xl p-8 sm:p-10 space-y-6">
-      <div className="text-center space-y-1">
-        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-3">
+    <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200/80 shadow-xl shadow-slate-200/50 p-8 sm:p-10 space-y-6">
+      <div className="text-center space-y-1.5">
+        <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-2 border border-blue-100">
           {mode === 'forgot_password' ? (
             <KeyRound className="w-6 h-6 text-amber-500" />
           ) : (
@@ -92,7 +92,7 @@ function LoginForm() {
         <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">
           {mode === 'signin' ? 'Sign In to RatingPulse' : 'Reset Your Password'}
         </h1>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs sm:text-sm text-slate-500">
           {mode === 'signin'
             ? 'Access your Google reviews feed & automated SMS tools'
             : 'Enter your email address to receive a secure password reset link'}
@@ -101,7 +101,7 @@ function LoginForm() {
 
       {resetSent ? (
         <div className="text-center space-y-4 py-3">
-          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
+          <div className="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto border border-emerald-100">
             <CheckCircle2 className="w-7 h-7" />
           </div>
           <div>
@@ -116,7 +116,7 @@ function LoginForm() {
               setResetSent(false);
               setMode('signin');
             }}
-            className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-bold hover:underline"
+            className="inline-flex items-center gap-1.5 text-xs text-blue-600 font-bold hover:text-blue-700 hover:underline"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Back to Sign In
@@ -131,9 +131,9 @@ function LoginForm() {
                 type="button"
                 onClick={handleGoogleLogin}
                 disabled={loading}
-                className="w-full py-3 px-4 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-2.5 transition-colors shadow-2xs cursor-pointer"
+                className="w-full py-3 px-4 rounded-xl border border-slate-200 hover:bg-slate-50/80 text-slate-700 text-xs sm:text-sm font-semibold flex items-center justify-center gap-2.5 transition-all shadow-xs hover:border-slate-300 cursor-pointer disabled:opacity-50"
               >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                   <path
                     fill="#4285F4"
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -167,7 +167,7 @@ function LoginForm() {
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">
                 Email Address
               </label>
               <div className="relative">
@@ -178,15 +178,15 @@ function LoginForm() {
                   placeholder="owner@yourbusiness.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                 />
               </div>
             </div>
 
             {mode === 'signin' && (
               <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="block text-xs font-bold text-slate-700">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-semibold text-slate-700">
                     Password
                   </label>
                   <button
@@ -195,7 +195,7 @@ function LoginForm() {
                       setMode('forgot_password');
                       setError(null);
                     }}
-                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                   >
                     Forgot Password?
                   </button>
@@ -208,7 +208,7 @@ function LoginForm() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all"
                   />
                 </div>
               </div>
@@ -224,7 +224,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3.5 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/30 flex items-center justify-center gap-2 transition-all transform active:scale-98 cursor-pointer disabled:opacity-50"
+              className="w-full py-3 px-5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-600/20 flex items-center justify-center gap-2 transition-all transform active:scale-98 cursor-pointer disabled:opacity-50 mt-2"
             >
               {loading ? (
                 <span>Processing...</span>
@@ -259,9 +259,9 @@ function LoginForm() {
 
           {/* Bottom Switcher */}
           {mode === 'signin' && (
-            <div className="pt-2 text-center text-xs text-slate-500">
+            <div className="pt-2 text-center text-xs text-slate-500 border-t border-slate-100">
               Don&apos;t have an account yet?{' '}
-              <Link href="/signup" className="text-blue-600 font-bold hover:underline">
+              <Link href="/signup" className="text-blue-600 font-bold hover:text-blue-700 hover:underline">
                 Start 14-Day Free Trial
               </Link>
             </div>
@@ -274,30 +274,30 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-white flex flex-col justify-between">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 via-white to-slate-50/80 text-slate-900 flex flex-col justify-between">
       {/* Top Navbar */}
-      <header className="px-6 py-5 bg-[#111820]/90 backdrop-blur-xl border-b border-[#00e676]/20">
+      <header className="px-6 py-5 bg-white/90 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-10">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <Logo size="md" />
 
           <Link
             href="/signup"
-            className="text-xs font-extrabold text-[#00e676] hover:underline flex items-center gap-1"
+            className="text-xs sm:text-sm text-blue-600 hover:text-blue-700 font-medium transition-colors flex items-center gap-1"
           >
-            Create Account →
+            Don&apos;t have an account? <span className="font-bold underline decoration-blue-200 underline-offset-4 hover:decoration-blue-500">Sign Up →</span>
           </Link>
         </div>
       </header>
 
       {/* Main Login Card with Suspense */}
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6">
+      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 my-8 sm:my-12">
         <Suspense fallback={<div className="text-xs text-slate-400 font-medium">Loading sign-in...</div>}>
           <LoginForm />
         </Suspense>
       </main>
 
       {/* Footer */}
-      <footer className="py-4 text-center text-xs text-slate-500">
+      <footer className="py-6 text-center text-xs text-slate-500 border-t border-slate-200/80 bg-white/50 backdrop-blur-xs">
         © {new Date().getFullYear()} RatingPulse.co • 100% Google Review Compliant
       </footer>
     </div>
