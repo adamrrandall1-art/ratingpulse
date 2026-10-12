@@ -75,24 +75,28 @@ export const initialInvites: Invite[] = [];
 
 export const landingFaqs = [
   {
-    question: "How does RatingPulse help me get more 5-star Google reviews?",
-    answer: "Most happy customers simply forget to leave a review if not asked immediately. RatingPulse sends a perfectly-timed, friction-free SMS invite right after their visit with a direct 1-tap link to your Google Business Profile review form. Our clients see an average 340% surge in monthly reviews."
+    question: "How does RatingPulse get more Google reviews?",
+    answer: "Most happy customers simply forget to leave a review if not asked immediately. RatingPulse automates review collection by sending a friendly, personalized SMS invite to your customer right after service is completed. With a single tap, customers are taken directly to your Google Business Profile review form with 5 stars pre-selected—eliminating friction and turning everyday transactions into genuine 5-star ratings. Most businesses see a 300%+ increase in reviews within their first 30 days."
   },
   {
-    question: "Is RatingPulse 100% compliant with Google's review policies?",
-    answer: "Yes, 100%. RatingPulse strictly follows Google's anti-review-gating terms of service. We do not gate, block, or incentivize reviews. We simply make it effortless for all genuine customers to share their legitimate feedback on Google."
+    question: "Does this comply with Google's review guidelines?",
+    answer: "Yes, 100%. RatingPulse is strictly compliant with Google's Business Profile Policies and anti-review-gating guidelines, as well as TCPA carrier regulations. We do not gate, block, or incentivize reviews. All customers are given the direct option to post on Google, while an integrated private resolution pathway allows customers with constructive feedback to reach you directly before posting publicly."
   },
   {
-    question: "How does the AI Reply Drafting feature work?",
-    answer: "When a new Google review lands on your profile, our AI immediately generates a personalized, highly professional reply that seamlessly weaves in your local SEO keywords. You can approve or edit the reply in 1 tap directly from your phone or dashboard."
+    question: "How do the AI review replies work?",
+    answer: "When a new Google review lands on your profile, our built-in Gemini AI engine analyzes the sentiment, customer name, and specific services mentioned. It drafts a thoughtful, human-sounding response in your brand voice while naturally incorporating your local SEO keywords. You receive a notification and can approve or edit the reply in 1 tap from your phone or dashboard."
   },
   {
-    question: "Can I try RatingPulse before paying?",
-    answer: "Absolutely! Every account starts with a 14-day free trial. No credit card is required to sign up, connect your Google Business Profile, and start collecting reviews."
+    question: "How long does setup take?",
+    answer: "Under 2 minutes. Simply sign in with Google OAuth to connect your Google Business Profile, confirm your business details, and customize your SMS template. No technical expertise, API coding, or credit card required to begin your 14-day free trial."
   },
   {
-    question: "What happens after the 14-day free trial?",
-    answer: "You can continue on our simple, all-inclusive Growth Plan for just $25/month. There are no setup fees, hidden limits, or long-term contracts. You can cancel with 1 click at any time."
+    question: "Can I customize the outbound text messages?",
+    answer: "Yes. You have full control over the SMS copy, sender name, timing, and dynamic variables (e.g., customer name, business name, service type). You can also define quiet hours so messages are only dispatched during appropriate local business hours."
+  },
+  {
+    question: "Are there long-term contracts or cancellation fees?",
+    answer: "Never. RatingPulse operates on a straightforward month-to-month subscription ($25/month) with zero setup fees, zero contracts, and zero hidden charges. You can cancel anytime with a single click from your account dashboard."
   }
 ];
 

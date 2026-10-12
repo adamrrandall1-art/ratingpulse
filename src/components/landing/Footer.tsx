@@ -57,17 +57,18 @@ export default function Footer() {
           <div>
             <h4 className="font-bold text-white uppercase tracking-wider mb-3">Pricing & Plans</h4>
             <ul className="space-y-2 text-slate-400">
-              <li><a href="#pricing" className="hover:text-white transition-colors">Growth Plan ($25/mo)</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">14-Day Free Trial</a></li>
-              <li><a href="#pricing" className="hover:text-white transition-colors">Money Back Guarantee</a></li>
-              <li><a href="#faq" className="hover:text-white transition-colors">Billing FAQ</a></li>
+              <li><a href="/#pricing" className="hover:text-white transition-colors">Growth Plan ($25/mo)</a></li>
+              <li><a href="/#pricing" className="hover:text-white transition-colors">14-Day Free Trial</a></li>
+              <li><a href="/#pricing" className="hover:text-white transition-colors">Money Back Guarantee</a></li>
+              <li><a href="/#faq" className="hover:text-white transition-colors">Billing &amp; Setup FAQ</a></li>
+              <li><a href="/#faq" className="hover:text-white transition-colors">Documentation</a></li>
             </ul>
           </div>
 
           <div>
             <h4 className="font-bold text-white uppercase tracking-wider mb-3">Legal &amp; Support</h4>
             <ul className="space-y-2 text-slate-400">
-              <li><a href="#features" className="hover:text-white transition-colors">Google TOS Compliance</a></li>
+              <li><a href="/#faq" className="hover:text-white transition-colors">Google TOS Compliance</a></li>
               <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
               <li><Link href="/sms-consent" className="hover:text-white transition-colors">SMS Consent &amp; 10DLC</Link></li>

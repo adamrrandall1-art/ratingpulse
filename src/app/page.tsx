@@ -16,6 +16,7 @@ import {
   X,
   AlertCircle
 } from 'lucide-react';
+import FAQ from '@/components/landing/FAQ';
 
 export default function LandingPage() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -51,6 +52,9 @@ export default function LandingPage() {
               </a>
               <a href="#pricing" className="hover:text-blue-600 transition-colors">
                 Pricing
+              </a>
+              <a href="#faq" className="hover:text-blue-600 transition-colors">
+                FAQ
               </a>
             </nav>
 
@@ -115,6 +119,13 @@ export default function LandingPage() {
               className="block px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-50 rounded-md"
             >
               Pricing
+            </a>
+            <a
+              href="#faq"
+              onClick={() => setMobileMenuOpen(false)}
+              className="block px-3 py-2 text-base font-medium text-slate-700 hover:bg-slate-50 rounded-md"
+            >
+              FAQ
             </a>
             <div className="pt-4 border-t border-slate-100 space-y-2">
               <Link
@@ -591,11 +602,16 @@ export default function LandingPage() {
         </section>
 
         {/* ─────────────────────────────────────────────────────────────
-            7. FINAL CTA BANNER
+            7. FREQUENTLY ASKED QUESTIONS (FAQ)
         ───────────────────────────────────────────────────────────── */}
-        <section className="py-20 lg:py-24 bg-slate-50 border-t border-slate-100">
+        <FAQ />
+
+        {/* ─────────────────────────────────────────────────────────────
+            8. FINAL CTA BANNER
+        ───────────────────────────────────────────────────────────── */}
+        <section className="py-20 lg:py-24 bg-white border-t border-slate-100">
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="bg-white rounded-3xl p-8 sm:p-12 lg:p-16 border border-slate-200 text-center space-y-6 shadow-sm">
+            <div className="bg-slate-50 rounded-3xl p-8 sm:p-12 lg:p-16 border border-slate-200 text-center space-y-6 shadow-sm">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-bold uppercase tracking-wider">
                 14-Day Risk-Free Trial
               </div>
@@ -629,7 +645,7 @@ export default function LandingPage() {
       </main>
 
       {/* ─────────────────────────────────────────────────────────────
-          8. MINIMALIST FOOTER
+          9. MINIMALIST FOOTER
       ───────────────────────────────────────────────────────────── */}
       <footer className="bg-white border-t border-slate-100 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -650,6 +666,12 @@ export default function LandingPage() {
 
             {/* Links */}
             <div className="flex flex-wrap items-center gap-6 text-xs text-slate-500 font-medium">
+              <a href="/#faq" className="hover:text-blue-600 transition-colors">
+                FAQ
+              </a>
+              <a href="/#faq" className="hover:text-blue-600 transition-colors">
+                Documentation
+              </a>
               <Link href="/terms" className="hover:text-blue-600 transition-colors">
                 Terms of Service
               </Link>
@@ -659,9 +681,9 @@ export default function LandingPage() {
               <Link href="/sms-consent" className="hover:text-blue-600 transition-colors">
                 SMS Consent & TCPA
               </Link>
-              <a href="mailto:support@ratingpulse.co" className="hover:text-blue-600 transition-colors">
+              <Link href="/support" className="hover:text-blue-600 transition-colors">
                 Support
-              </a>
+              </Link>
             </div>
 
           </div>

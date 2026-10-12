@@ -33,7 +33,7 @@ export default function Navbar() {
 
             {/* Desktop Nav Links */}
             <nav className="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
-              {['#features', '#how-it-works', '#calculator', '#pricing', '#faq'].map((href, i) => (
+              {['/#features', '/#how-it-works', '/#calculator', '/#pricing', '/#faq'].map((href, i) => (
                 <a
                   key={href}
                   href={href}
@@ -118,11 +118,11 @@ export default function Navbar() {
           {mobileMenuOpen && (
             <div className="md:hidden mt-3 p-4 bg-[#111820]/95 backdrop-blur-2xl border border-[#00d2c4]/25 rounded-2xl shadow-2xl flex flex-col gap-3 animate-in fade-in zoom-in-95 duration-150">
               {[
-                ['#features', 'Features'],
-                ['#how-it-works', 'How It Works'],
-                ['#calculator', 'ROI Calculator'],
-                ['#pricing', 'Pricing ($25/mo)'],
-                ['#faq', 'FAQ'],
+                ['/#features', 'Features'],
+                ['/#how-it-works', 'How It Works'],
+                ['/#calculator', 'ROI Calculator'],
+                ['/#pricing', 'Pricing ($25/mo)'],
+                ['/#faq', 'FAQ'],
               ].map(([href, label]) => (
                 <a
                   key={href}
