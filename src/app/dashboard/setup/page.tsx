@@ -38,9 +38,12 @@ import confetti from 'canvas-confetti';
 function BusinessSetupContent() {
   const { user: clerkUser } = useUser();
   const { user: supabaseUser } = useAuth();
-  const activeUserId = clerkUser?.id || supabaseUser?.id || '';
   const searchParams = useSearchParams();
   const router = useRouter();
+
+  const urlUserId = searchParams.get('userId');
+  const activeUserId = clerkUser?.id || supabaseUser?.id || urlUserId || '';
+
   const {
     activeBusiness,
     profile,
@@ -53,6 +56,15 @@ function BusinessSetupContent() {
     isLoaded,
     isDemoMode,
   } = useRatingPulseStore();
+
+  const isOauthCallbackInUrl = Boolean(
+    !isDemoMode &&
+    (searchParams.get('oauth') === 'success' ||
+      searchParams.get('connected') === 'true' ||
+      searchParams.get('google') === 'connected')
+  );
+
+  const [isVerifyingOauth, setIsVerifyingOauth] = useState(isOauthCallbackInUrl);
 
   const hasDirectReviewUrl = Boolean(
     !isDemoMode &&
@@ -83,7 +95,8 @@ function BusinessSetupContent() {
 
   const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
-    (profile.google_connected ||
+    (isVerifyingOauth ||
+      profile.google_connected ||
       activeBusiness.isGoogleConnected ||
       profile.google_access_token ||
       isBusinessActuallyConnected)
@@ -160,6 +173,7 @@ function BusinessSetupContent() {
     const googleError = searchParams.get('google_error');
     const returnedBiz = searchParams.get('business');
     const returnedPlaceId = searchParams.get('placeId');
+    const returnedUserId = searchParams.get('userId');
     const isPendingParam = searchParams.get('pending_place_id') === 'true';
 
     if (isConnectedParam || oauthStatus === 'success' || googleStatus === 'connected') {
@@ -176,6 +190,7 @@ function BusinessSetupContent() {
         reviewUrl: activeBusiness.reviewUrl || profile.review_url || '',
         googleReviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || profile.review_url || '',
         isConnected: true,
+        isGoogleConnected: true,
         isDemoMode: false,
         isPendingPlaceId: isPending,
       });
@@ -187,16 +202,38 @@ function BusinessSetupContent() {
         review_url: activeBusiness.reviewUrl || profile.review_url || '',
       });
 
-      const activeId = activeUserId || profile.id;
+      const activeId = activeUserId || returnedUserId || profile.id;
       if (activeId && !activeId.startsWith('usr_mock')) {
-        fetch(`/api/business/status?userId=${encodeURIComponent(activeId)}`)
+        fetch(`/api/business/status?userId=${encodeURIComponent(activeId)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        })
           .then((res) => res.json())
           .then((data) => {
-            if (data.success && data.profile) {
-              updateProfile(data.profile);
+            if (data.success) {
+              if (data.profile) {
+                updateProfile(data.profile);
+              }
+              setActiveBusiness({
+                name: data.businessName || returnedBiz || activeBusiness.name,
+                placeId: data.placeId || returnedPlaceId || activeBusiness.placeId || '',
+                address: data.formattedAddress || activeBusiness.address || '',
+                phone: data.phone || activeBusiness.phone || '',
+                reviewUrl: data.reviewUrl || activeBusiness.reviewUrl || '',
+                googleReviewUrl: data.googleReviewUrl || data.reviewUrl || activeBusiness.googleReviewUrl || '',
+                isConnected: true,
+                isGoogleConnected: true,
+                isDemoMode: false,
+                isPendingPlaceId: data.isPendingPlaceId ?? isPending,
+              });
             }
           })
-          .catch(() => {});
+          .catch(() => {})
+          .finally(() => {
+            setIsVerifyingOauth(false);
+          });
+      } else {
+        setIsVerifyingOauth(false);
       }
 
       try {
@@ -223,13 +260,17 @@ function BusinessSetupContent() {
         });
       }
     } else if (googleError) {
+      setIsVerifyingOauth(false);
       toast.error('Google OAuth failed', {
         description: `Error: ${googleError}. Please try again or check permissions.`,
       });
+    } else {
+      setIsVerifyingOauth(false);
     }
   }, [searchParams]);
 
   useEffect(() => {
+    if (isVerifyingOauth) return;
     if (isLoaded) {
       if (isDemoMode) {
         setBusinessName(activeBusiness.name || DEMO_BUSINESS.name);
@@ -278,7 +319,7 @@ function BusinessSetupContent() {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
       }
     }
-  }, [isLoaded, activeBusiness, profile, settings, isGoogleAccountConnected, isDemoMode]);
+  }, [isLoaded, activeBusiness, profile, settings, isGoogleAccountConnected, isDemoMode, isVerifyingOauth]);
 
   const handlePlaceSelect = (data: SelectedPlaceData) => {
     setSelectedPlace(data);

@@ -1,18 +1,28 @@
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { auth } from '@clerk/nextjs/server';
+import { revalidatePath } from 'next/cache';
 import {
   fetchGBPAccounts,
   fetchGBPLocations,
 } from '@/lib/google-gbp';
 
 function getSupabaseAdmin() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ADMIN_KEY ||
+    process.env.SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
   if (!supabaseUrl || !supabaseKey) return null;
-  return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+  return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 export async function GET(req: NextRequest) {
@@ -22,25 +32,31 @@ export async function GET(req: NextRequest) {
   const stateRaw = url.searchParams.get('state');
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
 
-  let stateData: { userId?: string; returnUrl?: string } = {};
+  let stateData: { userId?: string; returnUrl?: string; businessId?: string } = {};
   if (stateRaw) {
-    try {
-      stateData = JSON.parse(stateRaw);
-    } catch {
+    const attempts = [
+      () => JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8')),
+      () => JSON.parse(Buffer.from(stateRaw, 'base64').toString('utf8')),
+      () => JSON.parse(stateRaw),
+      () => JSON.parse(decodeURIComponent(stateRaw)),
+      () => JSON.parse(Buffer.from(decodeURIComponent(stateRaw), 'base64url').toString('utf8')),
+      () => JSON.parse(Buffer.from(decodeURIComponent(stateRaw), 'base64').toString('utf8')),
+    ];
+    for (const attempt of attempts) {
       try {
-        stateData = JSON.parse(Buffer.from(stateRaw, 'base64url').toString('utf8'));
-      } catch {
-        try {
-          stateData = JSON.parse(decodeURIComponent(stateRaw));
-        } catch {
-          // fallback
+        const parsed = attempt();
+        if (parsed && typeof parsed === 'object') {
+          stateData = parsed;
+          break;
         }
+      } catch {
+        // try next attempt
       }
     }
   }
 
   const clerkAuth = await auth().catch(() => null);
-  const activeUserId = stateData.userId || clerkAuth?.userId || '';
+  const activeUserId = stateData.userId || stateData.businessId || clerkAuth?.userId || '';
 
   const destination = stateData.returnUrl || '/dashboard/setup?connected=true';
   const redirectBase = destination.startsWith('http')
@@ -129,20 +145,29 @@ export async function GET(req: NextRequest) {
       locationTitle = 'RatingPulse';
     }
 
-    // 4. Save the primary location and access credentials linked to the Clerk userId
+    // 4. Save the primary location and access credentials linked to the activeUserId / Clerk userId
     const supabase = getSupabaseAdmin();
     if (supabase && activeUserId) {
-      // Fetch existing profile to retain existing refresh_token if new one was not sent in response
-      const { data: existingProfile } = await supabase
-        .from('profiles')
-        .select('google_refresh_token, google_place_id')
-        .eq('id', activeUserId)
-        .maybeSingle();
+      let existingProfile: any = null;
+      try {
+        const { data: pById } = await supabase.from('profiles').select('*').eq('id', activeUserId).maybeSingle();
+        if (pById) existingProfile = pById;
+      } catch (lookupErr) {
+        console.warn('[OAuth Callback] Profile lookup by id error:', lookupErr);
+      }
+
+      if (!existingProfile) {
+        try {
+          const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', activeUserId).maybeSingle();
+          if (pByClerk) existingProfile = pByClerk;
+        } catch (clerkErr) {
+          console.warn('[OAuth Callback] Profile lookup by clerk_user_id error:', clerkErr);
+        }
+      }
 
       const finalRefreshToken = refreshToken || existingProfile?.google_refresh_token || null;
 
       const profileUpdates: Record<string, unknown> = {
-        id: activeUserId,
         google_access_token: accessToken,
         google_token_expiry: expiryDate,
         google_connected: true,
@@ -157,38 +182,69 @@ export async function GET(req: NextRequest) {
       if (placeId) {
         profileUpdates.google_place_id = placeId;
         profileUpdates.review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
-      } else {
-        profileUpdates.google_place_id = null;
       }
       if (formattedAddress) profileUpdates.formatted_address = formattedAddress;
 
-      const { error: dbError } = await supabase
-        .from('profiles')
-        .upsert(profileUpdates, { onConflict: 'id' });
-
-      if (dbError) {
-        console.error('[Google OAuth Save Profile Error]:', dbError.message);
+      if (existingProfile?.id) {
+        const { error: updateErr } = await supabase
+          .from('profiles')
+          .update(profileUpdates)
+          .eq('id', existingProfile.id);
+        if (updateErr) {
+          console.error('[Google OAuth Update Profile Error]:', updateErr.message);
+        }
+      } else {
+        const { error: insertErr } = await supabase
+          .from('profiles')
+          .upsert({
+            id: activeUserId,
+            clerk_user_id: activeUserId,
+            ...profileUpdates,
+          }, { onConflict: 'id' });
+        if (insertErr) {
+          console.error('[Google OAuth Insert Profile Error]:', insertErr.message);
+        }
       }
 
       try {
+        const settingsUserId = existingProfile?.id || activeUserId;
+        const settingsUpdates: Record<string, unknown> = {
+          user_id: settingsUserId,
+          business_name: locationTitle,
+          google_access_token: accessToken,
+          google_refresh_token: finalRefreshToken,
+          connected_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        if (placeId) {
+          settingsUpdates.place_id = placeId;
+          settingsUpdates.google_review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
+        }
+
         await supabase
           .from('business_settings')
-          .upsert({
-            user_id: activeUserId,
-            business_name: locationTitle,
-            place_id: placeId || null,
-            google_access_token: accessToken,
-            google_refresh_token: finalRefreshToken,
-            connected_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          }, { onConflict: 'user_id' });
+          .upsert(settingsUpdates, { onConflict: 'user_id' });
       } catch (settErr) {
         console.warn('[Google OAuth Save Business Settings Warning]:', settErr);
       }
     }
 
-    // 5. Redirect back to /dashboard/setup?connected=true
+    // 5. Explicit server-side cache invalidation before redirecting
+    try {
+      revalidatePath('/dashboard', 'layout');
+      revalidatePath('/dashboard/setup');
+      revalidatePath('/dashboard/businesses');
+      revalidatePath('/dashboard');
+      revalidatePath('/dashboard/reviews');
+      revalidatePath('/dashboard/invites');
+      revalidatePath('/dashboard/settings');
+    } catch (revErr) {
+      console.warn('[OAuth Callback] Revalidate cache warning:', revErr);
+    }
+
+    // 6. Redirect back to /dashboard/setup?connected=true
     const redirectUrl = new URL(redirectBase);
+    redirectUrl.searchParams.set('userId', activeUserId);
     redirectUrl.searchParams.set('connected', 'true');
     redirectUrl.searchParams.set('oauth', 'success');
     redirectUrl.searchParams.set('google', 'connected');

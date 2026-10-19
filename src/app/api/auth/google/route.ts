@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
@@ -7,7 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const clerkAuth = await auth().catch(() => null);
-    const userId = clerkAuth?.userId || searchParams.get('userId') || searchParams.get('user_id');
+    const userId = clerkAuth?.userId || searchParams.get('userId') || searchParams.get('user_id') || searchParams.get('businessId');
 
     if (!userId) {
       return NextResponse.json(
@@ -29,7 +30,7 @@ export async function GET(req: NextRequest) {
     const returnUrl = searchParams.get('returnUrl') || searchParams.get('redirect') || '/dashboard/setup?connected=true';
 
     const statePayload = Buffer.from(
-      JSON.stringify({ userId, returnUrl })
+      JSON.stringify({ userId, businessId: userId, returnUrl, createdAt: Date.now() })
     ).toString('base64url');
 
     const params = new URLSearchParams({

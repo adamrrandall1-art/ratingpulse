@@ -1,8 +1,15 @@
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
+
+const NO_CACHE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -23,7 +30,7 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const clerkAuth = await auth().catch(() => null);
-    const userId = searchParams.get('userId') || searchParams.get('id') || clerkAuth?.userId;
+    const userId = searchParams.get('userId') || searchParams.get('id') || searchParams.get('user_id') || clerkAuth?.userId;
 
     if (!userId || userId.startsWith('usr_mock')) {
       return NextResponse.json({
@@ -31,7 +38,7 @@ export async function GET(req: NextRequest) {
         isGoogleConnected: false,
         google_connected: false,
         error: 'User ID required or unauthenticated',
-      }, { status: 400 });
+      }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
     const supabase = getSupabaseAdmin();
@@ -41,16 +48,34 @@ export async function GET(req: NextRequest) {
         isGoogleConnected: false,
         google_connected: false,
         error: 'Database unconfigured',
-      }, { status: 500 });
+      }, { status: 500, headers: NO_CACHE_HEADERS });
     }
 
-    const [profRes, settRes] = await Promise.allSettled([
-      supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-      supabase.from('business_settings').select('*').eq('user_id', userId).maybeSingle(),
-    ]);
+    // Try finding profile by id or clerk_user_id
+    let profile: any = null;
+    try {
+      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (pById) profile = pById;
+    } catch {}
 
-    const profile = profRes.status === 'fulfilled' ? profRes.value.data : null;
-    const settings = settRes.status === 'fulfilled' ? settRes.value.data : null;
+    if (!profile) {
+      try {
+        const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
+        if (pByClerk) profile = pByClerk;
+      } catch {}
+    }
+
+    // Try finding settings by user_id
+    let settings: any = null;
+    try {
+      const { data: sByUserId } = await supabase.from('business_settings').select('*').eq('user_id', userId).maybeSingle();
+      if (sByUserId) {
+        settings = sByUserId;
+      } else if (profile?.id) {
+        const { data: sByProfId } = await supabase.from('business_settings').select('*').eq('user_id', profile.id).maybeSingle();
+        if (sByProfId) settings = sByProfId;
+      }
+    } catch {}
 
     const placeId = profile?.google_place_id || settings?.place_id || '';
     const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
@@ -102,10 +127,13 @@ export async function GET(req: NextRequest) {
       reviewCount: Number(profile?.google_review_count) || 0,
       profile,
       settings,
-    });
+    }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     console.error('[Business Status GET Error]:', err);
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to fetch business status' }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: err?.message || 'Failed to fetch business status' },
+      { status: 500, headers: NO_CACHE_HEADERS }
+    );
   }
 }
 
@@ -116,15 +144,27 @@ export async function POST(req: NextRequest) {
     const userId = body.userId || body.user_id || clerkAuth?.userId;
 
     if (!userId) {
-      return NextResponse.json({ success: false, isGoogleConnected: false, error: 'User ID required' }, { status: 400 });
+      return NextResponse.json({ success: false, isGoogleConnected: false, error: 'User ID required' }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
     const supabase = getSupabaseAdmin();
     if (!supabase) {
-      return NextResponse.json({ success: false, isGoogleConnected: false, error: 'Database unconfigured' }, { status: 500 });
+      return NextResponse.json({ success: false, isGoogleConnected: false, error: 'Database unconfigured' }, { status: 500, headers: NO_CACHE_HEADERS });
     }
 
-    const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+    let profile: any = null;
+    try {
+      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (pById) profile = pById;
+    } catch {}
+
+    if (!profile) {
+      try {
+        const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
+        if (pByClerk) profile = pByClerk;
+      } catch {}
+    }
+
     const directReviewUrl = profile?.review_url || '';
     const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
     const isGoogleConnected = Boolean(profile?.google_connected || profile?.google_access_token || hasDirectReviewUrl);
@@ -165,9 +205,9 @@ export async function POST(req: NextRequest) {
       outboundPhoneNumber: outboundPhone,
       twilioPhoneNumber: outboundPhone,
       profile,
-    });
+    }, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     console.error('[Business Status POST Error]:', err);
-    return NextResponse.json({ success: false, error: err?.message || 'Failed to check status' }, { status: 500 });
+    return NextResponse.json({ success: false, error: err?.message || 'Failed to check status' }, { status: 500, headers: NO_CACHE_HEADERS });
   }
 }

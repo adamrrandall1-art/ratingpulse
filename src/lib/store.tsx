@@ -678,11 +678,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   }, []);
 
-  const activeUserId = clerkUser?.id || supabaseUser?.id || zustandStore.profile?.id;
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isOauthSuccessInUrl = searchParams?.get('oauth') === 'success' || searchParams?.get('connected') === 'true';
+  const urlUserId = searchParams?.get('userId');
+  const activeUserId = clerkUser?.id || supabaseUser?.id || urlUserId || zustandStore.profile?.id;
 
   // Sync Supabase live profile & settings when authenticated
   useEffect(() => {
-    if (!clerkLoaded && authLoading) return;
+    if (!clerkLoaded && !urlUserId) return;
     if (!activeUserId || activeUserId.startsWith('usr_mock')) {
       zustandStore.setIsLoaded(true);
       return;
@@ -692,15 +695,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
     async function loadUserData() {
       try {
-        // Fetch via service-role /api/business/status endpoint
-        const res = await fetch(`/api/business/status?userId=${encodeURIComponent(activeUserId)}`);
+        // Fetch via service-role /api/business/status endpoint with cache-busting
+        const res = await fetch(`/api/business/status?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
         if (res.ok) {
           const json = await res.json();
           if (!isMounted) return;
 
           if (json.success) {
             const prof = (json.profile || {}) as Profile;
-            const isGoogleConnected = Boolean(json.isGoogleConnected || prof.google_connected || prof.google_access_token);
+            const isGoogleConnected = Boolean(json.isGoogleConnected || prof.google_connected || prof.google_access_token || isOauthSuccessInUrl);
             const isPlaceholderPhone = (p?: string | null) => {
               if (!p) return true;
               const clean = p.replace(/\D/g, '');
@@ -728,7 +734,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             zustandStore.setProfile(mergedProfile);
 
             const directReviewUrl = json.googleReviewUrl || json.reviewUrl || prof.review_url || '';
-            const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
             const validPlaceId = json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '';
             const isConnected = isBusinessConnected({
               isGoogleConnected,
@@ -754,19 +759,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 isPendingPlaceId: false,
                 googleLocationId: (prof as any).google_location_id || undefined,
               });
-            } else if (isGoogleConnected) {
-              // Google OAuth connected but place ID / review URL is pending
+            } else if (isGoogleConnected || isOauthSuccessInUrl) {
+              // Google OAuth connected but place ID / review URL is pending (or in oauth success callback)
               zustandStore.setLiveBusiness({
                 id: prof.id || activeUserId,
                 name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
                 address: json.formattedAddress || prof.formatted_address || '',
                 phone: effectivePhone,
-                placeId: '',
-                reviewUrl: '',
-                googleReviewUrl: '',
-                rating: 0,
-                reviewCount: 0,
+                placeId: validPlaceId,
+                reviewUrl: directReviewUrl,
+                googleReviewUrl: directReviewUrl,
+                rating: Number(json.rating) || 0,
+                reviewCount: Number(json.reviewCount) || 0,
                 isGoogleConnected: true,
                 isConnected: false,
                 isDemoMode: false,
