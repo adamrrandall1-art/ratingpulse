@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');
-    const fallbackReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const fallbackReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${body.userId || 'demo'}`);
     const reviewLink =
       body.googleReviewUrl ||
       body.business?.googleReviewUrl ||

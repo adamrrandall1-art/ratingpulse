@@ -94,6 +94,17 @@ function BusinessSetupContent() {
   const isConnected = isDemoMode ? true : isGoogleAccountConnected;
 
   // Business Profile Form States
+  const configuredTwilioPhone = process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478';
+  const isPlaceholderPhone = (p?: string | null) => {
+    if (!p) return true;
+    const clean = p.replace(/\D/g, '');
+    return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
+  };
+  const resolveDisplayPhone = (p?: string | null) => {
+    if (p && !isPlaceholderPhone(p)) return p;
+    return configuredTwilioPhone;
+  };
+
   const [businessName, setBusinessName] = useState(
     isDemoMode ? (activeBusiness.name || DEMO_BUSINESS.name) : (isGoogleAccountConnected ? (activeBusiness.name || profile.business_name || '') : '')
   );
@@ -101,7 +112,7 @@ function BusinessSetupContent() {
     isDemoMode ? (activeBusiness.address || DEMO_BUSINESS.address) : (isGoogleAccountConnected ? (activeBusiness.address || profile.formatted_address || '') : '')
   );
   const [businessPhone, setBusinessPhone] = useState(
-    isDemoMode ? (activeBusiness.phone || DEMO_BUSINESS.phone) : (isGoogleAccountConnected ? (activeBusiness.phone || profile.phone || '') : '')
+    isDemoMode ? (activeBusiness.phone || DEMO_BUSINESS.phone || configuredTwilioPhone) : (isGoogleAccountConnected ? resolveDisplayPhone(activeBusiness.phone || profile.phone) : '')
   );
   const [businessCategory, setBusinessCategory] = useState(
     isDemoMode ? (activeBusiness.category || DEMO_BUSINESS.category) : (isGoogleAccountConnected ? (activeBusiness.category || profile.business_category || 'Local Business') : 'Local Business')
@@ -218,7 +229,7 @@ function BusinessSetupContent() {
       if (isDemoMode) {
         setBusinessName(activeBusiness.name || DEMO_BUSINESS.name);
         setBusinessAddress(activeBusiness.address || DEMO_BUSINESS.address);
-        setBusinessPhone(activeBusiness.phone || DEMO_BUSINESS.phone);
+        setBusinessPhone(activeBusiness.phone || DEMO_BUSINESS.phone || configuredTwilioPhone);
         setBusinessCategory(activeBusiness.category || DEMO_BUSINESS.category);
         setReviewUrl(activeBusiness.reviewUrl || DEMO_BUSINESS.reviewUrl);
         setSelectedPlace({
@@ -232,7 +243,7 @@ function BusinessSetupContent() {
       } else if (isGoogleAccountConnected) {
         setBusinessName(activeBusiness.name || profile.business_name || '');
         setBusinessAddress(activeBusiness.address || profile.formatted_address || '');
-        setBusinessPhone(activeBusiness.phone || profile.phone || '');
+        setBusinessPhone(resolveDisplayPhone(activeBusiness.phone || profile.phone));
         setBusinessCategory(activeBusiness.category || profile.business_category || 'Local Business');
         setReviewUrl(activeBusiness.reviewUrl || profile.review_url || '');
         setSelectedPlace({
@@ -888,6 +899,12 @@ function BusinessSetupContent() {
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>{selectedPlace.formattedAddress || profile.formatted_address || activeBusiness.address || 'Direct Google Review Link Connected'}</span>
                 </p>
+                {(businessPhone || activeBusiness.phone || profile.phone) ? (
+                  <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1">
+                    <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>{businessPhone || activeBusiness.phone || profile.phone}</span>
+                  </p>
+                ) : null}
               </div>
 
               <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
@@ -1022,7 +1039,7 @@ function BusinessSetupContent() {
             </label>
             <input
               type="tel"
-              placeholder="e.g. (585) 360-2026"
+              placeholder="e.g. +1 (737) 258-3478"
               value={businessPhone}
               onChange={(e) => setBusinessPhone(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"

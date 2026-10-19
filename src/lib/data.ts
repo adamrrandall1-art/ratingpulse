@@ -42,7 +42,7 @@ export const demoProfile: Profile = {
   google_rating: 5.0,
   google_review_count: 48,
   google_connected: true,
-  phone: '(585) 360-2026',
+  phone: '+1 (737) 258-3478',
   stripe_customer_id: null,
   stripe_subscription_id: null,
   plan_status: 'trialing',

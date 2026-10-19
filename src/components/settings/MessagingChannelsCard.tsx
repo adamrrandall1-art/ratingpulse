@@ -104,8 +104,8 @@ export default function MessagingChannelsCard({
           </div>
           <div>
             <div className="font-bold text-slate-900">SMS Sender</div>
-            <div className="text-[11px] text-slate-500 font-mono">+1 (888) 492-7857</div>
-            <div className="text-[10px] text-emerald-600 font-semibold">Toll-Free High Throughput</div>
+            <div className="text-[11px] text-slate-500 font-mono">{process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478'}</div>
+            <div className="text-[10px] text-emerald-600 font-semibold">Active Outbound Carrier Route</div>
           </div>
         </div>
 

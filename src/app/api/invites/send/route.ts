@@ -65,8 +65,9 @@ export async function POST(req: NextRequest) {
     const placeId      = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : ((body.placeId as string) || (body.google_place_id as string) || '');
+    const userId       = (body.userId       as string) || '';
     const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const fallbackReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const fallbackReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${userId || 'demo'}`);
     const destinationReviewUrl =
       (body.googleReviewUrl as string) ||
       (body.business?.googleReviewUrl as string) ||
@@ -77,7 +78,6 @@ export async function POST(req: NextRequest) {
       fallbackReviewUrl;
     const reviewLink   = destinationReviewUrl;
     const serviceType  = (body.serviceType  as string) || 'General Service';
-    const userId       = (body.userId       as string) || '';
 
     const rawMessage = (body.message as string) ||
       `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;

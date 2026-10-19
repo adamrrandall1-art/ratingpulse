@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
   const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
   const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
-  const fallbackUrl  = isDemoMode ? demoReviewUrl : (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`);
+  const fallbackUrl  = isDemoMode ? demoReviewUrl : ((body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${body.userId || 'demo'}`));
   const reviewLink   =
     (body.googleReviewUrl as string) ||
     ((body.business as any)?.googleReviewUrl as string) ||

@@ -49,7 +49,7 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
   };
 
   const effectiveBiz = activeBusiness.name;
-  const effectiveReviewUrl = activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
+  const effectiveReviewUrl = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
 
   const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30 seconds to leave us a quick review on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName || 'Sarah')

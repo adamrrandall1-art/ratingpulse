@@ -100,7 +100,7 @@ const defaultDemoBusiness: ActiveBusiness = {
   name: DEFAULT_BUSINESS.name || 'RatingPulse',
   category: DEFAULT_BUSINESS.category || 'Software & Reputation Management',
   address: DEFAULT_BUSINESS.address || 'Rochester, NY',
-  phone: '(585) 203-1280',
+  phone: process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478',
   placeId: DEFAULT_BUSINESS.placeId || 'demo_ratingpulse_001',
   reviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_001',
   googleReviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_001',
@@ -713,9 +713,22 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (json.success) {
             const prof = (json.profile || {}) as Profile;
             const isGoogleConnected = Boolean(json.isGoogleConnected || prof.google_connected || prof.google_access_token);
+            const isPlaceholderPhone = (p?: string | null) => {
+              if (!p) return true;
+              const clean = p.replace(/\D/g, '');
+              return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
+            };
+            const configuredTwilio = process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478';
+            const effectivePhone = (!isPlaceholderPhone(json.phone) ? json.phone : null) ||
+              json.outboundPhoneNumber ||
+              json.twilioPhoneNumber ||
+              (!isPlaceholderPhone(prof.phone) ? prof.phone : null) ||
+              configuredTwilio;
+
             const mergedProfile: Profile = {
               ...zustandStore.profile,
               ...prof,
+              phone: effectivePhone,
               google_connected: isGoogleConnected,
               google_place_id: json.placeId || prof.google_place_id || '',
               business_name: json.businessName || prof.business_name || '',
@@ -735,7 +748,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
                 address: json.formattedAddress || prof.formatted_address || '',
-                phone: json.phone || prof.phone || '',
+                phone: effectivePhone,
                 placeId: json.placeId,
                 reviewUrl: json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
                 googleReviewUrl: json.googleReviewUrl || json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
@@ -752,7 +765,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
                 address: json.formattedAddress || prof.formatted_address || '',
-                phone: json.phone || prof.phone || '',
+                phone: effectivePhone,
                 placeId: json.placeId || '',
                 reviewUrl: directReviewUrl,
                 googleReviewUrl: directReviewUrl,
@@ -770,7 +783,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
                 address: json.formattedAddress || prof.formatted_address || '',
-                phone: json.phone || prof.phone || '',
+                phone: effectivePhone,
                 placeId: '',
                 reviewUrl: '',
                 googleReviewUrl: '',

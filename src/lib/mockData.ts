@@ -5,7 +5,7 @@ export const DEFAULT_BUSINESS = {
   name: "RatingPulse",
   category: "Software & Reputation Management",
   address: "Rochester, NY",
-  phone: "(585) 360-2026",
+  phone: "+1 (737) 258-3478",
   placeId: "demo_ratingpulse_place_id",
   rating: 5.0,
   totalReviews: 48,
@@ -27,7 +27,7 @@ export const DEMO_PROFILE: Profile = {
   google_rating: 5.0,
   google_review_count: 48,
   google_connected: true,
-  phone: '(585) 360-2026',
+  phone: '+1 (737) 258-3478',
   stripe_customer_id: null,
   stripe_subscription_id: null,
   plan_status: 'trialing',
@@ -52,7 +52,7 @@ export const DEMO_SETTINGS: BusinessSettings = {
   notify_positive_email: true,
   notify_positive_sms: false,
   notification_email: 'team@ratingpulse.co',
-  notification_phone: '(585) 360-2026',
+  notification_phone: '+1 (737) 258-3478',
   created_at: new Date().toISOString(),
 };
 

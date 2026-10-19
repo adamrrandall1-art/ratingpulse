@@ -202,13 +202,18 @@ export default function SettingsPage() {
             if (p.email) setAdminEmail(p.email);
           }
 
+          const configuredTwilio = process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478';
+          const isPlaceholder = (num?: string | null) => {
+            if (!num) return true;
+            return num.includes('555') || num.includes('123 Main') || num === '(585) 360-2026' || num === '(585) 203-1280';
+          };
           const resolvedPhone =
-            s?.notify_negative_phone ||
-            s?.notification_phone ||
-            p?.notify_negative_phone ||
-            p?.notification_phone ||
-            p?.phone ||
-            '';
+            (!isPlaceholder(s?.notify_negative_phone) ? s?.notify_negative_phone : '') ||
+            (!isPlaceholder(s?.notification_phone) ? s?.notification_phone : '') ||
+            (!isPlaceholder(p?.notify_negative_phone) ? p?.notify_negative_phone : '') ||
+            (!isPlaceholder(p?.notification_phone) ? p?.notification_phone : '') ||
+            (!isPlaceholder(p?.phone) ? p?.phone : '') ||
+            configuredTwilio;
 
           const resolvedEmail =
             s?.notification_email ||

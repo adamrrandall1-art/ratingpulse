@@ -30,10 +30,10 @@ function ReviewGateContent() {
     businessParam || "RatingPulse"
   );
   const [placeId, setPlaceId] = useState<string>(
-    placeIdParam || 'ChIJawEUC_oN04kRB70LP1wHuPg'
+    placeIdParam || (idParam === 'demo' ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : '')
   );
   const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(
-    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg')
+    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : (idParam === 'demo' ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
   );
   const [ownerEmail, setOwnerEmail] = useState<string>(
     ownerEmailParam || 'notifications@ratingpulse.co'
@@ -126,12 +126,10 @@ function ReviewGateContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive final 5-star Google review URL without hardcoded Sydney fallback
+  // Derive final 5-star Google review URL using direct googleReviewUrl or placeId
   const resolvedGoogleUrl =
     googleReviewUrl ||
-    (placeId
-      ? `https://search.google.com/local/writereview?placeid=${placeId}`
-      : `https://www.google.com/search?q=${encodeURIComponent(businessName + ' write a review')}`);
+    (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '/');
 
   const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);

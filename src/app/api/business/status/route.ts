@@ -68,6 +68,17 @@ export async function GET(req: NextRequest) {
     const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
     const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
+    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
+    const isPlaceholderPhone = (p?: string | null) => {
+      if (!p) return true;
+      const clean = p.replace(/\D/g, '');
+      return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
+    };
+    const rawPhone = profile?.phone || settings?.phone || '';
+    const activePhone = (!rawPhone || isPlaceholderPhone(rawPhone))
+      ? outboundPhone
+      : rawPhone;
+
     const statusString = isGoogleConnected ? 'connected' : 'disconnected';
     console.log(`[Business Status] User connection status: ${statusString}`);
 
@@ -83,7 +94,10 @@ export async function GET(req: NextRequest) {
       reviewUrl: effectiveReviewUrl,
       googleReviewUrl: effectiveReviewUrl,
       reviewLink: effectiveReviewUrl,
-      phone: profile?.phone || '',
+      phone: activePhone || outboundPhone || '',
+      outboundPhone: outboundPhone,
+      outboundPhoneNumber: outboundPhone,
+      twilioPhoneNumber: outboundPhone,
       rating: Number(profile?.google_rating) || 0,
       reviewCount: Number(profile?.google_review_count) || 0,
       profile,
@@ -120,6 +134,17 @@ export async function POST(req: NextRequest) {
     const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
     const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
+    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
+    const isPlaceholderPhone = (p?: string | null) => {
+      if (!p) return true;
+      const clean = p.replace(/\D/g, '');
+      return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
+    };
+    const rawPhone = profile?.phone || '';
+    const activePhone = (!rawPhone || isPlaceholderPhone(rawPhone))
+      ? outboundPhone
+      : rawPhone;
+
     const statusString = isGoogleConnected ? 'connected' : 'disconnected';
     console.log(`[Business Status] User connection status: ${statusString}`);
 
@@ -135,6 +160,10 @@ export async function POST(req: NextRequest) {
       reviewUrl: effectiveReviewUrl,
       googleReviewUrl: effectiveReviewUrl,
       reviewLink: effectiveReviewUrl,
+      phone: activePhone || outboundPhone || '',
+      outboundPhone: outboundPhone,
+      outboundPhoneNumber: outboundPhone,
+      twilioPhoneNumber: outboundPhone,
       profile,
     });
   } catch (err: any) {
