@@ -34,6 +34,7 @@ export interface ActiveBusiness {
   phone: string;
   placeId: string;
   reviewUrl: string;
+  googleReviewUrl?: string;
   rating: number;
   reviewCount: number;
   isConnected: boolean;
@@ -102,6 +103,7 @@ const defaultDemoBusiness: ActiveBusiness = {
   phone: '(585) 203-1280',
   placeId: DEFAULT_BUSINESS.placeId || 'demo_ratingpulse_001',
   reviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_001',
+  googleReviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_001',
   rating: DEFAULT_BUSINESS.rating || 5.0,
   reviewCount: DEFAULT_BUSINESS.totalReviews || 48,
   isConnected: true,
@@ -417,6 +419,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
 
         if (!state.isDemoMode) {
           try {
+            const destReviewUrl = activeBiz?.googleReviewUrl || activeBiz?.reviewUrl || (activeBiz?.placeId ? `https://search.google.com/local/writereview?placeid=${activeBiz.placeId}` : 'https://ratingpulse.co/rate');
             await fetch('/api/invites/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -427,6 +430,9 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 channel: 'sms',
                 businessName: activeBiz?.name,
                 placeId: activeBiz?.placeId,
+                googleReviewUrl: destReviewUrl,
+                reviewUrl: destReviewUrl,
+                reviewLink: destReviewUrl,
               }),
             });
           } catch (err) {
@@ -539,7 +545,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         const activeBiz = state.isDemoMode ? state.demoBusiness : state.liveBusiness;
         const placeId = overridePlaceId || activeBiz?.placeId;
 
-        if (!placeId) return 0;
+        if (!placeId || placeId.startsWith('http')) return 0;
 
         try {
           const res = await fetch('/api/sync-reviews', {
@@ -720,6 +726,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             };
             zustandStore.setProfile(mergedProfile);
 
+            const directReviewUrl = json.googleReviewUrl || json.reviewUrl || prof.review_url || '';
+            const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
+
             if (isGoogleConnected && json.placeId && !json.placeId.startsWith('demo_')) {
               zustandStore.setLiveBusiness({
                 id: prof.id || activeUserId,
@@ -729,6 +738,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 phone: json.phone || prof.phone || '',
                 placeId: json.placeId,
                 reviewUrl: json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
+                googleReviewUrl: json.googleReviewUrl || json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
+                rating: Number(json.rating) || 0,
+                reviewCount: Number(json.reviewCount) || 0,
+                isConnected: true,
+                isDemoMode: false,
+                isPendingPlaceId: false,
+                googleLocationId: (prof as any).google_location_id || undefined,
+              });
+            } else if (isGoogleConnected && hasDirectReviewUrl) {
+              zustandStore.setLiveBusiness({
+                id: prof.id || activeUserId,
+                name: json.businessName || prof.business_name || 'RatingPulse',
+                category: prof.business_category || 'Local Business',
+                address: json.formattedAddress || prof.formatted_address || '',
+                phone: json.phone || prof.phone || '',
+                placeId: json.placeId || '',
+                reviewUrl: directReviewUrl,
+                googleReviewUrl: directReviewUrl,
                 rating: Number(json.rating) || 0,
                 reviewCount: Number(json.reviewCount) || 0,
                 isConnected: true,
@@ -746,6 +773,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 phone: json.phone || prof.phone || '',
                 placeId: '',
                 reviewUrl: '',
+                googleReviewUrl: '',
                 rating: 0,
                 reviewCount: 0,
                 isConnected: true,

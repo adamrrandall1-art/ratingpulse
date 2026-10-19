@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
     if (body.business_category !== undefined) profilePayload.business_category = body.business_category;
     if (body.formatted_address !== undefined) profilePayload.formatted_address = body.formatted_address;
     if (body.google_place_id !== undefined) profilePayload.google_place_id = body.google_place_id;
-    if (body.review_url !== undefined) profilePayload.review_url = body.review_url;
+    if (body.review_url !== undefined || body.googleReviewUrl !== undefined || body.reviewLink !== undefined) {
+      profilePayload.review_url = body.review_url || body.googleReviewUrl || body.reviewLink;
+    }
     if (body.google_connected !== undefined) profilePayload.google_connected = body.google_connected;
     if (body.google_access_token !== undefined) profilePayload.google_access_token = body.google_access_token;
     if (body.google_refresh_token !== undefined) profilePayload.google_refresh_token = body.google_refresh_token;

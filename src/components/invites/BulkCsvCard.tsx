@@ -176,7 +176,9 @@ export default function BulkCsvCard({ onBulkProcessed }: BulkCsvCardProps) {
           timeZone: userTz,
           businessName: activeBusiness.name,
           placeId: activeBusiness.placeId,
-          reviewLink: activeBusiness.reviewUrl,
+          googleReviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl,
+          reviewLink: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl,
+          reviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl,
           isDemoMode: activeBusiness.isDemoMode,
         }),
       });

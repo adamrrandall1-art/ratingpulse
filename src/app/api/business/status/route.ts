@@ -52,15 +52,21 @@ export async function GET(req: NextRequest) {
     const profile = profRes.status === 'fulfilled' ? profRes.value.data : null;
     const settings = settRes.status === 'fulfilled' ? settRes.value.data : null;
 
+    const placeId = profile?.google_place_id || settings?.place_id || '';
+    const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
+    const directReviewUrl = profile?.review_url || (settings as any)?.review_url || '';
+    const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
+    const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
+
     const isGoogleConnected = Boolean(
       profile?.google_connected ||
       profile?.google_access_token ||
-      settings?.google_access_token
+      settings?.google_access_token ||
+      hasDirectReviewUrl
     );
 
-    const placeId = profile?.google_place_id || settings?.place_id || '';
-    const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-    const isPendingPlaceId = Boolean(isGoogleConnected && !hasValidPlaceId);
+    const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
+    const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
     const statusString = isGoogleConnected ? 'connected' : 'disconnected';
     console.log(`[Business Status] User connection status: ${statusString}`);
@@ -69,11 +75,14 @@ export async function GET(req: NextRequest) {
       success: true,
       isGoogleConnected,
       google_connected: isGoogleConnected,
+      hasPlaceId,
       isPendingPlaceId,
       businessName: profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : null),
       placeId: hasValidPlaceId ? placeId : '',
       formattedAddress: profile?.formatted_address || '',
-      reviewUrl: profile?.review_url || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : ''),
+      reviewUrl: effectiveReviewUrl,
+      googleReviewUrl: effectiveReviewUrl,
+      reviewLink: effectiveReviewUrl,
       phone: profile?.phone || '',
       rating: Number(profile?.google_rating) || 0,
       reviewCount: Number(profile?.google_review_count) || 0,
@@ -102,10 +111,14 @@ export async function POST(req: NextRequest) {
     }
 
     const { data: profile } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-    const isGoogleConnected = Boolean(profile?.google_connected || profile?.google_access_token);
+    const directReviewUrl = profile?.review_url || '';
+    const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
+    const isGoogleConnected = Boolean(profile?.google_connected || profile?.google_access_token || hasDirectReviewUrl);
     const placeId = profile?.google_place_id || '';
     const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-    const isPendingPlaceId = Boolean(isGoogleConnected && !hasValidPlaceId);
+    const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
+    const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
+    const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
     const statusString = isGoogleConnected ? 'connected' : 'disconnected';
     console.log(`[Business Status] User connection status: ${statusString}`);
@@ -114,11 +127,14 @@ export async function POST(req: NextRequest) {
       success: true,
       isGoogleConnected,
       google_connected: isGoogleConnected,
+      hasPlaceId,
       isPendingPlaceId,
       businessName: profile?.business_name || (isGoogleConnected ? 'RatingPulse' : null),
       placeId: hasValidPlaceId ? placeId : '',
       formattedAddress: profile?.formatted_address || '',
-      reviewUrl: profile?.review_url || '',
+      reviewUrl: effectiveReviewUrl,
+      googleReviewUrl: effectiveReviewUrl,
+      reviewLink: effectiveReviewUrl,
       profile,
     });
   } catch (err: any) {

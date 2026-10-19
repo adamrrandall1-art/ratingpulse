@@ -25,8 +25,15 @@ export async function POST(req: NextRequest) {
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');
-    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
-    const reviewLink = body.reviewGateUrl || body.reviewLink || body.reviewUrl || directReviewUrl;
+    const fallbackReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const reviewLink =
+      body.googleReviewUrl ||
+      body.business?.googleReviewUrl ||
+      body.business?.reviewUrl ||
+      body.reviewUrl ||
+      body.reviewLink ||
+      body.reviewGateUrl ||
+      fallbackReviewUrl;
     const {
       message,
       serviceType,

@@ -66,10 +66,16 @@ export async function POST(req: NextRequest) {
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : ((body.placeId as string) || (body.google_place_id as string) || '');
     const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
-    const reviewLink   = isDemoMode
-      ? ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || directReviewUrl)
-      : ((body.reviewGateUrl as string) || (body.reviewLink as string) || (body.reviewUrl as string) || directReviewUrl);
+    const fallbackReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const destinationReviewUrl =
+      (body.googleReviewUrl as string) ||
+      (body.business?.googleReviewUrl as string) ||
+      (body.business?.reviewUrl as string) ||
+      (body.reviewUrl as string) ||
+      (body.reviewLink as string) ||
+      (body.reviewGateUrl as string) ||
+      fallbackReviewUrl;
+    const reviewLink   = destinationReviewUrl;
     const serviceType  = (body.serviceType  as string) || 'General Service';
     const userId       = (body.userId       as string) || '';
 

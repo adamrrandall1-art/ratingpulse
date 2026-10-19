@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Building2,
   MapPin,
@@ -40,6 +40,7 @@ function BusinessSetupContent() {
   const { user: supabaseUser } = useAuth();
   const activeUserId = clerkUser?.id || supabaseUser?.id || '';
   const searchParams = useSearchParams();
+  const router = useRouter();
   const {
     activeBusiness,
     profile,
@@ -53,10 +54,17 @@ function BusinessSetupContent() {
     isDemoMode,
   } = useRatingPulseStore();
 
+  const hasDirectReviewUrl = Boolean(
+    !isDemoMode &&
+    ((activeBusiness.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
+      (profile.review_url && profile.review_url.startsWith('http')))
+  );
+
   const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
     (profile.google_connected ||
       profile.google_access_token ||
+      hasDirectReviewUrl ||
       searchParams.get('connected') === 'true' ||
       searchParams.get('oauth') === 'success' ||
       searchParams.get('google') === 'connected' ||
@@ -65,9 +73,10 @@ function BusinessSetupContent() {
 
   const hasVerifiedPlaceId = Boolean(
     !isDemoMode &&
-    activeBusiness.placeId &&
-    !activeBusiness.placeId.startsWith('demo_') &&
-    activeBusiness.placeId.trim().length > 0
+    ((activeBusiness.placeId &&
+      !activeBusiness.placeId.startsWith('demo_') &&
+      activeBusiness.placeId.trim().length > 0) ||
+      hasDirectReviewUrl)
   );
 
   const isPendingPlaceId = Boolean(
@@ -138,12 +147,18 @@ function BusinessSetupContent() {
     const isPendingParam = searchParams.get('pending_place_id') === 'true';
 
     if (isConnectedParam || oauthStatus === 'success' || googleStatus === 'connected') {
-      const isPending = isPendingParam || !returnedPlaceId;
+      const hasReviewUrl = Boolean(
+        (activeBusiness.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
+        (profile.review_url && profile.review_url.startsWith('http'))
+      );
+      const isPending = isPendingParam ? true : (!returnedPlaceId && !hasReviewUrl);
       if (returnedBiz) setBusinessName(returnedBiz);
 
       setActiveBusiness({
         name: returnedBiz || activeBusiness.name,
         placeId: returnedPlaceId || activeBusiness.placeId || '',
+        reviewUrl: activeBusiness.reviewUrl || profile.review_url || '',
+        googleReviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || profile.review_url || '',
         isConnected: true,
         isDemoMode: false,
         isPendingPlaceId: isPending,
@@ -153,6 +168,7 @@ function BusinessSetupContent() {
         google_connected: true,
         business_name: returnedBiz || profile.business_name,
         google_place_id: returnedPlaceId || profile.google_place_id,
+        review_url: activeBusiness.reviewUrl || profile.review_url || '',
       });
 
       const activeId = activeUserId || profile.id;
@@ -266,53 +282,97 @@ function BusinessSetupContent() {
       return;
     }
 
-    let extractedPlaceId = rawInput;
-    if (rawInput.includes('placeid=')) {
-      try {
-        const parsedUrl = new URL(rawInput);
-        extractedPlaceId = parsedUrl.searchParams.get('placeid') || rawInput;
-      } catch {
-        const match = rawInput.match(/placeid=([^&]+)/);
-        if (match) extractedPlaceId = match[1];
+    const isDirectUrl = rawInput.startsWith('http://') || rawInput.startsWith('https://');
+    let extractedPlaceId = '';
+    let targetReviewUrl = '';
+
+    if (isDirectUrl) {
+      // IF it starts with http:// or https://:
+      // - Save directly to the business record as googleReviewUrl
+      // - Set isGoogleConnected = true and hasPlaceId = true (removes pending_place_id)
+      // - Do NOT execute a Google Places API lookup on this string
+      targetReviewUrl = rawInput;
+    } else {
+      // ELSE (if raw Place ID like ChIJ...):
+      if (rawInput.includes('placeid=')) {
+        try {
+          const parsedUrl = new URL(rawInput);
+          extractedPlaceId = parsedUrl.searchParams.get('placeid') || rawInput;
+        } catch {
+          const match = rawInput.match(/placeid=([^&]+)/);
+          extractedPlaceId = match ? match[1] : rawInput;
+        }
+      } else {
+        extractedPlaceId = rawInput;
       }
-    } else if (rawInput.startsWith('http')) {
-      const match = rawInput.match(/place_id=([^&]+)/) || rawInput.match(/placeid=([^&]+)/);
-      if (match) extractedPlaceId = match[1];
+      targetReviewUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extractedPlaceId)}`;
     }
 
     setIsAttachingManualPlace(true);
     try {
-      const gReviewUrl = `https://search.google.com/local/writereview?placeid=${extractedPlaceId}`;
+      // Call dedicated API endpoint /api/business/save-place
+      const res = await fetch('/api/business/save-place', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: activeUserId || profile.id,
+          input: rawInput,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok && data?.error) {
+        throw new Error(data.error);
+      }
+
+      const finalReviewUrl = data?.googleReviewUrl || targetReviewUrl;
+      const finalPlaceId = isDirectUrl ? '' : (data?.placeId || extractedPlaceId);
+
       await updateProfile({
-        google_place_id: extractedPlaceId,
-        review_url: gReviewUrl,
+        google_place_id: finalPlaceId,
+        review_url: finalReviewUrl,
         google_connected: true,
       });
 
       setActiveBusiness({
         ...activeBusiness,
-        placeId: extractedPlaceId,
-        reviewUrl: gReviewUrl,
+        placeId: finalPlaceId,
+        reviewUrl: finalReviewUrl,
+        googleReviewUrl: finalReviewUrl,
         isConnected: true,
         isPendingPlaceId: false,
       });
 
-      setReviewUrl(gReviewUrl);
+      setReviewUrl(finalReviewUrl);
       setSelectedPlace(prev => ({
         ...prev,
-        placeId: extractedPlaceId,
-        reviewUrl: gReviewUrl,
+        placeId: finalPlaceId,
+        reviewUrl: finalReviewUrl,
       }));
 
-      toast.success('Place ID Attached Successfully! 🎯', {
-        description: `Attached Place ID: ${extractedPlaceId}. Syncing live reviews...`,
-      });
+      toast.success(
+        isDirectUrl ? 'Direct Google Review Link Attached! 🎯' : 'Place ID Attached Successfully! 🎯',
+        {
+          description: isDirectUrl
+            ? 'Vanity review link saved directly. Review invites will link directly here.'
+            : `Attached Place ID: ${finalPlaceId}. Syncing live reviews...`,
+        }
+      );
 
       setManualPlaceInput('');
-      await syncGoogleReviews(extractedPlaceId).catch(() => {});
+
+      // Do NOT execute Google Places API lookup on direct URL
+      if (!isDirectUrl && finalPlaceId) {
+        await syncGoogleReviews(finalPlaceId).catch(() => {});
+      }
+
+      // Requirement 2: Form Redirect / State Update:
+      // On successful save, redirect or revalidate the page to /dashboard/setup?business=RatingPulse&connected=true
+      // (strip pending_place_id=true and oauth=success).
+      router.replace('/dashboard/setup?business=RatingPulse&connected=true');
     } catch (err: any) {
-      toast.error('Failed to attach Place ID', {
-        description: err?.message || 'Please check the ID and try again.',
+      toast.error('Failed to attach review link', {
+        description: err?.message || 'Please check the input and try again.',
       });
     } finally {
       setIsAttachingManualPlace(false);
@@ -691,10 +751,10 @@ function BusinessSetupContent() {
 
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-slate-500">Active Place ID:</span>
-            {(isDemoMode ? activeBusiness.placeId : (hasVerifiedPlaceId ? (activeBusiness.placeId || profile.google_place_id) : '')) ? (
+            {(isDemoMode ? activeBusiness.placeId : (hasVerifiedPlaceId ? (activeBusiness.placeId || profile.google_place_id || 'Direct Review URL') : '')) ? (
               <div className="flex items-center gap-1.5">
                 <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono text-[11px] font-semibold border border-slate-200">
-                  {isDemoMode ? activeBusiness.placeId : (activeBusiness.placeId || profile.google_place_id)}
+                  {isDemoMode ? activeBusiness.placeId : (activeBusiness.placeId || profile.google_place_id || 'Direct Review URL')}
                 </code>
                 {isDemoMode && (
                   <button
@@ -811,12 +871,12 @@ function BusinessSetupContent() {
         </div>
 
         {/* Selected Location Card */}
-        {((isDemoMode && (selectedPlace.placeId || activeBusiness.placeId)) || (!isDemoMode && selectedPlace.placeId && !selectedPlace.placeId.startsWith('demo_'))) ? (
+        {((isDemoMode && (selectedPlace.placeId || activeBusiness.placeId)) || (!isDemoMode && ((selectedPlace.placeId && !selectedPlace.placeId.startsWith('demo_')) || hasDirectReviewUrl))) ? (
           <div className="p-5 rounded-xl border border-blue-100 bg-blue-50/40 space-y-3 animate-in fade-in duration-150">
             <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
               <div>
                 <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
-                  {selectedPlace.businessName || profile.business_name}
+                  {selectedPlace.businessName || profile.business_name || activeBusiness.name || 'RatingPulse'}
                   {(selectedPlace.rating || profile.google_rating) ? (
                     <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 ml-1">
                       <Star className="w-3 h-3 text-amber-500 fill-amber-500" />
@@ -826,24 +886,24 @@ function BusinessSetupContent() {
                 </h4>
                 <p className="text-xs text-slate-600 flex items-center gap-1.5 mt-1">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span>{selectedPlace.formattedAddress || profile.formatted_address || 'Address on file'}</span>
+                  <span>{selectedPlace.formattedAddress || profile.formatted_address || activeBusiness.address || 'Direct Google Review Link Connected'}</span>
                 </p>
               </div>
 
               <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 shrink-0">
-                {(selectedPlace.placeId || profile.google_place_id || '').slice(0, 14)}...
+                {(selectedPlace.placeId || profile.google_place_id || activeBusiness.reviewUrl || profile.review_url || 'Direct URL').slice(0, 18)}...
               </span>
             </div>
 
             <div className="pt-2 border-t border-blue-100/80 flex flex-wrap items-center justify-between text-xs text-slate-500 gap-2">
               <span className="flex items-center gap-1 text-emerald-700 font-medium">
                 <Check className="w-3.5 h-3.5 text-emerald-600" />
-                {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Place ID connected'}
+                {isOauthVerified ? 'Verified Owner via Google OAuth' : 'Valid Google Review Link connected'}
               </span>
 
-              {(selectedPlace.reviewUrl || profile.review_url) && (
+              {(selectedPlace.reviewUrl || profile.review_url || activeBusiness.reviewUrl) && (
                 <a
-                  href={selectedPlace.reviewUrl || profile.review_url || '#'}
+                  href={selectedPlace.reviewUrl || profile.review_url || activeBusiness.reviewUrl || '#'}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 hover:underline flex items-center gap-1 text-xs font-semibold"

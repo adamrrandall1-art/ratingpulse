@@ -62,8 +62,14 @@ export async function POST(req: NextRequest) {
       : (body.placeId || body.google_place_id || '');
     const userId = body.userId || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const directReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
-    const reviewLink = body.reviewLink || body.reviewUrl || directReviewUrl;
+    const fallbackReviewUrl = placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/rate`;
+    const reviewLink =
+      body.googleReviewUrl ||
+      body.business?.googleReviewUrl ||
+      body.business?.reviewUrl ||
+      body.reviewUrl ||
+      body.reviewLink ||
+      fallbackReviewUrl;
 
     const status = isWithinAllowedWindow ? 'SENT' : 'QUEUED_FOR_DAYLIGHT';
 
