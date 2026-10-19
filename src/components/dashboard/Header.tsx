@@ -22,7 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { UserButton, useUser, SignedIn, SignedOut } from '@clerk/nextjs';
@@ -153,12 +153,13 @@ export default function Header({
 
           {/* Google Connected Badge */}
           {(() => {
+            const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
             return (
               <div className="hidden xl:flex items-center gap-2">
-                {activeBusiness.isConnected ? (
+                {isConnected ? (
                   <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                     <CheckCircle className="w-3 h-3 text-emerald-600" />
-                    {activeBusiness.isDemoMode ? "Demo Mode Active (🟢)" : "Google Sync Active 🟢"}
+                    {isDemoMode ? "Demo Mode Active (🟢)" : "Google Sync Active 🟢"}
                   </span>
                 ) : (
                   <Link

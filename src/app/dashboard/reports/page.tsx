@@ -18,7 +18,7 @@ import {
   Printer
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import RatingDistributionCard from '@/components/reports/RatingDistributionCard';
 import ChannelPerformanceCard from '@/components/reports/ChannelPerformanceCard';
 import RatingTrendCard from '@/components/reports/RatingTrendCard';
@@ -38,7 +38,7 @@ export default function ReportsPage() {
     ? (activeBusiness.reviewCount || 128)
     : (reviews.length || activeBusiness.reviewCount || 0);
 
-  if (!isDemoMode && !activeBusiness.isConnected) {
+  if (!isBusinessConnected(activeBusiness, isDemoMode)) {
     return (
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="p-10 sm:p-14 bg-white rounded-2xl border border-slate-200 text-center flex flex-col items-center shadow-2xs">

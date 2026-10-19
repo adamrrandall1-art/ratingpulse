@@ -25,6 +25,8 @@ import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useAuth } from './auth-context';
 import { useUser } from '@clerk/nextjs';
 import { clearLocalWorkspaceState, registerCacheResetListener } from './workspace-cleanup';
+import { isBusinessConnected } from './business-connection';
+export { isBusinessConnected };
 
 export interface ActiveBusiness {
   id: string;
@@ -37,6 +39,7 @@ export interface ActiveBusiness {
   googleReviewUrl?: string;
   rating: number;
   reviewCount: number;
+  isGoogleConnected: boolean;
   isConnected: boolean;
   isDemoMode: boolean;
   isPendingPlaceId?: boolean;
@@ -106,6 +109,7 @@ const defaultDemoBusiness: ActiveBusiness = {
   googleReviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_001',
   rating: DEFAULT_BUSINESS.rating || 5.0,
   reviewCount: DEFAULT_BUSINESS.totalReviews || 48,
+  isGoogleConnected: true,
   isConnected: true,
   isDemoMode: false,
 };
@@ -170,8 +174,14 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 phone: business.phone || '',
                 placeId: business.placeId || '',
                 reviewUrl: business.reviewUrl || '',
+                googleReviewUrl: business.googleReviewUrl || business.reviewUrl || '',
                 rating: business.rating || 0,
                 reviewCount: business.reviewCount || 0,
+                isGoogleConnected: Boolean(
+                  business.isGoogleConnected !== undefined
+                    ? business.isGoogleConnected
+                    : (business.isConnected || (business.placeId && business.placeId.trim() !== ''))
+                ),
                 isConnected: Boolean(business.isConnected !== undefined ? business.isConnected : (business.placeId && business.placeId.trim() !== '')),
                 isDemoMode: false,
                 isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (!business.placeId || business.placeId.trim() === ''),
@@ -200,11 +210,16 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
 
       disconnectBusiness: async () => {
         const currentProfile = get().profile;
+        const currentLiveBiz = get().liveBusiness;
+        const targetUserId = currentProfile?.id || (currentLiveBiz as any)?.id;
+
         set({
           profile: {
             ...currentProfile,
+            business_name: '',
             google_connected: false,
             google_place_id: '',
+            review_url: '',
             google_access_token: undefined,
             google_refresh_token: undefined,
           },
@@ -213,44 +228,17 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           invites: [],
         });
 
-        if (currentProfile?.id) {
-          try {
-            if (isSupabaseConfigured && supabase) {
-              await supabase
-                .from('profiles')
-                .update({
-                  google_connected: false,
-                  google_place_id: null,
-                  google_access_token: null,
-                  google_refresh_token: null,
-                  business_name: null,
-                  formatted_address: null,
-                  review_url: null,
-                  google_rating: null,
-                  google_review_count: 0,
-                  updated_at: new Date().toISOString(),
-                })
-                .eq('id', currentProfile.id);
-            }
-            await fetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: currentProfile.id,
-                google_connected: false,
-                google_place_id: null,
-                google_access_token: null,
-                google_refresh_token: null,
-                business_name: null,
-                formatted_address: null,
-                review_url: null,
-                google_rating: null,
-                google_review_count: 0,
-              }),
-            }).catch(() => {});
-          } catch (err) {
-            console.error('Error disconnecting business in Supabase:', err);
-          }
+        try {
+          await fetch('/api/business/disconnect', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: targetUserId,
+              businessId: currentLiveBiz?.id || targetUserId,
+            }),
+          });
+        } catch (err) {
+          console.error('Error calling /api/business/disconnect:', err);
         }
       },
 
@@ -741,43 +729,33 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
             const directReviewUrl = json.googleReviewUrl || json.reviewUrl || prof.review_url || '';
             const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
+            const validPlaceId = json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '';
+            const isConnected = isBusinessConnected({
+              isGoogleConnected,
+              placeId: validPlaceId,
+              googleReviewUrl: directReviewUrl
+            }, false);
 
-            if (isGoogleConnected && json.placeId && !json.placeId.startsWith('demo_')) {
+            if (isConnected) {
               zustandStore.setLiveBusiness({
                 id: prof.id || activeUserId,
                 name: json.businessName || prof.business_name || 'RatingPulse',
                 category: prof.business_category || 'Local Business',
                 address: json.formattedAddress || prof.formatted_address || '',
                 phone: effectivePhone,
-                placeId: json.placeId,
-                reviewUrl: json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
-                googleReviewUrl: json.googleReviewUrl || json.reviewUrl || `https://search.google.com/local/writereview?placeid=${json.placeId}`,
+                placeId: validPlaceId,
+                reviewUrl: directReviewUrl || `https://search.google.com/local/writereview?placeid=${validPlaceId}`,
+                googleReviewUrl: directReviewUrl || `https://search.google.com/local/writereview?placeid=${validPlaceId}`,
                 rating: Number(json.rating) || 0,
                 reviewCount: Number(json.reviewCount) || 0,
-                isConnected: true,
-                isDemoMode: false,
-                isPendingPlaceId: false,
-                googleLocationId: (prof as any).google_location_id || undefined,
-              });
-            } else if (isGoogleConnected && hasDirectReviewUrl) {
-              zustandStore.setLiveBusiness({
-                id: prof.id || activeUserId,
-                name: json.businessName || prof.business_name || 'RatingPulse',
-                category: prof.business_category || 'Local Business',
-                address: json.formattedAddress || prof.formatted_address || '',
-                phone: effectivePhone,
-                placeId: json.placeId || '',
-                reviewUrl: directReviewUrl,
-                googleReviewUrl: directReviewUrl,
-                rating: Number(json.rating) || 0,
-                reviewCount: Number(json.reviewCount) || 0,
+                isGoogleConnected: true,
                 isConnected: true,
                 isDemoMode: false,
                 isPendingPlaceId: false,
                 googleLocationId: (prof as any).google_location_id || undefined,
               });
             } else if (isGoogleConnected) {
-              // Google OAuth connected but place ID is pending publication
+              // Google OAuth connected but place ID / review URL is pending
               zustandStore.setLiveBusiness({
                 id: prof.id || activeUserId,
                 name: json.businessName || prof.business_name || 'RatingPulse',
@@ -789,7 +767,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 googleReviewUrl: '',
                 rating: 0,
                 reviewCount: 0,
-                isConnected: true,
+                isGoogleConnected: true,
+                isConnected: false,
                 isDemoMode: false,
                 isPendingPlaceId: true,
                 googleLocationId: (prof as any).google_location_id || undefined,
@@ -850,14 +829,21 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       return {
         ...store.demoBusiness,
         isConnected: true,
+        isGoogleConnected: true,
         isDemoMode: true,
       };
     }
 
-    if (store.liveBusiness && store.liveBusiness.isConnected) {
+    if (store.liveBusiness) {
+      const connected = isBusinessConnected(store.liveBusiness, false);
       return {
         ...store.liveBusiness,
-        isConnected: true,
+        isConnected: connected,
+        isGoogleConnected: Boolean(store.liveBusiness.isGoogleConnected),
+        isPendingPlaceId: Boolean(
+          store.liveBusiness.isPendingPlaceId ??
+            (store.liveBusiness.isGoogleConnected && !connected)
+        ),
         isDemoMode: false,
       };
     }
@@ -870,8 +856,10 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       phone: '',
       placeId: '',
       reviewUrl: '',
+      googleReviewUrl: '',
       rating: 0,
       reviewCount: 0,
+      isGoogleConnected: false,
       isConnected: false,
       isDemoMode: false,
       isPendingPlaceId: false,

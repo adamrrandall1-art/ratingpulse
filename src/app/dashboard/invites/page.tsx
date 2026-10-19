@@ -19,7 +19,7 @@ import {
   Zap,
   Moon
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import QuickSenderCard from '@/components/invites/QuickSenderCard';
 import BulkCsvCard from '@/components/invites/BulkCsvCard';
@@ -162,7 +162,7 @@ export default function InvitesPage() {
           <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 font-medium">
             <span>Business:</span>
             <span className="font-bold text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200">
-              {activeBusiness.name || 'Not Connected'}
+              {isBusinessConnected(activeBusiness, isDemoMode) ? (activeBusiness.name || 'RatingPulse') : 'Not Connected'}
             </span>
           </div>
         </div>

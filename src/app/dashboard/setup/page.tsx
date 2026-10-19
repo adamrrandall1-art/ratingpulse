@@ -26,7 +26,7 @@ import {
   Clock,
   ArrowRight,
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 import { useUser } from '@clerk/nextjs';
 import { DEMO_BUSINESS } from '@/lib/mockData';
@@ -56,19 +56,9 @@ function BusinessSetupContent() {
 
   const hasDirectReviewUrl = Boolean(
     !isDemoMode &&
-    ((activeBusiness.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
+    ((activeBusiness.googleReviewUrl && activeBusiness.googleReviewUrl.startsWith('http')) ||
+      (activeBusiness.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
       (profile.review_url && profile.review_url.startsWith('http')))
-  );
-
-  const isGoogleAccountConnected = Boolean(
-    !isDemoMode &&
-    (profile.google_connected ||
-      profile.google_access_token ||
-      hasDirectReviewUrl ||
-      searchParams.get('connected') === 'true' ||
-      searchParams.get('oauth') === 'success' ||
-      searchParams.get('google') === 'connected' ||
-      activeBusiness.isConnected)
   );
 
   const hasVerifiedPlaceId = Boolean(
@@ -76,22 +66,37 @@ function BusinessSetupContent() {
     ((activeBusiness.placeId &&
       !activeBusiness.placeId.startsWith('demo_') &&
       activeBusiness.placeId.trim().length > 0) ||
+      (profile.google_place_id &&
+        !profile.google_place_id.startsWith('demo_') &&
+        profile.google_place_id.trim().length > 0) ||
       hasDirectReviewUrl)
+  );
+
+  const isBusinessActuallyConnected = isBusinessConnected(
+    {
+      isGoogleConnected: activeBusiness.isGoogleConnected ?? profile.google_connected,
+      placeId: activeBusiness.placeId || profile.google_place_id,
+      googleReviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || profile.review_url,
+    },
+    isDemoMode
+  );
+
+  const isGoogleAccountConnected = Boolean(
+    !isDemoMode &&
+    (profile.google_connected ||
+      activeBusiness.isGoogleConnected ||
+      profile.google_access_token ||
+      isBusinessActuallyConnected)
   );
 
   const isPendingPlaceId = Boolean(
     !isDemoMode &&
     isGoogleAccountConnected &&
-    !hasVerifiedPlaceId
+    !isBusinessActuallyConnected
   );
 
-  const isOauthVerified = Boolean(
-    !isDemoMode &&
-    isGoogleAccountConnected &&
-    hasVerifiedPlaceId
-  );
-
-  const isConnected = isDemoMode ? true : isGoogleAccountConnected;
+  const isOauthVerified = isBusinessActuallyConnected;
+  const isConnected = isBusinessActuallyConnected;
 
   // Business Profile Form States
   const configuredTwilioPhone = process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478';
@@ -629,7 +634,9 @@ function BusinessSetupContent() {
       setBusinessName('');
       setBusinessAddress('');
       setReviewUrl('');
+      setManualPlaceInput('');
       setShowDisconnectModal(false);
+      router.replace('/dashboard/setup');
       toast.success('Business Disconnected', {
         description: 'Google Places connection and OAuth tokens have been cleared.',
       });
@@ -703,10 +710,19 @@ function BusinessSetupContent() {
                 Verified Owner via Google OAuth 🟢
               </span>
             ) : isPendingPlaceId ? (
-              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3.5 py-1.5 rounded-full shadow-2xs">
-                <Clock className="w-4 h-4 text-amber-600" />
-                Google Connected (Place ID Pending) 🟡
-              </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 px-3.5 py-1.5 rounded-full shadow-2xs">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  Google Connected (Place ID Pending) 🟡
+                </span>
+                <a
+                  href={`/api/auth/google?userId=${activeUserId || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-blue-200" />
+                  <span>Reconnect / Switch Account</span>
+                </a>
+              </div>
             ) : (
               <a
                 href={`/api/auth/google?userId=${activeUserId || profile.id}&returnUrl=/dashboard/setup?oauth=success`}
@@ -939,7 +955,7 @@ function BusinessSetupContent() {
 
         {/* Place Actions */}
         <div className="pt-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {isConnected ? (
+          {(isConnected || isPendingPlaceId) ? (
             <button
               type="button"
               onClick={() => setShowDisconnectModal(true)}
@@ -947,7 +963,7 @@ function BusinessSetupContent() {
               className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span>Disconnect Business</span>
+              <span>{isConnected ? 'Disconnect Business' : 'Cancel / Disconnect'}</span>
             </button>
           ) : (
             <div />

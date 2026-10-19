@@ -98,3 +98,57 @@ export async function saveAndAttachPlaceAction(formData: FormData) {
   revalidatePath('/dashboard/setup');
   redirect('/dashboard/setup?business=RatingPulse&connected=true');
 }
+
+export async function disconnectBusinessAction(formData?: FormData) {
+  const explicitUserId = formData?.get('userId')?.toString()?.trim();
+  const clerkAuth = await auth().catch(() => null);
+  const userId = explicitUserId || clerkAuth?.userId;
+
+  const supabase = getSupabaseAdmin();
+  if (supabase && userId) {
+    await Promise.allSettled([
+      supabase
+        .from('profiles')
+        .update({
+          business_name: null,
+          google_place_id: null,
+          formatted_address: null,
+          review_url: null,
+          google_rating: null,
+          google_review_count: 0,
+          google_connected: false,
+          google_access_token: null,
+          google_refresh_token: null,
+          google_token_expiry: null,
+          google_account_id: null,
+          google_location_id: null,
+          google_account_name: null,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`id.eq.${userId},clerk_user_id.eq.${userId}`),
+
+      supabase
+        .from('business_settings')
+        .update({
+          place_id: null,
+          business_name: null,
+          google_review_url: null,
+          google_access_token: null,
+          google_refresh_token: null,
+          connected_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .or(`user_id.eq.${userId},id.eq.${userId}`),
+
+      supabase
+        .from('reviews')
+        .delete()
+        .or(`user_id.eq.${userId}`),
+    ]);
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  revalidatePath('/dashboard/setup');
+  revalidatePath('/dashboard/businesses');
+  return { success: true };
+}

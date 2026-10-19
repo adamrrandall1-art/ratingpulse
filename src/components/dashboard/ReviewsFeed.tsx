@@ -21,7 +21,7 @@ import {
   Zap,
   Building
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { Review } from '@/lib/supabase/types';
 import PrivateFeedbackFeed from './PrivateFeedbackFeed';
 import confetti from 'canvas-confetti';
@@ -60,7 +60,7 @@ export default function ReviewsFeed({
     searchQuery,
   } = useRatingPulseStore();
 
-  const isConnected = activeBusiness.isConnected;
+  const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
 
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'published' | 'private'>(
     tabParam === 'private' || tabParam === 'gated' ? 'private' : initialFilter

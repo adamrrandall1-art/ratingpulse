@@ -3,12 +3,12 @@
 import React from 'react';
 import Link from 'next/link';
 import { Star, Building2, ArrowRight, ShieldCheck } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 
 export default function DashboardOverviewPage() {
   const { activeBusiness, reviews: storeReviews, isDemoMode } = useRatingPulseStore();
 
-  const isGoogleConnected = activeBusiness.isConnected;
+  const isGoogleConnected = isBusinessConnected(activeBusiness, isDemoMode);
   const isPending = Boolean(!isDemoMode && activeBusiness.isPendingPlaceId);
   const businessName = isGoogleConnected ? (activeBusiness.name || 'RatingPulse') : null;
   const businessAddress = isGoogleConnected ? activeBusiness.address : null;

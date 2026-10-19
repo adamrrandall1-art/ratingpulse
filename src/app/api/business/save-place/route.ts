@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
+import { revalidatePath } from 'next/cache';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -114,6 +115,18 @@ export async function POST(req: NextRequest) {
       } catch (settErr) {
         console.warn('[save-place] update business_settings warning:', settErr);
       }
+    }
+
+    try {
+      revalidatePath('/dashboard', 'layout');
+      revalidatePath('/dashboard/setup');
+      revalidatePath('/dashboard/businesses');
+      revalidatePath('/dashboard');
+      revalidatePath('/dashboard/reviews');
+      revalidatePath('/dashboard/invites');
+      revalidatePath('/dashboard/settings');
+    } catch (revErr) {
+      console.warn('[save-place] Cache revalidation note:', revErr);
     }
 
     return NextResponse.json({

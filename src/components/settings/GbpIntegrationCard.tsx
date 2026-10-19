@@ -15,7 +15,7 @@ import {
   ShieldCheck,
   Store,
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { toast } from 'sonner';
 
 interface GbpIntegrationCardProps {
@@ -28,7 +28,7 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
 
-  const isConnected = activeBusiness.isConnected;
+  const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
   const businessName = activeBusiness.name;
   const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
   const reviewCount = activeBusiness.reviewCount;

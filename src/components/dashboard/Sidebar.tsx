@@ -19,7 +19,7 @@ import {
   LogOut,
   BarChart3
 } from 'lucide-react';
-import { useRatingPulseStore } from '@/lib/store';
+import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 import { toast } from 'sonner';
 import BrandLogo from '@/components/BrandLogo';
@@ -32,7 +32,7 @@ export default function Sidebar({
   className?: string;
 }) {
   const pathname = usePathname();
-  const { profile, pendingReviewsCount } = useRatingPulseStore();
+  const { profile, activeBusiness, isDemoMode, pendingReviewsCount } = useRatingPulseStore();
   const { user } = useAuth();
   const [billingLoading, setBillingLoading] = useState(false);
 
@@ -154,12 +154,14 @@ export default function Sidebar({
 
           {/* Business Selector Pill */}
           {(() => {
-            const isConnected = Boolean(profile.google_place_id && profile.business_name && profile.google_connected !== false);
+            const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
+            const bizName = activeBusiness.name || profile.business_name || 'RatingPulse';
+            const bizRating = activeBusiness.rating || profile.google_rating || 5.0;
             return isConnected ? (
               <div className="mt-4 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between shadow-xs">
                 <div className="truncate">
                   <div className="text-xs font-bold text-slate-900 truncate">
-                    {profile.business_name}
+                    {bizName}
                   </div>
                   <div className="text-[10px] text-emerald-600 flex items-center gap-1 font-semibold">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -167,12 +169,12 @@ export default function Sidebar({
                   </div>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                  {profile.google_rating} ★
+                  {Number(bizRating).toFixed(1)} ★
                 </span>
               </div>
             ) : (
               <Link
-                href="/onboarding"
+                href="/dashboard/setup"
                 onClick={onClose}
                 className="mt-4 p-2.5 rounded-xl bg-slate-100/70 border border-dashed border-slate-300 hover:border-blue-400 flex items-center justify-between transition-colors group cursor-pointer block"
               >
