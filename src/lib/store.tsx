@@ -23,6 +23,7 @@ import {
 } from './data';
 import { supabase, isSupabaseConfigured } from './supabase/client';
 import { useAuth } from './auth-context';
+import { resolveReviewUrl } from './google-places';
 import { useUser } from '@clerk/nextjs';
 import { clearLocalWorkspaceState, registerCacheResetListener } from './workspace-cleanup';
 import { isBusinessConnected } from './business-connection';
@@ -407,7 +408,11 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
 
         if (!state.isDemoMode) {
           try {
-            const destReviewUrl = activeBiz?.googleReviewUrl || activeBiz?.reviewUrl || (activeBiz?.placeId ? `https://search.google.com/local/writereview?placeid=${activeBiz.placeId}` : 'https://ratingpulse.co/rate');
+            const destReviewUrl =
+              resolveReviewUrl(activeBiz?.googleReviewUrl) ||
+              resolveReviewUrl(activeBiz?.reviewUrl) ||
+              resolveReviewUrl(activeBiz?.placeId) ||
+              'https://ratingpulse.co/rate';
             await fetch('/api/invites/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -749,8 +754,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 address: json.formattedAddress || prof.formatted_address || '',
                 phone: effectivePhone,
                 placeId: validPlaceId,
-                reviewUrl: directReviewUrl || `https://search.google.com/local/writereview?placeid=${validPlaceId}`,
-                googleReviewUrl: directReviewUrl || `https://search.google.com/local/writereview?placeid=${validPlaceId}`,
+                reviewUrl: resolveReviewUrl(directReviewUrl) || resolveReviewUrl(validPlaceId) || '',
+                googleReviewUrl: resolveReviewUrl(directReviewUrl) || resolveReviewUrl(validPlaceId) || '',
                 rating: Number(json.rating) || 0,
                 reviewCount: Number(json.reviewCount) || 0,
                 isGoogleConnected: true,

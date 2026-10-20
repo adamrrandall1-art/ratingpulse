@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { FunnelBusiness, FunnelInvite } from './getFunnelData';
+import { FunnelBusiness, FunnelInvite, resolveReviewUrl } from './getFunnelData';
 
 interface FunnelClientProps {
   token: string;
@@ -48,16 +48,14 @@ export default function FunnelClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive active review link: prioritize validated destinationUrl, then live business googleReviewUrl, then placeId
+  // Derive active review link: normalize destination resolution to prevent malformed URL concatenation
   const effectiveDestinationUrl =
-    destinationUrl ||
-    invite?.business?.googleReviewUrl ||
-    (invite?.business?.placeId 
-      ? `https://search.google.com/local/writereview?placeid=${invite.business.placeId}` 
-      : null) ||
-    invite?.destinationUrl ||
-    business?.googleReviewUrl ||
-    (business?.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
+    resolveReviewUrl(destinationUrl) ||
+    resolveReviewUrl(invite?.business?.googleReviewUrl) ||
+    resolveReviewUrl(invite?.business?.placeId) ||
+    resolveReviewUrl(invite?.destinationUrl) ||
+    resolveReviewUrl(business?.googleReviewUrl) ||
+    resolveReviewUrl(business?.placeId);
 
   // Handle rating click
   const handleRatingClick = async (rating: number) => {

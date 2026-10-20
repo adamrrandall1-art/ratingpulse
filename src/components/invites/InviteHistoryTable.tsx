@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import { Invite } from '@/lib/supabase/types';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 interface InviteHistoryTableProps {
   customInvites?: any[];
@@ -109,11 +110,11 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
     ? (activeBusiness?.name || 'RatingPulse')
     : (activeBusiness?.name || 'our business');
 
-  const currentReviewUrl = activeBusiness?.reviewUrl || (
-    activeBusiness?.placeId
-      ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}`
-      : 'https://ratingpulse.co/rate'
-  );
+  const currentReviewUrl =
+    resolveReviewUrl(activeBusiness?.googleReviewUrl) ||
+    resolveReviewUrl(activeBusiness?.reviewUrl) ||
+    resolveReviewUrl(activeBusiness?.placeId) ||
+    'https://ratingpulse.co/rate';
 
   // In Live Mode, only show real database invites; in Demo Mode, populate sample invites
   const mergedInvites = isDemoMode

@@ -9,6 +9,7 @@ import {
   fetchGBPAccounts,
   fetchGBPLocations,
 } from '@/lib/google-gbp';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -181,7 +182,7 @@ export async function GET(req: NextRequest) {
       if (locationTitle) profileUpdates.business_name = locationTitle;
       if (placeId) {
         profileUpdates.google_place_id = placeId;
-        profileUpdates.review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
+        profileUpdates.review_url = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`;
       }
       if (formattedAddress) profileUpdates.formatted_address = formattedAddress;
 
@@ -218,7 +219,7 @@ export async function GET(req: NextRequest) {
         };
         if (placeId) {
           settingsUpdates.place_id = placeId;
-          settingsUpdates.google_review_url = `https://search.google.com/local/writereview?placeid=${placeId}`;
+          settingsUpdates.google_review_url = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`;
         }
 
         await supabase

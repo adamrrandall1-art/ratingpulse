@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Send, Smartphone, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 interface Props {
   isOpen: boolean;
@@ -49,7 +50,11 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
   };
 
   const effectiveBiz = activeBusiness.name;
-  const effectiveReviewUrl = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
+  const effectiveReviewUrl =
+    resolveReviewUrl(activeBusiness.googleReviewUrl) ||
+    resolveReviewUrl(activeBusiness.reviewUrl) ||
+    resolveReviewUrl(activeBusiness.placeId) ||
+    'https://ratingpulse.co/rate';
 
   const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30 seconds to leave us a quick review on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName || 'Sarah')

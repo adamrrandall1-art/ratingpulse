@@ -9,6 +9,7 @@ import {
   getValidAccessTokenForProfile,
 } from '@/lib/google-gbp';
 import { Profile } from '@/lib/supabase/types';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (foundPlaceId) {
-      const reviewUrl = `https://search.google.com/local/writereview?placeid=${foundPlaceId}`;
+      const reviewUrl = resolveReviewUrl(foundPlaceId) || `https://search.google.com/local/writereview?placeid=${foundPlaceId}`;
       await supabase.from('profiles').update({
         google_place_id: foundPlaceId,
         business_name: foundTitle || profile.business_name,

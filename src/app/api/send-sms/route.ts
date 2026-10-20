@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,7 +26,10 @@ export async function POST(req: NextRequest) {
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');
-    const activeGoogleReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+    const activeGoogleReviewUrl =
+      resolveReviewUrl(body.googleReviewUrl as string) ||
+      resolveReviewUrl(placeId) ||
+      '';
     const inviteToken = crypto.randomUUID();
     const funnelUrl = `${appUrl}/r/${inviteToken}`;
     const {

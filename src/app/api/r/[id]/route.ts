@@ -2,6 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -119,8 +120,9 @@ export async function GET(
       }
     }
 
-    const destinationUrl = business.googleReviewUrl || 
-      (business.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
+    const destinationUrl = 
+      resolveReviewUrl(business.googleReviewUrl) || 
+      resolveReviewUrl(business.placeId);
     const targetUrl = destinationUrl;
 
     if (resolvedInvite) {

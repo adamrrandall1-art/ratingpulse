@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 // ─── E.164 formatter (inlined for extra safety) ──────────────────────────────
 function toE164(raw: string): string | null {
@@ -93,7 +94,9 @@ export async function POST(req: NextRequest) {
   const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
   const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
-  const activeGoogleReviewUrl = isDemoMode ? demoReviewUrl : ((body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : ''));
+  const activeGoogleReviewUrl = isDemoMode
+    ? demoReviewUrl
+    : (resolveReviewUrl(body.googleReviewUrl as string) || resolveReviewUrl(placeId) || '');
   const serviceType  = (body.serviceType  as string) || 'General Service';
   const userId       = (body.userId       as string) || '';
 

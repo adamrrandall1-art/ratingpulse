@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useRef } from 'react';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 interface Props {
   onPlaceSelect?: (place: { name: string; address: string; placeId: string; reviewUrl: string }) => void;
@@ -46,7 +47,7 @@ export default function GooglePlacesAutocomplete({
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
         if (!place.place_id) return;
-        const reviewUrl = `https://search.google.com/local/writereview?placeid=${place.place_id}`;
+        const reviewUrl = resolveReviewUrl(place.place_id) || `https://search.google.com/local/writereview?placeid=${place.place_id}`;
         if (onPlaceSelect) {
           onPlaceSelect({
             name: place.name || '',

@@ -31,7 +31,7 @@ import { useAuth } from '@/lib/auth-context';
 import { useUser } from '@clerk/nextjs';
 import { DEMO_BUSINESS } from '@/lib/mockData';
 import GooglePlacesAutocomplete, { SelectedPlaceData } from '@/components/google/GooglePlacesAutocomplete';
-import { generateGoogleReviewUrl } from '@/lib/google-places';
+import { generateGoogleReviewUrl, resolveReviewUrl } from '@/lib/google-places';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
@@ -348,7 +348,7 @@ function BusinessSetupContent() {
       // - Save directly to the business record as googleReviewUrl
       // - Set isGoogleConnected = true and hasPlaceId = true (removes pending_place_id)
       // - Do NOT execute a Google Places API lookup on this string
-      targetReviewUrl = rawInput;
+      targetReviewUrl = resolveReviewUrl(rawInput) || rawInput;
     } else {
       // ELSE (if raw Place ID like ChIJ...):
       if (rawInput.includes('placeid=')) {
@@ -362,7 +362,7 @@ function BusinessSetupContent() {
       } else {
         extractedPlaceId = rawInput;
       }
-      targetReviewUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extractedPlaceId)}`;
+      targetReviewUrl = resolveReviewUrl(extractedPlaceId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extractedPlaceId)}`;
     }
 
     setIsAttachingManualPlace(true);
@@ -481,7 +481,7 @@ function BusinessSetupContent() {
       const chosenBusinessName = businessName.trim() || selectedPlace.businessName || profile.business_name;
       const chosenPlaceId = selectedPlace.placeId || profile.google_place_id || undefined;
       const chosenAddress = businessAddress.trim() || selectedPlace.formattedAddress || profile.formatted_address;
-      const gReviewUrl = reviewUrl || (chosenPlaceId ? generateGoogleReviewUrl(chosenPlaceId) : undefined);
+      const gReviewUrl = (reviewUrl ? resolveReviewUrl(reviewUrl) : (chosenPlaceId ? resolveReviewUrl(chosenPlaceId) : undefined)) || undefined;
 
       await updateProfile({
         business_name: chosenBusinessName,
@@ -518,7 +518,7 @@ function BusinessSetupContent() {
 
     setIsConnectingPlace(true);
     try {
-      const gReviewUrl = selectedPlace.reviewUrl || generateGoogleReviewUrl(selectedPlace.placeId);
+      const gReviewUrl = resolveReviewUrl(selectedPlace.reviewUrl) || resolveReviewUrl(selectedPlace.placeId) || generateGoogleReviewUrl(selectedPlace.placeId);
 
       const nameLower = (selectedPlace.businessName || '').toLowerCase();
       let inferredCategory = 'Local Business';

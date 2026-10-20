@@ -15,6 +15,7 @@ import {
   Building,
   ShieldCheck
 } from 'lucide-react';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 export interface SelectedPlaceData {
   placeId: string;
@@ -59,16 +60,18 @@ export default function GooglePlacesSearch({
     rating: initialRating,
     reviewCount: initialReviewCount,
     reviewUrl:
-      initialReviewUrl ||
-      (initialPlaceId ? `https://search.google.com/local/writereview?placeid=${initialPlaceId}` : ''),
+      resolveReviewUrl(initialReviewUrl) ||
+      resolveReviewUrl(initialPlaceId) ||
+      '',
   });
 
   const [isLoaded, setIsLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isManualOverride, setIsManualOverride] = useState(false);
   const [customReviewUrl, setCustomReviewUrl] = useState(
-    initialReviewUrl ||
-      (initialPlaceId ? `https://search.google.com/local/writereview?placeid=${initialPlaceId}` : '')
+    resolveReviewUrl(initialReviewUrl) ||
+      resolveReviewUrl(initialPlaceId) ||
+      ''
   );
 
   useEffect(() => {
@@ -173,7 +176,7 @@ export default function GooglePlacesSearch({
 
   const activeReviewUrl = isManualOverride
     ? customReviewUrl
-    : selectedPlace.reviewUrl || `https://search.google.com/local/writereview?placeid=${selectedPlace.placeId}`;
+    : (resolveReviewUrl(selectedPlace.reviewUrl) || resolveReviewUrl(selectedPlace.placeId) || '');
 
   return (
     <div className={`space-y-4 ${className}`}>

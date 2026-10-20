@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { sendTwilioSms, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
@@ -63,12 +64,13 @@ export async function POST(req: NextRequest) {
     const userId = body.userId || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
     const activeGoogleReviewUrl =
-      body.googleReviewUrl ||
-      body.business?.googleReviewUrl ||
-      body.business?.reviewUrl ||
-      body.reviewUrl ||
-      body.reviewLink ||
-      (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+      resolveReviewUrl(body.googleReviewUrl) ||
+      resolveReviewUrl(body.business?.googleReviewUrl) ||
+      resolveReviewUrl(body.business?.reviewUrl) ||
+      resolveReviewUrl(body.reviewUrl) ||
+      resolveReviewUrl(body.reviewLink) ||
+      resolveReviewUrl(placeId) ||
+      '';
 
     const status = isWithinAllowedWindow ? 'SENT' : 'QUEUED_FOR_DAYLIGHT';
 

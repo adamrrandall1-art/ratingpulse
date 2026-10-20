@@ -17,6 +17,31 @@ function getSupabaseAdmin() {
   });
 }
 
+export function resolveReviewUrl(target: string | null | undefined): string | null {
+  if (!target) return null;
+  let trimmed = target.trim();
+  if (!trimmed) return null;
+
+  // Unwrap any accidentally malformed nested redirect URLs (e.g. placeid=https://...)
+  if (trimmed.includes('search.google.com/local/writereview?placeid=')) {
+    const parts = trimmed.split('search.google.com/local/writereview?placeid=');
+    const candidate = parts[1];
+    if (candidate) {
+      const decoded = decodeURIComponent(candidate).trim();
+      if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
+        trimmed = decoded;
+      }
+    }
+  }
+
+  // If it is already a full URL (e.g. https://g.page/r/... or https://maps.google.com/...)
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  // If it is a raw Place ID (e.g. ChIJ...)
+  return `https://search.google.com/local/writereview?placeid=${trimmed}`;
+}
+
 export interface FunnelBusiness {
   id: string;
   name: string;
@@ -157,20 +182,27 @@ export async function getFunnelData(
 
       // Resolve live business fields - dynamically prioritizing live manual review URL overrides
       const liveGoogleReviewUrl =
-        (queryReviewUrl && queryReviewUrl.startsWith('http') && !queryReviewUrl.includes('/r/'))
-          ? queryReviewUrl.trim()
-          : (profile?.review_url && profile.review_url.startsWith('http') && !profile.review_url.includes('/r/'))
-            ? profile.review_url.trim()
-            : (settings?.google_review_url && settings.google_review_url.startsWith('http') && !settings.google_review_url.includes('/r/'))
-              ? settings.google_review_url.trim()
+        (queryReviewUrl && !queryReviewUrl.includes('/r/'))
+          ? resolveReviewUrl(queryReviewUrl)
+          : (profile?.review_url && !profile.review_url.includes('/r/'))
+            ? resolveReviewUrl(profile.review_url)
+            : (settings?.google_review_url && !settings.google_review_url.includes('/r/'))
+              ? resolveReviewUrl(settings.google_review_url)
               : null;
 
-      const livePlaceId =
+      const rawPlaceCandidate =
         queryPlaceId ||
         profile?.google_place_id?.trim() ||
         settings?.place_id?.trim() ||
         inviteData?.place_id?.trim() ||
         null;
+
+      // If the candidate string starts with http, it is a review URL, not a Place ID
+      const livePlaceId = (rawPlaceCandidate && !rawPlaceCandidate.startsWith('http'))
+        ? rawPlaceCandidate
+        : null;
+
+      const liveBusinessReviewUrl = liveGoogleReviewUrl || resolveReviewUrl(rawPlaceCandidate);
 
       const liveBusinessName =
         queryBusiness ||
@@ -183,16 +215,16 @@ export async function getFunnelData(
         id: profile?.id || targetUserId || token,
         name: liveBusinessName,
         placeId: livePlaceId,
-        googleReviewUrl: liveGoogleReviewUrl,
+        googleReviewUrl: liveBusinessReviewUrl,
         address: profile?.formatted_address || null,
         ownerEmail: profile?.notification_email || profile?.email || null,
         ownerPhone: profile?.notification_phone || profile?.phone || null,
       };
 
       const inviteDestUrl =
-        (inviteData?.review_link && inviteData.review_link.startsWith('http') && !inviteData.review_link.includes('/r/'))
-          ? inviteData.review_link.trim()
-          : null;
+        (inviteData?.review_link && !inviteData.review_link.includes('/r/'))
+          ? resolveReviewUrl(inviteData.review_link)
+          : resolveReviewUrl(inviteData?.place_id);
 
       invite = {
         ...(inviteData || {}),
@@ -209,7 +241,7 @@ export async function getFunnelData(
       id: token || 'unknown',
       name: queryBusiness || 'RatingPulse',
       placeId: queryPlaceId || null,
-      googleReviewUrl: queryReviewUrl || null,
+      googleReviewUrl: resolveReviewUrl(queryReviewUrl) || resolveReviewUrl(queryPlaceId) || null,
       address: null,
       ownerEmail: null,
       ownerPhone: null,
@@ -225,22 +257,13 @@ export async function getFunnelData(
     };
   }
 
-  // Resolve the destination URL using live business fields:
-  // const destinationUrl = 
-  //   invite?.business?.googleReviewUrl || 
-  //   (invite?.business?.placeId 
-  //     ? `https://search.google.com/local/writereview?placeid=${invite.business.placeId}` 
-  //     : null) ||
-  //   invite?.destinationUrl;
+  // Resolve the destination URL using live business fields with normalized resolver:
   const destinationUrl = 
-    invite?.business?.googleReviewUrl || 
-    (invite?.business?.placeId 
-      ? `https://search.google.com/local/writereview?placeid=${invite.business.placeId}` 
-      : null) ||
-    invite?.destinationUrl ||
-    (liveBusiness.placeId 
-      ? `https://search.google.com/local/writereview?placeid=${liveBusiness.placeId}` 
-      : null);
+    resolveReviewUrl(invite?.business?.googleReviewUrl) || 
+    resolveReviewUrl(invite?.business?.placeId) || 
+    resolveReviewUrl(invite?.destinationUrl) ||
+    resolveReviewUrl(liveBusiness.googleReviewUrl) ||
+    resolveReviewUrl(liveBusiness.placeId);
 
   return {
     destinationUrl,

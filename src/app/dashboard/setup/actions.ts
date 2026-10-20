@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -37,11 +38,11 @@ export async function saveAndAttachPlaceAction(formData: FormData) {
   let fetchedDetails: any = null;
 
   if (isDirectUrl) {
-    googleReviewUrl = rawInput;
+    googleReviewUrl = resolveReviewUrl(rawInput) || rawInput;
     placeId = '';
   } else {
     placeId = rawInput;
-    googleReviewUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+    googleReviewUrl = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
 
     const apiKey =
       process.env.GOOGLE_PLACES_API_KEY ||

@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function ReviewGateContent() {
   const params = useParams();
@@ -33,7 +34,7 @@ function ReviewGateContent() {
     placeIdParam || (idParam === 'demo' ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : '')
   );
   const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(
-    reviewUrlParam || (placeIdParam ? `https://search.google.com/local/writereview?placeid=${placeIdParam}` : (idParam === 'demo' ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : ''))
+    resolveReviewUrl(reviewUrlParam) || resolveReviewUrl(placeIdParam) || (idParam === 'demo' ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : '') || ''
   );
   const [ownerEmail, setOwnerEmail] = useState<string>(
     ownerEmailParam || 'notifications@ratingpulse.co'
@@ -90,9 +91,9 @@ function ReviewGateContent() {
               setPlaceId(profileData.google_place_id);
             }
             if (profileData.review_url && !reviewUrlParam) {
-              setGoogleReviewUrl(profileData.review_url);
+              setGoogleReviewUrl(resolveReviewUrl(profileData.review_url) || '');
             } else if (profileData.google_place_id && !reviewUrlParam) {
-              setGoogleReviewUrl(`https://search.google.com/local/writereview?placeid=${profileData.google_place_id}`);
+              setGoogleReviewUrl(resolveReviewUrl(profileData.google_place_id) || '');
             }
             if ((profileData.notification_email || profileData.email) && !ownerEmailParam) {
               setOwnerEmail(profileData.notification_email || profileData.email);

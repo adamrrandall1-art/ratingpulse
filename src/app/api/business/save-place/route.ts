@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -54,13 +55,13 @@ export async function POST(req: NextRequest) {
       // - Save directly to the business record as googleReviewUrl (and/or reviewLink)
       // - Set isGoogleConnected = true and hasPlaceId = true (or remove pending_place_id)
       // - Do NOT execute a Google Places API lookup on this string
-      googleReviewUrl = rawInput;
+      googleReviewUrl = resolveReviewUrl(rawInput) || rawInput;
       placeId = '';
     } else {
       // ELSE (if it is a raw Place ID like ChIJ...):
-      // - Save placeId, query Places API if needed, and set googleReviewUrl to https://search.google.com/local/writereview?placeid=${input}
+      // - Save placeId, query Places API if needed, and set googleReviewUrl to direct URL
       placeId = rawInput;
-      googleReviewUrl = `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+      googleReviewUrl = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
 
       const apiKey =
         process.env.GOOGLE_PLACES_API_KEY ||

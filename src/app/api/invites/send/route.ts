@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
@@ -75,12 +76,13 @@ export async function POST(req: NextRequest) {
 
     // Active Google review link for 4-5 star redirect in the funnel
     const activeGoogleReviewUrl =
-      (body.googleReviewUrl as string) ||
-      (body.business?.googleReviewUrl as string) ||
-      (body.business?.reviewUrl as string) ||
-      (body.reviewUrl as string) ||
-      (body.reviewLink as string) ||
-      (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+      resolveReviewUrl(body.googleReviewUrl as string) ||
+      resolveReviewUrl(body.business?.googleReviewUrl as string) ||
+      resolveReviewUrl(body.business?.reviewUrl as string) ||
+      resolveReviewUrl(body.reviewUrl as string) ||
+      resolveReviewUrl(body.reviewLink as string) ||
+      resolveReviewUrl(placeId) ||
+      '';
 
     // 2. Set destination link in SMS text body to RatingPulse review funnel
     let rawMessage: string;

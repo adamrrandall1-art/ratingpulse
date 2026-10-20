@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { fetchGBPReviews, getValidAccessTokenForProfile } from '@/lib/google-gbp';
 import { Profile } from '@/lib/supabase/types';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 export async function GET(req: NextRequest) {
   return handleSync(req);
@@ -474,7 +475,7 @@ async function handleSync(req: NextRequest) {
             updated_at: new Date().toISOString(),
           }).eq('id', resolvedUserId),
           supabaseAdmin.from('business_settings').update({
-            google_review_url: `https://search.google.com/local/writereview?placeid=${placeId}`,
+            google_review_url: resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`,
             place_id: placeId,
             updated_at: new Date().toISOString(),
           }).eq('user_id', resolvedUserId),

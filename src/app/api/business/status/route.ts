@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
 
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -91,7 +92,7 @@ export async function GET(req: NextRequest) {
     );
 
     const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
-    const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+    const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
 
     const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
     const isPlaceholderPhone = (p?: string | null) => {
@@ -172,7 +173,7 @@ export async function POST(req: NextRequest) {
     const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
     const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
     const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
-    const effectiveReviewUrl = directReviewUrl || (hasValidPlaceId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+    const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
 
     const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
     const isPlaceholderPhone = (p?: string | null) => {
