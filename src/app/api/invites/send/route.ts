@@ -67,20 +67,37 @@ export async function POST(req: NextRequest) {
       : ((body.placeId as string) || (body.google_place_id as string) || '');
     const userId       = (body.userId       as string) || '';
     const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const fallbackReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${userId || 'demo'}`);
-    const destinationReviewUrl =
+    const serviceType  = (body.serviceType  as string) || 'General Service';
+
+    // 1. Generate unique invite token / ID
+    const inviteToken = crypto.randomUUID();
+    const funnelUrl = `${appUrl}/r/${inviteToken}`;
+
+    // Active Google review link for 4-5 star redirect in the funnel
+    const activeGoogleReviewUrl =
       (body.googleReviewUrl as string) ||
       (body.business?.googleReviewUrl as string) ||
       (body.business?.reviewUrl as string) ||
       (body.reviewUrl as string) ||
       (body.reviewLink as string) ||
-      (body.reviewGateUrl as string) ||
-      fallbackReviewUrl;
-    const reviewLink   = destinationReviewUrl;
-    const serviceType  = (body.serviceType  as string) || 'General Service';
+      (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
-    const rawMessage = (body.message as string) ||
-      `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;
+    // 2. Set destination link in SMS text body to RatingPulse review funnel
+    let rawMessage: string;
+    if (body.message && typeof body.message === 'string') {
+      let customMsg = body.message;
+      if (/\{\{review_link\}\}|\{review_link\}|\[review_link\]/i.test(customMsg)) {
+        customMsg = customMsg.replace(/\{\{review_link\}\}|\{review_link\}|\[review_link\]/gi, funnelUrl);
+      } else if (activeGoogleReviewUrl && customMsg.includes(activeGoogleReviewUrl)) {
+        customMsg = customMsg.replace(activeGoogleReviewUrl, funnelUrl);
+      } else if (!customMsg.includes('/r/')) {
+        customMsg = `${customMsg.trim()} ${funnelUrl}`;
+      }
+      rawMessage = customMsg;
+    } else {
+      rawMessage = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${funnelUrl}`;
+    }
+
     const messageBody = appendComplianceFooter(rawMessage);
 
     const result = await sendTwilioSms(formattedTo, messageBody);
@@ -95,26 +112,56 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fire-and-forget: log to review_invites
-    const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // 3. Log invite record with token to review_invites
+    const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const supabaseKey     =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.SUPABASE_SERVICE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    if (supabaseUrl && supabaseAnonKey) {
+    if (supabaseUrl && supabaseKey) {
       void (async () => {
         try {
-          const sb = createClient(supabaseUrl, supabaseAnonKey);
+          const sb = createClient(supabaseUrl, supabaseKey, {
+            auth: { persistSession: false, autoRefreshToken: false },
+          });
+
           const payload: Record<string, unknown> = {
+            id:             inviteToken,
+            token:          inviteToken,
             customer_name:  customerName,
             customer_phone: formattedTo,
             service_type:   serviceType,
             place_id:       placeId || null,
+            business_name:  businessName,
+            review_link:    activeGoogleReviewUrl || null,
             status:         'sent',
             sent_at:        new Date().toISOString(),
           };
+
           if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
             payload.user_id = userId;
+            payload.business_id = userId;
           }
-          await sb.from('review_invites').insert([payload]);
+
+          const { error: insertErr } = await sb.from('review_invites').insert([payload]);
+          if (insertErr) {
+            console.warn('[SMS Invites] First insert attempt warning:', insertErr.message, 'Retrying with core columns...');
+            const fallbackPayload: Record<string, unknown> = {
+              id:             inviteToken,
+              customer_name:  customerName,
+              customer_phone: formattedTo,
+              service_type:   serviceType,
+              place_id:       placeId || null,
+              status:         'sent',
+              sent_at:        new Date().toISOString(),
+            };
+            if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+              fallbackPayload.user_id = userId;
+            }
+            await sb.from('review_invites').insert([fallbackPayload]);
+          }
         } catch (e) {
           console.error('[SMS Invites] DB log exception:', e);
         }
@@ -124,6 +171,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: true,
+        invite: {
+          id: inviteToken,
+          token: inviteToken,
+          funnelUrl,
+        },
         messageId: result.messageId,
         status: result.status,
         from: twilioPhoneNumber,

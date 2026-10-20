@@ -110,7 +110,7 @@ export default function QuickReviewSender() {
   const rawPreview = (settings.sms_template || 'Hi {{customer_name}}, thanks for visiting {{business_name}}! Could you take 30s to rate your experience on Google? {{review_link}}')
     .replace('{{customer_name}}', customerName.trim() || 'Customer')
     .replace('{{business_name}}', activeBusiness.name || 'RatingPulse')
-    .replace('{{review_link}}', 'ratingpulse.co/rate/...');
+    .replace('{{review_link}}', 'https://ratingpulse.co/r/...');
 
   const previewMessage = /stop|unsubscribe/i.test(rawPreview)
     ? rawPreview

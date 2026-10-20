@@ -49,21 +49,31 @@ export async function GET(
       business.placeId = queryPlaceId;
     }
 
+    let resolvedInvite: any = null;
+
     if (id === 'demo' || id === 'demo_ratingpulse_001') {
       business.name = 'RatingPulse';
       business.placeId = 'ChIJawEUC_oN04kRB70LP1wHuPg';
       business.googleReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
-    } else if (id && !business.googleReviewUrl) {
+    } else if (id) {
       const supabase = getSupabaseAdmin();
       if (supabase) {
         // 1. Try finding in review_invites
-        const { data: invite } = await supabase
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        let inviteQuery = supabase
           .from('review_invites')
-          .select('id, user_id, place_id, review_link, business_name')
-          .eq('id', id)
-          .maybeSingle();
+          .select('id, user_id, place_id, review_link, business_name, customer_name, customer_phone, customer_email, service_type');
+        
+        if (isUuid) {
+          inviteQuery = inviteQuery.eq('id', id);
+        } else {
+          inviteQuery = inviteQuery.or(`id.eq.${id},token.eq.${id}`);
+        }
+
+        const { data: invite } = await inviteQuery.maybeSingle();
 
         if (invite) {
+          resolvedInvite = invite;
           business.id = invite.user_id || invite.id;
           business.name = invite.business_name || null;
           business.placeId = invite.place_id || null;
@@ -75,7 +85,7 @@ export async function GET(
           if (invite.user_id) {
             const { data: profile } = await supabase
               .from('profiles')
-              .select('id, google_place_id, review_url, business_name')
+              .select('id, google_place_id, review_url, business_name, formatted_address, email, notification_email, phone, notification_phone')
               .eq('id', invite.user_id)
               .maybeSingle();
 
@@ -83,13 +93,16 @@ export async function GET(
               if (profile.review_url) business.googleReviewUrl = profile.review_url;
               if (profile.google_place_id && !business.placeId) business.placeId = profile.google_place_id;
               if (profile.business_name && !business.name) business.name = profile.business_name;
+              (business as any).address = profile.formatted_address || null;
+              (business as any).ownerEmail = profile.notification_email || profile.email || null;
+              (business as any).ownerPhone = profile.notification_phone || profile.phone || null;
             }
           }
         } else {
           // 2. Try profiles table by id or clerk_user_id
           const { data: profile } = await supabase
             .from('profiles')
-            .select('id, google_place_id, review_url, business_name')
+            .select('id, google_place_id, review_url, business_name, formatted_address, email, notification_email, phone, notification_phone')
             .or(`id.eq.${id},clerk_user_id.eq.${id}`)
             .maybeSingle();
 
@@ -98,6 +111,9 @@ export async function GET(
             business.name = profile.business_name || null;
             business.googleReviewUrl = profile.review_url || null;
             business.placeId = profile.google_place_id || null;
+            (business as any).address = profile.formatted_address || null;
+            (business as any).ownerEmail = profile.notification_email || profile.email || null;
+            (business as any).ownerPhone = profile.notification_phone || profile.phone || null;
           }
         }
       }
@@ -105,6 +121,24 @@ export async function GET(
 
     const targetUrl = business.googleReviewUrl || 
       (business.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
+
+    const wantsJson =
+      req.headers.get('accept')?.includes('application/json') ||
+      req.headers.get('content-type')?.includes('application/json') ||
+      url.searchParams.get('format') === 'json' ||
+      url.pathname.startsWith('/api/r');
+
+    if (wantsJson) {
+      return NextResponse.json({
+        success: true,
+        business: {
+          ...business,
+          googleReviewUrl: targetUrl,
+        },
+        invite: resolvedInvite,
+        targetUrl,
+      });
+    }
 
     if (!targetUrl) {
       console.error("Missing valid review destination for business:", business.id);
@@ -114,6 +148,6 @@ export async function GET(
     return NextResponse.redirect(targetUrl);
   } catch (error) {
     console.error("Error redirecting review shortlink:", error);
-    return NextResponse.redirect(new URL('/', req.url));
+    return NextResponse.json({ success: false, error: 'Failed to resolve review shortlink' }, { status: 500 });
   }
 }

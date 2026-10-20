@@ -161,6 +161,12 @@ function ReviewGateContent() {
           console.warn('DB update on 5-star rating warning:', dbErr);
         }
       }
+
+      // Immediate redirect to Google review URL
+      const destination = resolvedGoogleUrl && resolvedGoogleUrl !== '/' ? resolvedGoogleUrl : (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : 'https://google.com');
+      setTimeout(() => {
+        window.location.href = destination;
+      }, 400);
     }
   };
 

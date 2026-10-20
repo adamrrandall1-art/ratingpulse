@@ -93,20 +93,27 @@ export async function POST(req: NextRequest) {
   const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
   const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
-  const fallbackUrl  = isDemoMode ? demoReviewUrl : ((body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${body.userId || 'demo'}`));
-  const reviewLink   =
-    (body.googleReviewUrl as string) ||
-    ((body.business as any)?.googleReviewUrl as string) ||
-    ((body.business as any)?.reviewUrl as string) ||
-    (body.reviewUrl as string) ||
-    (body.reviewLink as string) ||
-    (body.reviewGateUrl as string) ||
-    fallbackUrl;
+  const activeGoogleReviewUrl = isDemoMode ? demoReviewUrl : ((body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : ''));
   const serviceType  = (body.serviceType  as string) || 'General Service';
   const userId       = (body.userId       as string) || '';
 
-  const rawMessage = (body.message as string) ||
-    `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;
+  const inviteToken = crypto.randomUUID();
+  const funnelUrl = `${appUrl}/r/${inviteToken}`;
+
+  let rawMessage: string;
+  if (body.message && typeof body.message === 'string') {
+    let customMsg = body.message;
+    if (/\{\{review_link\}\}|\{review_link\}|\[review_link\]/i.test(customMsg)) {
+      customMsg = customMsg.replace(/\{\{review_link\}\}|\{review_link\}|\[review_link\]/gi, funnelUrl);
+    } else if (activeGoogleReviewUrl && customMsg.includes(activeGoogleReviewUrl)) {
+      customMsg = customMsg.replace(activeGoogleReviewUrl, funnelUrl);
+    } else if (!customMsg.includes('/r/')) {
+      customMsg = `${customMsg.trim()} ${funnelUrl}`;
+    }
+    rawMessage = customMsg;
+  } else {
+    rawMessage = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${funnelUrl}`;
+  }
   const messageBody = appendComplianceFooter(rawMessage);
 
   console.log('[SMS] dispatching to:', formattedTo, '| from:', twilioPhoneNumber || 'unset');
@@ -132,28 +139,52 @@ export async function POST(req: NextRequest) {
 
   console.log('[SMS] success — sid:', result.messageId, '| simulated:', result.simulated);
 
-  // 6. Fire-and-forget: log to review_invites using only the schema columns.
-  //    Do NOT pass local JS `id` — the DB generates its own UUID.
-  const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // 6. Fire-and-forget: log to review_invites using schema columns.
+  const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey     =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  if (supabaseUrl && supabaseAnonKey) {
+  if (supabaseUrl && supabaseKey) {
     void (async () => {
       try {
-        const sb = createClient(supabaseUrl, supabaseAnonKey);
+        const sb = createClient(supabaseUrl, supabaseKey, {
+          auth: { persistSession: false, autoRefreshToken: false },
+        });
         const payload: Record<string, unknown> = {
+          id:             inviteToken,
+          token:          inviteToken,
           customer_name:  customerName,
           customer_phone: formattedTo,
           service_type:   serviceType,
+          place_id:       placeId || null,
+          business_name:  businessName,
+          review_link:    activeGoogleReviewUrl || null,
           status:         'sent',
           sent_at:        new Date().toISOString(),
         };
-        // Only include user_id when it's a valid UUID (avoids FK violation on anonymous calls)
+        // Only include user_id when it's a valid UUID
         if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
           payload.user_id = userId;
+          payload.business_id = userId;
         }
         const { error } = await sb.from('review_invites').insert([payload]);
-        if (error) console.error('[SMS] DB log error:', error.message, '| code:', error.code);
+        if (error) {
+          const fallbackPayload: Record<string, unknown> = {
+            id:             inviteToken,
+            customer_name:  customerName,
+            customer_phone: formattedTo,
+            service_type:   serviceType,
+            status:         'sent',
+            sent_at:        new Date().toISOString(),
+          };
+          if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+            fallbackPayload.user_id = userId;
+          }
+          await sb.from('review_invites').insert([fallbackPayload]);
+        }
       } catch (e) {
         console.error('[SMS] DB log exception:', e);
       }

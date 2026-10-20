@@ -103,17 +103,11 @@ export async function GET(
       }
     }
 
-    const targetUrl = business.googleReviewUrl || 
-      (business.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
-
-    if (!targetUrl) {
-      console.error("Missing valid review destination for business:", business.id);
-      return NextResponse.redirect(new URL('/', req.url));
-    }
-
-    return NextResponse.redirect(targetUrl);
+    // Route visitor to the RatingPulse 5-star review funnel page
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    return NextResponse.redirect(new URL(`/r/${id}`, appUrl));
   } catch (error) {
-    console.error("Error redirecting review shortlink:", error);
+    console.error("Error routing review request:", error);
     return NextResponse.redirect(new URL('/', req.url));
   }
 }

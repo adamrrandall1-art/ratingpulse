@@ -68,7 +68,7 @@ export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) 
 
   const displayName = customerName.trim() || 'Valued Customer';
   const bizName = activeBusiness.name || 'our business';
-  const reviewLink = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl || (activeBusiness.placeId ? `https://search.google.com/local/writereview?placeid=${activeBusiness.placeId}` : 'https://ratingpulse.co/rate');
+  const reviewLink = 'https://ratingpulse.co/r/...';
 
   const noteText = serviceNote.trim() ? ` for ${serviceNote.trim()}` : '';
   const smsMessageText = `Hi ${displayName}, thank you for choosing ${bizName}${noteText}! Would you take 30 seconds to share your experience on Google? ${reviewLink}`;

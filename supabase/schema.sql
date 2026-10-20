@@ -138,6 +138,10 @@ alter table public.review_invites add column if not exists business_id uuid refe
 alter table public.review_invites add column if not exists sent_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.review_invites add column if not exists review_received_at timestamp with time zone;
 alter table public.review_invites add column if not exists review_id uuid references public.reviews(id) on delete set null;
+alter table public.review_invites add column if not exists token text;
+alter table public.review_invites add column if not exists place_id text;
+alter table public.review_invites add column if not exists business_name text;
+alter table public.review_invites add column if not exists review_link text;
 alter table public.review_invites add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
 alter table public.review_invites add column if not exists updated_at timestamp with time zone default timezone('utc'::text, now());
 
@@ -244,6 +248,7 @@ create index if not exists idx_reviews_user_place on public.reviews(user_id, pla
 create index if not exists idx_reviews_rating on public.reviews(rating);
 create index if not exists idx_reviews_created_at on public.reviews(created_at desc);
 create index if not exists idx_review_invites_user_status on public.review_invites(user_id, status);
+create index if not exists idx_review_invites_token on public.review_invites(token);
 create index if not exists idx_review_invites_phone on public.review_invites(customer_phone);
 create index if not exists idx_review_invites_sent_at on public.review_invites(sent_at desc);
 

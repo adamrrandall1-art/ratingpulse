@@ -25,15 +25,9 @@ export async function POST(req: NextRequest) {
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');
-    const fallbackReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${body.userId || 'demo'}`);
-    const reviewLink =
-      body.googleReviewUrl ||
-      body.business?.googleReviewUrl ||
-      body.business?.reviewUrl ||
-      body.reviewUrl ||
-      body.reviewLink ||
-      body.reviewGateUrl ||
-      fallbackReviewUrl;
+    const activeGoogleReviewUrl = (body.googleReviewUrl as string) || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
+    const inviteToken = crypto.randomUUID();
+    const funnelUrl = `${appUrl}/r/${inviteToken}`;
     const {
       message,
       serviceType,
@@ -69,8 +63,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const defaultTemplate = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${reviewLink}`;
-    const rawMessage = message || defaultTemplate;
+    let rawMessage: string;
+    if (message && typeof message === 'string') {
+      let customMsg = message;
+      if (/\{\{review_link\}\}|\{review_link\}|\[review_link\]/i.test(customMsg)) {
+        customMsg = customMsg.replace(/\{\{review_link\}\}|\{review_link\}|\[review_link\]/gi, funnelUrl);
+      } else if (activeGoogleReviewUrl && customMsg.includes(activeGoogleReviewUrl)) {
+        customMsg = customMsg.replace(activeGoogleReviewUrl, funnelUrl);
+      } else if (!customMsg.includes('/r/')) {
+        customMsg = `${customMsg.trim()} ${funnelUrl}`;
+      }
+      rawMessage = customMsg;
+    } else {
+      rawMessage = `Hi ${customerName}, thanks for visiting ${businessName}! Could you take 30 seconds to leave us a quick review on Google? ${funnelUrl}`;
+    }
     const messageBody = appendComplianceFooter(rawMessage);
 
     const result = await sendTwilioSms(formattedTo, messageBody);

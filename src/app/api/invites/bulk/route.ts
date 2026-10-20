@@ -62,14 +62,13 @@ export async function POST(req: NextRequest) {
       : (body.placeId || body.google_place_id || '');
     const userId = body.userId || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-    const fallbackReviewUrl = body.googleReviewUrl || (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : `${appUrl}/r/${userId || 'demo'}`);
-    const reviewLink =
+    const activeGoogleReviewUrl =
       body.googleReviewUrl ||
       body.business?.googleReviewUrl ||
       body.business?.reviewUrl ||
       body.reviewUrl ||
       body.reviewLink ||
-      fallbackReviewUrl;
+      (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '');
 
     const status = isWithinAllowedWindow ? 'SENT' : 'QUEUED_FOR_DAYLIGHT';
 
@@ -77,30 +76,59 @@ export async function POST(req: NextRequest) {
     if (isWithinAllowedWindow) {
       // Async dispatch batch with rate limiting
       void (async () => {
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-        const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-        const sb = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+        const supabaseKey =
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.SUPABASE_SERVICE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+        const sb = supabaseUrl && supabaseKey
+          ? createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } })
+          : null;
 
         for (const contact of validContacts) {
           try {
-            const rawMessage = `Hi ${contact.name}, thanks for choosing ${resolvedBusinessName}! Could you take 30s to rate your experience on Google? ${reviewLink}`;
+            const inviteToken = crypto.randomUUID();
+            const funnelUrl = `${appUrl}/r/${inviteToken}`;
+            const rawMessage = `Hi ${contact.name}, thanks for choosing ${resolvedBusinessName}! Could you take 30s to rate your experience on Google? ${funnelUrl}`;
             const messageBody = appendComplianceFooter(rawMessage);
             await sendTwilioSms(contact.formattedPhone, messageBody);
 
             if (sb) {
               const payload: Record<string, unknown> = {
+                id: inviteToken,
+                token: inviteToken,
                 customer_name: contact.name,
                 customer_phone: contact.formattedPhone,
                 customer_email: contact.email || null,
                 service_type: 'Bulk Upload Campaign',
                 place_id: placeId || null,
+                business_name: resolvedBusinessName,
+                review_link: activeGoogleReviewUrl || null,
                 status: 'sent',
                 sent_at: new Date().toISOString(),
               };
               if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
                 payload.user_id = userId;
+                payload.business_id = userId;
               }
-              await sb.from('review_invites').insert([payload]);
+              const { error: insErr } = await sb.from('review_invites').insert([payload]);
+              if (insErr) {
+                const fallbackPayload: Record<string, unknown> = {
+                  id: inviteToken,
+                  customer_name: contact.name,
+                  customer_phone: contact.formattedPhone,
+                  customer_email: contact.email || null,
+                  service_type: 'Bulk Upload Campaign',
+                  place_id: placeId || null,
+                  status: 'sent',
+                  sent_at: new Date().toISOString(),
+                };
+                if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
+                  fallbackPayload.user_id = userId;
+                }
+                await sb.from('review_invites').insert([fallbackPayload]);
+              }
             }
           } catch (err) {
             console.error(`[Bulk Invites] Error dispatching to ${contact.formattedPhone}:`, err);
