@@ -162,11 +162,19 @@ function ReviewGateContent() {
         }
       }
 
-      // Immediate redirect to Google review URL
-      const destination = resolvedGoogleUrl && resolvedGoogleUrl !== '/' ? resolvedGoogleUrl : (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : 'https://google.com');
-      setTimeout(() => {
-        window.location.href = destination;
-      }, 400);
+      // Immediate redirect to active business Google review URL
+      const destination =
+        (googleReviewUrl && googleReviewUrl.startsWith('http') && !googleReviewUrl.includes('/r/'))
+          ? googleReviewUrl
+          : (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : null);
+
+      if (destination) {
+        setTimeout(() => {
+          window.location.href = destination;
+        }, 350);
+      } else {
+        console.error("Missing Google review URL destination for invite:", idParam);
+      }
     }
   };
 

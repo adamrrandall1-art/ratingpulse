@@ -119,8 +119,17 @@ export async function GET(
       }
     }
 
-    const targetUrl = business.googleReviewUrl || 
+    const destinationUrl = business.googleReviewUrl || 
       (business.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
+    const targetUrl = destinationUrl;
+
+    if (resolvedInvite) {
+      resolvedInvite.business = {
+        ...business,
+        googleReviewUrl: destinationUrl,
+        placeId: business.placeId,
+      };
+    }
 
     const wantsJson =
       req.headers.get('accept')?.includes('application/json') ||
@@ -131,12 +140,14 @@ export async function GET(
     if (wantsJson) {
       return NextResponse.json({
         success: true,
+        destinationUrl,
+        targetUrl: destinationUrl,
         business: {
           ...business,
-          googleReviewUrl: targetUrl,
+          googleReviewUrl: destinationUrl,
+          placeId: business.placeId,
         },
         invite: resolvedInvite,
-        targetUrl,
       });
     }
 
