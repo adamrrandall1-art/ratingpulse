@@ -48,19 +48,25 @@ export default function FunnelClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive active review link: prioritize validated destinationUrl passed from server loader, then direct fallback
+  // Derive active review link: prioritize validated destinationUrl, then live business googleReviewUrl, then placeId
   const effectiveDestinationUrl =
     destinationUrl ||
-    (business.googleReviewUrl && business.googleReviewUrl.startsWith('http') && !business.googleReviewUrl.includes('/r/')
-      ? business.googleReviewUrl
+    invite?.business?.googleReviewUrl ||
+    (invite?.business?.placeId 
+      ? `https://search.google.com/local/writereview?placeid=${invite.business.placeId}` 
       : null) ||
-    (business.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
+    invite?.destinationUrl ||
+    business?.googleReviewUrl ||
+    (business?.placeId ? `https://search.google.com/local/writereview?placeid=${business.placeId}` : null);
 
   // Handle rating click
   const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);
 
     if (rating >= 4) {
+      // Priority destination resolution
+      const targetUrl = effectiveDestinationUrl;
+
       try {
         confetti({
           particleCount: 90,
@@ -74,7 +80,7 @@ export default function FunnelClient({
 
       setIsRedirecting(true);
 
-      // Async log invite status in Supabase
+      // Async log invite status in Supabase (non-blocking)
       if (isSupabaseConfigured && supabase && token) {
         try {
           const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
@@ -96,12 +102,10 @@ export default function FunnelClient({
         }
       }
 
-      // Check destinationUrl as requested in Requirement 2:
-      // If destinationUrl is missing or invalid, log an error and fallback to business's direct review URL rather than google.com
-      if (effectiveDestinationUrl) {
-        setTimeout(() => {
-          window.location.href = effectiveDestinationUrl;
-        }, 350);
+      // If destinationUrl is present, MUST execute window.location.href = destinationUrl immediately and bypass warning
+      if (targetUrl) {
+        window.location.href = targetUrl;
+        return;
       } else {
         console.error("Missing Google review URL destination for invite:", token);
       }
