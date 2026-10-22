@@ -8,6 +8,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import crypto from 'crypto';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { getInitialServerBusiness } from '@/lib/server-business';
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -166,17 +167,17 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'User ID is required' }, { status: 400 });
     }
 
+    const business = await getInitialServerBusiness(targetUserId);
     const supabase = getAdminClient();
     const { profile, settings, profileId } = await resolveProfileAndSettings(supabase, targetUserId);
-    const business = buildBusinessObject(profile, settings, targetUserId);
 
     return NextResponse.json({
       success: true,
       business,
       profile,
       settings,
-      resolvedPhone: business.phone,
-      resolvedEmail: business.emailSender,
+      resolvedPhone: business?.phone || profile?.phone || '',
+      resolvedEmail: business?.emailSender || profile?.notification_email || profile?.email || '',
     });
   } catch (err: any) {
     console.error('[Settings API GET Error]:', err);
@@ -227,8 +228,8 @@ async function handleSaveSettings(req: NextRequest) {
 
     const targetUserId = activeBusinessId || businessId || userId || user_id || id || clerkAuth?.userId;
 
-    console.log("[SETTINGS_SAVE] Incoming payload:", body);
-    console.log("[SETTINGS_SAVE] Authenticated User ID:", targetUserId);
+    console.log('[SETTINGS_SAVE] Incoming payload:', body);
+    console.log('[SETTINGS_SAVE] Authenticated User ID:', targetUserId);
 
     if (!targetUserId) {
       return NextResponse.json(
@@ -297,12 +298,26 @@ async function handleSaveSettings(req: NextRequest) {
     if (business_name !== undefined) profilePayload.business_name = business_name;
     if (business_category !== undefined) profilePayload.business_category = business_category;
     if (formatted_address !== undefined) profilePayload.formatted_address = formatted_address;
-    if (effectivePlaceId !== undefined) profilePayload.google_place_id = effectivePlaceId;
-    if (resolvedReview !== undefined) {
+
+    // Protect Google review URL and Place ID from being wiped by partial updates
+    if (effectivePlaceId !== undefined && effectivePlaceId) {
+      profilePayload.google_place_id = effectivePlaceId;
+    } else if (profile?.google_place_id) {
+      profilePayload.google_place_id = profile.google_place_id;
+    }
+
+    if (resolvedReview !== undefined && resolvedReview) {
       profilePayload.review_url = resolvedReview;
       profilePayload.google_connected = true;
+    } else if (profile?.review_url) {
+      profilePayload.review_url = profile.review_url;
+      profilePayload.google_connected = true;
     }
-    if (google_connected !== undefined) profilePayload.google_connected = google_connected;
+
+    if (google_connected === true || profile?.google_connected || profilePayload.review_url) {
+      profilePayload.google_connected = true;
+    }
+
     if (body.google_rating !== undefined) profilePayload.google_rating = body.google_rating;
     if (body.google_review_count !== undefined) profilePayload.google_review_count = body.google_review_count;
 
@@ -339,13 +354,26 @@ async function handleSaveSettings(req: NextRequest) {
     if (effectiveEmailInput !== undefined) {
       settingsPayload.notification_email = effectiveEmailInput ? effectiveEmailInput.trim() : null;
     }
-    if (resolvedReview !== undefined) {
+
+    // Protect Google review URL and Place ID in settings
+    if (resolvedReview !== undefined && resolvedReview) {
       settingsPayload.google_review_url = resolvedReview;
       settingsPayload.google_connected = true;
+    } else if (settings?.google_review_url || profilePayload.review_url) {
+      settingsPayload.google_review_url = settings?.google_review_url || profilePayload.review_url;
+      settingsPayload.google_connected = true;
     }
-    if (effectivePlaceId !== undefined) {
+
+    if (effectivePlaceId !== undefined && effectivePlaceId) {
       settingsPayload.place_id = effectivePlaceId;
+    } else if (settings?.place_id || profilePayload.google_place_id) {
+      settingsPayload.place_id = settings?.place_id || profilePayload.google_place_id;
     }
+
+    if (settingsPayload.google_review_url || settingsPayload.place_id || settings?.google_connected || profilePayload.google_connected) {
+      settingsPayload.google_connected = true;
+    }
+
     if (business_name !== undefined) {
       settingsPayload.business_name = business_name;
     }
@@ -374,10 +402,10 @@ async function handleSaveSettings(req: NextRequest) {
       console.warn('[Settings API] Business settings upsert warning:', settingsRes.value.error);
     }
 
-    // Refresh updated data
+    // Refresh updated data via unified resolver
     const { profile: updatedProfile, settings: updatedSettings } = await resolveProfileAndSettings(supabase, profileId);
-    const updatedBusiness = buildBusinessObject(updatedProfile, updatedSettings, profileId);
-    console.log("[SETTINGS_SAVE] Successfully persisted business record:", updatedBusiness);
+    const updatedBusiness = (await getInitialServerBusiness(profileId)) || buildBusinessObject(updatedProfile, updatedSettings, profileId);
+    console.log('[SETTINGS_SAVE] Successfully persisted business record:', updatedBusiness);
 
     // Cache revalidation across dashboard routes
     try {
