@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Star,
   Sparkles,
@@ -35,6 +35,7 @@ export default function FunnelClient({
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [isRedirecting, setIsRedirecting] = useState(false);
+  const redirectTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Private feedback form state (for 1-3 stars)
   const [customerName, setCustomerName] = useState(invite?.customer_name || '');
@@ -57,20 +58,29 @@ export default function FunnelClient({
     resolveReviewUrl(business?.googleReviewUrl) ||
     resolveReviewUrl(business?.placeId);
 
+  // Target review URL resolved via resolveReviewUrl(destinationUrl)
+  const targetUrl = resolveReviewUrl(destinationUrl) || effectiveDestinationUrl || '';
+
+  useEffect(() => {
+    return () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+      }
+    };
+  }, []);
+
   // Handle rating click
   const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);
 
     if (rating >= 4) {
-      // Priority destination resolution
-      const targetUrl = effectiveDestinationUrl;
-
+      // 1. Trigger celebration animation immediately
       try {
         confetti({
-          particleCount: 90,
+          particleCount: 100,
           spread: 70,
           origin: { y: 0.6 },
-          colors: ['#2563eb', '#10b981', '#fbbf24'],
+          colors: ['#2563eb', '#10b981', '#fbbf24', '#f59e0b'],
         });
       } catch {
         // ignore
@@ -100,10 +110,14 @@ export default function FunnelClient({
         }
       }
 
-      // If destinationUrl is present, MUST execute window.location.href = destinationUrl immediately and bypass warning
+      // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect
       if (targetUrl) {
-        window.location.href = targetUrl;
-        return;
+        if (redirectTimerRef.current) {
+          clearTimeout(redirectTimerRef.current);
+        }
+        redirectTimerRef.current = setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 1200);
       } else {
         console.error("Missing Google review URL destination for invite:", token);
       }
@@ -222,45 +236,36 @@ export default function FunnelClient({
             </div>
           </div>
         ) : selectedRating >= 4 ? (
-          /* Step 2A: 4 or 5 Stars -> Immediate Redirect to Google */
+          /* Step 2A: 4 or 5 Stars -> Celebration and 1.2s Auto-Redirect to Google */
           <div className="text-center space-y-5 animate-in fade-in zoom-in-95">
-            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl">
+            <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center mx-auto text-3xl shadow-lg shadow-emerald-500/10 animate-bounce">
               🌟
             </div>
 
             <div>
-              <h2 className="text-xl font-bold text-white tracking-tight">
+              <h2 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 Thank you so much!
               </h2>
-              <p className="text-xs text-slate-300 mt-2">
-                We are thrilled you had a 5-star experience with {business.name}.
-                {effectiveDestinationUrl ? ' Redirecting you to leave your review on Google...' : ''}
+              <p className="text-xs sm:text-sm text-slate-300 mt-2">
+                Taking you to Google to finalize your review...
               </p>
             </div>
 
-            <div className="pt-2 flex flex-col items-center gap-3">
-              {effectiveDestinationUrl ? (
-                <>
-                  <div className="flex items-center gap-2 text-xs text-blue-400 font-semibold">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span>Opening Google Reviews...</span>
-                  </div>
+            <div className="pt-2 flex flex-col items-center">
+              <div className="flex items-center gap-2 text-xs text-blue-400 font-semibold mb-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Opening Google Reviews...</span>
+              </div>
 
-                  <a
-                    href={effectiveDestinationUrl}
-                    target="_self"
-                    className="w-full py-3.5 px-6 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/25 transition-all transform active:scale-98 cursor-pointer"
-                  >
-                    <span>Continue to Google Reviews</span>
-                    <ExternalLink className="w-4 h-4" />
-                  </a>
-
-                  <p className="text-[11px] text-slate-500">
-                    If you are not redirected automatically, tap the button above.
-                  </p>
-                </>
+              {targetUrl ? (
+                <a
+                  href={targetUrl}
+                  className="text-xs text-slate-400 underline mt-4 inline-block"
+                >
+                  Click here if you are not redirected automatically
+                </a>
               ) : (
-                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2.5 text-left">
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-center gap-2.5 text-left mt-2">
                   <AlertCircle className="w-5 h-5 shrink-0 text-amber-400" />
                   <span>
                     Thank you for rating! Our direct Google review link is currently being updated for {business.name}.
