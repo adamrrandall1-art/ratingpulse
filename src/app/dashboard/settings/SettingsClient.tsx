@@ -210,8 +210,11 @@ export default function SettingsClient({
     }
   }, [initialBusiness, activeBusiness, setActiveBusiness]);
 
+  const freshSettingsLoadedRef = React.useRef(false);
+
   // Load fresh settings form fields on mount without overwriting active business or populated inputs
   useEffect(() => {
+    if (freshSettingsLoadedRef.current) return;
     async function loadFreshSettings() {
       const activeUserId = clerkUser?.id || supabaseUser?.id || profile.id;
       if (!activeUserId || activeUserId.startsWith('usr_mock')) return;
@@ -225,6 +228,7 @@ export default function SettingsClient({
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
+            freshSettingsLoadedRef.current = true;
             const p = json.profile;
             const s = json.settings;
             const b = json.business;
@@ -306,35 +310,56 @@ export default function SettingsClient({
   }, [user?.id, profile.id]);
 
   // Dedicated Notification Routing Save Handler
-  const handleSaveNotificationPreferences = async (silent = false) => {
+  const handleSaveNotificationPreferences = async (
+    silent = false,
+    overrides?: {
+      notifyNegativeEnabled?: boolean;
+      notifyNegativeEmail?: boolean;
+      notifyNegativeSms?: boolean;
+      notifyPositiveEnabled?: boolean;
+      notifyPositiveEmail?: boolean;
+      notifyPositiveSms?: boolean;
+      negativePhone?: string;
+      negativeEmailAddress?: string;
+      positiveEmailAddress?: string;
+      [key: string]: any;
+    }
+  ) => {
     if (!silent) setIsSavingNotifications(true);
 
     try {
       const activeUserId = user?.id || profile.id;
-      const targetPhone = (negativePhone || '').trim();
-      const targetEmail = (negativeEmailAddress || positiveEmailAddress || profile.email || user?.email || '').trim();
+      const targetPhone = (overrides?.negativePhone ?? negativePhone ?? '').trim();
+      const targetEmail = (overrides?.negativeEmailAddress ?? negativeEmailAddress ?? positiveEmailAddress ?? profile.email ?? user?.email ?? '').trim();
+
+      const effectiveNegativeEnabled = overrides?.notifyNegativeEnabled !== undefined ? overrides.notifyNegativeEnabled : notifyNegativeEnabled;
+      const effectiveNegativeEmail = overrides?.notifyNegativeEmail !== undefined ? overrides.notifyNegativeEmail : notifyNegativeEmail;
+      const effectiveNegativeSms = overrides?.notifyNegativeSms !== undefined ? overrides.notifyNegativeSms : notifyNegativeSms;
+      const effectivePositiveEnabled = overrides?.notifyPositiveEnabled !== undefined ? overrides.notifyPositiveEnabled : notifyPositiveEnabled;
+      const effectivePositiveEmail = overrides?.notifyPositiveEmail !== undefined ? overrides.notifyPositiveEmail : notifyPositiveEmail;
+      const effectivePositiveSms = overrides?.notifyPositiveSms !== undefined ? overrides.notifyPositiveSms : notifyPositiveSms;
 
       const payload = {
         userId: activeUserId,
         activeBusinessId: activeUserId,
         negativeAlertEmail: targetEmail,
         negativeAlertPhone: targetPhone,
-        negativeAlertsEnabled: notifyNegativeEnabled,
-        negativeEmailAlertEnabled: notifyNegativeEmail,
-        negativeSmsAlertEnabled: notifyNegativeSms,
+        negativeAlertsEnabled: effectiveNegativeEnabled,
+        negativeEmailAlertEnabled: effectiveNegativeEmail,
+        negativeSmsAlertEnabled: effectiveNegativeSms,
         positiveAlertEmail: targetEmail,
         positiveAlertPhone: targetPhone,
-        positiveAlertsEnabled: notifyPositiveEnabled,
-        positiveEmailAlertEnabled: notifyPositiveEmail,
-        positiveSmsAlertEnabled: notifyPositiveSms,
+        positiveAlertsEnabled: effectivePositiveEnabled,
+        positiveEmailAlertEnabled: effectivePositiveEmail,
+        positiveSmsAlertEnabled: effectivePositiveSms,
         notify_negative_phone: targetPhone,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_enabled: notifyNegativeEnabled,
+        notify_negative_email: effectiveNegativeEmail,
+        notify_negative_sms: effectiveNegativeSms,
+        notify_negative_enabled: effectiveNegativeEnabled,
         notify_positive_phone: targetPhone,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
-        notify_positive_enabled: notifyPositiveEnabled,
+        notify_positive_email: effectivePositiveEmail,
+        notify_positive_sms: effectivePositiveSms,
+        notify_positive_enabled: effectivePositiveEnabled,
         notification_phone: targetPhone,
         notification_email: targetEmail,
       };
@@ -352,13 +377,13 @@ export default function SettingsClient({
 
       await updateProfile({
         notify_negative_phone: targetPhone,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_enabled: notifyNegativeEnabled,
+        notify_negative_email: effectiveNegativeEmail,
+        notify_negative_sms: effectiveNegativeSms,
+        notify_negative_enabled: effectiveNegativeEnabled,
         notify_positive_phone: targetPhone,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
-        notify_positive_enabled: notifyPositiveEnabled,
+        notify_positive_email: effectivePositiveEmail,
+        notify_positive_sms: effectivePositiveSms,
+        notify_positive_enabled: effectivePositiveEnabled,
         notification_phone: targetPhone,
         notification_email: targetEmail,
         phone: targetPhone || profile.phone,
@@ -366,12 +391,12 @@ export default function SettingsClient({
 
       await updateSettings({
         notify_negative_phone: targetPhone,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
-        notify_positive_enabled: notifyPositiveEnabled,
+        notify_negative_email: effectiveNegativeEmail,
+        notify_negative_sms: effectiveNegativeSms,
+        notify_negative_enabled: effectiveNegativeEnabled,
+        notify_positive_email: effectivePositiveEmail,
+        notify_positive_sms: effectivePositiveSms,
+        notify_positive_enabled: effectivePositiveEnabled,
         notification_phone: targetPhone,
         notification_email: targetEmail,
       });
@@ -395,6 +420,17 @@ export default function SettingsClient({
     } finally {
       if (!silent) setIsSavingNotifications(false);
     }
+  };
+
+  const handleToggleNotification = (field: string, value: boolean) => {
+    if (field === 'notifyNegativeEnabled') setNotifyNegativeEnabled(value);
+    if (field === 'notifyNegativeEmail') setNotifyNegativeEmail(value);
+    if (field === 'notifyNegativeSms') setNotifyNegativeSms(value);
+    if (field === 'notifyPositiveEnabled') setNotifyPositiveEnabled(value);
+    if (field === 'notifyPositiveEmail') setNotifyPositiveEmail(value);
+    if (field === 'notifyPositiveSms') setNotifyPositiveSms(value);
+
+    handleSaveNotificationPreferences(true, { [field]: value });
   };
 
   const handleSendTestWelcome = async () => {
@@ -736,6 +772,7 @@ export default function SettingsClient({
               isSavingNotifications={isSavingNotifications}
               isNotificationsSaved={isNotificationsSaved}
               onAutoSaveNotifications={() => handleSaveNotificationPreferences(true)}
+              onToggleChange={handleToggleNotification}
             />
           </div>
         )}

@@ -46,6 +46,7 @@ interface MessagingChannelsCardProps {
   isSavingNotifications?: boolean;
   isNotificationsSaved?: boolean;
   onAutoSaveNotifications?: () => Promise<void>;
+  onToggleChange?: (field: string, value: boolean) => void;
 }
 
 export default function MessagingChannelsCard({
@@ -75,6 +76,7 @@ export default function MessagingChannelsCard({
   isSavingNotifications = false,
   isNotificationsSaved = false,
   onAutoSaveNotifications,
+  onToggleChange,
 }: MessagingChannelsCardProps) {
   const insertToken = (token: string) => {
     setSmsTemplate(smsTemplate ? `${smsTemplate} ${token}` : token);
@@ -219,10 +221,14 @@ export default function MessagingChannelsCard({
               <input
                 type="checkbox"
                 checked={notifyNegativeEnabled}
-                onChange={(e) => setNotifyNegativeEnabled(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setNotifyNegativeEnabled(checked);
+                  onToggleChange?.('notifyNegativeEnabled', checked);
+                }}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-rose-600"></div>
+              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
@@ -233,8 +239,12 @@ export default function MessagingChannelsCard({
                   <input
                     type="checkbox"
                     checked={notifyNegativeEmail}
-                    onChange={(e) => setNotifyNegativeEmail(e.target.checked)}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setNotifyNegativeEmail(checked);
+                      onToggleChange?.('notifyNegativeEmail', checked);
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <Mail className="w-3.5 h-3.5 text-slate-500" />
                   <span>Email Alert</span>
@@ -244,8 +254,12 @@ export default function MessagingChannelsCard({
                   <input
                     type="checkbox"
                     checked={notifyNegativeSms}
-                    onChange={(e) => setNotifyNegativeSms(e.target.checked)}
-                    className="w-4 h-4 rounded text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setNotifyNegativeSms(checked);
+                      onToggleChange?.('notifyNegativeSms', checked);
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <Phone className="w-3.5 h-3.5 text-slate-500" />
                   <span>SMS Urgent Alert</span>
@@ -264,7 +278,7 @@ export default function MessagingChannelsCard({
                     onChange={(e) => setNegativeEmailAddress(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyNegativeEmail}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 disabled:bg-slate-100 disabled:text-slate-400"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>
 
@@ -279,7 +293,7 @@ export default function MessagingChannelsCard({
                     onChange={(e) => setNegativePhone(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyNegativeSms}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 disabled:bg-slate-100 disabled:text-slate-400"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>
               </div>
@@ -311,10 +325,14 @@ export default function MessagingChannelsCard({
               <input
                 type="checkbox"
                 checked={notifyPositiveEnabled}
-                onChange={(e) => setNotifyPositiveEnabled(e.target.checked)}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setNotifyPositiveEnabled(checked);
+                  onToggleChange?.('notifyPositiveEnabled', checked);
+                }}
                 className="sr-only peer"
               />
-              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-amber-500"></div>
+              <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
 
@@ -325,8 +343,12 @@ export default function MessagingChannelsCard({
                   <input
                     type="checkbox"
                     checked={notifyPositiveEmail}
-                    onChange={(e) => setNotifyPositiveEmail(e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setNotifyPositiveEmail(checked);
+                      onToggleChange?.('notifyPositiveEmail', checked);
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <Mail className="w-3.5 h-3.5 text-slate-500" />
                   <span>Email Digest</span>
@@ -336,8 +358,12 @@ export default function MessagingChannelsCard({
                   <input
                     type="checkbox"
                     checked={notifyPositiveSms}
-                    onChange={(e) => setNotifyPositiveSms(e.target.checked)}
-                    className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 cursor-pointer"
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setNotifyPositiveSms(checked);
+                      onToggleChange?.('notifyPositiveSms', checked);
+                    }}
+                    className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
                   <Phone className="w-3.5 h-3.5 text-slate-500" />
                   <span>SMS Alert</span>
@@ -356,7 +382,7 @@ export default function MessagingChannelsCard({
                     onChange={(e) => setPositiveEmailAddress(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyPositiveEmail}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 disabled:bg-slate-100 disabled:text-slate-400"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>
               </div>
