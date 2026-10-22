@@ -495,20 +495,12 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
             if (isSupabaseConfigured && supabase) {
               await supabase
                 .from('business_settings')
-                .upsert({
-                  user_id: currentProfile.id,
+                .update({
                   ...newSettings,
                   updated_at: new Date().toISOString(),
-                });
+                })
+                .eq('user_id', currentProfile.id);
             }
-            await fetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: currentProfile.id,
-                ...newSettings,
-              }),
-            }).catch(() => {});
           } catch (err) {
             console.error('Failed to update settings in Supabase:', err);
           }
@@ -532,14 +524,6 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 })
                 .eq('id', currentProfile.id);
             }
-            await fetch('/api/settings', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: currentProfile.id,
-                ...newProfile,
-              }),
-            }).catch(() => {});
           } catch (err) {
             console.error('Failed to update profile in Supabase:', err);
           }

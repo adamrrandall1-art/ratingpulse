@@ -446,76 +446,55 @@ export default function SettingsClient({
         throw new Error(resData?.error || 'Failed to save notification routing preferences.');
       }
 
-      await updateProfile({
-        negative_alert_phone: targetNegPhone,
-        negative_alert_email: targetNegEmail,
-        negative_alerts_enabled: effectiveNegativeAlertsEnabled,
-        negative_email_alert_enabled: effectiveNegativeEmailAlertEnabled,
-        negative_sms_alert_enabled: effectiveNegativeSmsAlertEnabled,
-        positive_alert_phone: targetPosPhone,
-        positive_alert_email: targetPosEmail,
-        positive_alerts_enabled: effectivePositiveAlertsEnabled,
-        positive_email_alert_enabled: effectivePositiveEmailAlertEnabled,
-        positive_sms_alert_enabled: effectivePositiveSmsAlertEnabled,
-        notify_negative_phone: targetNegPhone,
-        notify_negative_email: effectiveNegativeEmailAlertEnabled,
-        notify_negative_sms: effectiveNegativeSmsAlertEnabled,
-        notify_negative_enabled: effectiveNegativeAlertsEnabled,
-        notify_positive_phone: targetPosPhone,
-        notify_positive_email: effectivePositiveEmailAlertEnabled,
-        notify_positive_sms: effectivePositiveSmsAlertEnabled,
-        notify_positive_enabled: effectivePositiveAlertsEnabled,
-        notification_phone: targetNegPhone,
-        notification_email: targetNegEmail,
-        phone: targetNegPhone || profile.phone,
-      });
+      // Do NOT call updateProfile or updateSettings which fire secondary destructive POST requests
+      // Update local notification state and business to match returned updatedBusiness:
+      const updatedBusiness = resData.business;
+      if (updatedBusiness) {
+        setActiveBusiness({
+          ...(activeBusiness || {}),
+          ...updatedBusiness,
+          isGoogleConnected: Boolean(activeBusiness?.isGoogleConnected || initialBusiness?.isGoogleConnected || updatedBusiness.isGoogleConnected),
+          isConnected: Boolean(activeBusiness?.isConnected || initialBusiness?.isConnected || updatedBusiness.isConnected),
+          googleReviewUrl: updatedBusiness.googleReviewUrl || activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || '',
+          reviewUrl: updatedBusiness.reviewUrl || activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || '',
+          placeId: updatedBusiness.placeId || activeBusiness?.placeId || initialBusiness?.placeId || '',
+        });
 
-      await updateSettings({
-        negative_alert_phone: targetNegPhone,
-        negative_alert_email: targetNegEmail,
-        negative_alerts_enabled: effectiveNegativeAlertsEnabled,
-        negative_email_alert_enabled: effectiveNegativeEmailAlertEnabled,
-        negative_sms_alert_enabled: effectiveNegativeSmsAlertEnabled,
-        positive_alert_phone: targetPosPhone,
-        positive_alert_email: targetPosEmail,
-        positive_alerts_enabled: effectivePositiveAlertsEnabled,
-        positive_email_alert_enabled: effectivePositiveEmailAlertEnabled,
-        positive_sms_alert_enabled: effectivePositiveSmsAlertEnabled,
-        notify_negative_phone: targetNegPhone,
-        notify_negative_email: effectiveNegativeEmailAlertEnabled,
-        notify_negative_sms: effectiveNegativeSmsAlertEnabled,
-        notify_negative_enabled: effectiveNegativeAlertsEnabled,
-        notify_positive_phone: targetPosPhone,
-        notify_positive_email: effectivePositiveEmailAlertEnabled,
-        notify_positive_sms: effectivePositiveSmsAlertEnabled,
-        notify_positive_enabled: effectivePositiveAlertsEnabled,
-        notification_phone: targetNegPhone,
-        notification_email: targetNegEmail,
-      });
-
-      setActiveBusiness({
-        ...activeBusiness,
-        negativeAlertEmail: targetNegEmail,
-        negativeAlertPhone: targetNegPhone,
-        positiveAlertEmail: targetPosEmail,
-        positiveAlertPhone: targetPosPhone,
-        negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
-        negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
-        negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
-        positiveAlertsEnabled: effectivePositiveAlertsEnabled,
-        positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
-        positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-      });
+        if (updatedBusiness.negativeAlertEmail !== undefined) setNegativeAlertEmail(updatedBusiness.negativeAlertEmail || '');
+        if (updatedBusiness.negativeAlertPhone !== undefined) setNegativeAlertPhone(updatedBusiness.negativeAlertPhone || '');
+        if (updatedBusiness.positiveAlertEmail !== undefined) setPositiveAlertEmail(updatedBusiness.positiveAlertEmail || '');
+        if (updatedBusiness.positiveAlertPhone !== undefined) setPositiveAlertPhone(updatedBusiness.positiveAlertPhone || '');
+        if (updatedBusiness.negativeAlertsEnabled !== undefined) setNegativeAlertsEnabled(Boolean(updatedBusiness.negativeAlertsEnabled));
+        if (updatedBusiness.negativeEmailAlertEnabled !== undefined) setNegativeEmailAlertEnabled(Boolean(updatedBusiness.negativeEmailAlertEnabled));
+        if (updatedBusiness.negativeSmsAlertEnabled !== undefined) setNegativeSmsAlertEnabled(Boolean(updatedBusiness.negativeSmsAlertEnabled));
+        if (updatedBusiness.positiveAlertsEnabled !== undefined) setPositiveAlertsEnabled(Boolean(updatedBusiness.positiveAlertsEnabled));
+        if (updatedBusiness.positiveEmailAlertEnabled !== undefined) setPositiveEmailAlertEnabled(Boolean(updatedBusiness.positiveEmailAlertEnabled));
+        if (updatedBusiness.positiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(updatedBusiness.positiveSmsAlertEnabled));
+      } else {
+        setActiveBusiness({
+          ...(activeBusiness || {}),
+          negativeAlertEmail: targetNegEmail,
+          negativeAlertPhone: targetNegPhone,
+          positiveAlertEmail: targetPosEmail,
+          positiveAlertPhone: targetPosPhone,
+          negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
+          negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
+          negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
+          positiveAlertsEnabled: effectivePositiveAlertsEnabled,
+          positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
+          positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
+          isGoogleConnected: Boolean(activeBusiness?.isGoogleConnected || initialBusiness?.isGoogleConnected),
+          isConnected: Boolean(activeBusiness?.isConnected || initialBusiness?.isConnected),
+        });
+      }
 
       router.refresh();
 
       if (silent) {
-        toast.success('Preferences saved', { duration: 2000 });
+        toast.success('Notification preferences saved successfully.', { duration: 2000 });
       } else {
         setIsNotificationsSaved(true);
-        toast.success('Notification Preferences Saved! 🔔', {
-          description: `Alert notifications routed to ${targetNegPhone || targetNegEmail}.`,
-        });
+        toast.success('Notification preferences saved successfully.');
         setTimeout(() => setIsNotificationsSaved(false), 2500);
       }
     } catch (err: any) {
@@ -656,30 +635,39 @@ export default function SettingsClient({
         custom_keywords: keywords,
       };
 
-      if (activeBusiness?.googleReviewUrl || activeBusiness?.reviewUrl) {
-        payload.googleReviewUrl = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl;
-        payload.review_url = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl;
+      const effectiveReviewUrl =
+        activeBusiness?.googleReviewUrl ||
+        activeBusiness?.reviewUrl ||
+        initialBusiness?.googleReviewUrl ||
+        initialBusiness?.reviewUrl ||
+        '';
+
+      const effectivePlaceId =
+        activeBusiness?.placeId ||
+        initialBusiness?.placeId ||
+        '';
+
+      const isConnected =
+        isBusinessConnected(activeBusiness) ||
+        isBusinessConnected(initialBusiness);
+
+      if (effectiveReviewUrl) {
+        payload.googleReviewUrl = effectiveReviewUrl;
+        payload.review_url = effectiveReviewUrl;
       }
-      if (activeBusiness?.placeId) {
-        payload.place_id = activeBusiness.placeId;
-        payload.google_place_id = activeBusiness.placeId;
+      if (effectivePlaceId) {
+        payload.place_id = effectivePlaceId;
+        payload.google_place_id = effectivePlaceId;
       }
-      if (isBusinessConnected(activeBusiness)) {
+      if (isConnected || effectiveReviewUrl) {
         payload.google_connected = true;
       }
 
-      const [saveRes] = await Promise.all([
-        fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }),
-        fetch('/api/settings/notifications', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }),
-      ]);
+      const saveRes = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       const resData = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok || !resData.success) {
@@ -687,63 +675,23 @@ export default function SettingsClient({
         throw new Error(errorMsg);
       }
 
-      await updateProfile({
-        full_name: fullName,
-        notification_email: primaryNotificationEmail,
-        notification_phone: primaryNotificationPhone,
-        phone: primaryNotificationPhone || profile.phone,
-        negative_alert_email: cleanNegEmail,
-        negative_alert_phone: cleanNegPhone,
-        positive_alert_email: cleanPosEmail,
-        positive_alert_phone: cleanPosPhone,
-        negative_alerts_enabled: negativeAlertsEnabled,
-        negative_email_alert_enabled: negativeEmailAlertEnabled,
-        negative_sms_alert_enabled: negativeSmsAlertEnabled,
-        positive_alerts_enabled: positiveAlertsEnabled,
-        positive_email_alert_enabled: positiveEmailAlertEnabled,
-        positive_sms_alert_enabled: positiveSmsAlertEnabled,
-        notify_negative_phone: cleanNegPhone,
-        notify_positive_phone: cleanPosPhone,
-        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
-        notify_negative_enabled: negativeAlertsEnabled,
-        notify_negative_email: negativeEmailAlertEnabled,
-        notify_negative_sms: negativeSmsAlertEnabled,
-        notify_positive_enabled: positiveAlertsEnabled,
-        notify_positive_email: positiveEmailAlertEnabled,
-        notify_positive_sms: positiveSmsAlertEnabled,
-      });
+      // Also ensure isolated notification fields are saved via dedicated endpoint
+      await fetch('/api/settings/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
 
-      await updateSettings({
-        brand_voice: brandVoice,
-        auto_publish_5_star: autoPublish5Star,
-        sms_template: smsTemplate,
-        custom_keywords: keywords,
-        notification_email: primaryNotificationEmail,
-        notification_phone: primaryNotificationPhone,
-        negative_alert_email: cleanNegEmail,
-        negative_alert_phone: cleanNegPhone,
-        positive_alert_email: cleanPosEmail,
-        positive_alert_phone: cleanPosPhone,
-        negative_alerts_enabled: negativeAlertsEnabled,
-        negative_email_alert_enabled: negativeEmailAlertEnabled,
-        negative_sms_alert_enabled: negativeSmsAlertEnabled,
-        positive_alerts_enabled: positiveAlertsEnabled,
-        positive_email_alert_enabled: positiveEmailAlertEnabled,
-        positive_sms_alert_enabled: positiveSmsAlertEnabled,
-        notify_negative_phone: cleanNegPhone,
-        notify_positive_phone: cleanPosPhone,
-        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
-        notify_negative_enabled: negativeAlertsEnabled,
-        notify_negative_email: negativeEmailAlertEnabled,
-        notify_negative_sms: negativeSmsAlertEnabled,
-        notify_positive_enabled: positiveAlertsEnabled,
-        notify_positive_email: positiveEmailAlertEnabled,
-        notify_positive_sms: positiveSmsAlertEnabled,
-      });
-
-      if (resData.business && isBusinessConnected(resData.business)) {
+      const updatedBiz = resData.business;
+      if (updatedBiz) {
         setActiveBusiness({
-          ...resData.business,
+          ...(activeBusiness || {}),
+          ...updatedBiz,
+          isGoogleConnected: Boolean(activeBusiness?.isGoogleConnected || initialBusiness?.isGoogleConnected || updatedBiz.isGoogleConnected || isConnected),
+          isConnected: Boolean(activeBusiness?.isConnected || initialBusiness?.isConnected || updatedBiz.isConnected || isConnected),
+          googleReviewUrl: updatedBiz.googleReviewUrl || activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
+          reviewUrl: updatedBiz.reviewUrl || activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
+          placeId: updatedBiz.placeId || activeBusiness?.placeId || initialBusiness?.placeId || effectivePlaceId,
           negativeAlertEmail: cleanNegEmail,
           negativeAlertPhone: cleanNegPhone,
           positiveAlertEmail: cleanPosEmail,
@@ -757,7 +705,7 @@ export default function SettingsClient({
         });
       } else {
         setActiveBusiness({
-          ...activeBusiness,
+          ...(activeBusiness || {}),
           negativeAlertEmail: cleanNegEmail,
           negativeAlertPhone: cleanNegPhone,
           positiveAlertEmail: cleanPosEmail,
@@ -768,7 +716,12 @@ export default function SettingsClient({
           positiveAlertsEnabled,
           positiveEmailAlertEnabled,
           positiveSmsAlertEnabled,
-          phone: primaryNotificationPhone || activeBusiness.phone,
+          phone: primaryNotificationPhone || activeBusiness?.phone || '',
+          isGoogleConnected: Boolean(activeBusiness?.isGoogleConnected || initialBusiness?.isGoogleConnected || isConnected),
+          isConnected: Boolean(activeBusiness?.isConnected || initialBusiness?.isConnected || isConnected),
+          googleReviewUrl: activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
+          reviewUrl: activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
+          placeId: activeBusiness?.placeId || initialBusiness?.placeId || effectivePlaceId,
         });
       }
 

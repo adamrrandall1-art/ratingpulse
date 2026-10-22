@@ -68,6 +68,9 @@ export async function handleSaveNotifications(req: NextRequest) {
     const supabase = getAdminClient();
     const profileId = (await resolveProfileId(supabase, targetUserId)) || targetUserId;
 
+    // Load existing business before update to guarantee connection metadata is protected
+    const existingBusiness = await getInitialServerBusiness(profileId || targetUserId);
+
     // Extract both camelCase and snake_case notification routing fields
     const negativeAlertEmail =
       body.negativeAlertEmail !== undefined
@@ -244,19 +247,44 @@ export async function handleSaveNotifications(req: NextRequest) {
     }
 
     // Execute database updates
-    const [profRes, settRes] = await Promise.allSettled([
+    // Isolated partial updates modifying ONLY notification routing fields
+    const [profRes] = await Promise.allSettled([
       supabase.from('profiles').update(profileUpdates).eq('id', profileId),
-      supabase.from('business_settings').upsert(settingsUpdates, { onConflict: 'user_id' }),
     ]);
 
     if (profRes.status === 'fulfilled' && profRes.value.error) {
       console.error('[Notification Settings API] Profile update error:', profRes.value.error);
     }
-    if (settRes.status === 'fulfilled' && settRes.value.error) {
-      console.warn('[Notification Settings API] Business settings upsert warning:', settRes.value.error);
+
+    // Update business_settings via safe update/insert preserving existing placeId & googleReviewUrl
+    try {
+      const { data: existingSettings } = await supabase
+        .from('business_settings')
+        .select('id, user_id, place_id, google_review_url')
+        .eq('user_id', profileId)
+        .maybeSingle();
+
+      if (existingSettings) {
+        await supabase
+          .from('business_settings')
+          .update(settingsUpdates)
+          .eq('user_id', profileId);
+      } else {
+        await supabase
+          .from('business_settings')
+          .insert({
+            user_id: profileId,
+            ...settingsUpdates,
+            place_id: existingBusiness?.placeId || undefined,
+            google_review_url: existingBusiness?.googleReviewUrl || undefined,
+            google_connected: existingBusiness?.isGoogleConnected || undefined,
+          });
+      }
+    } catch (settErr) {
+      console.warn('[Notification Settings API] Business settings update note:', settErr);
     }
 
-    // Also update businesses table if it exists
+    // Also update businesses table if it exists (safe partial update)
     try {
       await supabase.from('businesses').update({
         ...(cleanNegEmail !== undefined && { negative_alert_email: cleanNegEmail }),
@@ -280,15 +308,71 @@ export async function handleSaveNotifications(req: NextRequest) {
       revalidatePath('/dashboard');
     } catch {}
 
-    const [updatedBusiness, updatedServerSettings] = await Promise.all([
-      getInitialServerBusiness(profileId),
-      getInitialServerSettings(profileId),
+    const [resolvedBusiness, updatedServerSettings] = await Promise.all([
+      getInitialServerBusiness(profileId || targetUserId),
+      getInitialServerSettings(profileId || targetUserId),
     ]);
+
+    // NEVER touch or reset isGoogleConnected, googleReviewUrl, or placeId
+    const shouldBeConnected = Boolean(
+      existingBusiness?.isGoogleConnected ||
+      existingBusiness?.googleReviewUrl ||
+      existingBusiness?.reviewUrl ||
+      existingBusiness?.placeId ||
+      resolvedBusiness?.isGoogleConnected
+    );
+
+    const preservedReviewUrl =
+      resolvedBusiness?.googleReviewUrl ||
+      resolvedBusiness?.reviewUrl ||
+      existingBusiness?.googleReviewUrl ||
+      existingBusiness?.reviewUrl ||
+      '';
+
+    const preservedPlaceId =
+      resolvedBusiness?.placeId ||
+      existingBusiness?.placeId ||
+      '';
+
+    const updatedBusiness = {
+      ...(existingBusiness || {}),
+      ...(resolvedBusiness || {}),
+      isGoogleConnected: shouldBeConnected,
+      google_connected: shouldBeConnected,
+      isConnected: shouldBeConnected,
+      googleReviewUrl: preservedReviewUrl,
+      reviewUrl: preservedReviewUrl,
+      reviewLink: preservedReviewUrl,
+      placeId: preservedPlaceId,
+      placeIdStatus: preservedReviewUrl ? 'OVERRIDDEN' : (preservedPlaceId ? 'CONNECTED' : (existingBusiness?.placeIdStatus || 'DISCONNECTED')),
+      negativeAlertEmail: cleanNegEmail !== undefined ? cleanNegEmail : (resolvedBusiness?.negativeAlertEmail ?? existingBusiness?.negativeAlertEmail ?? ''),
+      negativeAlertPhone: cleanNegPhone !== undefined ? cleanNegPhone : (resolvedBusiness?.negativeAlertPhone ?? existingBusiness?.negativeAlertPhone ?? ''),
+      positiveAlertEmail: cleanPosEmail !== undefined ? cleanPosEmail : (resolvedBusiness?.positiveAlertEmail ?? existingBusiness?.positiveAlertEmail ?? ''),
+      positiveAlertPhone: cleanPosPhone !== undefined ? cleanPosPhone : (resolvedBusiness?.positiveAlertPhone ?? existingBusiness?.positiveAlertPhone ?? ''),
+      negativeAlertsEnabled: negativeAlertsEnabled !== undefined ? Boolean(negativeAlertsEnabled) : (resolvedBusiness?.negativeAlertsEnabled ?? existingBusiness?.negativeAlertsEnabled ?? true),
+      negativeEmailAlertEnabled: negativeEmailAlertEnabled !== undefined ? Boolean(negativeEmailAlertEnabled) : (resolvedBusiness?.negativeEmailAlertEnabled ?? existingBusiness?.negativeEmailAlertEnabled ?? true),
+      negativeSmsAlertEnabled: negativeSmsAlertEnabled !== undefined ? Boolean(negativeSmsAlertEnabled) : (resolvedBusiness?.negativeSmsAlertEnabled ?? existingBusiness?.negativeSmsAlertEnabled ?? false),
+      positiveAlertsEnabled: positiveAlertsEnabled !== undefined ? Boolean(positiveAlertsEnabled) : (resolvedBusiness?.positiveAlertsEnabled ?? existingBusiness?.positiveAlertsEnabled ?? true),
+      positiveEmailAlertEnabled: positiveEmailAlertEnabled !== undefined ? Boolean(positiveEmailAlertEnabled) : (resolvedBusiness?.positiveEmailAlertEnabled ?? existingBusiness?.positiveEmailAlertEnabled ?? true),
+      positiveSmsAlertEnabled: positiveSmsAlertEnabled !== undefined ? Boolean(positiveSmsAlertEnabled) : (resolvedBusiness?.positiveSmsAlertEnabled ?? existingBusiness?.positiveSmsAlertEnabled ?? false),
+      updatedAt: new Date().toISOString(),
+    };
 
     return NextResponse.json({
       success: true,
       message: 'Notification routing settings saved successfully',
-      notificationSettings: updatedServerSettings?.notificationSettings,
+      notificationSettings: updatedServerSettings?.notificationSettings || {
+        negativeAlertEmail: updatedBusiness.negativeAlertEmail,
+        negativeAlertPhone: updatedBusiness.negativeAlertPhone,
+        positiveAlertEmail: updatedBusiness.positiveAlertEmail,
+        positiveAlertPhone: updatedBusiness.positiveAlertPhone,
+        negativeAlertsEnabled: updatedBusiness.negativeAlertsEnabled,
+        negativeEmailAlertEnabled: updatedBusiness.negativeEmailAlertEnabled,
+        negativeSmsAlertEnabled: updatedBusiness.negativeSmsAlertEnabled,
+        positiveAlertsEnabled: updatedBusiness.positiveAlertsEnabled,
+        positiveEmailAlertEnabled: updatedBusiness.positiveEmailAlertEnabled,
+        positiveSmsAlertEnabled: updatedBusiness.positiveSmsAlertEnabled,
+      },
       business: updatedBusiness,
     });
   } catch (err: any) {
