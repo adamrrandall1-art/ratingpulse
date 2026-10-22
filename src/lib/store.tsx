@@ -85,7 +85,7 @@ export interface RatingPulseStoreState {
   toggleDemoMode: (enable?: boolean) => void;
   setDemoBusiness: (business: Partial<ActiveBusiness>) => void;
   setLiveBusiness: (business: Partial<ActiveBusiness> | null) => void;
-  setActiveBusiness: (business: Partial<ActiveBusiness>) => void;
+  setActiveBusiness: (business: Partial<ActiveBusiness> | ((prev: any) => any)) => void;
   setSearchQuery: (query: string) => void;
   setReviews: (reviews: Review[]) => void;
   setInvites: (invites: Invite[]) => void;
@@ -177,40 +177,59 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
       },
 
       setLiveBusiness: (business: Partial<ActiveBusiness> | null) => {
-        set(() => ({
-          liveBusiness: business
-            ? {
-                id: business.id || '',
-                name: business.name || '',
-                category: business.category || '',
-                address: business.address || '',
-                phone: business.phone || '',
-                placeId: business.placeId || '',
-                reviewUrl: business.reviewUrl || '',
-                googleReviewUrl: business.googleReviewUrl || business.reviewUrl || '',
-                rating: business.rating || 0,
-                reviewCount: business.reviewCount || 0,
-                isGoogleConnected: Boolean(
-                  business.isGoogleConnected !== undefined
-                    ? business.isGoogleConnected
-                    : (business.isConnected || (business.placeId && business.placeId.trim() !== ''))
-                ),
-                isConnected: Boolean(business.isConnected !== undefined ? business.isConnected : (business.placeId && business.placeId.trim() !== '')),
-                isDemoMode: false,
-                isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (!business.placeId || business.placeId.trim() === ''),
-                googleLocationId: business.googleLocationId,
-                placeIdStatus: business.placeIdStatus,
-              }
-            : null,
-        }));
+        set((state) => {
+          if (!business) return { liveBusiness: null };
+          const prev: any = state.liveBusiness || {};
+          const isGoogleConnected = Boolean(
+            business.isGoogleConnected !== undefined
+              ? business.isGoogleConnected
+              : prev.isGoogleConnected !== undefined
+              ? prev.isGoogleConnected
+              : (business.isConnected ?? prev.isConnected ?? Boolean(business.placeId || prev.placeId))
+          );
+          const effectivePlaceId = business.placeId !== undefined ? business.placeId : (prev.placeId || '');
+          const effectiveReviewUrl = business.reviewUrl !== undefined ? business.reviewUrl : (prev.reviewUrl || '');
+          const effectiveGoogleReviewUrl = business.googleReviewUrl !== undefined ? business.googleReviewUrl : (prev.googleReviewUrl || effectiveReviewUrl);
+
+          return {
+            liveBusiness: {
+              ...prev,
+              ...business,
+              id: business.id || prev.id || '',
+              name: business.name || prev.name || '',
+              category: business.category || prev.category || '',
+              address: business.address || prev.address || '',
+              phone: business.phone || prev.phone || '',
+              placeId: effectivePlaceId,
+              reviewUrl: effectiveReviewUrl,
+              googleReviewUrl: effectiveGoogleReviewUrl,
+              rating: business.rating !== undefined ? business.rating : (prev.rating || 0),
+              reviewCount: business.reviewCount !== undefined ? business.reviewCount : (prev.reviewCount || 0),
+              isGoogleConnected,
+              isConnected: Boolean(
+                business.isConnected !== undefined
+                  ? business.isConnected
+                  : prev.isConnected !== undefined
+                  ? prev.isConnected
+                  : (isGoogleConnected && Boolean(effectivePlaceId || effectiveGoogleReviewUrl))
+              ),
+              isDemoMode: false,
+              isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (prev.isPendingPlaceId !== undefined ? prev.isPendingPlaceId : (!effectivePlaceId || effectivePlaceId.trim() === '')),
+              googleLocationId: business.googleLocationId !== undefined ? business.googleLocationId : prev.googleLocationId,
+              placeIdStatus: business.placeIdStatus !== undefined ? business.placeIdStatus : prev.placeIdStatus,
+            },
+          };
+        });
       },
 
-      setActiveBusiness: (business: Partial<ActiveBusiness>) => {
+      setActiveBusiness: (business: Partial<ActiveBusiness> | ((prev: any) => any)) => {
         const { isDemoMode } = get();
+        const baseBusiness = isDemoMode ? get().demoBusiness : get().liveBusiness;
+        const resolvedBusiness = typeof business === 'function' ? business(baseBusiness) : business;
         if (isDemoMode) {
-          get().setDemoBusiness(business);
+          get().setDemoBusiness(resolvedBusiness);
         } else {
-          get().setLiveBusiness(business);
+          get().setLiveBusiness(resolvedBusiness);
         }
       },
 
@@ -624,7 +643,7 @@ registerCacheResetListener(() => {
 
 export interface RatingPulseStoreContextType {
   activeBusiness: ActiveBusiness;
-  setActiveBusiness: (newBusiness: Partial<ActiveBusiness>) => void;
+  setActiveBusiness: (newBusiness: Partial<ActiveBusiness> | ((prev: any) => any)) => void;
   profile: Profile;
   settings: BusinessSettings;
   reviews: Review[];
