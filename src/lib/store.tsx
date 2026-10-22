@@ -605,10 +605,9 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           }
           if (
             state.liveBusiness &&
-            (state.liveBusiness.placeId?.startsWith('demo_') ||
-              state.liveBusiness.id?.startsWith('demo_') ||
-              /adam randall|my business|123 main/i.test(state.liveBusiness.name || '') ||
-              /123 main/i.test(state.liveBusiness.address || ''))
+            (state.liveBusiness.placeId?.startsWith('demo_') || state.liveBusiness.id?.startsWith('demo_')) &&
+            !state.liveBusiness.reviewUrl &&
+            !state.liveBusiness.googleReviewUrl
           ) {
             state.setLiveBusiness(null);
           }
@@ -692,7 +691,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!clerkLoaded && !urlUserId) return;
     if (!activeUserId || activeUserId.startsWith('usr_mock')) {
-      zustandStore.setIsLoaded(true);
+      fetch(`/api/business/current?_t=${Date.now()}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d?.success && d?.business) {
+            zustandStore.setLiveBusiness(d.business);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          zustandStore.setIsLoaded(true);
+        });
       return;
     }
 

@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -225,6 +226,10 @@ async function handleSaveSettings(req: NextRequest) {
     } = body;
 
     const targetUserId = activeBusinessId || businessId || userId || user_id || id || clerkAuth?.userId;
+
+    console.log("[SETTINGS_SAVE] Incoming payload:", body);
+    console.log("[SETTINGS_SAVE] Authenticated User ID:", targetUserId);
+
     if (!targetUserId) {
       return NextResponse.json(
         { success: false, error: 'Business or User ID is required to update settings' },
@@ -372,6 +377,7 @@ async function handleSaveSettings(req: NextRequest) {
     // Refresh updated data
     const { profile: updatedProfile, settings: updatedSettings } = await resolveProfileAndSettings(supabase, profileId);
     const updatedBusiness = buildBusinessObject(updatedProfile, updatedSettings, profileId);
+    console.log("[SETTINGS_SAVE] Successfully persisted business record:", updatedBusiness);
 
     // Cache revalidation across dashboard routes
     try {

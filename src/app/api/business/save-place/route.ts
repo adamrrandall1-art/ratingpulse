@@ -1,10 +1,12 @@
 export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import crypto from 'crypto';
 import { resolveReviewUrl } from '@/lib/google-places';
 
 function getSupabaseAdmin() {
@@ -22,23 +24,28 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
-export async function POST(req: NextRequest) {
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export async function handleSavePlace(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const clerkAuth = await auth().catch(() => null);
-    const userId = body.userId || body.user_id || clerkAuth?.userId;
+    const userId = body.userId || body.user_id || body.activeBusinessId || clerkAuth?.userId;
+
+    console.log("[SETUP_SAVE] Incoming payload:", body);
+    console.log("[SETUP_SAVE] Authenticated User ID:", userId);
 
     const rawInput = (
       body.input ||
-      body.placeId ||
-      body.place_id ||
       body.googleReviewUrl ||
       body.reviewUrl ||
       body.reviewLink ||
+      body.placeId ||
+      body.place_id ||
       ''
     ).trim();
 
-    if (!rawInput) {
+    if (!rawInput && !body.name) {
       return NextResponse.json(
         { success: false, error: 'Please enter a Google Place ID or direct Google Review URL.' },
         { status: 400 }
@@ -52,15 +59,9 @@ export async function POST(req: NextRequest) {
     let fetchedDetails: any = null;
 
     if (isDirectUrl) {
-      // IF it starts with http:// or https://:
-      // - Save directly to the business record as googleReviewUrl (and/or reviewLink)
-      // - Set isGoogleConnected = true and hasPlaceId = true (or remove pending_place_id)
-      // - Do NOT execute a Google Places API lookup on this string
       googleReviewUrl = resolveReviewUrl(rawInput) || rawInput;
       placeId = '';
-    } else {
-      // ELSE (if it is a raw Place ID like ChIJ...):
-      // - Save placeId, query Places API if needed, and set googleReviewUrl to direct URL
+    } else if (rawInput) {
       placeId = rawInput;
       googleReviewUrl = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
 
@@ -79,36 +80,50 @@ export async function POST(req: NextRequest) {
           fetchedDetails = data.result;
         }
       } catch (err) {
-        console.warn('[save-place] Google Places API lookup warning:', err);
+        console.warn('[SETUP_SAVE] Google Places API lookup warning:', err);
       }
     }
 
     const supabase = getSupabaseAdmin();
+    let profileId = userId;
+    let businessRecord: any = null;
+
     if (supabase && userId) {
       let profile: any = null;
-      try {
-        const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-        if (pById) profile = pById;
-      } catch {}
+      if (UUID_REGEX.test(userId)) {
+        try {
+          const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+          if (pById) profile = pById;
+        } catch {}
+      }
       if (!profile) {
         try {
           const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
           if (pByClerk) profile = pByClerk;
         } catch {}
       }
-      const profileId = profile?.id || userId;
+
+      profileId = profile?.id || (UUID_REGEX.test(userId) ? userId : crypto.randomUUID());
+
+      const businessName = body.name || body.business_name || fetchedDetails?.name || profile?.business_name || 'RatingPulse';
 
       const profileUpdates: Record<string, unknown> = {
-        review_url: googleReviewUrl,
-        google_connected: true,
         updated_at: new Date().toISOString(),
+        isGoogleConnected: true,
+        google_connected: true,
       };
 
+      if (googleReviewUrl) {
+        profileUpdates.review_url = googleReviewUrl;
+        profileUpdates.googleReviewUrl = googleReviewUrl;
+      }
       if (!isDirectUrl && placeId) {
         profileUpdates.google_place_id = placeId;
       }
+      if (businessName) {
+        profileUpdates.business_name = businessName;
+      }
       if (fetchedDetails) {
-        if (fetchedDetails.name) profileUpdates.business_name = fetchedDetails.name;
         if (fetchedDetails.formatted_address) profileUpdates.formatted_address = fetchedDetails.formatted_address;
         if (fetchedDetails.rating) profileUpdates.google_rating = fetchedDetails.rating;
         if (fetchedDetails.user_ratings_total) profileUpdates.google_review_count = fetchedDetails.user_ratings_total;
@@ -117,26 +132,51 @@ export async function POST(req: NextRequest) {
       if (profile?.id) {
         await supabase.from('profiles').update(profileUpdates).eq('id', profile.id);
       } else {
-        await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+        await supabase.from('profiles').upsert({
+          id: profileId,
+          clerk_user_id: userId,
+          ...profileUpdates,
+        }, { onConflict: 'id' });
       }
 
       const settingsUpdates: Record<string, unknown> = {
         user_id: profileId,
-        google_review_url: googleReviewUrl,
-        google_connected: true,
         updated_at: new Date().toISOString(),
+        google_connected: true,
+        isGoogleConnected: true,
       };
+      if (googleReviewUrl) {
+        settingsUpdates.google_review_url = googleReviewUrl;
+      }
       if (placeId) {
         settingsUpdates.place_id = placeId;
       }
-      if (fetchedDetails?.name) {
-        settingsUpdates.business_name = fetchedDetails.name;
+      if (businessName) {
+        settingsUpdates.business_name = businessName;
       }
+
       try {
         await supabase.from('business_settings').upsert(settingsUpdates, { onConflict: 'user_id' });
       } catch (settErr) {
-        console.warn('[save-place] upsert business_settings warning:', settErr);
+        console.warn('[SETUP_SAVE] upsert business_settings warning:', settErr);
       }
+
+      businessRecord = {
+        id: profileId,
+        userId: profileId,
+        name: businessName,
+        googleReviewUrl,
+        reviewUrl: googleReviewUrl,
+        reviewLink: googleReviewUrl,
+        placeId: placeId || profile?.google_place_id || '',
+        isGoogleConnected: true,
+        isConnected: true,
+        placeIdStatus: 'OVERRIDDEN',
+        phone: profile?.phone || profile?.notification_phone || '',
+        updatedAt: new Date().toISOString(),
+      };
+
+      console.log("[SETUP_SAVE] Successfully persisted business record:", businessRecord);
     }
 
     try {
@@ -148,7 +188,7 @@ export async function POST(req: NextRequest) {
       revalidatePath('/dashboard/invites');
       revalidatePath('/dashboard/settings');
     } catch (revErr) {
-      console.warn('[save-place] Cache revalidation note:', revErr);
+      console.warn('[SETUP_SAVE] Cache revalidation note:', revErr);
     }
 
     return NextResponse.json({
@@ -162,22 +202,22 @@ export async function POST(req: NextRequest) {
       isConnected: true,
       hasPlaceId: true,
       isPendingPlaceId: false,
-      business: {
-        id: userId,
-        googleReviewUrl,
-        reviewUrl: googleReviewUrl,
-        placeId,
-        isGoogleConnected: true,
-        isConnected: true,
-        isPendingPlaceId: false,
-      },
+      business: businessRecord,
       details: fetchedDetails,
     });
   } catch (err: any) {
-    console.error('[save-place error]:', err);
+    console.error('[SETUP_SAVE error]:', err);
     return NextResponse.json(
       { success: false, error: err?.message || 'Failed to save place information' },
       { status: 500 }
     );
   }
+}
+
+export async function POST(req: NextRequest) {
+  return handleSavePlace(req);
+}
+
+export async function PUT(req: NextRequest) {
+  return handleSavePlace(req);
 }
