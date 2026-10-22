@@ -225,6 +225,16 @@ async function handleSaveSettings(req: NextRequest) {
       notify_positive_enabled,
       notify_positive_email,
       notify_positive_sms,
+      negativeAlertEmail,
+      negativeAlertPhone,
+      positiveAlertEmail,
+      positiveAlertPhone,
+      negativeAlertsEnabled,
+      negativeEmailAlertEnabled,
+      negativeSmsAlertEnabled,
+      positiveAlertsEnabled,
+      positiveEmailAlertEnabled,
+      positiveSmsAlertEnabled,
       brand_voice,
       sms_template,
       custom_keywords,
@@ -347,13 +357,75 @@ async function handleSaveSettings(req: NextRequest) {
       profilePayload.notification_email = effectiveEmailInput ? effectiveEmailInput.trim() : null;
     }
 
-    if (sms_alerts_enabled !== undefined) profilePayload.sms_alerts_enabled = sms_alerts_enabled;
-    if (notify_negative_enabled !== undefined) profilePayload.notify_negative_enabled = notify_negative_enabled;
-    if (notify_negative_email !== undefined) profilePayload.notify_negative_email = notify_negative_email;
-    if (notify_negative_sms !== undefined) profilePayload.notify_negative_sms = notify_negative_sms;
-    if (notify_positive_enabled !== undefined) profilePayload.notify_positive_enabled = notify_positive_enabled;
-    if (notify_positive_email !== undefined) profilePayload.notify_positive_email = notify_positive_email;
-    if (notify_positive_sms !== undefined) profilePayload.notify_positive_sms = notify_positive_sms;
+    // Discrete notification routing fields
+    const cleanNegEmail =
+      negativeAlertEmail !== undefined
+        ? (negativeAlertEmail ? String(negativeAlertEmail).trim() : null)
+        : (body.negative_alert_email !== undefined ? (body.negative_alert_email ? String(body.negative_alert_email).trim() : null) : undefined);
+
+    const cleanNegPhone =
+      negativeAlertPhone !== undefined
+        ? (negativeAlertPhone ? String(negativeAlertPhone).trim() : null)
+        : (body.negative_alert_phone !== undefined ? (body.negative_alert_phone ? String(body.negative_alert_phone).trim() : null) : undefined);
+
+    const cleanPosEmail =
+      positiveAlertEmail !== undefined
+        ? (positiveAlertEmail ? String(positiveAlertEmail).trim() : null)
+        : (body.positive_alert_email !== undefined ? (body.positive_alert_email ? String(body.positive_alert_email).trim() : null) : undefined);
+
+    const cleanPosPhone =
+      positiveAlertPhone !== undefined
+        ? (positiveAlertPhone ? String(positiveAlertPhone).trim() : null)
+        : (body.positive_alert_phone !== undefined ? (body.positive_alert_phone ? String(body.positive_alert_phone).trim() : null) : undefined);
+
+    const effNegAlertsEnabled = negativeAlertsEnabled !== undefined ? Boolean(negativeAlertsEnabled) : (body.negative_alerts_enabled !== undefined ? Boolean(body.negative_alerts_enabled) : notify_negative_enabled);
+    const effNegEmailEnabled = negativeEmailAlertEnabled !== undefined ? Boolean(negativeEmailAlertEnabled) : (body.negative_email_alert_enabled !== undefined ? Boolean(body.negative_email_alert_enabled) : notify_negative_email);
+    const effNegSmsEnabled = negativeSmsAlertEnabled !== undefined ? Boolean(negativeSmsAlertEnabled) : (body.negative_sms_alert_enabled !== undefined ? Boolean(body.negative_sms_alert_enabled) : notify_negative_sms);
+    const effPosAlertsEnabled = positiveAlertsEnabled !== undefined ? Boolean(positiveAlertsEnabled) : (body.positive_alerts_enabled !== undefined ? Boolean(body.positive_alerts_enabled) : notify_positive_enabled);
+    const effPosEmailEnabled = positiveEmailAlertEnabled !== undefined ? Boolean(positiveEmailAlertEnabled) : (body.positive_email_alert_enabled !== undefined ? Boolean(body.positive_email_alert_enabled) : notify_positive_email);
+    const effPosSmsEnabled = positiveSmsAlertEnabled !== undefined ? Boolean(positiveSmsAlertEnabled) : (body.positive_sms_alert_enabled !== undefined ? Boolean(body.positive_sms_alert_enabled) : notify_positive_sms);
+
+    if (cleanNegEmail !== undefined) {
+      profilePayload.negative_alert_email = cleanNegEmail;
+      profilePayload.notification_email = cleanNegEmail;
+    }
+    if (cleanNegPhone !== undefined) {
+      profilePayload.negative_alert_phone = cleanNegPhone;
+      profilePayload.notify_negative_phone = cleanNegPhone;
+      profilePayload.notification_phone = cleanNegPhone;
+    }
+    if (cleanPosEmail !== undefined) {
+      profilePayload.positive_alert_email = cleanPosEmail;
+    }
+    if (cleanPosPhone !== undefined) {
+      profilePayload.positive_alert_phone = cleanPosPhone;
+      profilePayload.notify_positive_phone = cleanPosPhone;
+    }
+
+    if (effNegAlertsEnabled !== undefined) {
+      profilePayload.negative_alerts_enabled = effNegAlertsEnabled;
+      profilePayload.notify_negative_enabled = effNegAlertsEnabled;
+    }
+    if (effNegEmailEnabled !== undefined) {
+      profilePayload.negative_email_alert_enabled = effNegEmailEnabled;
+      profilePayload.notify_negative_email = effNegEmailEnabled;
+    }
+    if (effNegSmsEnabled !== undefined) {
+      profilePayload.negative_sms_alert_enabled = effNegSmsEnabled;
+      profilePayload.notify_negative_sms = effNegSmsEnabled;
+    }
+    if (effPosAlertsEnabled !== undefined) {
+      profilePayload.positive_alerts_enabled = effPosAlertsEnabled;
+      profilePayload.notify_positive_enabled = effPosAlertsEnabled;
+    }
+    if (effPosEmailEnabled !== undefined) {
+      profilePayload.positive_email_alert_enabled = effPosEmailEnabled;
+      profilePayload.notify_positive_email = effPosEmailEnabled;
+    }
+    if (effPosSmsEnabled !== undefined) {
+      profilePayload.positive_sms_alert_enabled = effPosSmsEnabled;
+      profilePayload.notify_positive_sms = effPosSmsEnabled;
+    }
 
     // Settings payload
     const settingsPayload: Record<string, unknown> = {
@@ -367,6 +439,48 @@ async function handleSaveSettings(req: NextRequest) {
     }
     if (effectiveEmailInput !== undefined) {
       settingsPayload.notification_email = effectiveEmailInput ? effectiveEmailInput.trim() : null;
+    }
+
+    if (cleanNegEmail !== undefined) {
+      settingsPayload.negative_alert_email = cleanNegEmail;
+      settingsPayload.notification_email = cleanNegEmail;
+    }
+    if (cleanNegPhone !== undefined) {
+      settingsPayload.negative_alert_phone = cleanNegPhone;
+      settingsPayload.notify_negative_phone = cleanNegPhone;
+      settingsPayload.notification_phone = cleanNegPhone;
+    }
+    if (cleanPosEmail !== undefined) {
+      settingsPayload.positive_alert_email = cleanPosEmail;
+    }
+    if (cleanPosPhone !== undefined) {
+      settingsPayload.positive_alert_phone = cleanPosPhone;
+      settingsPayload.notify_positive_phone = cleanPosPhone;
+    }
+
+    if (effNegAlertsEnabled !== undefined) {
+      settingsPayload.negative_alerts_enabled = effNegAlertsEnabled;
+      settingsPayload.notify_negative_enabled = effNegAlertsEnabled;
+    }
+    if (effNegEmailEnabled !== undefined) {
+      settingsPayload.negative_email_alert_enabled = effNegEmailEnabled;
+      settingsPayload.notify_negative_email = effNegEmailEnabled;
+    }
+    if (effNegSmsEnabled !== undefined) {
+      settingsPayload.negative_sms_alert_enabled = effNegSmsEnabled;
+      settingsPayload.notify_negative_sms = effNegSmsEnabled;
+    }
+    if (effPosAlertsEnabled !== undefined) {
+      settingsPayload.positive_alerts_enabled = effPosAlertsEnabled;
+      settingsPayload.notify_positive_enabled = effPosAlertsEnabled;
+    }
+    if (effPosEmailEnabled !== undefined) {
+      settingsPayload.positive_email_alert_enabled = effPosEmailEnabled;
+      settingsPayload.notify_positive_email = effPosEmailEnabled;
+    }
+    if (effPosSmsEnabled !== undefined) {
+      settingsPayload.positive_sms_alert_enabled = effPosSmsEnabled;
+      settingsPayload.notify_positive_sms = effPosSmsEnabled;
     }
 
     // Protect Google review URL and Place ID in settings
@@ -408,6 +522,23 @@ async function handleSaveSettings(req: NextRequest) {
       supabase.from('profiles').update(profilePayload).eq('id', profileId),
       supabase.from('business_settings').upsert(settingsPayload, { onConflict: 'user_id' }),
     ]);
+
+    // Also update businesses table if it exists
+    try {
+      await supabase.from('businesses').update({
+        ...(cleanNegEmail !== undefined && { negative_alert_email: cleanNegEmail }),
+        ...(cleanNegPhone !== undefined && { negative_alert_phone: cleanNegPhone }),
+        ...(cleanPosEmail !== undefined && { positive_alert_email: cleanPosEmail }),
+        ...(cleanPosPhone !== undefined && { positive_alert_phone: cleanPosPhone }),
+        ...(effNegAlertsEnabled !== undefined && { negative_alerts_enabled: effNegAlertsEnabled }),
+        ...(effNegEmailEnabled !== undefined && { negative_email_alert_enabled: effNegEmailEnabled }),
+        ...(effNegSmsEnabled !== undefined && { negative_sms_alert_enabled: effNegSmsEnabled }),
+        ...(effPosAlertsEnabled !== undefined && { positive_alerts_enabled: effPosAlertsEnabled }),
+        ...(effPosEmailEnabled !== undefined && { positive_email_alert_enabled: effPosEmailEnabled }),
+        ...(effPosSmsEnabled !== undefined && { positive_sms_alert_enabled: effPosSmsEnabled }),
+        updated_at: new Date().toISOString(),
+      }).eq('id', profileId);
+    } catch {}
 
     if (profileRes.status === 'fulfilled' && profileRes.value.error) {
       console.error('[Settings API] Profile update error:', profileRes.value.error);

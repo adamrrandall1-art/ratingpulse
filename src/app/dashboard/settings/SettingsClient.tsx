@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Settings,
   ShieldCheck,
@@ -75,6 +76,7 @@ export default function SettingsClient({
     toggleDemoMode,
   } = useRatingPulseStore();
 
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('gbp');
 
   // Admin Account States
@@ -139,49 +141,54 @@ export default function SettingsClient({
     false
   );
 
-  // Strings for text input fields - strictly strings, never booleans
-  const initialNegEmail =
-    (typeof initialNotificationSettings?.negativeAlertEmail === 'string' && initialNotificationSettings.negativeAlertEmail) ||
-    (typeof business?.negativeAlertEmail === 'string' && business.negativeAlertEmail) ||
-    (typeof initialSettings?.negative_alert_email === 'string' && initialSettings.negative_alert_email) ||
-    (typeof initialProfile?.negative_alert_email === 'string' && initialProfile.negative_alert_email) ||
-    (typeof initialSettings?.notification_email === 'string' && initialSettings.notification_email) ||
-    (typeof initialProfile?.notification_email === 'string' && initialProfile.notification_email) ||
-    (typeof initialProfile?.email === 'string' && initialProfile.email) ||
-    (typeof business?.email === 'string' && business.email) ||
-    (typeof user?.email === 'string' && user.email) ||
-    '';
+  // Prioritize stored custom values. Only fallback to user defaults if the custom field is strictly undefined or null on first creation:
+  const rawStoredNegEmail =
+    initialNotificationSettings?.negativeAlertEmail ??
+    business?.negativeAlertEmail ??
+    initialSettings?.negative_alert_email ??
+    initialProfile?.negative_alert_email;
 
-  const initialNegPhone =
-    (typeof initialNotificationSettings?.negativeAlertPhone === 'string' && initialNotificationSettings.negativeAlertPhone) ||
-    (typeof business?.negativeAlertPhone === 'string' && business.negativeAlertPhone) ||
-    (typeof initialSettings?.negative_alert_phone === 'string' && initialSettings.negative_alert_phone) ||
-    (typeof initialProfile?.negative_alert_phone === 'string' && initialProfile.negative_alert_phone) ||
-    '';
+  const [negativeAlertEmail, setNegativeAlertEmail] = useState<string>(
+    rawStoredNegEmail !== undefined && rawStoredNegEmail !== null
+      ? String(rawStoredNegEmail)
+      : (business?.email || user?.email || '')
+  );
 
-  const initialPosEmail =
-    (typeof initialNotificationSettings?.positiveAlertEmail === 'string' && initialNotificationSettings.positiveAlertEmail) ||
-    (typeof business?.positiveAlertEmail === 'string' && business.positiveAlertEmail) ||
-    (typeof initialSettings?.positive_alert_email === 'string' && initialSettings.positive_alert_email) ||
-    (typeof initialProfile?.positive_alert_email === 'string' && initialProfile.positive_alert_email) ||
-    (typeof initialSettings?.notification_email === 'string' && initialSettings.notification_email) ||
-    (typeof initialProfile?.notification_email === 'string' && initialProfile.notification_email) ||
-    (typeof initialProfile?.email === 'string' && initialProfile.email) ||
-    (typeof business?.email === 'string' && business.email) ||
-    (typeof user?.email === 'string' && user.email) ||
-    '';
+  const rawStoredNegPhone =
+    initialNotificationSettings?.negativeAlertPhone ??
+    business?.negativeAlertPhone ??
+    initialSettings?.negative_alert_phone ??
+    initialProfile?.negative_alert_phone;
 
-  const initialPosPhone =
-    (typeof initialNotificationSettings?.positiveAlertPhone === 'string' && initialNotificationSettings.positiveAlertPhone) ||
-    (typeof business?.positiveAlertPhone === 'string' && business.positiveAlertPhone) ||
-    (typeof initialSettings?.positive_alert_phone === 'string' && initialSettings.positive_alert_phone) ||
-    (typeof initialProfile?.positive_alert_phone === 'string' && initialProfile.positive_alert_phone) ||
-    '';
+  const [negativeAlertPhone, setNegativeAlertPhone] = useState<string>(
+    rawStoredNegPhone !== undefined && rawStoredNegPhone !== null
+      ? String(rawStoredNegPhone)
+      : (business?.phone || '')
+  );
 
-  const [negativeAlertEmail, setNegativeAlertEmail] = useState(initialNegEmail);
-  const [negativeAlertPhone, setNegativeAlertPhone] = useState(initialNegPhone);
-  const [positiveAlertEmail, setPositiveAlertEmail] = useState(initialPosEmail);
-  const [positiveAlertPhone, setPositiveAlertPhone] = useState(initialPosPhone);
+  const rawStoredPosEmail =
+    initialNotificationSettings?.positiveAlertEmail ??
+    business?.positiveAlertEmail ??
+    initialSettings?.positive_alert_email ??
+    initialProfile?.positive_alert_email;
+
+  const [positiveAlertEmail, setPositiveAlertEmail] = useState<string>(
+    rawStoredPosEmail !== undefined && rawStoredPosEmail !== null
+      ? String(rawStoredPosEmail)
+      : ''
+  );
+
+  const rawStoredPosPhone =
+    initialNotificationSettings?.positiveAlertPhone ??
+    business?.positiveAlertPhone ??
+    initialSettings?.positive_alert_phone ??
+    initialProfile?.positive_alert_phone;
+
+  const [positiveAlertPhone, setPositiveAlertPhone] = useState<string>(
+    rawStoredPosPhone !== undefined && rawStoredPosPhone !== null
+      ? String(rawStoredPosPhone)
+      : ''
+  );
 
   // Aliases for full compatibility
   const notifyNegativeEnabled = negativeAlertsEnabled;
@@ -291,9 +298,6 @@ export default function SettingsClient({
               (typeof b?.negativeAlertEmail === 'string' && b.negativeAlertEmail) ||
               (typeof s?.negative_alert_email === 'string' && s.negative_alert_email) ||
               (typeof p?.negative_alert_email === 'string' && p.negative_alert_email) ||
-              (typeof s?.notification_email === 'string' && s.notification_email) ||
-              (typeof p?.notification_email === 'string' && p.notification_email) ||
-              (typeof p?.email === 'string' && p.email) ||
               '';
 
             if (resolvedNegEmail && resolvedNegEmail.trim().length > 0) {
@@ -305,9 +309,6 @@ export default function SettingsClient({
               (typeof b?.positiveAlertEmail === 'string' && b.positiveAlertEmail) ||
               (typeof s?.positive_alert_email === 'string' && s.positive_alert_email) ||
               (typeof p?.positive_alert_email === 'string' && p.positive_alert_email) ||
-              (typeof s?.notification_email === 'string' && s.notification_email) ||
-              (typeof p?.notification_email === 'string' && p.notification_email) ||
-              (typeof p?.email === 'string' && p.email) ||
               '';
 
             if (resolvedPosEmail && resolvedPosEmail.trim().length > 0) {
@@ -380,9 +381,9 @@ export default function SettingsClient({
     try {
       const activeUserId = user?.id || profile.id;
       const targetNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
-      const targetNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? profile.email ?? user?.email ?? '').trim();
-      const targetPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? targetNegPhone).trim();
-      const targetPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? targetNegEmail).trim();
+      const targetNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
+      const targetPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
+      const targetPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
 
       const effectiveNegativeAlertsEnabled = overrides?.negativeAlertsEnabled !== undefined
         ? overrides.negativeAlertsEnabled
@@ -492,6 +493,22 @@ export default function SettingsClient({
         notification_email: targetNegEmail,
       });
 
+      setActiveBusiness({
+        ...activeBusiness,
+        negativeAlertEmail: targetNegEmail,
+        negativeAlertPhone: targetNegPhone,
+        positiveAlertEmail: targetPosEmail,
+        positiveAlertPhone: targetPosPhone,
+        negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
+        negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
+        negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
+        positiveAlertsEnabled: effectivePositiveAlertsEnabled,
+        positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
+        positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
+      });
+
+      router.refresh();
+
       if (silent) {
         toast.success('Preferences saved', { duration: 2000 });
       } else {
@@ -592,8 +609,13 @@ export default function SettingsClient({
     setIsSaving(true);
 
     try {
-      const primaryNotificationEmail = negativeEmailAddress.trim() || positiveEmailAddress.trim() || profile.email || user?.email || '';
-      const primaryNotificationPhone = (negativePhone || '').trim();
+      const cleanNegEmail = (negativeAlertEmail || '').trim();
+      const cleanNegPhone = (negativeAlertPhone || '').trim();
+      const cleanPosEmail = (positiveAlertEmail || '').trim();
+      const cleanPosPhone = (positiveAlertPhone || '').trim();
+
+      const primaryNotificationEmail = cleanNegEmail || cleanPosEmail || profile.email || user?.email || '';
+      const primaryNotificationPhone = cleanNegPhone || cleanPosPhone || profile.phone || '';
 
       const activeUserId = user?.id || profile.id;
 
@@ -605,29 +627,29 @@ export default function SettingsClient({
         full_name: fullName,
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
-        notify_negative_phone: primaryNotificationPhone,
-        notify_positive_phone: primaryNotificationPhone,
-        alert_phone: primaryNotificationPhone,
-        phone: primaryNotificationPhone,
-        smsSenderNumber: primaryNotificationPhone,
+        notify_negative_phone: cleanNegPhone,
+        notify_positive_phone: cleanPosPhone,
+        alert_phone: cleanNegPhone,
+        phone: cleanNegPhone || profile.phone,
+        smsSenderNumber: cleanNegPhone || profile.phone,
         emailSender: primaryNotificationEmail,
-        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_positive_enabled: notifyPositiveEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
-        negativeAlertEmail: primaryNotificationEmail,
-        negativeAlertPhone: primaryNotificationPhone,
-        negativeAlertsEnabled: notifyNegativeEnabled,
-        negativeEmailAlertEnabled: notifyNegativeEmail,
-        negativeSmsAlertEnabled: notifyNegativeSms,
-        positiveAlertEmail: primaryNotificationEmail,
-        positiveAlertPhone: primaryNotificationPhone,
-        positiveAlertsEnabled: notifyPositiveEnabled,
-        positiveEmailAlertEnabled: notifyPositiveEmail,
-        positiveSmsAlertEnabled: notifyPositiveSms,
+        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
+        notify_negative_enabled: negativeAlertsEnabled,
+        notify_negative_email: negativeEmailAlertEnabled,
+        notify_negative_sms: negativeSmsAlertEnabled,
+        notify_positive_enabled: positiveAlertsEnabled,
+        notify_positive_email: positiveEmailAlertEnabled,
+        notify_positive_sms: positiveSmsAlertEnabled,
+        negativeAlertEmail: cleanNegEmail,
+        negativeAlertPhone: cleanNegPhone,
+        negativeAlertsEnabled: negativeAlertsEnabled,
+        negativeEmailAlertEnabled: negativeEmailAlertEnabled,
+        negativeSmsAlertEnabled: negativeSmsAlertEnabled,
+        positiveAlertEmail: cleanPosEmail,
+        positiveAlertPhone: cleanPosPhone,
+        positiveAlertsEnabled: positiveAlertsEnabled,
+        positiveEmailAlertEnabled: positiveEmailAlertEnabled,
+        positiveSmsAlertEnabled: positiveSmsAlertEnabled,
         brand_voice: brandVoice,
         auto_publish_5_star: autoPublish5Star,
         sms_template: smsTemplate,
@@ -670,14 +692,25 @@ export default function SettingsClient({
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
         phone: primaryNotificationPhone || profile.phone,
-        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_phone: primaryNotificationPhone,
-        notify_positive_enabled: notifyPositiveEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
+        negative_alert_email: cleanNegEmail,
+        negative_alert_phone: cleanNegPhone,
+        positive_alert_email: cleanPosEmail,
+        positive_alert_phone: cleanPosPhone,
+        negative_alerts_enabled: negativeAlertsEnabled,
+        negative_email_alert_enabled: negativeEmailAlertEnabled,
+        negative_sms_alert_enabled: negativeSmsAlertEnabled,
+        positive_alerts_enabled: positiveAlertsEnabled,
+        positive_email_alert_enabled: positiveEmailAlertEnabled,
+        positive_sms_alert_enabled: positiveSmsAlertEnabled,
+        notify_negative_phone: cleanNegPhone,
+        notify_positive_phone: cleanPosPhone,
+        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
+        notify_negative_enabled: negativeAlertsEnabled,
+        notify_negative_email: negativeEmailAlertEnabled,
+        notify_negative_sms: negativeSmsAlertEnabled,
+        notify_positive_enabled: positiveAlertsEnabled,
+        notify_positive_email: positiveEmailAlertEnabled,
+        notify_positive_sms: positiveSmsAlertEnabled,
       });
 
       await updateSettings({
@@ -687,24 +720,59 @@ export default function SettingsClient({
         custom_keywords: keywords,
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
-        sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
-        notify_negative_enabled: notifyNegativeEnabled,
-        notify_negative_email: notifyNegativeEmail,
-        notify_negative_sms: notifyNegativeSms,
-        notify_negative_phone: primaryNotificationPhone,
-        notify_positive_enabled: notifyPositiveEnabled,
-        notify_positive_email: notifyPositiveEmail,
-        notify_positive_sms: notifyPositiveSms,
+        negative_alert_email: cleanNegEmail,
+        negative_alert_phone: cleanNegPhone,
+        positive_alert_email: cleanPosEmail,
+        positive_alert_phone: cleanPosPhone,
+        negative_alerts_enabled: negativeAlertsEnabled,
+        negative_email_alert_enabled: negativeEmailAlertEnabled,
+        negative_sms_alert_enabled: negativeSmsAlertEnabled,
+        positive_alerts_enabled: positiveAlertsEnabled,
+        positive_email_alert_enabled: positiveEmailAlertEnabled,
+        positive_sms_alert_enabled: positiveSmsAlertEnabled,
+        notify_negative_phone: cleanNegPhone,
+        notify_positive_phone: cleanPosPhone,
+        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
+        notify_negative_enabled: negativeAlertsEnabled,
+        notify_negative_email: negativeEmailAlertEnabled,
+        notify_negative_sms: negativeSmsAlertEnabled,
+        notify_positive_enabled: positiveAlertsEnabled,
+        notify_positive_email: positiveEmailAlertEnabled,
+        notify_positive_sms: positiveSmsAlertEnabled,
       });
 
       if (resData.business && isBusinessConnected(resData.business)) {
-        setActiveBusiness(resData.business);
+        setActiveBusiness({
+          ...resData.business,
+          negativeAlertEmail: cleanNegEmail,
+          negativeAlertPhone: cleanNegPhone,
+          positiveAlertEmail: cleanPosEmail,
+          positiveAlertPhone: cleanPosPhone,
+          negativeAlertsEnabled,
+          negativeEmailAlertEnabled,
+          negativeSmsAlertEnabled,
+          positiveAlertsEnabled,
+          positiveEmailAlertEnabled,
+          positiveSmsAlertEnabled,
+        });
       } else {
         setActiveBusiness({
           ...activeBusiness,
+          negativeAlertEmail: cleanNegEmail,
+          negativeAlertPhone: cleanNegPhone,
+          positiveAlertEmail: cleanPosEmail,
+          positiveAlertPhone: cleanPosPhone,
+          negativeAlertsEnabled,
+          negativeEmailAlertEnabled,
+          negativeSmsAlertEnabled,
+          positiveAlertsEnabled,
+          positiveEmailAlertEnabled,
+          positiveSmsAlertEnabled,
           phone: primaryNotificationPhone || activeBusiness.phone,
         });
       }
+
+      router.refresh();
 
       setIsSaved(true);
       toast.success('Settings Saved Successfully!', {

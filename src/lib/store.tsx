@@ -46,6 +46,17 @@ export interface ActiveBusiness {
   isPendingPlaceId?: boolean;
   googleLocationId?: string;
   placeIdStatus?: string;
+  email?: string;
+  negativeAlertEmail?: string | null;
+  negativeAlertPhone?: string | null;
+  positiveAlertEmail?: string | null;
+  positiveAlertPhone?: string | null;
+  negativeAlertsEnabled?: boolean;
+  negativeEmailAlertEnabled?: boolean;
+  negativeSmsAlertEnabled?: boolean;
+  positiveAlertsEnabled?: boolean;
+  positiveEmailAlertEnabled?: boolean;
+  positiveSmsAlertEnabled?: boolean;
 }
 
 export const isLowStarOrFeedback = (inv: Partial<Invite>) => {

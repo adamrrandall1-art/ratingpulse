@@ -96,10 +96,9 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
 
     const negativeAlertEmail =
       (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
-      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.notification_email === 'string' && profile.notification_email) ||
-      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const positiveAlertPhone =
@@ -111,10 +110,7 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
 
     const positiveAlertEmail =
       (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
-      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
-      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
-      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const negativeAlertsEnabled =
@@ -168,6 +164,7 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       phone: activePhone || outboundPhone || '',
       smsSenderNumber: activePhone || outboundPhone || '',
       emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
+      email: profile?.email || '',
       placeId: hasValidPlaceId ? placeId : '',
       reviewUrl: effectiveReviewUrl,
       googleReviewUrl: effectiveReviewUrl,
@@ -258,10 +255,9 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
 
     const negativeAlertEmail =
       (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
-      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.notification_email === 'string' && profile.notification_email) ||
-      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const positiveAlertPhone =
@@ -273,10 +269,7 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
 
     const positiveAlertEmail =
       (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
-      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
       (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
-      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
-      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const negativeAlertsEnabled =

@@ -1,0 +1,39 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Business {
+  id                        String   @id @default(uuid())
+  userId                    String?  @unique
+  name                      String
+  category                  String?
+  address                   String?
+  phone                     String?
+  email                     String?
+  placeId                   String?
+  reviewUrl                 String?
+  googleReviewUrl           String?
+  rating                    Float?   @default(0.0)
+  reviewCount               Int?     @default(0)
+  isGoogleConnected         Boolean  @default(false)
+
+  // Notification routing fields
+  negativeAlertEmail        String?
+  negativeAlertPhone        String?
+  positiveAlertEmail        String?
+  positiveAlertPhone        String?
+  negativeAlertsEnabled     Boolean  @default(true)
+  negativeEmailAlertEnabled Boolean  @default(true)
+  negativeSmsAlertEnabled   Boolean  @default(false)
+  positiveAlertsEnabled     Boolean  @default(true)
+  positiveEmailAlertEnabled Boolean  @default(true)
+  positiveSmsAlertEnabled   Boolean  @default(false)
+
+  createdAt                 DateTime @default(now())
+  updatedAt                 DateTime @updatedAt
+}

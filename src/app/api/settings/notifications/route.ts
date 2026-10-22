@@ -69,17 +69,77 @@ export async function handleSaveNotifications(req: NextRequest) {
     const profileId = (await resolveProfileId(supabase, targetUserId)) || targetUserId;
 
     // Extract both camelCase and snake_case notification routing fields
-    const negativeAlertEmail = body.negativeAlertEmail !== undefined ? body.negativeAlertEmail : body.notification_email;
-    const negativeAlertPhone = body.negativeAlertPhone !== undefined ? body.negativeAlertPhone : (body.notify_negative_phone !== undefined ? body.notify_negative_phone : body.notification_phone);
-    const negativeAlertsEnabled = body.negativeAlertsEnabled !== undefined ? body.negativeAlertsEnabled : body.notify_negative_enabled;
-    const negativeEmailAlertEnabled = body.negativeEmailAlertEnabled !== undefined ? body.negativeEmailAlertEnabled : body.notify_negative_email;
-    const negativeSmsAlertEnabled = body.negativeSmsAlertEnabled !== undefined ? body.negativeSmsAlertEnabled : body.notify_negative_sms;
+    const negativeAlertEmail =
+      body.negativeAlertEmail !== undefined
+        ? body.negativeAlertEmail
+        : body.negative_alert_email !== undefined
+        ? body.negative_alert_email
+        : undefined;
 
-    const positiveAlertEmail = body.positiveAlertEmail !== undefined ? body.positiveAlertEmail : body.notification_email;
-    const positiveAlertPhone = body.positiveAlertPhone !== undefined ? body.positiveAlertPhone : body.notify_positive_phone;
-    const positiveAlertsEnabled = body.positiveAlertsEnabled !== undefined ? body.positiveAlertsEnabled : body.notify_positive_enabled;
-    const positiveEmailAlertEnabled = body.positiveEmailAlertEnabled !== undefined ? body.positiveEmailAlertEnabled : body.notify_positive_email;
-    const positiveSmsAlertEnabled = body.positiveSmsAlertEnabled !== undefined ? body.positiveSmsAlertEnabled : body.notify_positive_sms;
+    const negativeAlertPhone =
+      body.negativeAlertPhone !== undefined
+        ? body.negativeAlertPhone
+        : body.negative_alert_phone !== undefined
+        ? body.negative_alert_phone
+        : body.notify_negative_phone !== undefined
+        ? body.notify_negative_phone
+        : undefined;
+
+    const negativeAlertsEnabled =
+      body.negativeAlertsEnabled !== undefined
+        ? body.negativeAlertsEnabled
+        : body.negative_alerts_enabled !== undefined
+        ? body.negative_alerts_enabled
+        : body.notify_negative_enabled;
+
+    const negativeEmailAlertEnabled =
+      body.negativeEmailAlertEnabled !== undefined
+        ? body.negativeEmailAlertEnabled
+        : body.negative_email_alert_enabled !== undefined
+        ? body.negative_email_alert_enabled
+        : body.notify_negative_email;
+
+    const negativeSmsAlertEnabled =
+      body.negativeSmsAlertEnabled !== undefined
+        ? body.negativeSmsAlertEnabled
+        : body.negative_sms_alert_enabled !== undefined
+        ? body.negative_sms_alert_enabled
+        : body.notify_negative_sms;
+
+    const positiveAlertEmail =
+      body.positiveAlertEmail !== undefined
+        ? body.positiveAlertEmail
+        : body.positive_alert_email !== undefined
+        ? body.positive_alert_email
+        : undefined;
+
+    const positiveAlertPhone =
+      body.positiveAlertPhone !== undefined
+        ? body.positiveAlertPhone
+        : body.positive_alert_phone !== undefined
+        ? body.positive_alert_phone
+        : body.notify_positive_phone;
+
+    const positiveAlertsEnabled =
+      body.positiveAlertsEnabled !== undefined
+        ? body.positiveAlertsEnabled
+        : body.positive_alerts_enabled !== undefined
+        ? body.positive_alerts_enabled
+        : body.notify_positive_enabled;
+
+    const positiveEmailAlertEnabled =
+      body.positiveEmailAlertEnabled !== undefined
+        ? body.positiveEmailAlertEnabled
+        : body.positive_email_alert_enabled !== undefined
+        ? body.positive_email_alert_enabled
+        : body.notify_positive_email;
+
+    const positiveSmsAlertEnabled =
+      body.positiveSmsAlertEnabled !== undefined
+        ? body.positiveSmsAlertEnabled
+        : body.positive_sms_alert_enabled !== undefined
+        ? body.positive_sms_alert_enabled
+        : body.notify_positive_sms;
 
     const cleanNegPhone = negativeAlertPhone !== undefined ? (negativeAlertPhone ? String(negativeAlertPhone).trim() : null) : undefined;
     const cleanNegEmail = negativeAlertEmail !== undefined ? (negativeAlertEmail ? String(negativeAlertEmail).trim() : null) : undefined;
@@ -196,6 +256,23 @@ export async function handleSaveNotifications(req: NextRequest) {
       console.warn('[Notification Settings API] Business settings upsert warning:', settRes.value.error);
     }
 
+    // Also update businesses table if it exists
+    try {
+      await supabase.from('businesses').update({
+        ...(cleanNegEmail !== undefined && { negative_alert_email: cleanNegEmail }),
+        ...(cleanNegPhone !== undefined && { negative_alert_phone: cleanNegPhone }),
+        ...(cleanPosEmail !== undefined && { positive_alert_email: cleanPosEmail }),
+        ...(cleanPosPhone !== undefined && { positive_alert_phone: cleanPosPhone }),
+        ...(negativeAlertsEnabled !== undefined && { negative_alerts_enabled: Boolean(negativeAlertsEnabled) }),
+        ...(negativeEmailAlertEnabled !== undefined && { negative_email_alert_enabled: Boolean(negativeEmailAlertEnabled) }),
+        ...(negativeSmsAlertEnabled !== undefined && { negative_sms_alert_enabled: Boolean(negativeSmsAlertEnabled) }),
+        ...(positiveAlertsEnabled !== undefined && { positive_alerts_enabled: Boolean(positiveAlertsEnabled) }),
+        ...(positiveEmailAlertEnabled !== undefined && { positive_email_alert_enabled: Boolean(positiveEmailAlertEnabled) }),
+        ...(positiveSmsAlertEnabled !== undefined && { positive_sms_alert_enabled: Boolean(positiveSmsAlertEnabled) }),
+        updated_at: new Date().toISOString(),
+      }).eq('id', profileId);
+    } catch {}
+
     // Revalidate dashboard paths
     try {
       revalidatePath('/dashboard/settings');
@@ -241,10 +318,14 @@ export async function GET(req: NextRequest) {
     const clerkAuth = await auth().catch(() => null);
     const userId = searchParams.get('userId') || searchParams.get('id') || clerkAuth?.userId;
 
-    const settingsData = await getInitialServerSettings(userId);
+    const [businessData, settingsData] = await Promise.all([
+      getInitialServerBusiness(userId),
+      getInitialServerSettings(userId),
+    ]);
     return NextResponse.json({
       success: true,
       notificationSettings: settingsData?.notificationSettings,
+      business: businessData,
     });
   } catch (err: any) {
     return NextResponse.json(
