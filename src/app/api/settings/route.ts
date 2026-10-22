@@ -264,6 +264,7 @@ async function handleSaveSettings(req: NextRequest) {
 
     const supabase = getAdminClient();
     let { profile, settings, profileId } = await resolveProfileAndSettings(supabase, targetUserId);
+    const existingBusiness = await getInitialServerBusiness(profileId || targetUserId);
 
     if (!profile) {
       const isUuid = UUID_REGEX.test(targetUserId);
@@ -326,19 +327,19 @@ async function handleSaveSettings(req: NextRequest) {
     // Protect Google review URL and Place ID from being wiped by partial updates
     if (effectivePlaceId !== undefined && effectivePlaceId) {
       profilePayload.google_place_id = effectivePlaceId;
-    } else if (profile?.google_place_id) {
-      profilePayload.google_place_id = profile.google_place_id;
+    } else if (profile?.google_place_id || existingBusiness?.placeId) {
+      profilePayload.google_place_id = profile?.google_place_id || existingBusiness?.placeId;
     }
 
     if (resolvedReview !== undefined && resolvedReview) {
       profilePayload.review_url = resolvedReview;
       profilePayload.google_connected = true;
-    } else if (profile?.review_url) {
-      profilePayload.review_url = profile.review_url;
+    } else if (profile?.review_url || existingBusiness?.googleReviewUrl) {
+      profilePayload.review_url = profile?.review_url || existingBusiness?.googleReviewUrl;
       profilePayload.google_connected = true;
     }
 
-    if (google_connected === true || profile?.google_connected || profilePayload.review_url) {
+    if (google_connected === true || profile?.google_connected || profilePayload.review_url || existingBusiness?.isGoogleConnected) {
       profilePayload.google_connected = true;
     }
 
@@ -523,21 +524,32 @@ async function handleSaveSettings(req: NextRequest) {
       supabase.from('business_settings').upsert(settingsPayload, { onConflict: 'user_id' }),
     ]);
 
-    // Also update businesses table if it exists
+    // Database / Prisma partial update pattern for business:
+    // Ensure isGoogleConnected is NEVER included unless explicitly changing connection status.
+    // Ensure googleReviewUrl is NEVER set to null or undefined.
+    const businessPartialUpdate: Record<string, unknown> = {
+      ...(cleanNegEmail !== undefined && { negativeAlertEmail: cleanNegEmail, negative_alert_email: cleanNegEmail }),
+      ...(cleanNegPhone !== undefined && { negativeAlertPhone: cleanNegPhone, negative_alert_phone: cleanNegPhone }),
+      ...(cleanPosEmail !== undefined && { positiveAlertEmail: cleanPosEmail, positive_alert_email: cleanPosEmail }),
+      ...(cleanPosPhone !== undefined && { positiveAlertPhone: cleanPosPhone, positive_alert_phone: cleanPosPhone }),
+      ...(effNegAlertsEnabled !== undefined && { negativeAlertsEnabled: effNegAlertsEnabled, negative_alerts_enabled: effNegAlertsEnabled }),
+      ...(effPosAlertsEnabled !== undefined && { positiveAlertsEnabled: effPosAlertsEnabled, positive_alerts_enabled: effPosAlertsEnabled }),
+      ...(effNegEmailEnabled !== undefined && { negativeEmailAlertEnabled: effNegEmailEnabled, negative_email_alert_enabled: effNegEmailEnabled }),
+      ...(effNegSmsEnabled !== undefined && { negativeSmsAlertEnabled: effNegSmsEnabled, negative_sms_alert_enabled: effNegSmsEnabled }),
+      ...(effPosEmailEnabled !== undefined && { positiveEmailAlertEnabled: effPosEmailEnabled, positive_email_alert_enabled: effPosEmailEnabled }),
+      ...(effPosSmsEnabled !== undefined && { positiveSmsAlertEnabled: effPosSmsEnabled, positive_sms_alert_enabled: effPosSmsEnabled }),
+      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
     try {
-      await supabase.from('businesses').update({
-        ...(cleanNegEmail !== undefined && { negative_alert_email: cleanNegEmail }),
-        ...(cleanNegPhone !== undefined && { negative_alert_phone: cleanNegPhone }),
-        ...(cleanPosEmail !== undefined && { positive_alert_email: cleanPosEmail }),
-        ...(cleanPosPhone !== undefined && { positive_alert_phone: cleanPosPhone }),
-        ...(effNegAlertsEnabled !== undefined && { negative_alerts_enabled: effNegAlertsEnabled }),
-        ...(effNegEmailEnabled !== undefined && { negative_email_alert_enabled: effNegEmailEnabled }),
-        ...(effNegSmsEnabled !== undefined && { negative_sms_alert_enabled: effNegSmsEnabled }),
-        ...(effPosAlertsEnabled !== undefined && { positive_alerts_enabled: effPosAlertsEnabled }),
-        ...(effPosEmailEnabled !== undefined && { positive_email_alert_enabled: effPosEmailEnabled }),
-        ...(effPosSmsEnabled !== undefined && { positive_sms_alert_enabled: effPosSmsEnabled }),
-        updated_at: new Date().toISOString(),
-      }).eq('id', profileId);
+      await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
+    } catch {}
+    try {
+      await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
+    } catch {}
+    try {
+      await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
     } catch {}
 
     if (profileRes.status === 'fulfilled' && profileRes.value.error) {
@@ -549,7 +561,57 @@ async function handleSaveSettings(req: NextRequest) {
 
     // Refresh updated data via unified resolver
     const { profile: updatedProfile, settings: updatedSettings } = await resolveProfileAndSettings(supabase, profileId);
-    const updatedBusiness = (await getInitialServerBusiness(profileId)) || buildBusinessObject(updatedProfile, updatedSettings, profileId);
+    const resolvedBusiness = (await getInitialServerBusiness(profileId)) || buildBusinessObject(updatedProfile, updatedSettings, profileId);
+
+    // NEVER touch or reset isGoogleConnected, googleReviewUrl, or placeId
+    const shouldBeConnected = Boolean(
+      existingBusiness?.isGoogleConnected ||
+      existingBusiness?.googleReviewUrl ||
+      existingBusiness?.reviewUrl ||
+      existingBusiness?.placeId ||
+      resolvedBusiness?.isGoogleConnected ||
+      updatedProfile?.google_connected ||
+      updatedSettings?.google_connected
+    );
+
+    const preservedReviewUrl =
+      resolvedBusiness?.googleReviewUrl ||
+      resolvedBusiness?.reviewUrl ||
+      existingBusiness?.googleReviewUrl ||
+      existingBusiness?.reviewUrl ||
+      '';
+
+    const preservedPlaceId =
+      resolvedBusiness?.placeId ||
+      existingBusiness?.placeId ||
+      '';
+
+    const resBiz = resolvedBusiness as any;
+    const exBiz = existingBusiness as any;
+
+    const updatedBusiness = {
+      ...(existingBusiness || {}),
+      ...(resolvedBusiness || {}),
+      isGoogleConnected: shouldBeConnected,
+      google_connected: shouldBeConnected,
+      isConnected: shouldBeConnected,
+      googleReviewUrl: preservedReviewUrl,
+      reviewUrl: preservedReviewUrl,
+      reviewLink: preservedReviewUrl,
+      placeId: preservedPlaceId,
+      placeIdStatus: preservedReviewUrl ? 'OVERRIDDEN' : (preservedPlaceId ? 'CONNECTED' : (exBiz?.placeIdStatus || 'DISCONNECTED')),
+      negativeAlertEmail: cleanNegEmail !== undefined ? cleanNegEmail : (resBiz?.negativeAlertEmail ?? exBiz?.negativeAlertEmail ?? ''),
+      negativeAlertPhone: cleanNegPhone !== undefined ? cleanNegPhone : (resBiz?.negativeAlertPhone ?? exBiz?.negativeAlertPhone ?? ''),
+      positiveAlertEmail: cleanPosEmail !== undefined ? cleanPosEmail : (resBiz?.positiveAlertEmail ?? exBiz?.positiveAlertEmail ?? ''),
+      positiveAlertPhone: cleanPosPhone !== undefined ? cleanPosPhone : (resBiz?.positiveAlertPhone ?? exBiz?.positiveAlertPhone ?? ''),
+      negativeAlertsEnabled: effNegAlertsEnabled !== undefined ? Boolean(effNegAlertsEnabled) : (resBiz?.negativeAlertsEnabled ?? exBiz?.negativeAlertsEnabled ?? true),
+      negativeEmailAlertEnabled: effNegEmailEnabled !== undefined ? Boolean(effNegEmailEnabled) : (resBiz?.negativeEmailAlertEnabled ?? exBiz?.negativeEmailAlertEnabled ?? true),
+      negativeSmsAlertEnabled: effNegSmsEnabled !== undefined ? Boolean(effNegSmsEnabled) : (resBiz?.negativeSmsAlertEnabled ?? exBiz?.negativeSmsAlertEnabled ?? false),
+      positiveAlertsEnabled: effPosAlertsEnabled !== undefined ? Boolean(effPosAlertsEnabled) : (resBiz?.positiveAlertsEnabled ?? exBiz?.positiveAlertsEnabled ?? true),
+      positiveEmailAlertEnabled: effPosEmailEnabled !== undefined ? Boolean(effPosEmailEnabled) : (resBiz?.positiveEmailAlertEnabled ?? exBiz?.positiveEmailAlertEnabled ?? true),
+      positiveSmsAlertEnabled: effPosSmsEnabled !== undefined ? Boolean(effPosSmsEnabled) : (resBiz?.positiveSmsAlertEnabled ?? exBiz?.positiveSmsAlertEnabled ?? false),
+      updatedAt: new Date().toISOString(),
+    };
     console.log('[SETTINGS_SAVE] Successfully persisted business record:', updatedBusiness);
 
     // Cache revalidation across dashboard routes

@@ -180,16 +180,18 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         set((state) => {
           if (!business) return { liveBusiness: null };
           const prev: any = state.liveBusiness || {};
+          const effectivePlaceId = business.placeId !== undefined && business.placeId !== null ? business.placeId : (prev.placeId || '');
+          const effectiveReviewUrl = business.reviewUrl !== undefined && business.reviewUrl !== null ? business.reviewUrl : (prev.reviewUrl || '');
+          const effectiveGoogleReviewUrl = business.googleReviewUrl !== undefined && business.googleReviewUrl !== null ? business.googleReviewUrl : (prev.googleReviewUrl || effectiveReviewUrl);
+
           const isGoogleConnected = Boolean(
-            business.isGoogleConnected !== undefined
-              ? business.isGoogleConnected
-              : prev.isGoogleConnected !== undefined
-              ? prev.isGoogleConnected
-              : (business.isConnected ?? prev.isConnected ?? Boolean(business.placeId || prev.placeId))
+            business.isGoogleConnected === true ||
+            prev.isGoogleConnected === true ||
+            business.isConnected === true ||
+            prev.isConnected === true ||
+            Boolean(effectivePlaceId && effectivePlaceId.trim().length > 0) ||
+            Boolean(effectiveGoogleReviewUrl && effectiveGoogleReviewUrl.startsWith('http'))
           );
-          const effectivePlaceId = business.placeId !== undefined ? business.placeId : (prev.placeId || '');
-          const effectiveReviewUrl = business.reviewUrl !== undefined ? business.reviewUrl : (prev.reviewUrl || '');
-          const effectiveGoogleReviewUrl = business.googleReviewUrl !== undefined ? business.googleReviewUrl : (prev.googleReviewUrl || effectiveReviewUrl);
 
           return {
             liveBusiness: {
@@ -206,13 +208,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
               rating: business.rating !== undefined ? business.rating : (prev.rating || 0),
               reviewCount: business.reviewCount !== undefined ? business.reviewCount : (prev.reviewCount || 0),
               isGoogleConnected,
-              isConnected: Boolean(
-                business.isConnected !== undefined
-                  ? business.isConnected
-                  : prev.isConnected !== undefined
-                  ? prev.isConnected
-                  : (isGoogleConnected && Boolean(effectivePlaceId || effectiveGoogleReviewUrl))
-              ),
+              isConnected: isGoogleConnected,
               isDemoMode: false,
               isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (prev.isPendingPlaceId !== undefined ? prev.isPendingPlaceId : (!effectivePlaceId || effectivePlaceId.trim() === '')),
               googleLocationId: business.googleLocationId !== undefined ? business.googleLocationId : prev.googleLocationId,

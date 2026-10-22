@@ -57,13 +57,42 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       }
     } catch {}
 
-    const placeId = profile?.google_place_id || settings?.place_id || '';
+    // Check businesses table directly if it exists
+    let businessRecord: any = null;
+    const lookupId = profile?.id || userId;
+    try {
+      if (UUID_REGEX.test(lookupId)) {
+        const { data: bById } = await supabase.from('businesses').select('*').eq('id', lookupId).maybeSingle();
+        if (bById) businessRecord = bById;
+      }
+      if (!businessRecord) {
+        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', lookupId).maybeSingle();
+        if (bByUserId) businessRecord = bByUserId;
+      }
+      if (!businessRecord) {
+        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', lookupId).maybeSingle();
+        if (bByUser_id) businessRecord = bByUser_id;
+      }
+    } catch {}
+
+    const placeId = businessRecord?.placeId || businessRecord?.place_id || profile?.google_place_id || settings?.place_id || '';
     const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-    const directReviewUrl = profile?.review_url || settings?.google_review_url || (settings as any)?.review_url || '';
+    const directReviewUrl =
+      businessRecord?.googleReviewUrl ||
+      businessRecord?.google_review_url ||
+      businessRecord?.reviewUrl ||
+      businessRecord?.review_url ||
+      profile?.review_url ||
+      settings?.google_review_url ||
+      (settings as any)?.review_url ||
+      '';
     const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
     const hasDirectReviewUrl = Boolean(effectiveReviewUrl && effectiveReviewUrl.startsWith('http'));
 
     const isGoogleConnected = Boolean(
+      businessRecord?.isGoogleConnected ||
+      businessRecord?.is_google_connected ||
+      businessRecord?.google_connected ||
       profile?.google_connected ||
       profile?.google_access_token ||
       settings?.google_access_token ||
@@ -78,6 +107,7 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
     };
     const rawPhone =
+      businessRecord?.phone ||
       profile?.phone ||
       profile?.notification_phone ||
       settings?.notification_phone ||
@@ -88,6 +118,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       : rawPhone;
 
     const negativeAlertPhone =
+      (typeof businessRecord?.negativeAlertPhone === 'string' && businessRecord.negativeAlertPhone) ||
+      (typeof businessRecord?.negative_alert_phone === 'string' && businessRecord.negative_alert_phone) ||
       (typeof settings?.negative_alert_phone === 'string' && settings.negative_alert_phone) ||
       (typeof settings?.notify_negative_phone === 'string' && settings.notify_negative_phone) ||
       (typeof profile?.negative_alert_phone === 'string' && profile.negative_alert_phone) ||
@@ -95,6 +127,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       '';
 
     const negativeAlertEmail =
+      (typeof businessRecord?.negativeAlertEmail === 'string' && businessRecord.negativeAlertEmail) ||
+      (typeof businessRecord?.negative_alert_email === 'string' && businessRecord.negative_alert_email) ||
       (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
       (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
       (typeof settings?.notification_email === 'string' && settings.notification_email) ||
@@ -102,6 +136,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       '';
 
     const positiveAlertPhone =
+      (typeof businessRecord?.positiveAlertPhone === 'string' && businessRecord.positiveAlertPhone) ||
+      (typeof businessRecord?.positive_alert_phone === 'string' && businessRecord.positive_alert_phone) ||
       (typeof settings?.positive_alert_phone === 'string' && settings.positive_alert_phone) ||
       (typeof settings?.notify_positive_phone === 'string' && settings.notify_positive_phone) ||
       (typeof profile?.positive_alert_phone === 'string' && profile.positive_alert_phone) ||
@@ -109,11 +145,15 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       '';
 
     const positiveAlertEmail =
+      (typeof businessRecord?.positiveAlertEmail === 'string' && businessRecord.positiveAlertEmail) ||
+      (typeof businessRecord?.positive_alert_email === 'string' && businessRecord.positive_alert_email) ||
       (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
       (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
       '';
 
     const negativeAlertsEnabled =
+      businessRecord?.negativeAlertsEnabled ??
+      businessRecord?.negative_alerts_enabled ??
       settings?.negative_alerts_enabled ??
       settings?.notify_negative_enabled ??
       profile?.negative_alerts_enabled ??
@@ -121,6 +161,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       true;
 
     const negativeEmailAlertEnabled =
+      businessRecord?.negativeEmailAlertEnabled ??
+      businessRecord?.negative_email_alert_enabled ??
       settings?.negative_email_alert_enabled ??
       settings?.notify_negative_email ??
       profile?.negative_email_alert_enabled ??
@@ -128,13 +170,17 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       true;
 
     const negativeSmsAlertEnabled =
+      businessRecord?.negativeSmsAlertEnabled ??
+      businessRecord?.negative_sms_alert_enabled ??
       settings?.negative_sms_alert_enabled ??
       settings?.notify_negative_sms ??
       profile?.negative_sms_alert_enabled ??
       profile?.notify_negative_sms ??
-      true;
+      false;
 
     const positiveAlertsEnabled =
+      businessRecord?.positiveAlertsEnabled ??
+      businessRecord?.positive_alerts_enabled ??
       settings?.positive_alerts_enabled ??
       settings?.notify_positive_enabled ??
       profile?.positive_alerts_enabled ??
@@ -142,6 +188,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       true;
 
     const positiveEmailAlertEnabled =
+      businessRecord?.positiveEmailAlertEnabled ??
+      businessRecord?.positive_email_alert_enabled ??
       settings?.positive_email_alert_enabled ??
       settings?.notify_positive_email ??
       profile?.positive_email_alert_enabled ??
@@ -246,7 +294,27 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       }
     } catch {}
 
+    // Check businesses table directly
+    let businessRecord: any = null;
+    const lookupId = profile?.id || userId;
+    try {
+      if (UUID_REGEX.test(lookupId)) {
+        const { data: bById } = await supabase.from('businesses').select('*').eq('id', lookupId).maybeSingle();
+        if (bById) businessRecord = bById;
+      }
+      if (!businessRecord) {
+        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', lookupId).maybeSingle();
+        if (bByUserId) businessRecord = bByUserId;
+      }
+      if (!businessRecord) {
+        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', lookupId).maybeSingle();
+        if (bByUser_id) businessRecord = bByUser_id;
+      }
+    } catch {}
+
     const negativeAlertPhone =
+      (typeof businessRecord?.negativeAlertPhone === 'string' && businessRecord.negativeAlertPhone) ||
+      (typeof businessRecord?.negative_alert_phone === 'string' && businessRecord.negative_alert_phone) ||
       (typeof settings?.negative_alert_phone === 'string' && settings.negative_alert_phone) ||
       (typeof settings?.notify_negative_phone === 'string' && settings.notify_negative_phone) ||
       (typeof profile?.negative_alert_phone === 'string' && profile.negative_alert_phone) ||
@@ -254,6 +322,8 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       '';
 
     const negativeAlertEmail =
+      (typeof businessRecord?.negativeAlertEmail === 'string' && businessRecord.negativeAlertEmail) ||
+      (typeof businessRecord?.negative_alert_email === 'string' && businessRecord.negative_alert_email) ||
       (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
       (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
       (typeof settings?.notification_email === 'string' && settings.notification_email) ||
@@ -261,6 +331,8 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       '';
 
     const positiveAlertPhone =
+      (typeof businessRecord?.positiveAlertPhone === 'string' && businessRecord.positiveAlertPhone) ||
+      (typeof businessRecord?.positive_alert_phone === 'string' && businessRecord.positive_alert_phone) ||
       (typeof settings?.positive_alert_phone === 'string' && settings.positive_alert_phone) ||
       (typeof settings?.notify_positive_phone === 'string' && settings.notify_positive_phone) ||
       (typeof profile?.positive_alert_phone === 'string' && profile.positive_alert_phone) ||
@@ -268,11 +340,15 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       '';
 
     const positiveAlertEmail =
+      (typeof businessRecord?.positiveAlertEmail === 'string' && businessRecord.positiveAlertEmail) ||
+      (typeof businessRecord?.positive_alert_email === 'string' && businessRecord.positive_alert_email) ||
       (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
       (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
       '';
 
     const negativeAlertsEnabled =
+      businessRecord?.negativeAlertsEnabled ??
+      businessRecord?.negative_alerts_enabled ??
       settings?.negative_alerts_enabled ??
       settings?.notify_negative_enabled ??
       profile?.negative_alerts_enabled ??
@@ -280,6 +356,8 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       true;
 
     const negativeEmailAlertEnabled =
+      businessRecord?.negativeEmailAlertEnabled ??
+      businessRecord?.negative_email_alert_enabled ??
       settings?.negative_email_alert_enabled ??
       settings?.notify_negative_email ??
       profile?.negative_email_alert_enabled ??
@@ -287,13 +365,17 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       true;
 
     const negativeSmsAlertEnabled =
+      businessRecord?.negativeSmsAlertEnabled ??
+      businessRecord?.negative_sms_alert_enabled ??
       settings?.negative_sms_alert_enabled ??
       settings?.notify_negative_sms ??
       profile?.negative_sms_alert_enabled ??
       profile?.notify_negative_sms ??
-      true;
+      false;
 
     const positiveAlertsEnabled =
+      businessRecord?.positiveAlertsEnabled ??
+      businessRecord?.positive_alerts_enabled ??
       settings?.positive_alerts_enabled ??
       settings?.notify_positive_enabled ??
       profile?.positive_alerts_enabled ??
@@ -301,6 +383,8 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       true;
 
     const positiveEmailAlertEnabled =
+      businessRecord?.positiveEmailAlertEnabled ??
+      businessRecord?.positive_email_alert_enabled ??
       settings?.positive_email_alert_enabled ??
       settings?.notify_positive_email ??
       profile?.positive_email_alert_enabled ??
@@ -308,6 +392,8 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       true;
 
     const positiveSmsAlertEnabled =
+      businessRecord?.positiveSmsAlertEnabled ??
+      businessRecord?.positive_sms_alert_enabled ??
       settings?.positive_sms_alert_enabled ??
       settings?.notify_positive_sms ??
       profile?.positive_sms_alert_enabled ??

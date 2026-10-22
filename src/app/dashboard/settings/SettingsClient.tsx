@@ -145,11 +145,12 @@ export default function SettingsClient({
   const rawStoredNegEmail =
     initialNotificationSettings?.negativeAlertEmail ??
     business?.negativeAlertEmail ??
+    business?.negative_alert_email ??
     initialSettings?.negative_alert_email ??
     initialProfile?.negative_alert_email;
 
   const [negativeAlertEmail, setNegativeAlertEmail] = useState<string>(
-    rawStoredNegEmail !== undefined && rawStoredNegEmail !== null
+    rawStoredNegEmail !== undefined && rawStoredNegEmail !== null && String(rawStoredNegEmail).trim() !== ''
       ? String(rawStoredNegEmail)
       : (business?.email || user?.email || '')
   );
@@ -157,11 +158,12 @@ export default function SettingsClient({
   const rawStoredNegPhone =
     initialNotificationSettings?.negativeAlertPhone ??
     business?.negativeAlertPhone ??
+    business?.negative_alert_phone ??
     initialSettings?.negative_alert_phone ??
     initialProfile?.negative_alert_phone;
 
   const [negativeAlertPhone, setNegativeAlertPhone] = useState<string>(
-    rawStoredNegPhone !== undefined && rawStoredNegPhone !== null
+    rawStoredNegPhone !== undefined && rawStoredNegPhone !== null && String(rawStoredNegPhone).trim() !== ''
       ? String(rawStoredNegPhone)
       : (business?.phone || '')
   );
@@ -266,8 +268,27 @@ export default function SettingsClient({
             if (p?.full_name) setFullName(p.full_name);
             if (p?.email) setAdminEmail(p.email);
 
-            if (b && isBusinessConnected(b)) {
-              setActiveBusiness(b);
+            if (b) {
+              setActiveBusiness((prev: any) => {
+                const isGoogleConnected = Boolean(
+                  prev?.isGoogleConnected ||
+                  initialBusiness?.isGoogleConnected ||
+                  b.isGoogleConnected ||
+                  b.google_connected ||
+                  isBusinessConnected(b) ||
+                  isBusinessConnected(prev)
+                );
+                return {
+                  ...(prev || {}),
+                  ...b,
+                  isGoogleConnected,
+                  google_connected: isGoogleConnected,
+                  isConnected: isGoogleConnected,
+                  googleReviewUrl: b.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || '',
+                  reviewUrl: b.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || b.googleReviewUrl || '',
+                  placeId: b.placeId || prev?.placeId || initialBusiness?.placeId || '',
+                };
+              });
             }
 
             // Strictly string-only resolution for notification routing inputs
@@ -450,15 +471,30 @@ export default function SettingsClient({
       // Update local notification state and business to match returned updatedBusiness:
       const updatedBusiness = resData.business;
       if (updatedBusiness) {
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          ...updatedBusiness,
-          isGoogleConnected: Boolean(prev?.isGoogleConnected || initialBusiness?.isGoogleConnected || updatedBusiness.isGoogleConnected),
-          isConnected: Boolean(prev?.isConnected || initialBusiness?.isConnected || updatedBusiness.isConnected),
-          googleReviewUrl: updatedBusiness.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || '',
-          reviewUrl: updatedBusiness.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || '',
-          placeId: updatedBusiness.placeId || prev?.placeId || initialBusiness?.placeId || '',
-        }));
+        setActiveBusiness((prev: any) => {
+          const isGoogleConnected = Boolean(
+            prev?.isGoogleConnected ||
+            initialBusiness?.isGoogleConnected ||
+            updatedBusiness.isGoogleConnected ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBusiness.googleReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBusiness.placeId)
+          );
+          const googleReviewUrl = updatedBusiness.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || '';
+          const reviewUrl = updatedBusiness.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || googleReviewUrl;
+          const placeId = updatedBusiness.placeId || prev?.placeId || initialBusiness?.placeId || '';
+
+          return {
+            ...(prev || {}),
+            ...updatedBusiness,
+            isGoogleConnected,
+            google_connected: isGoogleConnected,
+            isConnected: isGoogleConnected,
+            googleReviewUrl,
+            reviewUrl,
+            reviewLink: reviewUrl,
+            placeId,
+          };
+        });
 
         if (updatedBusiness.negativeAlertEmail !== undefined) setNegativeAlertEmail(updatedBusiness.negativeAlertEmail || '');
         if (updatedBusiness.negativeAlertPhone !== undefined) setNegativeAlertPhone(updatedBusiness.negativeAlertPhone || '');
@@ -471,21 +507,30 @@ export default function SettingsClient({
         if (updatedBusiness.positiveEmailAlertEnabled !== undefined) setPositiveEmailAlertEnabled(Boolean(updatedBusiness.positiveEmailAlertEnabled));
         if (updatedBusiness.positiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(updatedBusiness.positiveSmsAlertEnabled));
       } else {
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          negativeAlertEmail: targetNegEmail,
-          negativeAlertPhone: targetNegPhone,
-          positiveAlertEmail: targetPosEmail,
-          positiveAlertPhone: targetPosPhone,
-          negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
-          negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
-          negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
-          positiveAlertsEnabled: effectivePositiveAlertsEnabled,
-          positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
-          positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-          isGoogleConnected: Boolean(prev?.isGoogleConnected || initialBusiness?.isGoogleConnected),
-          isConnected: Boolean(prev?.isConnected || initialBusiness?.isConnected),
-        }));
+        setActiveBusiness((prev: any) => {
+          const isGoogleConnected = Boolean(
+            prev?.isGoogleConnected ||
+            initialBusiness?.isGoogleConnected ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId)
+          );
+          return {
+            ...(prev || {}),
+            negativeAlertEmail: targetNegEmail,
+            negativeAlertPhone: targetNegPhone,
+            positiveAlertEmail: targetPosEmail,
+            positiveAlertPhone: targetPosPhone,
+            negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
+            negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
+            negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
+            positiveAlertsEnabled: effectivePositiveAlertsEnabled,
+            positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
+            positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
+            isGoogleConnected,
+            google_connected: isGoogleConnected,
+            isConnected: isGoogleConnected,
+          };
+        });
       }
 
       router.refresh();
@@ -684,45 +729,84 @@ export default function SettingsClient({
 
       const updatedBiz = resData.business;
       if (updatedBiz) {
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          ...updatedBiz,
-          isGoogleConnected: Boolean(prev?.isGoogleConnected || initialBusiness?.isGoogleConnected || updatedBiz.isGoogleConnected || isConnected),
-          isConnected: Boolean(prev?.isConnected || initialBusiness?.isConnected || updatedBiz.isConnected || isConnected),
-          googleReviewUrl: updatedBiz.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
-          reviewUrl: updatedBiz.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
-          placeId: updatedBiz.placeId || prev?.placeId || initialBusiness?.placeId || effectivePlaceId,
-          negativeAlertEmail: cleanNegEmail,
-          negativeAlertPhone: cleanNegPhone,
-          positiveAlertEmail: cleanPosEmail,
-          positiveAlertPhone: cleanPosPhone,
-          negativeAlertsEnabled,
-          negativeEmailAlertEnabled,
-          negativeSmsAlertEnabled,
-          positiveAlertsEnabled,
-          positiveEmailAlertEnabled,
-          positiveSmsAlertEnabled,
-        }));
+        setActiveBusiness((prev: any) => {
+          const isGoogleConnected = Boolean(
+            prev?.isGoogleConnected ||
+            initialBusiness?.isGoogleConnected ||
+            updatedBiz.isGoogleConnected ||
+            isConnected ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBiz.googleReviewUrl || effectiveReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBiz.placeId || effectivePlaceId)
+          );
+          const googleReviewUrl =
+            updatedBiz.googleReviewUrl ||
+            prev?.googleReviewUrl ||
+            initialBusiness?.googleReviewUrl ||
+            effectiveReviewUrl;
+          const reviewUrl =
+            updatedBiz.reviewUrl ||
+            prev?.reviewUrl ||
+            initialBusiness?.reviewUrl ||
+            effectiveReviewUrl ||
+            googleReviewUrl;
+          const placeId =
+            updatedBiz.placeId ||
+            prev?.placeId ||
+            initialBusiness?.placeId ||
+            effectivePlaceId;
+
+          return {
+            ...(prev || {}),
+            ...updatedBiz,
+            isGoogleConnected,
+            google_connected: isGoogleConnected,
+            isConnected: isGoogleConnected,
+            googleReviewUrl,
+            reviewUrl,
+            reviewLink: reviewUrl,
+            placeId,
+            negativeAlertEmail: cleanNegEmail,
+            negativeAlertPhone: cleanNegPhone,
+            positiveAlertEmail: cleanPosEmail,
+            positiveAlertPhone: cleanPosPhone,
+            negativeAlertsEnabled,
+            negativeEmailAlertEnabled,
+            negativeSmsAlertEnabled,
+            positiveAlertsEnabled,
+            positiveEmailAlertEnabled,
+            positiveSmsAlertEnabled,
+          };
+        });
       } else {
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          negativeAlertEmail: cleanNegEmail,
-          negativeAlertPhone: cleanNegPhone,
-          positiveAlertEmail: cleanPosEmail,
-          positiveAlertPhone: cleanPosPhone,
-          negativeAlertsEnabled,
-          negativeEmailAlertEnabled,
-          negativeSmsAlertEnabled,
-          positiveAlertsEnabled,
-          positiveEmailAlertEnabled,
-          positiveSmsAlertEnabled,
-          phone: primaryNotificationPhone || activeBusiness?.phone || '',
-          isGoogleConnected: Boolean(prev?.isGoogleConnected || initialBusiness?.isGoogleConnected || isConnected),
-          isConnected: Boolean(prev?.isConnected || initialBusiness?.isConnected || isConnected),
-          googleReviewUrl: prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
-          reviewUrl: prev?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
-          placeId: prev?.placeId || initialBusiness?.placeId || effectivePlaceId,
-        }));
+        setActiveBusiness((prev: any) => {
+          const isGoogleConnected = Boolean(
+            prev?.isGoogleConnected ||
+            initialBusiness?.isGoogleConnected ||
+            isConnected ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId || effectivePlaceId)
+          );
+          return {
+            ...(prev || {}),
+            negativeAlertEmail: cleanNegEmail,
+            negativeAlertPhone: cleanNegPhone,
+            positiveAlertEmail: cleanPosEmail,
+            positiveAlertPhone: cleanPosPhone,
+            negativeAlertsEnabled,
+            negativeEmailAlertEnabled,
+            negativeSmsAlertEnabled,
+            positiveAlertsEnabled,
+            positiveEmailAlertEnabled,
+            positiveSmsAlertEnabled,
+            phone: primaryNotificationPhone || activeBusiness?.phone || '',
+            isGoogleConnected,
+            google_connected: isGoogleConnected,
+            isConnected: isGoogleConnected,
+            googleReviewUrl: prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
+            reviewUrl: prev?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
+            placeId: prev?.placeId || initialBusiness?.placeId || effectivePlaceId,
+          };
+        });
       }
 
       router.refresh();

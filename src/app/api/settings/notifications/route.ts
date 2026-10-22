@@ -284,21 +284,33 @@ export async function handleSaveNotifications(req: NextRequest) {
       console.warn('[Notification Settings API] Business settings update note:', settErr);
     }
 
-    // Also update businesses table if it exists (safe partial update)
+    // Database / Prisma partial update pattern for business:
+    // Ensure isGoogleConnected is NEVER included unless explicitly changing connection status.
+    // Ensure googleReviewUrl is NEVER set to null or undefined.
+    const businessPartialUpdate: Record<string, unknown> = {
+      ...(cleanNegEmail !== undefined && { negativeAlertEmail: cleanNegEmail, negative_alert_email: cleanNegEmail }),
+      ...(cleanNegPhone !== undefined && { negativeAlertPhone: cleanNegPhone, negative_alert_phone: cleanNegPhone }),
+      ...(cleanPosEmail !== undefined && { positiveAlertEmail: cleanPosEmail, positive_alert_email: cleanPosEmail }),
+      ...(cleanPosPhone !== undefined && { positiveAlertPhone: cleanPosPhone, positive_alert_phone: cleanPosPhone }),
+      ...(negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(negativeAlertsEnabled), negative_alerts_enabled: Boolean(negativeAlertsEnabled) }),
+      ...(positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(positiveAlertsEnabled), positive_alerts_enabled: Boolean(positiveAlertsEnabled) }),
+      ...(negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(negativeEmailAlertEnabled), negative_email_alert_enabled: Boolean(negativeEmailAlertEnabled) }),
+      ...(negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(negativeSmsAlertEnabled), negative_sms_alert_enabled: Boolean(negativeSmsAlertEnabled) }),
+      ...(positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(positiveEmailAlertEnabled), positive_email_alert_enabled: Boolean(positiveEmailAlertEnabled) }),
+      ...(positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(positiveSmsAlertEnabled), positive_sms_alert_enabled: Boolean(positiveSmsAlertEnabled) }),
+      updatedAt: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Safe partial update across potential ID match columns
     try {
-      await supabase.from('businesses').update({
-        ...(cleanNegEmail !== undefined && { negative_alert_email: cleanNegEmail }),
-        ...(cleanNegPhone !== undefined && { negative_alert_phone: cleanNegPhone }),
-        ...(cleanPosEmail !== undefined && { positive_alert_email: cleanPosEmail }),
-        ...(cleanPosPhone !== undefined && { positive_alert_phone: cleanPosPhone }),
-        ...(negativeAlertsEnabled !== undefined && { negative_alerts_enabled: Boolean(negativeAlertsEnabled) }),
-        ...(negativeEmailAlertEnabled !== undefined && { negative_email_alert_enabled: Boolean(negativeEmailAlertEnabled) }),
-        ...(negativeSmsAlertEnabled !== undefined && { negative_sms_alert_enabled: Boolean(negativeSmsAlertEnabled) }),
-        ...(positiveAlertsEnabled !== undefined && { positive_alerts_enabled: Boolean(positiveAlertsEnabled) }),
-        ...(positiveEmailAlertEnabled !== undefined && { positive_email_alert_enabled: Boolean(positiveEmailAlertEnabled) }),
-        ...(positiveSmsAlertEnabled !== undefined && { positive_sms_alert_enabled: Boolean(positiveSmsAlertEnabled) }),
-        updated_at: new Date().toISOString(),
-      }).eq('id', profileId);
+      await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
+    } catch {}
+    try {
+      await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
+    } catch {}
+    try {
+      await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
     } catch {}
 
     // Revalidate dashboard paths
