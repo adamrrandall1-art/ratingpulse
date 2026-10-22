@@ -262,9 +262,16 @@ async function handleSaveSettings(req: NextRequest) {
       );
     }
 
+    const clerkUserId = clerkAuth?.userId;
+    const effectiveUserId = clerkUserId || targetUserId;
+
+    // Fetch the real active business record by Clerk ID or target ID
+    const realBusiness = await getInitialServerBusiness(effectiveUserId);
+    const actualBusinessId = realBusiness?.id;
+
     const supabase = getAdminClient();
     let { profile, settings, profileId } = await resolveProfileAndSettings(supabase, targetUserId);
-    const existingBusiness = await getInitialServerBusiness(profileId || targetUserId);
+    const existingBusiness = realBusiness || (await getInitialServerBusiness(profileId || targetUserId));
 
     if (!profile) {
       const isUuid = UUID_REGEX.test(targetUserId);
@@ -542,15 +549,43 @@ async function handleSaveSettings(req: NextRequest) {
       updated_at: new Date().toISOString(),
     };
 
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
-    } catch {}
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
-    } catch {}
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
-    } catch {}
+    if (actualBusinessId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', actualBusinessId);
+      } catch {}
+    }
+    if (effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', effectiveUserId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', effectiveUserId);
+      } catch {}
+    }
+    if (clerkUserId && clerkUserId !== effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', clerkUserId);
+      } catch {}
+    }
+    if (targetUserId && targetUserId !== effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', targetUserId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', targetUserId);
+      } catch {}
+    }
+    if (profileId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
+      } catch {}
+    }
 
     if (profileRes.status === 'fulfilled' && profileRes.value.error) {
       console.error('[Settings API] Profile update error:', profileRes.value.error);
@@ -561,7 +596,12 @@ async function handleSaveSettings(req: NextRequest) {
 
     // Refresh updated data via unified resolver
     const { profile: updatedProfile, settings: updatedSettings } = await resolveProfileAndSettings(supabase, profileId);
-    const resolvedBusiness = (await getInitialServerBusiness(profileId)) || buildBusinessObject(updatedProfile, updatedSettings, profileId);
+    const resolvedBusiness =
+      (await getInitialServerBusiness(effectiveUserId)) ||
+      (actualBusinessId ? await getInitialServerBusiness(actualBusinessId) : null) ||
+      (await getInitialServerBusiness(profileId)) ||
+      (await getInitialServerBusiness(targetUserId)) ||
+      buildBusinessObject(updatedProfile, updatedSettings, profileId);
 
     // NEVER touch or reset isGoogleConnected, googleReviewUrl, or placeId
     const shouldBeConnected = Boolean(
@@ -592,6 +632,8 @@ async function handleSaveSettings(req: NextRequest) {
     const updatedBusiness = {
       ...(existingBusiness || {}),
       ...(resolvedBusiness || {}),
+      id: actualBusinessId || resBiz?.id || exBiz?.id || profileId,
+      userId: effectiveUserId || resBiz?.userId || exBiz?.userId || profileId,
       isGoogleConnected: shouldBeConnected,
       google_connected: shouldBeConnected,
       isConnected: shouldBeConnected,

@@ -65,11 +65,18 @@ export async function handleSaveNotifications(req: NextRequest) {
       );
     }
 
+    const clerkUserId = clerkAuth?.userId;
+    const effectiveUserId = clerkUserId || targetUserId;
+
+    // Fetch the real active business record by Clerk ID or target ID
+    const realBusiness = await getInitialServerBusiness(effectiveUserId);
+    const actualBusinessId = realBusiness?.id;
+
     const supabase = getAdminClient();
     const profileId = (await resolveProfileId(supabase, targetUserId)) || targetUserId;
 
     // Load existing business before update to guarantee connection metadata is protected
-    const existingBusiness = await getInitialServerBusiness(profileId || targetUserId);
+    const existingBusiness = realBusiness || (await getInitialServerBusiness(profileId || targetUserId));
 
     // Extract both camelCase and snake_case notification routing fields
     const negativeAlertEmail =
@@ -303,15 +310,43 @@ export async function handleSaveNotifications(req: NextRequest) {
     };
 
     // Safe partial update across potential ID match columns
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
-    } catch {}
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
-    } catch {}
-    try {
-      await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
-    } catch {}
+    if (actualBusinessId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', actualBusinessId);
+      } catch {}
+    }
+    if (effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', effectiveUserId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', effectiveUserId);
+      } catch {}
+    }
+    if (clerkUserId && clerkUserId !== effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', clerkUserId);
+      } catch {}
+    }
+    if (targetUserId && targetUserId !== effectiveUserId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', targetUserId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', targetUserId);
+      } catch {}
+    }
+    if (profileId) {
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
+      } catch {}
+      try {
+        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
+      } catch {}
+    }
 
     // Revalidate dashboard paths
     try {
@@ -321,6 +356,8 @@ export async function handleSaveNotifications(req: NextRequest) {
     } catch {}
 
     const [resolvedBusiness, updatedServerSettings] = await Promise.all([
+      (await getInitialServerBusiness(effectiveUserId)) ||
+      (actualBusinessId ? await getInitialServerBusiness(actualBusinessId) : null) ||
       getInitialServerBusiness(profileId || targetUserId),
       getInitialServerSettings(profileId || targetUserId),
     ]);
@@ -346,9 +383,14 @@ export async function handleSaveNotifications(req: NextRequest) {
       existingBusiness?.placeId ||
       '';
 
+    const resBiz = resolvedBusiness as any;
+    const exBiz = existingBusiness as any;
+
     const updatedBusiness = {
       ...(existingBusiness || {}),
       ...(resolvedBusiness || {}),
+      id: actualBusinessId || resBiz?.id || exBiz?.id || profileId,
+      userId: effectiveUserId || resBiz?.userId || exBiz?.userId || profileId,
       isGoogleConnected: shouldBeConnected,
       google_connected: shouldBeConnected,
       isConnected: shouldBeConnected,

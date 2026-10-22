@@ -57,23 +57,41 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       }
     } catch {}
 
-    // Check businesses table directly if it exists
+    // Check businesses table directly if it exists across candidate IDs (Clerk ID, Profile ID, etc.)
     let businessRecord: any = null;
-    const lookupId = profile?.id || userId;
-    try {
-      if (UUID_REGEX.test(lookupId)) {
-        const { data: bById } = await supabase.from('businesses').select('*').eq('id', lookupId).maybeSingle();
-        if (bById) businessRecord = bById;
-      }
-      if (!businessRecord) {
-        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', lookupId).maybeSingle();
-        if (bByUserId) businessRecord = bByUserId;
-      }
-      if (!businessRecord) {
-        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', lookupId).maybeSingle();
-        if (bByUser_id) businessRecord = bByUser_id;
-      }
-    } catch {}
+    const candidateUserIds = Array.from(
+      new Set(
+        [
+          userId,
+          clerkAuth?.userId,
+          profile?.clerk_user_id,
+          profile?.id,
+        ].filter((id): id is string => Boolean(id && typeof id === 'string'))
+      )
+    );
+
+    for (const candId of candidateUserIds) {
+      if (businessRecord) break;
+      try {
+        if (UUID_REGEX.test(candId)) {
+          const { data: bById } = await supabase.from('businesses').select('*').eq('id', candId).maybeSingle();
+          if (bById) {
+            businessRecord = bById;
+            break;
+          }
+        }
+        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', candId).maybeSingle();
+        if (bByUserId) {
+          businessRecord = bByUserId;
+          break;
+        }
+        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', candId).maybeSingle();
+        if (bByUser_id) {
+          businessRecord = bByUser_id;
+          break;
+        }
+      } catch {}
+    }
 
     const placeId = businessRecord?.placeId || businessRecord?.place_id || profile?.google_place_id || settings?.place_id || '';
     const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
@@ -204,12 +222,13 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       false;
 
     const business = {
-      id: profile?.id || userId,
-      userId: profile?.id || userId,
-      name: profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : 'RatingPulse'),
-      category: profile?.business_category || 'Local Business',
-      address: profile?.formatted_address || '',
-      phone: activePhone || outboundPhone || '',
+      id: businessRecord?.id || profile?.id || userId,
+      userId: businessRecord?.userId || businessRecord?.user_id || profile?.clerk_user_id || profile?.id || userId,
+      actualBusinessId: businessRecord?.id,
+      name: businessRecord?.name || profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : 'RatingPulse'),
+      category: businessRecord?.category || profile?.business_category || 'Local Business',
+      address: businessRecord?.address || profile?.formatted_address || '',
+      phone: businessRecord?.phone || activePhone || outboundPhone || '',
       smsSenderNumber: activePhone || outboundPhone || '',
       emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
       email: profile?.email || '',
