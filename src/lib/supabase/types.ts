@@ -35,6 +35,17 @@ export interface Profile {
   notify_positive_enabled?: boolean;
   notify_positive_email?: boolean;
   notify_positive_sms?: boolean;
+  notify_positive_phone?: string | null;
+  negative_alert_email?: string | null;
+  negative_alert_phone?: string | null;
+  negative_alerts_enabled?: boolean;
+  negative_email_alert_enabled?: boolean;
+  negative_sms_alert_enabled?: boolean;
+  positive_alert_email?: string | null;
+  positive_alert_phone?: string | null;
+  positive_alerts_enabled?: boolean;
+  positive_email_alert_enabled?: boolean;
+  positive_sms_alert_enabled?: boolean;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
   plan_status?: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid' | string;
@@ -64,6 +75,17 @@ export interface BusinessSettings {
   notify_positive_enabled?: boolean;
   notify_positive_email?: boolean;
   notify_positive_sms?: boolean;
+  notify_positive_phone?: string | null;
+  negative_alert_email?: string | null;
+  negative_alert_phone?: string | null;
+  negative_alerts_enabled?: boolean;
+  negative_email_alert_enabled?: boolean;
+  negative_sms_alert_enabled?: boolean;
+  positive_alert_email?: string | null;
+  positive_alert_phone?: string | null;
+  positive_alerts_enabled?: boolean;
+  positive_email_alert_enabled?: boolean;
+  positive_sms_alert_enabled?: boolean;
   created_at: string;
 }
 

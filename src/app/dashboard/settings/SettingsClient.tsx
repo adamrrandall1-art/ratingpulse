@@ -43,9 +43,17 @@ const SETTINGS_TABS: { key: TabKey; label: string; icon: React.ElementType }[] =
 
 interface SettingsClientProps {
   initialBusiness?: any;
+  initialNotificationSettings?: any;
+  initialSettings?: any;
+  initialProfile?: any;
 }
 
-export default function SettingsClient({ initialBusiness }: SettingsClientProps) {
+export default function SettingsClient({
+  initialBusiness,
+  initialNotificationSettings,
+  initialSettings,
+  initialProfile,
+}: SettingsClientProps) {
   const { user: clerkUser } = useUser();
   const { user: supabaseUser } = useAuth();
   const user = clerkUser
@@ -71,70 +79,125 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
 
   // Admin Account States
   const [fullName, setFullName] = useState(
-    profile.full_name || user?.user_metadata?.full_name || ''
+    initialProfile?.full_name || profile.full_name || user?.user_metadata?.full_name || ''
   );
   const [adminEmail, setAdminEmail] = useState(
-    user?.email || profile.email || ''
+    initialProfile?.email || user?.email || profile.email || ''
   );
 
-  // Unified Notification Routing States
-  const [notifyNegativeEnabled, setNotifyNegativeEnabled] = useState(
-    settings.notify_negative_enabled ?? profile.notify_negative_enabled ?? true
-  );
-  const [notifyNegativeEmail, setNotifyNegativeEmail] = useState(
-    settings.notify_negative_email ?? profile.notify_negative_email ?? true
-  );
-  const [notifyNegativeSms, setNotifyNegativeSms] = useState(
-    settings.notify_negative_sms ?? profile.notify_negative_sms ?? true
-  );
+  // Unified Notification Routing Initial Values from Server Loader
+  const initialNegPhone =
+    initialNotificationSettings?.negativeAlertPhone ||
+    initialNotificationSettings?.notify_negative_phone ||
+    initialSettings?.negative_alert_phone ||
+    initialSettings?.notify_negative_phone ||
+    initialProfile?.negative_alert_phone ||
+    initialProfile?.notify_negative_phone ||
+    settings.notify_negative_phone ||
+    profile.notify_negative_phone ||
+    settings.notification_phone ||
+    profile.notification_phone ||
+    '';
 
-  const initialEmail =
-    initialBusiness?.emailSender ||
+  const initialNegEmail =
+    initialNotificationSettings?.negativeAlertEmail ||
+    initialNotificationSettings?.notify_negative_email ||
+    initialSettings?.negative_alert_email ||
+    initialProfile?.negative_alert_email ||
     settings.notification_email ||
     profile.notification_email ||
     profile.email ||
     user?.email ||
     '';
 
-  const initialPhone =
-    initialBusiness?.phone ||
-    activeBusiness?.phone ||
-    settings.notify_negative_phone ||
-    settings.notification_phone ||
-    profile.notify_negative_phone ||
-    profile.notification_phone ||
-    profile.phone ||
+  const initialPosEmail =
+    initialNotificationSettings?.positiveAlertEmail ||
+    initialNotificationSettings?.notify_positive_email ||
+    initialSettings?.positive_alert_email ||
+    initialProfile?.positive_alert_email ||
+    settings.notification_email ||
+    profile.notification_email ||
+    profile.email ||
+    user?.email ||
     '';
 
-  const [negativeEmailAddress, setNegativeEmailAddress] = useState(initialEmail);
-  const [negativePhone, setNegativePhone] = useState(initialPhone);
+  const [notifyNegativeEnabled, setNotifyNegativeEnabled] = useState(
+    initialNotificationSettings?.negativeAlertsEnabled ??
+    initialNotificationSettings?.notify_negative_enabled ??
+    initialSettings?.negative_alerts_enabled ??
+    initialSettings?.notify_negative_enabled ??
+    settings.notify_negative_enabled ??
+    profile.notify_negative_enabled ??
+    true
+  );
+  const [notifyNegativeEmail, setNotifyNegativeEmail] = useState(
+    initialNotificationSettings?.negativeEmailAlertEnabled ??
+    initialNotificationSettings?.notify_negative_email ??
+    initialSettings?.negative_email_alert_enabled ??
+    initialSettings?.notify_negative_email ??
+    settings.notify_negative_email ??
+    profile.notify_negative_email ??
+    true
+  );
+  const [notifyNegativeSms, setNotifyNegativeSms] = useState(
+    initialNotificationSettings?.negativeSmsAlertEnabled ??
+    initialNotificationSettings?.notify_negative_sms ??
+    initialSettings?.negative_sms_alert_enabled ??
+    initialSettings?.notify_negative_sms ??
+    settings.notify_negative_sms ??
+    profile.notify_negative_sms ??
+    true
+  );
+
+  const [negativeEmailAddress, setNegativeEmailAddress] = useState(initialNegEmail);
+  const [negativePhone, setNegativePhone] = useState(initialNegPhone);
 
   const [notifyPositiveEnabled, setNotifyPositiveEnabled] = useState(
-    settings.notify_positive_enabled ?? profile.notify_positive_enabled ?? true
+    initialNotificationSettings?.positiveAlertsEnabled ??
+    initialNotificationSettings?.notify_positive_enabled ??
+    initialSettings?.positive_alerts_enabled ??
+    initialSettings?.notify_positive_enabled ??
+    settings.notify_positive_enabled ??
+    profile.notify_positive_enabled ??
+    true
   );
   const [notifyPositiveEmail, setNotifyPositiveEmail] = useState(
-    settings.notify_positive_email ?? profile.notify_positive_email ?? true
+    initialNotificationSettings?.positiveEmailAlertEnabled ??
+    initialNotificationSettings?.notify_positive_email ??
+    initialSettings?.positive_email_alert_enabled ??
+    initialSettings?.notify_positive_email ??
+    settings.notify_positive_email ??
+    profile.notify_positive_email ??
+    true
   );
   const [notifyPositiveSms, setNotifyPositiveSms] = useState(
-    settings.notify_positive_sms ?? profile.notify_positive_sms ?? false
+    initialNotificationSettings?.positiveSmsAlertEnabled ??
+    initialNotificationSettings?.notify_positive_sms ??
+    initialSettings?.positive_sms_alert_enabled ??
+    initialSettings?.notify_positive_sms ??
+    settings.notify_positive_sms ??
+    profile.notify_positive_sms ??
+    false
   );
-  const [positiveEmailAddress, setPositiveEmailAddress] = useState(initialEmail);
+  const [positiveEmailAddress, setPositiveEmailAddress] = useState(initialPosEmail);
 
   // AI & Automation Preferences
   const [brandVoice, setBrandVoice] = useState<BrandVoiceType>(
-    (settings.brand_voice as BrandVoiceType) || 'friendly_professional'
+    (initialSettings?.brand_voice as BrandVoiceType) || (settings.brand_voice as BrandVoiceType) || 'friendly_professional'
   );
   const [autoPublish5Star, setAutoPublish5Star] = useState(
-    settings.auto_publish_5_star ?? false
+    initialSettings?.auto_publish_5_star ?? settings.auto_publish_5_star ?? false
   );
   const [smsTemplate, setSmsTemplate] = useState(
-    settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
+    initialSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
   );
-  const [keywords, setKeywords] = useState<string[]>(settings.custom_keywords || []);
+  const [keywords, setKeywords] = useState<string[]>(initialSettings?.custom_keywords || settings.custom_keywords || []);
 
   // Status & Modal States
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [isNotificationsSaved, setIsNotificationsSaved] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
@@ -147,38 +210,11 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
     }
   }, [initialBusiness, activeBusiness, setActiveBusiness]);
 
-  // Load fresh settings form fields on mount without overwriting active business
+  // Load fresh settings form fields on mount without overwriting active business or populated inputs
   useEffect(() => {
     async function loadFreshSettings() {
       const activeUserId = clerkUser?.id || supabaseUser?.id || profile.id;
-      if (!activeUserId || activeUserId.startsWith('usr_mock')) {
-        if (profile.full_name && !fullName) setFullName(profile.full_name);
-        if (profile.email && !adminEmail) setAdminEmail(profile.email);
-        if (settings) {
-          setNotifyNegativeEnabled(settings.notify_negative_enabled ?? profile.notify_negative_enabled ?? true);
-          setNotifyNegativeEmail(settings.notify_negative_email ?? profile.notify_negative_email ?? true);
-          setNotifyNegativeSms(settings.notify_negative_sms ?? profile.notify_negative_sms ?? true);
-          const fallbackPhone =
-            settings.notify_negative_phone ||
-            settings.notification_phone ||
-            profile.notify_negative_phone ||
-            profile.notification_phone ||
-            profile.phone ||
-            activeBusiness?.phone ||
-            '';
-          if (fallbackPhone) setNegativePhone(fallbackPhone);
-          const fallbackEmail = settings.notification_email || profile.notification_email || profile.email || user?.email || '';
-          if (fallbackEmail) {
-            setNegativeEmailAddress(fallbackEmail);
-            setPositiveEmailAddress(fallbackEmail);
-          }
-          setNotifyPositiveEnabled(settings.notify_positive_enabled ?? profile.notify_positive_enabled ?? true);
-          setNotifyPositiveEmail(settings.notify_positive_email ?? profile.notify_positive_email ?? true);
-          setNotifyPositiveSms(settings.notify_positive_sms ?? profile.notify_positive_sms ?? false);
-          if (settings.auto_publish_5_star !== undefined) setAutoPublish5Star(settings.auto_publish_5_star);
-        }
-        return;
-      }
+      if (!activeUserId || activeUserId.startsWith('usr_mock')) return;
 
       try {
         const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`, {
@@ -196,38 +232,42 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
             if (p?.full_name) setFullName(p.full_name);
             if (p?.email) setAdminEmail(p.email);
 
-            // ONLY update activeBusiness if the returned business is verified connected
-            // NEVER overwrite or disconnect an active business on page load
             if (b && isBusinessConnected(b)) {
               setActiveBusiness(b);
             }
 
-            const resolvedPhone =
-              json.resolvedPhone ||
-              b?.phone ||
+            // Only update negative phone if resolved from alert routing settings
+            const resolvedNegativePhone =
+              json.notificationSettings?.negativeAlertPhone ||
+              json.notificationSettings?.notify_negative_phone ||
+              json.negativeAlertPhone ||
+              s?.negative_alert_phone ||
               s?.notify_negative_phone ||
-              s?.notification_phone ||
+              p?.negative_alert_phone ||
               p?.notify_negative_phone ||
+              s?.notification_phone ||
               p?.notification_phone ||
-              p?.phone ||
-              activeBusiness?.phone ||
               '';
 
+            if (resolvedNegativePhone && resolvedNegativePhone.trim().length > 0) {
+              setNegativePhone((prev: string) => (prev ? prev : resolvedNegativePhone));
+            }
+
             const resolvedEmail =
+              json.notificationSettings?.negativeAlertEmail ||
+              json.notificationSettings?.notify_negative_email ||
               json.resolvedEmail ||
-              b?.emailSender ||
+              s?.negative_alert_email ||
+              p?.negative_alert_email ||
               s?.notification_email ||
               p?.notification_email ||
               p?.email ||
               user?.email ||
               '';
 
-            if (resolvedPhone && resolvedPhone.trim().length > 0) {
-              setNegativePhone(resolvedPhone);
-            }
             if (resolvedEmail && resolvedEmail.trim().length > 0) {
-              setNegativeEmailAddress(resolvedEmail);
-              setPositiveEmailAddress(resolvedEmail);
+              setNegativeEmailAddress((prev: string) => (prev ? prev : resolvedEmail));
+              setPositiveEmailAddress((prev: string) => (prev ? prev : resolvedEmail));
             }
 
             if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
@@ -255,7 +295,6 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
             if (s?.brand_voice) setBrandVoice(s.brand_voice as BrandVoiceType);
             if (s?.sms_template) setSmsTemplate(s.sms_template);
             if (Array.isArray(s?.custom_keywords)) setKeywords(s.custom_keywords);
-            return;
           }
         }
       } catch (err) {
@@ -265,6 +304,98 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
 
     loadFreshSettings();
   }, [user?.id, profile.id]);
+
+  // Dedicated Notification Routing Save Handler
+  const handleSaveNotificationPreferences = async (silent = false) => {
+    if (!silent) setIsSavingNotifications(true);
+
+    try {
+      const activeUserId = user?.id || profile.id;
+      const targetPhone = (negativePhone || '').trim();
+      const targetEmail = (negativeEmailAddress || positiveEmailAddress || profile.email || user?.email || '').trim();
+
+      const payload = {
+        userId: activeUserId,
+        activeBusinessId: activeUserId,
+        negativeAlertEmail: targetEmail,
+        negativeAlertPhone: targetPhone,
+        negativeAlertsEnabled: notifyNegativeEnabled,
+        negativeEmailAlertEnabled: notifyNegativeEmail,
+        negativeSmsAlertEnabled: notifyNegativeSms,
+        positiveAlertEmail: targetEmail,
+        positiveAlertPhone: targetPhone,
+        positiveAlertsEnabled: notifyPositiveEnabled,
+        positiveEmailAlertEnabled: notifyPositiveEmail,
+        positiveSmsAlertEnabled: notifyPositiveSms,
+        notify_negative_phone: targetPhone,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_positive_phone: targetPhone,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notification_phone: targetPhone,
+        notification_email: targetEmail,
+      };
+
+      const res = await fetch('/api/settings/notifications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      const resData = await res.json().catch(() => ({}));
+      if (!res.ok || !resData.success) {
+        throw new Error(resData?.error || 'Failed to save notification routing preferences.');
+      }
+
+      await updateProfile({
+        notify_negative_phone: targetPhone,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_positive_phone: targetPhone,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notification_phone: targetPhone,
+        notification_email: targetEmail,
+        phone: targetPhone || profile.phone,
+      });
+
+      await updateSettings({
+        notify_negative_phone: targetPhone,
+        notify_negative_email: notifyNegativeEmail,
+        notify_negative_sms: notifyNegativeSms,
+        notify_negative_enabled: notifyNegativeEnabled,
+        notify_positive_email: notifyPositiveEmail,
+        notify_positive_sms: notifyPositiveSms,
+        notify_positive_enabled: notifyPositiveEnabled,
+        notification_phone: targetPhone,
+        notification_email: targetEmail,
+      });
+
+      if (silent) {
+        toast.success('Preferences saved', { duration: 2000 });
+      } else {
+        setIsNotificationsSaved(true);
+        toast.success('Notification Preferences Saved! 🔔', {
+          description: `Alert notifications routed to ${targetPhone || targetEmail}.`,
+        });
+        setTimeout(() => setIsNotificationsSaved(false), 2500);
+      }
+    } catch (err: any) {
+      console.error('[Save Notifications Error]:', err);
+      if (!silent) {
+        toast.error('Failed to save notification preferences', {
+          description: err?.message || 'Please check your connection and try again.',
+        });
+      }
+    } finally {
+      if (!silent) setIsSavingNotifications(false);
+    }
+  };
 
   const handleSendTestWelcome = async () => {
     const targetEmail = negativeEmailAddress || positiveEmailAddress || profile.email || user?.email || 'admin@business.com';
@@ -360,13 +491,22 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
         notify_positive_enabled: notifyPositiveEnabled,
         notify_positive_email: notifyPositiveEmail,
         notify_positive_sms: notifyPositiveSms,
+        negativeAlertEmail: primaryNotificationEmail,
+        negativeAlertPhone: primaryNotificationPhone,
+        negativeAlertsEnabled: notifyNegativeEnabled,
+        negativeEmailAlertEnabled: notifyNegativeEmail,
+        negativeSmsAlertEnabled: notifyNegativeSms,
+        positiveAlertEmail: primaryNotificationEmail,
+        positiveAlertPhone: primaryNotificationPhone,
+        positiveAlertsEnabled: notifyPositiveEnabled,
+        positiveEmailAlertEnabled: notifyPositiveEmail,
+        positiveSmsAlertEnabled: notifyPositiveSms,
         brand_voice: brandVoice,
         auto_publish_5_star: autoPublish5Star,
         sms_template: smsTemplate,
         custom_keywords: keywords,
       };
 
-      // Safeguard business review URL and placeId to prevent accidental wiping
       if (activeBusiness?.googleReviewUrl || activeBusiness?.reviewUrl) {
         payload.googleReviewUrl = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl;
         payload.review_url = activeBusiness.googleReviewUrl || activeBusiness.reviewUrl;
@@ -379,11 +519,18 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
         payload.google_connected = true;
       }
 
-      const saveRes = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
+      const [saveRes] = await Promise.all([
+        fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+        fetch('/api/settings/notifications', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        }),
+      ]);
 
       const resData = await saveRes.json().catch(() => ({}));
       if (!saveRes.ok || !resData.success) {
@@ -391,7 +538,6 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
         throw new Error(errorMsg);
       }
 
-      // Synchronize local store profile & settings
       await updateProfile({
         full_name: fullName,
         notification_email: primaryNotificationEmail,
@@ -424,7 +570,6 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
         notify_positive_sms: notifyPositiveSms,
       });
 
-      // Maintain connected state in activeBusiness
       if (resData.business && isBusinessConnected(resData.business)) {
         setActiveBusiness(resData.business);
       } else {
@@ -587,6 +732,10 @@ export default function SettingsClient({ initialBusiness }: SettingsClientProps)
               setPositiveEmailAddress={setPositiveEmailAddress}
               onSendTestWelcome={handleSendTestWelcome}
               sendingTestWelcome={sendingTestWelcome}
+              onSaveNotificationPreferences={() => handleSaveNotificationPreferences(false)}
+              isSavingNotifications={isSavingNotifications}
+              isNotificationsSaved={isNotificationsSaved}
+              onAutoSaveNotifications={() => handleSaveNotificationPreferences(true)}
             />
           </div>
         )}

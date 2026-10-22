@@ -11,6 +11,7 @@ import {
   Star,
   CheckCircle2,
   RefreshCw,
+  Save,
   Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -38,9 +39,13 @@ interface MessagingChannelsCardProps {
   setNotifyPositiveSms: (val: boolean) => void;
   positiveEmailAddress: string;
   setPositiveEmailAddress: (val: string) => void;
-  // Actions
+  // Actions & Persistence
   onSendTestWelcome?: () => Promise<void>;
   sendingTestWelcome?: boolean;
+  onSaveNotificationPreferences?: () => Promise<void>;
+  isSavingNotifications?: boolean;
+  isNotificationsSaved?: boolean;
+  onAutoSaveNotifications?: () => Promise<void>;
 }
 
 export default function MessagingChannelsCard({
@@ -66,6 +71,10 @@ export default function MessagingChannelsCard({
   setPositiveEmailAddress,
   onSendTestWelcome,
   sendingTestWelcome = false,
+  onSaveNotificationPreferences,
+  isSavingNotifications = false,
+  isNotificationsSaved = false,
+  onAutoSaveNotifications,
 }: MessagingChannelsCardProps) {
   const insertToken = (token: string) => {
     setSmsTemplate(smsTemplate ? `${smsTemplate} ${token}` : token);
@@ -253,6 +262,7 @@ export default function MessagingChannelsCard({
                     placeholder="manager@business.com"
                     value={negativeEmailAddress}
                     onChange={(e) => setNegativeEmailAddress(e.target.value)}
+                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyNegativeEmail}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -267,6 +277,7 @@ export default function MessagingChannelsCard({
                     placeholder="+1 (555) 000-0000"
                     value={negativePhone}
                     onChange={(e) => setNegativePhone(e.target.value)}
+                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyNegativeSms}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -343,6 +354,7 @@ export default function MessagingChannelsCard({
                     placeholder="marketing@business.com"
                     value={positiveEmailAddress}
                     onChange={(e) => setPositiveEmailAddress(e.target.value)}
+                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!notifyPositiveEmail}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-amber-500/20 focus:border-amber-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -351,6 +363,44 @@ export default function MessagingChannelsCard({
             </div>
           )}
         </div>
+
+        {/* Dedicated Save Notification Preferences Button */}
+        {onSaveNotificationPreferences && (
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600" />
+                Notification Routing Persistence
+              </div>
+              <div className="text-[11px] text-slate-500 mt-0.5">
+                Save phone and email delivery channels for instant negative and positive review notifications.
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onSaveNotificationPreferences()}
+              disabled={isSavingNotifications}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
+            >
+              {isSavingNotifications ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Saving Preferences...</span>
+                </>
+              ) : isNotificationsSaved ? (
+                <>
+                  <CheckCircle2 className="w-3.5 h-3.5 text-white" />
+                  <span>Preferences Saved!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 text-white" />
+                  <span>Save Notification Preferences</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Onboarding Welcome Email Test Card */}
         {onSendTestWelcome && (
