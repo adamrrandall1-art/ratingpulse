@@ -501,47 +501,54 @@ function BusinessSetupContent() {
     setIsSavingProfile(true);
     try {
       const chosenBusinessName = businessName.trim() || selectedPlace.businessName || profile.business_name;
-      const chosenPlaceId = selectedPlace.placeId || profile.google_place_id || undefined;
       const chosenAddress = businessAddress.trim() || selectedPlace.formattedAddress || profile.formatted_address;
-      const gReviewUrl = (reviewUrl ? resolveReviewUrl(reviewUrl) : (chosenPlaceId ? resolveReviewUrl(chosenPlaceId) : undefined)) || undefined;
 
+      // Only update whitelisted general profile details
+      // Never wipe or touch Google connection fields (placeId, review_url, google_connected)
       await updateProfile({
         business_name: chosenBusinessName,
         formatted_address: chosenAddress,
         phone: businessPhone,
         business_category: businessCategory,
-        google_place_id: chosenPlaceId,
-        review_url: gReviewUrl,
       });
 
       await updateSettings({
         auto_publish_5_star: autoPublish5Star,
       });
 
-      // Persist to server database
+      // Persist to server database via dedicated /api/business profile endpoint
       try {
-        const res = await fetch('/api/settings', {
+        const res = await fetch('/api/business', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             userId: activeUserId || profile.id,
             activeBusinessId: activeUserId || profile.id,
-            business_name: chosenBusinessName,
-            formatted_address: chosenAddress,
+            name: chosenBusinessName,
             phone: businessPhone,
-            smsSenderNumber: businessPhone,
-            business_category: businessCategory,
-            google_place_id: chosenPlaceId,
-            place_id: chosenPlaceId,
-            review_url: gReviewUrl,
-            googleReviewUrl: gReviewUrl,
-            auto_publish_5_star: autoPublish5Star,
+            address: chosenAddress,
+            website: reviewUrl || undefined,
+            category: businessCategory,
           }),
         });
 
         const data = await res.json().catch(() => null);
         if (data?.business) {
-          setActiveBusiness(data.business);
+          if (isBusinessConnected(data.business)) {
+            setActiveBusiness(data.business);
+          } else {
+            setActiveBusiness({
+              ...activeBusiness,
+              ...data.business,
+              // Strictly preserve connection values
+              isGoogleConnected: isBusinessConnected(activeBusiness),
+              isConnected: isBusinessConnected(activeBusiness),
+              placeId: activeBusiness.placeId,
+              reviewUrl: activeBusiness.reviewUrl,
+              googleReviewUrl: activeBusiness.googleReviewUrl || activeBusiness.reviewUrl,
+              placeIdStatus: activeBusiness.placeIdStatus,
+            });
+          }
         } else {
           setActiveBusiness({
             ...activeBusiness,
@@ -549,9 +556,6 @@ function BusinessSetupContent() {
             address: chosenAddress || activeBusiness.address,
             phone: businessPhone || activeBusiness.phone,
             category: businessCategory || activeBusiness.category,
-            placeId: chosenPlaceId || activeBusiness.placeId,
-            reviewUrl: gReviewUrl || activeBusiness.reviewUrl,
-            googleReviewUrl: gReviewUrl || activeBusiness.googleReviewUrl,
           });
         }
       } catch (postErr) {
@@ -559,7 +563,7 @@ function BusinessSetupContent() {
       }
 
       toast.success('Business profile updated', {
-        description: 'Your business details and sync preferences have been saved.',
+        description: 'Your business details and preferences have been saved without affecting your Google connection.',
       });
     } catch (err: any) {
       toast.error('Failed to save profile', {

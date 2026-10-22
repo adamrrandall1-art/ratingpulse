@@ -45,6 +45,7 @@ export interface ActiveBusiness {
   isDemoMode: boolean;
   isPendingPlaceId?: boolean;
   googleLocationId?: string;
+  placeIdStatus?: string;
 }
 
 export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
@@ -187,6 +188,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 isDemoMode: false,
                 isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (!business.placeId || business.placeId.trim() === ''),
                 googleLocationId: business.googleLocationId,
+                placeIdStatus: business.placeIdStatus,
               }
             : null,
         }));
