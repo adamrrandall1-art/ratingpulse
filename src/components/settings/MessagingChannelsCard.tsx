@@ -19,26 +19,51 @@ import { toast } from 'sonner';
 interface MessagingChannelsCardProps {
   smsTemplate: string;
   setSmsTemplate: (val: string) => void;
-  // Negative Alert States
-  notifyNegativeEnabled: boolean;
-  setNotifyNegativeEnabled: (val: boolean) => void;
-  notifyNegativeEmail: boolean;
-  setNotifyNegativeEmail: (val: boolean) => void;
-  notifyNegativeSms: boolean;
-  setNotifyNegativeSms: (val: boolean) => void;
-  negativeEmailAddress: string;
-  setNegativeEmailAddress: (val: string) => void;
-  negativePhone: string;
-  setNegativePhone: (val: string) => void;
-  // Positive Alert States
-  notifyPositiveEnabled: boolean;
-  setNotifyPositiveEnabled: (val: boolean) => void;
-  notifyPositiveEmail: boolean;
-  setNotifyPositiveEmail: (val: boolean) => void;
-  notifyPositiveSms: boolean;
-  setNotifyPositiveSms: (val: boolean) => void;
-  positiveEmailAddress: string;
-  setPositiveEmailAddress: (val: string) => void;
+
+  // Discrete String and Boolean States (Primary)
+  negativeAlertsEnabled?: boolean;
+  setNegativeAlertsEnabled?: (val: boolean) => void;
+  negativeEmailAlertEnabled?: boolean;
+  setNegativeEmailAlertEnabled?: (val: boolean) => void;
+  negativeSmsAlertEnabled?: boolean;
+  setNegativeSmsAlertEnabled?: (val: boolean) => void;
+  negativeAlertEmail?: string;
+  setNegativeAlertEmail?: (val: string) => void;
+  negativeAlertPhone?: string;
+  setNegativeAlertPhone?: (val: string) => void;
+
+  positiveAlertsEnabled?: boolean;
+  setPositiveAlertsEnabled?: (val: boolean) => void;
+  positiveEmailAlertEnabled?: boolean;
+  setPositiveEmailAlertEnabled?: (val: boolean) => void;
+  positiveSmsAlertEnabled?: boolean;
+  setPositiveSmsAlertEnabled?: (val: boolean) => void;
+  positiveAlertEmail?: string;
+  setPositiveAlertEmail?: (val: string) => void;
+  positiveAlertPhone?: string;
+  setPositiveAlertPhone?: (val: string) => void;
+
+  // Backward-Compatible Aliases
+  notifyNegativeEnabled?: boolean;
+  setNotifyNegativeEnabled?: (val: boolean) => void;
+  notifyNegativeEmail?: boolean;
+  setNotifyNegativeEmail?: (val: boolean) => void;
+  notifyNegativeSms?: boolean;
+  setNotifyNegativeSms?: (val: boolean) => void;
+  negativeEmailAddress?: string;
+  setNegativeEmailAddress?: (val: string) => void;
+  negativePhone?: string;
+  setNegativePhone?: (val: string) => void;
+
+  notifyPositiveEnabled?: boolean;
+  setNotifyPositiveEnabled?: (val: boolean) => void;
+  notifyPositiveEmail?: boolean;
+  setNotifyPositiveEmail?: (val: boolean) => void;
+  notifyPositiveSms?: boolean;
+  setNotifyPositiveSms?: (val: boolean) => void;
+  positiveEmailAddress?: string;
+  setPositiveEmailAddress?: (val: string) => void;
+
   // Actions & Persistence
   onSendTestWelcome?: () => Promise<void>;
   sendingTestWelcome?: boolean;
@@ -49,35 +74,88 @@ interface MessagingChannelsCardProps {
   onToggleChange?: (field: string, value: boolean) => void;
 }
 
-export default function MessagingChannelsCard({
-  smsTemplate,
-  setSmsTemplate,
-  notifyNegativeEnabled,
-  setNotifyNegativeEnabled,
-  notifyNegativeEmail,
-  setNotifyNegativeEmail,
-  notifyNegativeSms,
-  setNotifyNegativeSms,
-  negativeEmailAddress,
-  setNegativeEmailAddress,
-  negativePhone,
-  setNegativePhone,
-  notifyPositiveEnabled,
-  setNotifyPositiveEnabled,
-  notifyPositiveEmail,
-  setNotifyPositiveEmail,
-  notifyPositiveSms,
-  setNotifyPositiveSms,
-  positiveEmailAddress,
-  setPositiveEmailAddress,
-  onSendTestWelcome,
-  sendingTestWelcome = false,
-  onSaveNotificationPreferences,
-  isSavingNotifications = false,
-  isNotificationsSaved = false,
-  onAutoSaveNotifications,
-  onToggleChange,
-}: MessagingChannelsCardProps) {
+export default function MessagingChannelsCard(props: MessagingChannelsCardProps) {
+  const {
+    smsTemplate,
+    setSmsTemplate,
+    negativeAlertsEnabled,
+    setNegativeAlertsEnabled,
+    negativeEmailAlertEnabled,
+    setNegativeEmailAlertEnabled,
+    negativeSmsAlertEnabled,
+    setNegativeSmsAlertEnabled,
+    negativeAlertEmail,
+    setNegativeAlertEmail,
+    negativeAlertPhone,
+    setNegativeAlertPhone,
+    positiveAlertsEnabled,
+    setPositiveAlertsEnabled,
+    positiveEmailAlertEnabled,
+    setPositiveEmailAlertEnabled,
+    positiveSmsAlertEnabled,
+    setPositiveSmsAlertEnabled,
+    positiveAlertEmail,
+    setPositiveAlertEmail,
+    positiveAlertPhone,
+    setPositiveAlertPhone,
+    notifyNegativeEnabled,
+    setNotifyNegativeEnabled,
+    notifyNegativeEmail,
+    setNotifyNegativeEmail,
+    notifyNegativeSms,
+    setNotifyNegativeSms,
+    negativeEmailAddress,
+    setNegativeEmailAddress,
+    negativePhone,
+    setNegativePhone,
+    notifyPositiveEnabled,
+    setNotifyPositiveEnabled,
+    notifyPositiveEmail,
+    setNotifyPositiveEmail,
+    notifyPositiveSms,
+    setNotifyPositiveSms,
+    positiveEmailAddress,
+    setPositiveEmailAddress,
+    onSendTestWelcome,
+    sendingTestWelcome = false,
+    onSaveNotificationPreferences,
+    isSavingNotifications = false,
+    isNotificationsSaved = false,
+    onAutoSaveNotifications,
+    onToggleChange,
+  } = props;
+
+  const effectiveNegativeAlertsEnabled = negativeAlertsEnabled ?? notifyNegativeEnabled ?? true;
+  const effectiveNegativeEmailAlertEnabled = negativeEmailAlertEnabled ?? notifyNegativeEmail ?? true;
+  const effectiveNegativeSmsAlertEnabled = negativeSmsAlertEnabled ?? notifyNegativeSms ?? false;
+  const rawNegEmail = (typeof negativeAlertEmail === 'string' ? negativeAlertEmail : (typeof negativeEmailAddress === 'string' ? negativeEmailAddress : ''));
+  const effectiveNegativeAlertEmail = (rawNegEmail === 'true' || rawNegEmail === 'false') ? '' : rawNegEmail;
+  const rawNegPhone = (typeof negativeAlertPhone === 'string' ? negativeAlertPhone : (typeof negativePhone === 'string' ? negativePhone : ''));
+  const effectiveNegativeAlertPhone = (rawNegPhone === 'true' || rawNegPhone === 'false') ? '' : rawNegPhone;
+
+  const effectivePositiveAlertsEnabled = positiveAlertsEnabled ?? notifyPositiveEnabled ?? true;
+  const effectivePositiveEmailAlertEnabled = positiveEmailAlertEnabled ?? notifyPositiveEmail ?? true;
+  const effectivePositiveSmsAlertEnabled = positiveSmsAlertEnabled ?? notifyPositiveSms ?? false;
+  const rawPosEmail = (typeof positiveAlertEmail === 'string' ? positiveAlertEmail : (typeof positiveEmailAddress === 'string' ? positiveEmailAddress : ''));
+  const effectivePositiveAlertEmail = (rawPosEmail === 'true' || rawPosEmail === 'false') ? '' : rawPosEmail;
+  const rawPosPhone = (typeof positiveAlertPhone === 'string' ? positiveAlertPhone : '');
+  const effectivePositiveAlertPhone = (rawPosPhone === 'true' || rawPosPhone === 'false') ? '' : rawPosPhone;
+
+  const handleNegEmailChange = (val: string) => {
+    if (setNegativeAlertEmail) setNegativeAlertEmail(val);
+    if (setNegativeEmailAddress) setNegativeEmailAddress(val);
+  };
+  const handleNegPhoneChange = (val: string) => {
+    if (setNegativeAlertPhone) setNegativeAlertPhone(val);
+    if (setNegativePhone) setNegativePhone(val);
+  };
+  const handlePosEmailChange = (val: string) => {
+    if (setPositiveAlertEmail) setPositiveAlertEmail(val);
+    if (setPositiveEmailAddress) setPositiveEmailAddress(val);
+  };
+  const handlePosPhoneChange = (val: string) => {
+    if (setPositiveAlertPhone) setPositiveAlertPhone(val);
+  };
   const insertToken = (token: string) => {
     setSmsTemplate(smsTemplate ? `${smsTemplate} ${token}` : token);
   };
@@ -220,11 +298,12 @@ export default function MessagingChannelsCard({
             <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
-                checked={notifyNegativeEnabled}
+                checked={effectiveNegativeAlertsEnabled}
                 onChange={(e) => {
                   const checked = e.target.checked;
-                  setNotifyNegativeEnabled(checked);
-                  onToggleChange?.('notifyNegativeEnabled', checked);
+                  if (setNegativeAlertsEnabled) setNegativeAlertsEnabled(checked);
+                  if (setNotifyNegativeEnabled) setNotifyNegativeEnabled(checked);
+                  onToggleChange?.('negativeAlertsEnabled', checked);
                 }}
                 className="sr-only peer"
               />
@@ -232,17 +311,18 @@ export default function MessagingChannelsCard({
             </label>
           </div>
 
-          {notifyNegativeEnabled && (
+          {effectiveNegativeAlertsEnabled && (
             <div className="space-y-3 pt-3 border-t border-rose-100/80 animate-in fade-in duration-150">
               <div className="flex flex-wrap items-center gap-6">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifyNegativeEmail}
+                    checked={effectiveNegativeEmailAlertEnabled}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setNotifyNegativeEmail(checked);
-                      onToggleChange?.('notifyNegativeEmail', checked);
+                      if (setNegativeEmailAlertEnabled) setNegativeEmailAlertEnabled(checked);
+                      if (setNotifyNegativeEmail) setNotifyNegativeEmail(checked);
+                      onToggleChange?.('negativeEmailAlertEnabled', checked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
@@ -253,11 +333,12 @@ export default function MessagingChannelsCard({
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifyNegativeSms}
+                    checked={effectiveNegativeSmsAlertEnabled}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setNotifyNegativeSms(checked);
-                      onToggleChange?.('notifyNegativeSms', checked);
+                      if (setNegativeSmsAlertEnabled) setNegativeSmsAlertEnabled(checked);
+                      if (setNotifyNegativeSms) setNotifyNegativeSms(checked);
+                      onToggleChange?.('negativeSmsAlertEnabled', checked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
@@ -274,10 +355,10 @@ export default function MessagingChannelsCard({
                   <input
                     type="email"
                     placeholder="manager@business.com"
-                    value={negativeEmailAddress}
-                    onChange={(e) => setNegativeEmailAddress(e.target.value)}
+                    value={effectiveNegativeAlertEmail}
+                    onChange={(e) => handleNegEmailChange(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
-                    disabled={!notifyNegativeEmail}
+                    disabled={!effectiveNegativeEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>
@@ -289,10 +370,10 @@ export default function MessagingChannelsCard({
                   <input
                     type="tel"
                     placeholder="+1 (555) 000-0000"
-                    value={negativePhone}
-                    onChange={(e) => setNegativePhone(e.target.value)}
+                    value={effectiveNegativeAlertPhone}
+                    onChange={(e) => handleNegPhoneChange(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
-                    disabled={!notifyNegativeSms}
+                    disabled={!effectiveNegativeSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>
@@ -324,11 +405,12 @@ export default function MessagingChannelsCard({
             <label className="relative inline-flex items-center cursor-pointer shrink-0">
               <input
                 type="checkbox"
-                checked={notifyPositiveEnabled}
+                checked={effectivePositiveAlertsEnabled}
                 onChange={(e) => {
                   const checked = e.target.checked;
-                  setNotifyPositiveEnabled(checked);
-                  onToggleChange?.('notifyPositiveEnabled', checked);
+                  if (setPositiveAlertsEnabled) setPositiveAlertsEnabled(checked);
+                  if (setNotifyPositiveEnabled) setNotifyPositiveEnabled(checked);
+                  onToggleChange?.('positiveAlertsEnabled', checked);
                 }}
                 className="sr-only peer"
               />
@@ -336,17 +418,18 @@ export default function MessagingChannelsCard({
             </label>
           </div>
 
-          {notifyPositiveEnabled && (
+          {effectivePositiveAlertsEnabled && (
             <div className="space-y-3 pt-3 border-t border-amber-100/80 animate-in fade-in duration-150">
               <div className="flex flex-wrap items-center gap-6">
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifyPositiveEmail}
+                    checked={effectivePositiveEmailAlertEnabled}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setNotifyPositiveEmail(checked);
-                      onToggleChange?.('notifyPositiveEmail', checked);
+                      if (setPositiveEmailAlertEnabled) setPositiveEmailAlertEnabled(checked);
+                      if (setNotifyPositiveEmail) setNotifyPositiveEmail(checked);
+                      onToggleChange?.('positiveEmailAlertEnabled', checked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
@@ -357,11 +440,12 @@ export default function MessagingChannelsCard({
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={notifyPositiveSms}
+                    checked={effectivePositiveSmsAlertEnabled}
                     onChange={(e) => {
                       const checked = e.target.checked;
-                      setNotifyPositiveSms(checked);
-                      onToggleChange?.('notifyPositiveSms', checked);
+                      if (setPositiveSmsAlertEnabled) setPositiveSmsAlertEnabled(checked);
+                      if (setNotifyPositiveSms) setNotifyPositiveSms(checked);
+                      onToggleChange?.('positiveSmsAlertEnabled', checked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />
@@ -378,10 +462,25 @@ export default function MessagingChannelsCard({
                   <input
                     type="email"
                     placeholder="marketing@business.com"
-                    value={positiveEmailAddress}
-                    onChange={(e) => setPositiveEmailAddress(e.target.value)}
+                    value={effectivePositiveAlertEmail}
+                    onChange={(e) => handlePosEmailChange(e.target.value)}
                     onBlur={() => onAutoSaveNotifications?.()}
-                    disabled={!notifyPositiveEmail}
+                    disabled={!effectivePositiveEmailAlertEnabled}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    Positive Alert SMS Phone
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="+1 (555) 000-0000"
+                    value={effectivePositiveAlertPhone}
+                    onChange={(e) => handlePosPhoneChange(e.target.value)}
+                    onBlur={() => onAutoSaveNotifications?.()}
+                    disabled={!effectivePositiveSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
                 </div>

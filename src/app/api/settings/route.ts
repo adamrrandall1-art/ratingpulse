@@ -171,11 +171,25 @@ export async function GET(req: NextRequest) {
     const supabase = getAdminClient();
     const { profile, settings, profileId } = await resolveProfileAndSettings(supabase, targetUserId);
 
+    const notificationSettings = {
+      negativeAlertPhone: typeof business?.negativeAlertPhone === 'string' ? business.negativeAlertPhone : '',
+      negativeAlertEmail: typeof business?.negativeAlertEmail === 'string' ? business.negativeAlertEmail : '',
+      negativeAlertsEnabled: Boolean(business?.negativeAlertsEnabled ?? true),
+      negativeEmailAlertEnabled: Boolean(business?.negativeEmailAlertEnabled ?? true),
+      negativeSmsAlertEnabled: Boolean(business?.negativeSmsAlertEnabled ?? false),
+      positiveAlertPhone: typeof business?.positiveAlertPhone === 'string' ? business.positiveAlertPhone : '',
+      positiveAlertEmail: typeof business?.positiveAlertEmail === 'string' ? business.positiveAlertEmail : '',
+      positiveAlertsEnabled: Boolean(business?.positiveAlertsEnabled ?? true),
+      positiveEmailAlertEnabled: Boolean(business?.positiveEmailAlertEnabled ?? true),
+      positiveSmsAlertEnabled: Boolean(business?.positiveSmsAlertEnabled ?? false),
+    };
+
     return NextResponse.json({
       success: true,
       business,
       profile,
       settings,
+      notificationSettings,
       resolvedPhone: business?.phone || profile?.phone || '',
       resolvedEmail: business?.emailSender || profile?.notification_email || profile?.email || '',
     });

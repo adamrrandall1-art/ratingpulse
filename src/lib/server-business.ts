@@ -88,35 +88,33 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       : rawPhone;
 
     const negativeAlertPhone =
-      settings?.negative_alert_phone ||
-      settings?.notify_negative_phone ||
-      profile?.negative_alert_phone ||
-      profile?.notify_negative_phone ||
-      settings?.notification_phone ||
-      profile?.notification_phone ||
+      (typeof settings?.negative_alert_phone === 'string' && settings.negative_alert_phone) ||
+      (typeof settings?.notify_negative_phone === 'string' && settings.notify_negative_phone) ||
+      (typeof profile?.negative_alert_phone === 'string' && profile.negative_alert_phone) ||
+      (typeof profile?.notify_negative_phone === 'string' && profile.notify_negative_phone) ||
       '';
 
     const negativeAlertEmail =
-      settings?.negative_alert_email ||
-      settings?.notification_email ||
-      profile?.negative_alert_email ||
-      profile?.notification_email ||
-      profile?.email ||
+      (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
+      (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
+      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
+      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const positiveAlertPhone =
-      settings?.positive_alert_phone ||
-      settings?.notify_positive_phone ||
-      profile?.positive_alert_phone ||
-      profile?.notify_positive_phone ||
+      (typeof settings?.positive_alert_phone === 'string' && settings.positive_alert_phone) ||
+      (typeof settings?.notify_positive_phone === 'string' && settings.notify_positive_phone) ||
+      (typeof profile?.positive_alert_phone === 'string' && profile.positive_alert_phone) ||
+      (typeof profile?.notify_positive_phone === 'string' && profile.notify_positive_phone) ||
       '';
 
     const positiveAlertEmail =
-      settings?.positive_alert_email ||
-      settings?.notification_email ||
-      profile?.positive_alert_email ||
-      profile?.notification_email ||
-      profile?.email ||
+      (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
+      (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
+      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
+      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const negativeAlertsEnabled =
@@ -252,35 +250,33 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
     } catch {}
 
     const negativeAlertPhone =
-      settings?.negative_alert_phone ||
-      settings?.notify_negative_phone ||
-      profile?.negative_alert_phone ||
-      profile?.notify_negative_phone ||
-      settings?.notification_phone ||
-      profile?.notification_phone ||
+      (typeof settings?.negative_alert_phone === 'string' && settings.negative_alert_phone) ||
+      (typeof settings?.notify_negative_phone === 'string' && settings.notify_negative_phone) ||
+      (typeof profile?.negative_alert_phone === 'string' && profile.negative_alert_phone) ||
+      (typeof profile?.notify_negative_phone === 'string' && profile.notify_negative_phone) ||
       '';
 
     const negativeAlertEmail =
-      settings?.negative_alert_email ||
-      settings?.notification_email ||
-      profile?.negative_alert_email ||
-      profile?.notification_email ||
-      profile?.email ||
+      (typeof settings?.negative_alert_email === 'string' && settings.negative_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
+      (typeof profile?.negative_alert_email === 'string' && profile.negative_alert_email) ||
+      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
+      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const positiveAlertPhone =
-      settings?.positive_alert_phone ||
-      settings?.notify_positive_phone ||
-      profile?.positive_alert_phone ||
-      profile?.notify_positive_phone ||
+      (typeof settings?.positive_alert_phone === 'string' && settings.positive_alert_phone) ||
+      (typeof settings?.notify_positive_phone === 'string' && settings.notify_positive_phone) ||
+      (typeof profile?.positive_alert_phone === 'string' && profile.positive_alert_phone) ||
+      (typeof profile?.notify_positive_phone === 'string' && profile.notify_positive_phone) ||
       '';
 
     const positiveAlertEmail =
-      settings?.positive_alert_email ||
-      settings?.notification_email ||
-      profile?.positive_alert_email ||
-      profile?.notification_email ||
-      profile?.email ||
+      (typeof settings?.positive_alert_email === 'string' && settings.positive_alert_email) ||
+      (typeof settings?.notification_email === 'string' && settings.notification_email) ||
+      (typeof profile?.positive_alert_email === 'string' && profile.positive_alert_email) ||
+      (typeof profile?.notification_email === 'string' && profile.notification_email) ||
+      (typeof profile?.email === 'string' && profile.email) ||
       '';
 
     const negativeAlertsEnabled =
