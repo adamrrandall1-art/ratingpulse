@@ -52,6 +52,8 @@ export default function SettingsPage() {
       }
     : supabaseUser;
   const {
+    activeBusiness,
+    setActiveBusiness,
     profile,
     settings,
     updateSettings,
@@ -141,22 +143,49 @@ export default function SettingsPage() {
       }
 
       try {
-        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}`);
+        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
         if (res.ok) {
           const json = await res.json();
           if (json.success) {
             const p = json.profile;
             const s = json.settings;
+            const b = json.business;
 
             if (p?.full_name) setFullName(p.full_name);
             if (p?.email) setAdminEmail(p.email);
 
-            const resolvedPhone = json.resolvedPhone || '';
-            const resolvedEmail = json.resolvedEmail || user?.email || '';
+            if (b) {
+              setActiveBusiness(b);
+            }
 
-            setNegativePhone(resolvedPhone);
-            setNegativeEmailAddress(resolvedEmail);
-            setPositiveEmailAddress(resolvedEmail);
+            const resolvedPhone =
+              json.resolvedPhone ||
+              b?.phone ||
+              s?.notify_negative_phone ||
+              s?.notification_phone ||
+              p?.notify_negative_phone ||
+              p?.notification_phone ||
+              p?.phone ||
+              '';
+            const resolvedEmail =
+              json.resolvedEmail ||
+              b?.emailSender ||
+              s?.notification_email ||
+              p?.notification_email ||
+              p?.email ||
+              user?.email ||
+              '';
+
+            if (resolvedPhone) {
+              setNegativePhone(resolvedPhone);
+            }
+            if (resolvedEmail) {
+              setNegativeEmailAddress(resolvedEmail);
+              setPositiveEmailAddress(resolvedEmail);
+            }
 
             if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
               setNotifyNegativeEnabled(Boolean(s.notify_negative_enabled));
@@ -372,6 +401,8 @@ export default function SettingsPage() {
       // Post to Server-Side Settings API
       const payload = {
         userId: activeUserId,
+        activeBusinessId: activeUserId,
+        businessId: activeUserId,
         full_name: fullName,
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
@@ -379,6 +410,8 @@ export default function SettingsPage() {
         notify_positive_phone: primaryNotificationPhone,
         alert_phone: primaryNotificationPhone,
         phone: primaryNotificationPhone,
+        smsSenderNumber: primaryNotificationPhone,
+        emailSender: primaryNotificationEmail,
         sms_alerts_enabled: notifyNegativeSms || notifyPositiveSms,
         notify_negative_enabled: notifyNegativeEnabled,
         notify_negative_email: notifyNegativeEmail,
@@ -437,9 +470,18 @@ export default function SettingsPage() {
         notify_positive_sms: notifyPositiveSms,
       });
 
+      if (resData.business) {
+        setActiveBusiness(resData.business);
+      } else {
+        setActiveBusiness({
+          ...activeBusiness,
+          phone: primaryNotificationPhone || activeBusiness.phone,
+        });
+      }
+
       setIsSaved(true);
       toast.success('Settings Saved Successfully!', {
-        description: 'Your Google integration, AI persona, and delivery preferences have been synced.',
+        description: 'Your business profile, channels, and delivery preferences have been synced to the database.',
       });
       setTimeout(() => setIsSaved(false), 2500);
     } catch (err: any) {

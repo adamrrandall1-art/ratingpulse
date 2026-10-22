@@ -12,6 +12,8 @@ const NO_CACHE_HEADERS = {
   'Expires': '0',
 };
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const supabaseKey =
@@ -25,6 +27,125 @@ function getSupabaseAdmin() {
     '';
   if (!supabaseUrl || !supabaseKey) return null;
   return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
+}
+
+async function resolveBusinessStatus(userId: string) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) {
+    throw new Error('Database unconfigured');
+  }
+
+  // Try finding profile by id or clerk_user_id
+  let profile: any = null;
+  if (UUID_REGEX.test(userId)) {
+    try {
+      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (pById) profile = pById;
+    } catch {}
+  }
+
+  if (!profile) {
+    try {
+      const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
+      if (pByClerk) profile = pByClerk;
+    } catch {}
+  }
+
+  // Try finding settings by user_id
+  let settings: any = null;
+  try {
+    const { data: sByUserId } = await supabase.from('business_settings').select('*').eq('user_id', userId).maybeSingle();
+    if (sByUserId) {
+      settings = sByUserId;
+    } else if (profile?.id) {
+      const { data: sByProfId } = await supabase.from('business_settings').select('*').eq('user_id', profile.id).maybeSingle();
+      if (sByProfId) settings = sByProfId;
+    }
+  } catch {}
+
+  const placeId = profile?.google_place_id || settings?.place_id || '';
+  const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
+  const directReviewUrl = profile?.review_url || settings?.google_review_url || (settings as any)?.review_url || '';
+  const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
+  const hasDirectReviewUrl = Boolean(effectiveReviewUrl && effectiveReviewUrl.startsWith('http'));
+  const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
+
+  const isGoogleConnected = Boolean(
+    profile?.google_connected ||
+    profile?.google_access_token ||
+    settings?.google_access_token ||
+    settings?.google_connected ||
+    hasDirectReviewUrl
+  );
+
+  const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
+
+  const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
+  const isPlaceholderPhone = (p?: string | null) => {
+    if (!p) return true;
+    const clean = p.replace(/\D/g, '');
+    return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
+  };
+  const rawPhone =
+    profile?.phone ||
+    profile?.notification_phone ||
+    profile?.notify_negative_phone ||
+    settings?.notification_phone ||
+    settings?.notify_negative_phone ||
+    settings?.phone ||
+    '';
+  const activePhone = (!rawPhone || isPlaceholderPhone(rawPhone))
+    ? outboundPhone
+    : rawPhone;
+
+  const businessName = profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : null);
+  const formattedAddress = profile?.formatted_address || '';
+  const rating = Number(profile?.google_rating) || 0;
+  const reviewCount = Number(profile?.google_review_count) || 0;
+
+  const business = {
+    id: profile?.id || userId,
+    businessId: profile?.id || userId,
+    name: businessName || 'RatingPulse',
+    category: profile?.business_category || 'Local Business',
+    address: formattedAddress,
+    phone: activePhone || outboundPhone || '',
+    smsSenderNumber: activePhone || outboundPhone || '',
+    emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
+    placeId: hasValidPlaceId ? placeId : '',
+    reviewUrl: effectiveReviewUrl,
+    googleReviewUrl: effectiveReviewUrl,
+    reviewLink: effectiveReviewUrl,
+    rating,
+    reviewCount,
+    isGoogleConnected,
+    google_connected: isGoogleConnected,
+    isConnected: isGoogleConnected,
+    isPendingPlaceId,
+  };
+
+  return {
+    success: true,
+    isGoogleConnected,
+    google_connected: isGoogleConnected,
+    hasPlaceId,
+    isPendingPlaceId,
+    businessName,
+    placeId: hasValidPlaceId ? placeId : '',
+    formattedAddress,
+    reviewUrl: effectiveReviewUrl,
+    googleReviewUrl: effectiveReviewUrl,
+    reviewLink: effectiveReviewUrl,
+    phone: activePhone || outboundPhone || '',
+    outboundPhone: outboundPhone,
+    outboundPhoneNumber: outboundPhone,
+    twilioPhoneNumber: outboundPhone,
+    rating,
+    reviewCount,
+    business,
+    profile,
+    settings,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -42,93 +163,8 @@ export async function GET(req: NextRequest) {
       }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
-    const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json({
-        success: false,
-        isGoogleConnected: false,
-        google_connected: false,
-        error: 'Database unconfigured',
-      }, { status: 500, headers: NO_CACHE_HEADERS });
-    }
-
-    // Try finding profile by id or clerk_user_id
-    let profile: any = null;
-    try {
-      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (pById) profile = pById;
-    } catch {}
-
-    if (!profile) {
-      try {
-        const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
-        if (pByClerk) profile = pByClerk;
-      } catch {}
-    }
-
-    // Try finding settings by user_id
-    let settings: any = null;
-    try {
-      const { data: sByUserId } = await supabase.from('business_settings').select('*').eq('user_id', userId).maybeSingle();
-      if (sByUserId) {
-        settings = sByUserId;
-      } else if (profile?.id) {
-        const { data: sByProfId } = await supabase.from('business_settings').select('*').eq('user_id', profile.id).maybeSingle();
-        if (sByProfId) settings = sByProfId;
-      }
-    } catch {}
-
-    const placeId = profile?.google_place_id || settings?.place_id || '';
-    const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-    const directReviewUrl = profile?.review_url || (settings as any)?.review_url || '';
-    const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
-    const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
-
-    const isGoogleConnected = Boolean(
-      profile?.google_connected ||
-      profile?.google_access_token ||
-      settings?.google_access_token ||
-      hasDirectReviewUrl
-    );
-
-    const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
-    const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
-
-    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
-    const isPlaceholderPhone = (p?: string | null) => {
-      if (!p) return true;
-      const clean = p.replace(/\D/g, '');
-      return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
-    };
-    const rawPhone = profile?.phone || settings?.phone || '';
-    const activePhone = (!rawPhone || isPlaceholderPhone(rawPhone))
-      ? outboundPhone
-      : rawPhone;
-
-    const statusString = isGoogleConnected ? 'connected' : 'disconnected';
-    console.log(`[Business Status] User connection status: ${statusString}`);
-
-    return NextResponse.json({
-      success: true,
-      isGoogleConnected,
-      google_connected: isGoogleConnected,
-      hasPlaceId,
-      isPendingPlaceId,
-      businessName: profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : null),
-      placeId: hasValidPlaceId ? placeId : '',
-      formattedAddress: profile?.formatted_address || '',
-      reviewUrl: effectiveReviewUrl,
-      googleReviewUrl: effectiveReviewUrl,
-      reviewLink: effectiveReviewUrl,
-      phone: activePhone || outboundPhone || '',
-      outboundPhone: outboundPhone,
-      outboundPhoneNumber: outboundPhone,
-      twilioPhoneNumber: outboundPhone,
-      rating: Number(profile?.google_rating) || 0,
-      reviewCount: Number(profile?.google_review_count) || 0,
-      profile,
-      settings,
-    }, { headers: NO_CACHE_HEADERS });
+    const data = await resolveBusinessStatus(userId);
+    return NextResponse.json(data, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     console.error('[Business Status GET Error]:', err);
     return NextResponse.json(
@@ -142,71 +178,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const clerkAuth = await auth().catch(() => null);
-    const userId = body.userId || body.user_id || clerkAuth?.userId;
+    const userId = body.userId || body.user_id || body.id || clerkAuth?.userId;
 
-    if (!userId) {
+    if (!userId || userId.startsWith('usr_mock')) {
       return NextResponse.json({ success: false, isGoogleConnected: false, error: 'User ID required' }, { status: 400, headers: NO_CACHE_HEADERS });
     }
 
-    const supabase = getSupabaseAdmin();
-    if (!supabase) {
-      return NextResponse.json({ success: false, isGoogleConnected: false, error: 'Database unconfigured' }, { status: 500, headers: NO_CACHE_HEADERS });
-    }
-
-    let profile: any = null;
-    try {
-      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
-      if (pById) profile = pById;
-    } catch {}
-
-    if (!profile) {
-      try {
-        const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
-        if (pByClerk) profile = pByClerk;
-      } catch {}
-    }
-
-    const directReviewUrl = profile?.review_url || '';
-    const hasDirectReviewUrl = Boolean(directReviewUrl && directReviewUrl.startsWith('http'));
-    const isGoogleConnected = Boolean(profile?.google_connected || profile?.google_access_token || hasDirectReviewUrl);
-    const placeId = profile?.google_place_id || '';
-    const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-    const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
-    const isPendingPlaceId = Boolean(isGoogleConnected && !hasPlaceId);
-    const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || '';
-
-    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
-    const isPlaceholderPhone = (p?: string | null) => {
-      if (!p) return true;
-      const clean = p.replace(/\D/g, '');
-      return clean.includes('555') || p.includes('123 Main') || p === '(585) 360-2026' || p === '(585) 203-1280';
-    };
-    const rawPhone = profile?.phone || '';
-    const activePhone = (!rawPhone || isPlaceholderPhone(rawPhone))
-      ? outboundPhone
-      : rawPhone;
-
-    const statusString = isGoogleConnected ? 'connected' : 'disconnected';
-    console.log(`[Business Status] User connection status: ${statusString}`);
-
-    return NextResponse.json({
-      success: true,
-      isGoogleConnected,
-      google_connected: isGoogleConnected,
-      hasPlaceId,
-      isPendingPlaceId,
-      businessName: profile?.business_name || (isGoogleConnected ? 'RatingPulse' : null),
-      placeId: hasValidPlaceId ? placeId : '',
-      formattedAddress: profile?.formatted_address || '',
-      reviewUrl: effectiveReviewUrl,
-      googleReviewUrl: effectiveReviewUrl,
-      reviewLink: effectiveReviewUrl,
-      phone: activePhone || outboundPhone || '',
-      outboundPhone: outboundPhone,
-      outboundPhoneNumber: outboundPhone,
-      twilioPhoneNumber: outboundPhone,
-      profile,
-    }, { headers: NO_CACHE_HEADERS });
+    const data = await resolveBusinessStatus(userId);
+    return NextResponse.json(data, { headers: NO_CACHE_HEADERS });
   } catch (err: any) {
     console.error('[Business Status POST Error]:', err);
     return NextResponse.json({ success: false, error: err?.message || 'Failed to check status' }, { status: 500, headers: NO_CACHE_HEADERS });

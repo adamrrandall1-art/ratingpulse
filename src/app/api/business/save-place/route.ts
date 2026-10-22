@@ -1,4 +1,5 @@
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
@@ -84,6 +85,19 @@ export async function POST(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     if (supabase && userId) {
+      let profile: any = null;
+      try {
+        const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+        if (pById) profile = pById;
+      } catch {}
+      if (!profile) {
+        try {
+          const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
+          if (pByClerk) profile = pByClerk;
+        } catch {}
+      }
+      const profileId = profile?.id || userId;
+
       const profileUpdates: Record<string, unknown> = {
         review_url: googleReviewUrl,
         google_connected: true,
@@ -100,9 +114,16 @@ export async function POST(req: NextRequest) {
         if (fetchedDetails.user_ratings_total) profileUpdates.google_review_count = fetchedDetails.user_ratings_total;
       }
 
-      await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+      if (profile?.id) {
+        await supabase.from('profiles').update(profileUpdates).eq('id', profile.id);
+      } else {
+        await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+      }
 
       const settingsUpdates: Record<string, unknown> = {
+        user_id: profileId,
+        google_review_url: googleReviewUrl,
+        google_connected: true,
         updated_at: new Date().toISOString(),
       };
       if (placeId) {
@@ -112,16 +133,16 @@ export async function POST(req: NextRequest) {
         settingsUpdates.business_name = fetchedDetails.name;
       }
       try {
-        await supabase.from('business_settings').update(settingsUpdates).eq('user_id', userId);
+        await supabase.from('business_settings').upsert(settingsUpdates, { onConflict: 'user_id' });
       } catch (settErr) {
-        console.warn('[save-place] update business_settings warning:', settErr);
+        console.warn('[save-place] upsert business_settings warning:', settErr);
       }
     }
 
     try {
-      revalidatePath('/dashboard', 'layout');
       revalidatePath('/dashboard/setup');
       revalidatePath('/dashboard/businesses');
+      revalidatePath('/dashboard', 'layout');
       revalidatePath('/dashboard');
       revalidatePath('/dashboard/reviews');
       revalidatePath('/dashboard/invites');
@@ -138,8 +159,18 @@ export async function POST(req: NextRequest) {
       reviewUrl: googleReviewUrl,
       reviewLink: googleReviewUrl,
       isGoogleConnected: true,
+      isConnected: true,
       hasPlaceId: true,
       isPendingPlaceId: false,
+      business: {
+        id: userId,
+        googleReviewUrl,
+        reviewUrl: googleReviewUrl,
+        placeId,
+        isGoogleConnected: true,
+        isConnected: true,
+        isPendingPlaceId: false,
+      },
       details: fetchedDetails,
     });
   } catch (err: any) {

@@ -783,6 +783,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
                 isPendingPlaceId: true,
                 googleLocationId: (prof as any).google_location_id || undefined,
               });
+            } else if (prof.business_name || prof.phone || json.businessName || json.phone) {
+              zustandStore.setLiveBusiness({
+                id: prof.id || activeUserId,
+                name: json.businessName || prof.business_name || 'RatingPulse',
+                category: prof.business_category || 'Local Business',
+                address: json.formattedAddress || prof.formatted_address || '',
+                phone: effectivePhone,
+                placeId: validPlaceId,
+                reviewUrl: directReviewUrl,
+                googleReviewUrl: directReviewUrl,
+                rating: Number(json.rating) || 0,
+                reviewCount: Number(json.reviewCount) || 0,
+                isGoogleConnected: false,
+                isConnected: false,
+                isDemoMode: false,
+                isPendingPlaceId: false,
+                googleLocationId: (prof as any).google_location_id || undefined,
+              });
             } else {
               zustandStore.setLiveBusiness(null);
             }

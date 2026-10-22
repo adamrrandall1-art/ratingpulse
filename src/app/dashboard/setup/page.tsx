@@ -301,19 +301,40 @@ function BusinessSetupContent() {
           reviewUrl: activeBusiness.reviewUrl || profile.review_url || '',
         });
       } else {
-        setBusinessName('');
-        setBusinessAddress('');
-        setBusinessPhone('');
-        setBusinessCategory('Local Business');
-        setReviewUrl('');
-        setSelectedPlace({
-          placeId: '',
-          businessName: '',
-          formattedAddress: '',
-          rating: 0,
-          reviewCount: 0,
-          reviewUrl: '',
-        });
+        const hasExistingName = activeBusiness?.name || profile?.business_name;
+        const hasExistingPhone = activeBusiness?.phone || profile?.phone;
+        const hasExistingAddress = activeBusiness?.address || profile?.formatted_address;
+        const hasExistingReviewUrl = activeBusiness?.reviewUrl || profile?.review_url;
+        const hasExistingPlaceId = activeBusiness?.placeId || profile?.google_place_id;
+
+        if (hasExistingName || hasExistingPhone || hasExistingReviewUrl || hasExistingPlaceId) {
+          if (hasExistingName) setBusinessName(hasExistingName);
+          if (hasExistingAddress) setBusinessAddress(hasExistingAddress);
+          if (hasExistingPhone) setBusinessPhone(resolveDisplayPhone(hasExistingPhone));
+          if (hasExistingReviewUrl) setReviewUrl(hasExistingReviewUrl);
+          setSelectedPlace({
+            placeId: hasExistingPlaceId || '',
+            businessName: hasExistingName || '',
+            formattedAddress: hasExistingAddress || '',
+            rating: activeBusiness?.rating || Number(profile?.google_rating) || 0,
+            reviewCount: activeBusiness?.reviewCount || profile?.google_review_count || 0,
+            reviewUrl: hasExistingReviewUrl || '',
+          });
+        } else {
+          setBusinessName('');
+          setBusinessAddress('');
+          setBusinessPhone('');
+          setBusinessCategory('Local Business');
+          setReviewUrl('');
+          setSelectedPlace({
+            placeId: '',
+            businessName: '',
+            formattedAddress: '',
+            rating: 0,
+            reviewCount: 0,
+            reviewUrl: '',
+          });
+        }
       }
       if (settings) {
         setAutoPublish5Star(settings.auto_publish_5_star ?? false);
@@ -396,6 +417,7 @@ function BusinessSetupContent() {
         placeId: finalPlaceId,
         reviewUrl: finalReviewUrl,
         googleReviewUrl: finalReviewUrl,
+        isGoogleConnected: true,
         isConnected: true,
         isPendingPlaceId: false,
       });
@@ -495,6 +517,47 @@ function BusinessSetupContent() {
       await updateSettings({
         auto_publish_5_star: autoPublish5Star,
       });
+
+      // Persist to server database
+      try {
+        const res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: activeUserId || profile.id,
+            activeBusinessId: activeUserId || profile.id,
+            business_name: chosenBusinessName,
+            formatted_address: chosenAddress,
+            phone: businessPhone,
+            smsSenderNumber: businessPhone,
+            business_category: businessCategory,
+            google_place_id: chosenPlaceId,
+            place_id: chosenPlaceId,
+            review_url: gReviewUrl,
+            googleReviewUrl: gReviewUrl,
+            auto_publish_5_star: autoPublish5Star,
+          }),
+        });
+
+        const data = await res.json().catch(() => null);
+        if (data?.business) {
+          setActiveBusiness(data.business);
+        } else {
+          setActiveBusiness({
+            ...activeBusiness,
+            name: chosenBusinessName || activeBusiness.name,
+            address: chosenAddress || activeBusiness.address,
+            phone: businessPhone || activeBusiness.phone,
+            category: businessCategory || activeBusiness.category,
+            placeId: chosenPlaceId || activeBusiness.placeId,
+            reviewUrl: gReviewUrl || activeBusiness.reviewUrl,
+            googleReviewUrl: gReviewUrl || activeBusiness.googleReviewUrl,
+          });
+        }
+      } catch (postErr) {
+        console.warn('[setup] Server persistence note:', postErr);
+      }
+
       toast.success('Business profile updated', {
         description: 'Your business details and sync preferences have been saved.',
       });

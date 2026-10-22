@@ -65,6 +65,19 @@ export async function saveAndAttachPlaceAction(formData: FormData) {
 
   const supabase = getSupabaseAdmin();
   if (supabase && userId) {
+    let profile: any = null;
+    try {
+      const { data: pById } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+      if (pById) profile = pById;
+    } catch {}
+    if (!profile) {
+      try {
+        const { data: pByClerk } = await supabase.from('profiles').select('*').eq('clerk_user_id', userId).maybeSingle();
+        if (pByClerk) profile = pByClerk;
+      } catch {}
+    }
+    const profileId = profile?.id || userId;
+
     const profileUpdates: Record<string, unknown> = {
       review_url: googleReviewUrl,
       google_connected: true,
@@ -81,22 +94,33 @@ export async function saveAndAttachPlaceAction(formData: FormData) {
       if (fetchedDetails.user_ratings_total) profileUpdates.google_review_count = fetchedDetails.user_ratings_total;
     }
 
-    await supabase.from('profiles').update(profileUpdates).eq('id', userId);
+    if (profile?.id) {
+      await supabase.from('profiles').update(profileUpdates).eq('id', profile.id);
+    } else {
+      await supabase.from('profiles').update(profileUpdates).or(`id.eq.${userId},clerk_user_id.eq.${userId}`);
+    }
 
     const settingsUpdates: Record<string, unknown> = {
+      user_id: profileId,
+      google_review_url: googleReviewUrl,
+      google_connected: true,
       updated_at: new Date().toISOString(),
     };
     if (placeId) settingsUpdates.place_id = placeId;
     if (fetchedDetails?.name) settingsUpdates.business_name = fetchedDetails.name;
 
     try {
-      await supabase.from('business_settings').update(settingsUpdates).eq('user_id', userId);
+      await supabase.from('business_settings').upsert(settingsUpdates, { onConflict: 'user_id' });
     } catch (settErr) {
       console.warn('[saveAndAttachPlaceAction] update settings warning:', settErr);
     }
   }
 
   revalidatePath('/dashboard/setup');
+  revalidatePath('/dashboard/businesses');
+  revalidatePath('/dashboard', 'layout');
+  revalidatePath('/dashboard');
+  revalidatePath('/dashboard/settings');
   redirect('/dashboard/setup?business=RatingPulse&connected=true');
 }
 
