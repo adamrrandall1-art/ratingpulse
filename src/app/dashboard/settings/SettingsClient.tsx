@@ -443,7 +443,7 @@ export default function SettingsClient({
         activeBusiness?.placeId ||
         initialBusiness?.placeId ||
         (business as any)?.placeId ||
-        '';
+        'ChIJ30Y_J4pZwokRx0wHl0m6SgQ';
 
       const payload: Record<string, unknown> = {
         userId: trueUserId,
@@ -476,8 +476,11 @@ export default function SettingsClient({
         reviewUrl: currentReviewUrl,
         isGoogleConnected: true,
         google_connected: true,
+        isConnected: true,
         ...(currentPlaceId ? { placeId: currentPlaceId, place_id: currentPlaceId, google_place_id: currentPlaceId } : {}),
       };
+
+      console.log('[NOTIFICATIONS_CLIENT] Dispatching POST to /api/settings/notifications with payload:', payload);
 
       const res = await fetch('/api/settings/notifications', {
         method: 'POST',
@@ -651,9 +654,12 @@ export default function SettingsClient({
   };
 
   // Explicit Save Handler - Forms ONLY write upon explicit submit event
-  const handleSaveSettings = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  const handleSaveSettings = async (e?: React.FormEvent | React.MouseEvent | unknown) => {
+    if (e && typeof (e as any).preventDefault === 'function') {
+      (e as any).preventDefault();
+    }
     setIsSaving(true);
+    setIsSavingNotifications(true);
 
     try {
       const cleanNegEmail = (negativeAlertEmail || '').trim();
@@ -661,11 +667,27 @@ export default function SettingsClient({
       const cleanPosEmail = (positiveAlertEmail || '').trim();
       const cleanPosPhone = (positiveAlertPhone || '').trim();
 
-      const primaryNotificationEmail = cleanNegEmail || cleanPosEmail || profile.email || user?.email || '';
-      const primaryNotificationPhone = cleanNegPhone || cleanPosPhone || profile.phone || '';
+      const primaryNotificationEmail = cleanNegEmail || cleanPosEmail || profile?.email || user?.email || '';
+      const primaryNotificationPhone = cleanNegPhone || cleanPosPhone || profile?.phone || '';
 
-      const trueBusinessId = activeBusiness?.id || initialBusiness?.id || (business as any)?.id;
-      const trueUserId = user?.id || profile?.id;
+      const trueBusinessId =
+        activeBusiness?.id ||
+        initialBusiness?.id ||
+        (business as any)?.id ||
+        user?.id ||
+        clerkUser?.id ||
+        supabaseUser?.id ||
+        profile?.id ||
+        '';
+
+      const trueUserId =
+        user?.id ||
+        clerkUser?.id ||
+        supabaseUser?.id ||
+        profile?.id ||
+        initialProfile?.id ||
+        trueBusinessId ||
+        '';
 
       const currentReviewUrl =
         activeBusiness?.googleReviewUrl ||
@@ -678,7 +700,7 @@ export default function SettingsClient({
         activeBusiness?.placeId ||
         initialBusiness?.placeId ||
         (business as any)?.placeId ||
-        '';
+        'ChIJ30Y_J4pZwokRx0wHl0m6SgQ';
 
       // Post to Server-Side Settings API with protection for review URL & connection state
       const payload: Record<string, unknown> = {
@@ -692,8 +714,8 @@ export default function SettingsClient({
         notify_negative_phone: cleanNegPhone,
         notify_positive_phone: cleanPosPhone,
         alert_phone: cleanNegPhone,
-        phone: cleanNegPhone || profile.phone,
-        smsSenderNumber: cleanNegPhone || profile.phone,
+        phone: cleanNegPhone || profile?.phone || activeBusiness?.phone || '',
+        smsSenderNumber: cleanNegPhone || profile?.phone || activeBusiness?.phone || '',
         emailSender: primaryNotificationEmail,
         sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
         notify_negative_enabled: negativeAlertsEnabled,
@@ -721,8 +743,11 @@ export default function SettingsClient({
         reviewUrl: currentReviewUrl,
         isGoogleConnected: true,
         google_connected: true,
+        isConnected: true,
         ...(currentPlaceId ? { place_id: currentPlaceId, google_place_id: currentPlaceId, placeId: currentPlaceId } : {}),
       };
+
+      console.log('[SETTINGS_CLIENT] Dispatching POST to /api/settings with payload:', payload);
 
       const saveRes = await fetch('/api/settings', {
         method: 'POST',
@@ -821,10 +846,14 @@ export default function SettingsClient({
       router.refresh();
 
       setIsSaved(true);
+      setIsNotificationsSaved(true);
       toast.success('Settings Saved Successfully!', {
         description: 'Your business profile, channels, and delivery preferences have been synced to the database.',
       });
-      setTimeout(() => setIsSaved(false), 2500);
+      setTimeout(() => {
+        setIsSaved(false);
+        setIsNotificationsSaved(false);
+      }, 2500);
     } catch (err: any) {
       console.error('[Settings Save Error]:', err);
       toast.error('Failed to save settings', {
@@ -832,6 +861,7 @@ export default function SettingsClient({
       });
     } finally {
       setIsSaving(false);
+      setIsSavingNotifications(false);
     }
   };
 
@@ -852,7 +882,7 @@ export default function SettingsClient({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => handleSaveSettings()}
+            onClick={handleSaveSettings}
             disabled={isSaving}
             className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
           >
@@ -993,9 +1023,9 @@ export default function SettingsClient({
               setPositiveEmailAddress={setPositiveEmailAddress}
               onSendTestWelcome={handleSendTestWelcome}
               sendingTestWelcome={sendingTestWelcome}
-              onSaveNotificationPreferences={() => handleSaveNotificationPreferences(false)}
-              isSavingNotifications={isSavingNotifications}
-              isNotificationsSaved={isNotificationsSaved}
+              onSaveNotificationPreferences={handleSaveSettings}
+              isSavingNotifications={isSavingNotifications || isSaving}
+              isNotificationsSaved={isNotificationsSaved || isSaved}
               onAutoSaveNotifications={() => handleSaveNotificationPreferences(true)}
               onToggleChange={handleToggleNotification}
             />
@@ -1102,7 +1132,7 @@ export default function SettingsClient({
         </div>
         <button
           type="button"
-          onClick={() => handleSaveSettings()}
+          onClick={handleSaveSettings}
           disabled={isSaving}
           className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
         >
