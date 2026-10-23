@@ -18,7 +18,12 @@ function getAdminClient() {
     process.env.SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     '';
+
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
 
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -28,6 +33,7 @@ function getAdminClient() {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function resolveProfile(supabase: ReturnType<typeof getAdminClient>, rawUserId?: string | null) {
+  if (!supabase) return null;
   let profile: any = null;
 
   if (rawUserId) {
@@ -127,7 +133,7 @@ export async function handleUpdateBusiness(req: NextRequest) {
     if (effectiveCategory !== undefined) profileUpdates.business_category = effectiveCategory;
     if (effectiveWebsite !== undefined) profileUpdates.website = effectiveWebsite;
 
-    if (profileId) {
+    if (profileId && supabase) {
       const { error: profErr } = await supabase
         .from('profiles')
         .update(profileUpdates)

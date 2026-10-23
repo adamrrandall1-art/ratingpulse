@@ -18,7 +18,12 @@ function getAdminClient() {
     process.env.SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
     '';
+
+  if (!supabaseUrl || !supabaseKey) {
+    return null;
+  }
 
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -28,7 +33,7 @@ function getAdminClient() {
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function resolveProfileId(supabase: ReturnType<typeof getAdminClient>, rawUserId?: string | null) {
-  if (!rawUserId) return null;
+  if (!supabase || !rawUserId) return null;
   if (UUID_REGEX.test(rawUserId)) {
     try {
       const { data } = await supabase.from('profiles').select('id').eq('id', rawUserId).maybeSingle();
@@ -253,99 +258,97 @@ export async function handleSaveNotifications(req: NextRequest) {
       settingsUpdates.positive_sms_alert_enabled = Boolean(positiveSmsAlertEnabled);
     }
 
-    // Execute database updates
-    // Isolated partial updates modifying ONLY notification routing fields
-    const [profRes] = await Promise.allSettled([
-      supabase.from('profiles').update(profileUpdates).eq('id', profileId),
-    ]);
+    // Execute database updates if Supabase client is available
+    if (supabase) {
+      const [profRes] = await Promise.allSettled([
+        supabase.from('profiles').update(profileUpdates).eq('id', profileId),
+      ]);
 
-    if (profRes.status === 'fulfilled' && profRes.value.error) {
-      console.error('[Notification Settings API] Profile update error:', profRes.value.error);
-    }
-
-    // Update business_settings via safe update/insert preserving existing placeId & googleReviewUrl
-    try {
-      const { data: existingSettings } = await supabase
-        .from('business_settings')
-        .select('id, user_id, place_id, google_review_url')
-        .eq('user_id', profileId)
-        .maybeSingle();
-
-      if (existingSettings) {
-        await supabase
-          .from('business_settings')
-          .update(settingsUpdates)
-          .eq('user_id', profileId);
-      } else {
-        await supabase
-          .from('business_settings')
-          .insert({
-            user_id: profileId,
-            ...settingsUpdates,
-            place_id: existingBusiness?.placeId || undefined,
-            google_review_url: existingBusiness?.googleReviewUrl || undefined,
-            google_connected: existingBusiness?.isGoogleConnected || undefined,
-          });
+      if (profRes.status === 'fulfilled' && profRes.value.error) {
+        console.error('[Notification Settings API] Profile update error:', profRes.value.error);
       }
-    } catch (settErr) {
-      console.warn('[Notification Settings API] Business settings update note:', settErr);
-    }
 
-    // Database / Prisma partial update pattern for business:
-    // Ensure isGoogleConnected is NEVER included unless explicitly changing connection status.
-    // Ensure googleReviewUrl is NEVER set to null or undefined.
-    const businessPartialUpdate: Record<string, unknown> = {
-      ...(cleanNegEmail !== undefined && { negativeAlertEmail: cleanNegEmail, negative_alert_email: cleanNegEmail }),
-      ...(cleanNegPhone !== undefined && { negativeAlertPhone: cleanNegPhone, negative_alert_phone: cleanNegPhone }),
-      ...(cleanPosEmail !== undefined && { positiveAlertEmail: cleanPosEmail, positive_alert_email: cleanPosEmail }),
-      ...(cleanPosPhone !== undefined && { positiveAlertPhone: cleanPosPhone, positive_alert_phone: cleanPosPhone }),
-      ...(negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(negativeAlertsEnabled), negative_alerts_enabled: Boolean(negativeAlertsEnabled) }),
-      ...(positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(positiveAlertsEnabled), positive_alerts_enabled: Boolean(positiveAlertsEnabled) }),
-      ...(negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(negativeEmailAlertEnabled), negative_email_alert_enabled: Boolean(negativeEmailAlertEnabled) }),
-      ...(negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(negativeSmsAlertEnabled), negative_sms_alert_enabled: Boolean(negativeSmsAlertEnabled) }),
-      ...(positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(positiveEmailAlertEnabled), positive_email_alert_enabled: Boolean(positiveEmailAlertEnabled) }),
-      ...(positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(positiveSmsAlertEnabled), positive_sms_alert_enabled: Boolean(positiveSmsAlertEnabled) }),
-      updatedAt: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+      // Update business_settings via safe update/insert preserving existing placeId & googleReviewUrl
+      try {
+        const { data: existingSettings } = await supabase
+          .from('business_settings')
+          .select('id, user_id, place_id, google_review_url')
+          .eq('user_id', profileId)
+          .maybeSingle();
 
-    // Safe partial update across potential ID match columns
-    if (actualBusinessId) {
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('id', actualBusinessId);
-      } catch {}
-    }
-    if (effectiveUserId) {
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', effectiveUserId);
-      } catch {}
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', effectiveUserId);
-      } catch {}
-    }
-    if (clerkUserId && clerkUserId !== effectiveUserId) {
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', clerkUserId);
-      } catch {}
-    }
-    if (targetUserId && targetUserId !== effectiveUserId) {
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('id', targetUserId);
-      } catch {}
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', targetUserId);
-      } catch {}
-    }
-    if (profileId) {
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
-      } catch {}
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
-      } catch {}
-      try {
-        await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
-      } catch {}
+        if (existingSettings) {
+          await supabase
+            .from('business_settings')
+            .update(settingsUpdates)
+            .eq('user_id', profileId);
+        } else {
+          await supabase
+            .from('business_settings')
+            .insert({
+              user_id: profileId,
+              ...settingsUpdates,
+              place_id: existingBusiness?.placeId || undefined,
+              google_review_url: existingBusiness?.googleReviewUrl || undefined,
+              google_connected: existingBusiness?.isGoogleConnected || undefined,
+            });
+        }
+      } catch (settErr) {
+        console.warn('[Notification Settings API] Business settings update note:', settErr);
+      }
+
+      const businessPartialUpdate: Record<string, unknown> = {
+        ...(cleanNegEmail !== undefined && { negativeAlertEmail: cleanNegEmail, negative_alert_email: cleanNegEmail }),
+        ...(cleanNegPhone !== undefined && { negativeAlertPhone: cleanNegPhone, negative_alert_phone: cleanNegPhone }),
+        ...(cleanPosEmail !== undefined && { positiveAlertEmail: cleanPosEmail, positive_alert_email: cleanPosEmail }),
+        ...(cleanPosPhone !== undefined && { positiveAlertPhone: cleanPosPhone, positive_alert_phone: cleanPosPhone }),
+        ...(negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(negativeAlertsEnabled), negative_alerts_enabled: Boolean(negativeAlertsEnabled) }),
+        ...(positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(positiveAlertsEnabled), positive_alerts_enabled: Boolean(positiveAlertsEnabled) }),
+        ...(negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(negativeEmailAlertEnabled), negative_email_alert_enabled: Boolean(negativeEmailAlertEnabled) }),
+        ...(negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(negativeSmsAlertEnabled), negative_sms_alert_enabled: Boolean(negativeSmsAlertEnabled) }),
+        ...(positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(positiveEmailAlertEnabled), positive_email_alert_enabled: Boolean(positiveEmailAlertEnabled) }),
+        ...(positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(positiveSmsAlertEnabled), positive_sms_alert_enabled: Boolean(positiveSmsAlertEnabled) }),
+        updatedAt: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      // Safe partial update across potential ID match columns
+      if (actualBusinessId) {
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('id', actualBusinessId);
+        } catch {}
+      }
+      if (effectiveUserId) {
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('userId', effectiveUserId);
+        } catch {}
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', effectiveUserId);
+        } catch {}
+      }
+      if (clerkUserId && clerkUserId !== effectiveUserId) {
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('userId', clerkUserId);
+        } catch {}
+      }
+      if (targetUserId && targetUserId !== effectiveUserId) {
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('id', targetUserId);
+        } catch {}
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('userId', targetUserId);
+        } catch {}
+      }
+      if (profileId) {
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('id', profileId);
+        } catch {}
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('userId', profileId);
+        } catch {}
+        try {
+          await supabase.from('businesses').update(businessPartialUpdate).eq('user_id', profileId);
+        } catch {}
+      }
     }
 
     // Revalidate dashboard paths
