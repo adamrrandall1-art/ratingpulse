@@ -403,10 +403,15 @@ export default function SettingsClient({
       const trueBusinessId = activeBusiness?.id || initialBusiness?.id || (business as any)?.id;
       const trueUserId = user?.id || profile?.id;
 
-      const targetNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
-      const targetNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
-      const targetPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
-      const targetPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
+      const cleanNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
+      const cleanNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
+      const cleanPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
+      const cleanPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
+
+      const targetNegPhone = cleanNegPhone;
+      const targetNegEmail = cleanNegEmail;
+      const targetPosPhone = cleanPosPhone;
+      const targetPosEmail = cleanPosEmail;
 
       const effectiveNegativeAlertsEnabled = overrides?.negativeAlertsEnabled !== undefined
         ? overrides.negativeAlertsEnabled
@@ -495,74 +500,60 @@ export default function SettingsClient({
 
       // Do NOT call updateProfile or updateSettings which fire secondary destructive POST requests
       // Update local notification state and business to match returned updatedBusiness:
-      const updatedBusiness = resData.business;
-      if (updatedBusiness) {
-        setActiveBusiness((prev: any) => {
-          const isGoogleConnected = true;
-          const googleReviewUrl =
-            updatedBusiness.googleReviewUrl ||
-            prev?.googleReviewUrl ||
-            initialBusiness?.googleReviewUrl ||
-            currentReviewUrl;
-          const reviewUrl =
-            updatedBusiness.reviewUrl ||
-            prev?.reviewUrl ||
-            initialBusiness?.reviewUrl ||
-            googleReviewUrl ||
-            currentReviewUrl;
-          const placeId =
-            updatedBusiness.placeId ||
-            prev?.placeId ||
-            initialBusiness?.placeId ||
-            currentPlaceId;
+      const updatedBusiness = resData.business || {};
 
-          return {
-            ...(prev || {}),
-            ...updatedBusiness,
-            isGoogleConnected: true,
-            google_connected: true,
-            isConnected: true,
-            googleReviewUrl,
-            reviewUrl,
-            reviewLink: reviewUrl,
-            placeId,
-          };
-        });
+      // Persist local form state directly from what the user typed, never reset to blank
+      if (cleanNegEmail) setNegativeAlertEmail(cleanNegEmail);
+      if (cleanNegPhone) setNegativeAlertPhone(cleanNegPhone);
+      if (cleanPosEmail) setPositiveAlertEmail(cleanPosEmail);
+      if (cleanPosPhone) setPositiveAlertPhone(cleanPosPhone);
 
-        if (updatedBusiness.negativeAlertEmail !== undefined) setNegativeAlertEmail(updatedBusiness.negativeAlertEmail || '');
-        if (updatedBusiness.negativeAlertPhone !== undefined) setNegativeAlertPhone(updatedBusiness.negativeAlertPhone || '');
-        if (updatedBusiness.positiveAlertEmail !== undefined) setPositiveAlertEmail(updatedBusiness.positiveAlertEmail || '');
-        if (updatedBusiness.positiveAlertPhone !== undefined) setPositiveAlertPhone(updatedBusiness.positiveAlertPhone || '');
-        if (updatedBusiness.negativeAlertsEnabled !== undefined) setNegativeAlertsEnabled(Boolean(updatedBusiness.negativeAlertsEnabled));
-        if (updatedBusiness.negativeEmailAlertEnabled !== undefined) setNegativeEmailAlertEnabled(Boolean(updatedBusiness.negativeEmailAlertEnabled));
-        if (updatedBusiness.negativeSmsAlertEnabled !== undefined) setNegativeSmsAlertEnabled(Boolean(updatedBusiness.negativeSmsAlertEnabled));
-        if (updatedBusiness.positiveAlertsEnabled !== undefined) setPositiveAlertsEnabled(Boolean(updatedBusiness.positiveAlertsEnabled));
-        if (updatedBusiness.positiveEmailAlertEnabled !== undefined) setPositiveEmailAlertEnabled(Boolean(updatedBusiness.positiveEmailAlertEnabled));
-        if (updatedBusiness.positiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(updatedBusiness.positiveSmsAlertEnabled));
-      } else {
-        setActiveBusiness((prev: any) => {
-          return {
-            ...(prev || {}),
-            negativeAlertEmail: targetNegEmail,
-            negativeAlertPhone: targetNegPhone,
-            positiveAlertEmail: targetPosEmail,
-            positiveAlertPhone: targetPosPhone,
-            negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
-            negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
-            negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
-            positiveAlertsEnabled: effectivePositiveAlertsEnabled,
-            positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
-            positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-            isGoogleConnected: true,
-            google_connected: true,
-            isConnected: true,
-            googleReviewUrl: currentReviewUrl,
-            reviewUrl: currentReviewUrl,
-            reviewLink: currentReviewUrl,
-            placeId: currentPlaceId,
-          };
-        });
-      }
+      if (effectiveNegativeAlertsEnabled !== undefined) setNegativeAlertsEnabled(Boolean(effectiveNegativeAlertsEnabled));
+      if (effectiveNegativeEmailAlertEnabled !== undefined) setNegativeEmailAlertEnabled(Boolean(effectiveNegativeEmailAlertEnabled));
+      if (effectiveNegativeSmsAlertEnabled !== undefined) setNegativeSmsAlertEnabled(Boolean(effectiveNegativeSmsAlertEnabled));
+      if (effectivePositiveAlertsEnabled !== undefined) setPositiveAlertsEnabled(Boolean(effectivePositiveAlertsEnabled));
+      if (effectivePositiveEmailAlertEnabled !== undefined) setPositiveEmailAlertEnabled(Boolean(effectivePositiveEmailAlertEnabled));
+      if (effectivePositiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(effectivePositiveSmsAlertEnabled));
+
+      // Merge active business context while strictly preserving connected state and review URLs
+      setActiveBusiness((prev: any) => {
+        const currentReviewUrl = 
+          prev?.googleReviewUrl || 
+          prev?.reviewUrl || 
+          initialBusiness?.googleReviewUrl || 
+          initialBusiness?.reviewUrl || 
+          updatedBusiness?.googleReviewUrl || 
+          'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+
+        const currentPlaceId = 
+          prev?.placeId || 
+          initialBusiness?.placeId || 
+          updatedBusiness?.placeId || 
+          '';
+
+        return {
+          ...(initialBusiness || {}),
+          ...(prev || {}),
+          ...(updatedBusiness || {}),
+          isGoogleConnected: true,
+          google_connected: true,
+          isConnected: true,
+          googleReviewUrl: currentReviewUrl,
+          reviewUrl: currentReviewUrl,
+          reviewLink: currentReviewUrl,
+          placeId: currentPlaceId,
+          negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
+          negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
+          positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
+          positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
+          negativeAlertsEnabled: effectiveNegativeAlertsEnabled ?? prev?.negativeAlertsEnabled ?? true,
+          negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled ?? prev?.negativeEmailAlertEnabled ?? true,
+          negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled ?? prev?.negativeSmsAlertEnabled ?? false,
+          positiveAlertsEnabled: effectivePositiveAlertsEnabled ?? prev?.positiveAlertsEnabled ?? true,
+          positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled ?? prev?.positiveEmailAlertEnabled ?? true,
+          positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled ?? prev?.positiveSmsAlertEnabled ?? false,
+        };
+      });
 
       router.refresh();
 
