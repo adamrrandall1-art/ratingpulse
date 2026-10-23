@@ -400,7 +400,9 @@ export default function SettingsClient({
     if (!silent) setIsSavingNotifications(true);
 
     try {
-      const activeUserId = user?.id || profile.id;
+      const trueBusinessId = activeBusiness?.id || initialBusiness?.id || (business as any)?.id;
+      const trueUserId = user?.id || profile?.id;
+
       const targetNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
       const targetNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
       const targetPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
@@ -430,9 +432,24 @@ export default function SettingsClient({
         ? overrides.positiveSmsAlertEnabled
         : (overrides?.notifyPositiveSms !== undefined ? overrides.notifyPositiveSms : positiveSmsAlertEnabled);
 
-      const payload = {
-        userId: activeUserId,
-        activeBusinessId: activeUserId,
+      const currentReviewUrl =
+        activeBusiness?.googleReviewUrl ||
+        activeBusiness?.reviewUrl ||
+        initialBusiness?.googleReviewUrl ||
+        initialBusiness?.reviewUrl ||
+        'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+
+      const currentPlaceId =
+        activeBusiness?.placeId ||
+        initialBusiness?.placeId ||
+        (business as any)?.placeId ||
+        '';
+
+      const payload: Record<string, unknown> = {
+        userId: trueUserId,
+        businessId: trueBusinessId,
+        activeBusinessId: trueBusinessId,
+        id: trueBusinessId,
         negativeAlertEmail: targetNegEmail,
         negativeAlertPhone: targetNegPhone,
         negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
@@ -454,6 +471,12 @@ export default function SettingsClient({
         notify_positive_enabled: effectivePositiveAlertsEnabled,
         notification_phone: targetNegPhone,
         notification_email: targetNegEmail,
+        googleReviewUrl: currentReviewUrl,
+        review_url: currentReviewUrl,
+        reviewUrl: currentReviewUrl,
+        isGoogleConnected: true,
+        google_connected: true,
+        ...(currentPlaceId ? { placeId: currentPlaceId, place_id: currentPlaceId, google_place_id: currentPlaceId } : {}),
       };
 
       const res = await fetch('/api/settings/notifications', {
@@ -641,13 +664,28 @@ export default function SettingsClient({
       const primaryNotificationEmail = cleanNegEmail || cleanPosEmail || profile.email || user?.email || '';
       const primaryNotificationPhone = cleanNegPhone || cleanPosPhone || profile.phone || '';
 
-      const activeUserId = user?.id || profile.id;
+      const trueBusinessId = activeBusiness?.id || initialBusiness?.id || (business as any)?.id;
+      const trueUserId = user?.id || profile?.id;
+
+      const currentReviewUrl =
+        activeBusiness?.googleReviewUrl ||
+        activeBusiness?.reviewUrl ||
+        initialBusiness?.googleReviewUrl ||
+        initialBusiness?.reviewUrl ||
+        'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+
+      const currentPlaceId =
+        activeBusiness?.placeId ||
+        initialBusiness?.placeId ||
+        (business as any)?.placeId ||
+        '';
 
       // Post to Server-Side Settings API with protection for review URL & connection state
       const payload: Record<string, unknown> = {
-        userId: activeUserId,
-        activeBusinessId: activeUserId,
-        businessId: activeUserId,
+        userId: trueUserId,
+        businessId: trueBusinessId,
+        activeBusinessId: trueBusinessId,
+        id: trueBusinessId,
         full_name: fullName,
         notification_email: primaryNotificationEmail,
         notification_phone: primaryNotificationPhone,
@@ -678,35 +716,13 @@ export default function SettingsClient({
         auto_publish_5_star: autoPublish5Star,
         sms_template: smsTemplate,
         custom_keywords: keywords,
+        googleReviewUrl: currentReviewUrl,
+        review_url: currentReviewUrl,
+        reviewUrl: currentReviewUrl,
+        isGoogleConnected: true,
+        google_connected: true,
+        ...(currentPlaceId ? { place_id: currentPlaceId, google_place_id: currentPlaceId, placeId: currentPlaceId } : {}),
       };
-
-      const effectiveReviewUrl =
-        activeBusiness?.googleReviewUrl ||
-        activeBusiness?.reviewUrl ||
-        initialBusiness?.googleReviewUrl ||
-        initialBusiness?.reviewUrl ||
-        '';
-
-      const effectivePlaceId =
-        activeBusiness?.placeId ||
-        initialBusiness?.placeId ||
-        '';
-
-      const isConnected =
-        isBusinessConnected(activeBusiness) ||
-        isBusinessConnected(initialBusiness);
-
-      if (effectiveReviewUrl) {
-        payload.googleReviewUrl = effectiveReviewUrl;
-        payload.review_url = effectiveReviewUrl;
-      }
-      if (effectivePlaceId) {
-        payload.place_id = effectivePlaceId;
-        payload.google_place_id = effectivePlaceId;
-      }
-      if (isConnected || effectiveReviewUrl) {
-        payload.google_connected = true;
-      }
 
       const saveRes = await fetch('/api/settings', {
         method: 'POST',
@@ -720,13 +736,6 @@ export default function SettingsClient({
         throw new Error(errorMsg);
       }
 
-      // Also ensure isolated notification fields are saved via dedicated endpoint
-      await fetch('/api/settings/notifications', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      }).catch(() => {});
-
       const updatedBiz = resData.business;
       if (updatedBiz) {
         setActiveBusiness((prev: any) => {
@@ -734,26 +743,26 @@ export default function SettingsClient({
             prev?.isGoogleConnected ||
             initialBusiness?.isGoogleConnected ||
             updatedBiz.isGoogleConnected ||
-            isConnected ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBiz.googleReviewUrl || effectiveReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBiz.placeId || effectivePlaceId)
+            true ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBiz.googleReviewUrl || currentReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBiz.placeId || currentPlaceId)
           );
           const googleReviewUrl =
             updatedBiz.googleReviewUrl ||
             prev?.googleReviewUrl ||
             initialBusiness?.googleReviewUrl ||
-            effectiveReviewUrl;
+            currentReviewUrl;
           const reviewUrl =
             updatedBiz.reviewUrl ||
             prev?.reviewUrl ||
             initialBusiness?.reviewUrl ||
-            effectiveReviewUrl ||
+            currentReviewUrl ||
             googleReviewUrl;
           const placeId =
             updatedBiz.placeId ||
             prev?.placeId ||
             initialBusiness?.placeId ||
-            effectivePlaceId;
+            currentPlaceId;
 
           return {
             ...(prev || {}),
@@ -782,9 +791,9 @@ export default function SettingsClient({
           const isGoogleConnected = Boolean(
             prev?.isGoogleConnected ||
             initialBusiness?.isGoogleConnected ||
-            isConnected ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId || effectivePlaceId)
+            true ||
+            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || currentReviewUrl) ||
+            Boolean(prev?.placeId || initialBusiness?.placeId || currentPlaceId)
           );
           return {
             ...(prev || {}),
@@ -802,9 +811,9 @@ export default function SettingsClient({
             isGoogleConnected,
             google_connected: isGoogleConnected,
             isConnected: isGoogleConnected,
-            googleReviewUrl: prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || effectiveReviewUrl,
-            reviewUrl: prev?.reviewUrl || initialBusiness?.reviewUrl || effectiveReviewUrl,
-            placeId: prev?.placeId || initialBusiness?.placeId || effectivePlaceId,
+            googleReviewUrl: prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || currentReviewUrl,
+            reviewUrl: prev?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
+            placeId: prev?.placeId || initialBusiness?.placeId || currentPlaceId,
           };
         });
       }
