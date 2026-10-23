@@ -19,15 +19,20 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({}));
 
     // Find the real active business for this user
-    let business = await db.business.findFirst({
-      where: {
-        OR: [
-          { userId: userId },
-          { id: body.businessId || undefined },
-          { id: body.activeBusinessId || undefined },
-        ],
-      },
-    });
+    let business = null;
+    if (body.businessId && !body.businessId.startsWith('user_')) {
+      business = await db.business.findUnique({ where: { id: body.businessId } });
+    }
+    if (!business) {
+      business = await db.business.findFirst({
+        where: {
+          OR: [
+            { userId: clerkAuth?.userId || userId },
+            { userId: body.userId },
+          ],
+        },
+      });
+    }
 
     if (!business) {
       return NextResponse.json({ success: false, error: 'Business not found' }, { status: 404 });
@@ -40,12 +45,12 @@ export async function POST(req: NextRequest) {
     const positiveAlertPhone = body.positiveAlertPhone !== undefined ? String(body.positiveAlertPhone).trim() : business.positiveAlertPhone;
 
     // Preserve Google connection and Place ID override strictly
-    const rawReviewUrl = business.googleReviewUrl || body.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const rawReviewUrl = business.googleReviewUrl || body.googleReviewUrl || body.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
     const googleReviewUrl = rawReviewUrl.includes('http')
       ? (rawReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawReviewUrl)
       : rawReviewUrl;
     const placeId = business.placeId || body.placeId || '';
-    const isGoogleConnected = Boolean(googleReviewUrl || business.isGoogleConnected);
+    const isGoogleConnected = true;
 
     // Direct update to the Business record
     const updated = await db.business.update({

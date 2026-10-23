@@ -400,18 +400,15 @@ export default function SettingsClient({
     if (!silent) setIsSavingNotifications(true);
 
     try {
-      const trueBusinessId = activeBusiness?.id || initialBusiness?.id || (business as any)?.id;
-      const trueUserId = user?.id || profile?.id;
+      const realBusinessId = 
+        (activeBusiness?.id && !activeBusiness.id.startsWith('user_')) ? activeBusiness.id :
+        (initialBusiness?.id && !initialBusiness.id.startsWith('user_')) ? initialBusiness.id :
+        undefined;
 
       const cleanNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
       const cleanNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
       const cleanPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
       const cleanPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
-
-      const targetNegPhone = cleanNegPhone;
-      const targetNegEmail = cleanNegEmail;
-      const targetPosPhone = cleanPosPhone;
-      const targetPosEmail = cleanPosEmail;
 
       const effectiveNegativeAlertsEnabled = overrides?.negativeAlertsEnabled !== undefined
         ? overrides.negativeAlertsEnabled
@@ -439,55 +436,39 @@ export default function SettingsClient({
 
       const currentReviewUrl =
         activeBusiness?.googleReviewUrl ||
-        activeBusiness?.reviewUrl ||
         initialBusiness?.googleReviewUrl ||
-        initialBusiness?.reviewUrl ||
         'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
 
       const currentPlaceId =
         activeBusiness?.placeId ||
         initialBusiness?.placeId ||
-        (business as any)?.placeId ||
-        'ChIJ30Y_J4pZwokRx0wHl0m6SgQ';
+        '';
 
       const payload: Record<string, unknown> = {
-        userId: trueUserId,
-        businessId: trueBusinessId,
-        activeBusinessId: trueBusinessId,
-        id: trueBusinessId,
-        negativeAlertEmail: targetNegEmail,
-        negativeAlertPhone: targetNegPhone,
+        userId: user?.id || profile?.id,
+        businessId: realBusinessId,
+        activeBusinessId: realBusinessId,
+        id: realBusinessId,
+        googleReviewUrl: currentReviewUrl,
+        reviewUrl: activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
+        placeId: currentPlaceId,
+        isGoogleConnected: true,
+        google_connected: true,
+        negativeAlertEmail: cleanNegEmail,
+        negativeAlertPhone: cleanNegPhone,
+        positiveAlertEmail: cleanPosEmail,
+        positiveAlertPhone: cleanPosPhone,
         negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
         negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
         negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
-        positiveAlertEmail: targetPosEmail,
-        positiveAlertPhone: targetPosPhone,
         positiveAlertsEnabled: effectivePositiveAlertsEnabled,
         positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
         positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-        // snake_case aliases
-        notify_negative_phone: targetNegPhone,
-        notify_negative_email: effectiveNegativeEmailAlertEnabled,
-        notify_negative_sms: effectiveNegativeSmsAlertEnabled,
-        notify_negative_enabled: effectiveNegativeAlertsEnabled,
-        notify_positive_phone: targetPosPhone,
-        notify_positive_email: effectivePositiveEmailAlertEnabled,
-        notify_positive_sms: effectivePositiveSmsAlertEnabled,
-        notify_positive_enabled: effectivePositiveAlertsEnabled,
-        notification_phone: targetNegPhone,
-        notification_email: targetNegEmail,
-        googleReviewUrl: currentReviewUrl,
-        review_url: currentReviewUrl,
-        reviewUrl: currentReviewUrl,
-        isGoogleConnected: true,
-        google_connected: true,
-        isConnected: true,
-        ...(currentPlaceId ? { placeId: currentPlaceId, place_id: currentPlaceId, google_place_id: currentPlaceId } : {}),
       };
 
-      console.log('[NOTIFICATIONS_CLIENT] Dispatching POST to /api/settings/notifications with payload:', payload);
+      console.log('[NOTIFICATIONS_CLIENT] Dispatching POST to /api/settings with payload:', payload);
 
-      const res = await fetch('/api/settings/notifications', {
+      const res = await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -663,84 +644,48 @@ export default function SettingsClient({
       const cleanPosEmail = (positiveAlertEmail || '').trim();
       const cleanPosPhone = (positiveAlertPhone || '').trim();
 
-      const primaryNotificationEmail = cleanNegEmail || cleanPosEmail || profile?.email || user?.email || '';
-      const primaryNotificationPhone = cleanNegPhone || cleanPosPhone || profile?.phone || '';
-
-      const trueBusinessId =
-        activeBusiness?.id ||
-        initialBusiness?.id ||
-        (business as any)?.id ||
-        user?.id ||
-        clerkUser?.id ||
-        supabaseUser?.id ||
-        profile?.id ||
-        '';
-
-      const trueUserId =
-        user?.id ||
-        clerkUser?.id ||
-        supabaseUser?.id ||
-        profile?.id ||
-        initialProfile?.id ||
-        trueBusinessId ||
-        '';
+      const realBusinessId = 
+        (activeBusiness?.id && !activeBusiness.id.startsWith('user_')) ? activeBusiness.id :
+        (initialBusiness?.id && !initialBusiness.id.startsWith('user_')) ? initialBusiness.id :
+        undefined;
 
       const currentReviewUrl =
         activeBusiness?.googleReviewUrl ||
-        activeBusiness?.reviewUrl ||
         initialBusiness?.googleReviewUrl ||
-        initialBusiness?.reviewUrl ||
         'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
 
       const currentPlaceId =
         activeBusiness?.placeId ||
         initialBusiness?.placeId ||
-        (business as any)?.placeId ||
-        'ChIJ30Y_J4pZwokRx0wHl0m6SgQ';
+        '';
 
       // Post to Server-Side Settings API with protection for review URL & connection state
       const payload: Record<string, unknown> = {
-        userId: trueUserId,
-        businessId: trueBusinessId,
-        activeBusinessId: trueBusinessId,
-        id: trueBusinessId,
-        full_name: fullName,
-        notification_email: primaryNotificationEmail,
-        notification_phone: primaryNotificationPhone,
-        notify_negative_phone: cleanNegPhone,
-        notify_positive_phone: cleanPosPhone,
-        alert_phone: cleanNegPhone,
-        phone: cleanNegPhone || profile?.phone || activeBusiness?.phone || '',
-        smsSenderNumber: cleanNegPhone || profile?.phone || activeBusiness?.phone || '',
-        emailSender: primaryNotificationEmail,
-        sms_alerts_enabled: negativeSmsAlertEnabled || positiveSmsAlertEnabled,
-        notify_negative_enabled: negativeAlertsEnabled,
-        notify_negative_email: negativeEmailAlertEnabled,
-        notify_negative_sms: negativeSmsAlertEnabled,
-        notify_positive_enabled: positiveAlertsEnabled,
-        notify_positive_email: positiveEmailAlertEnabled,
-        notify_positive_sms: positiveSmsAlertEnabled,
+        userId: user?.id || profile?.id,
+        businessId: realBusinessId,
+        activeBusinessId: realBusinessId,
+        id: realBusinessId,
+        googleReviewUrl: currentReviewUrl,
+        reviewUrl: activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
+        placeId: currentPlaceId,
+        isGoogleConnected: true,
+        google_connected: true,
+        isConnected: true,
         negativeAlertEmail: cleanNegEmail,
         negativeAlertPhone: cleanNegPhone,
-        negativeAlertsEnabled: negativeAlertsEnabled,
-        negativeEmailAlertEnabled: negativeEmailAlertEnabled,
-        negativeSmsAlertEnabled: negativeSmsAlertEnabled,
         positiveAlertEmail: cleanPosEmail,
         positiveAlertPhone: cleanPosPhone,
-        positiveAlertsEnabled: positiveAlertsEnabled,
-        positiveEmailAlertEnabled: positiveEmailAlertEnabled,
-        positiveSmsAlertEnabled: positiveSmsAlertEnabled,
+        negativeAlertsEnabled,
+        negativeEmailAlertEnabled,
+        negativeSmsAlertEnabled,
+        positiveAlertsEnabled,
+        positiveEmailAlertEnabled,
+        positiveSmsAlertEnabled,
+        full_name: fullName,
         brand_voice: brandVoice,
         auto_publish_5_star: autoPublish5Star,
         sms_template: smsTemplate,
         custom_keywords: keywords,
-        googleReviewUrl: currentReviewUrl,
-        review_url: currentReviewUrl,
-        reviewUrl: currentReviewUrl,
-        isGoogleConnected: true,
-        google_connected: true,
-        isConnected: true,
-        ...(currentPlaceId ? { place_id: currentPlaceId, google_place_id: currentPlaceId, placeId: currentPlaceId } : {}),
       };
 
       console.log('[SETTINGS_CLIENT] Dispatching POST to /api/settings with payload:', payload);
@@ -757,87 +702,31 @@ export default function SettingsClient({
         throw new Error(errorMsg);
       }
 
-      const updatedBiz = resData.business;
-      if (updatedBiz) {
-        setActiveBusiness((prev: any) => {
-          const isGoogleConnected = Boolean(
-            prev?.isGoogleConnected ||
-            initialBusiness?.isGoogleConnected ||
-            updatedBiz.isGoogleConnected ||
-            true ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBiz.googleReviewUrl || currentReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBiz.placeId || currentPlaceId)
-          );
-          const googleReviewUrl =
-            updatedBiz.googleReviewUrl ||
-            prev?.googleReviewUrl ||
-            initialBusiness?.googleReviewUrl ||
-            currentReviewUrl;
-          const reviewUrl =
-            updatedBiz.reviewUrl ||
-            prev?.reviewUrl ||
-            initialBusiness?.reviewUrl ||
-            currentReviewUrl ||
-            googleReviewUrl;
-          const placeId =
-            updatedBiz.placeId ||
-            prev?.placeId ||
-            initialBusiness?.placeId ||
-            currentPlaceId;
-
-          return {
-            ...(prev || {}),
-            ...updatedBiz,
-            isGoogleConnected,
-            google_connected: isGoogleConnected,
-            isConnected: isGoogleConnected,
-            googleReviewUrl,
-            reviewUrl,
-            reviewLink: reviewUrl,
-            placeId,
-            negativeAlertEmail: cleanNegEmail,
-            negativeAlertPhone: cleanNegPhone,
-            positiveAlertEmail: cleanPosEmail,
-            positiveAlertPhone: cleanPosPhone,
-            negativeAlertsEnabled,
-            negativeEmailAlertEnabled,
-            negativeSmsAlertEnabled,
-            positiveAlertsEnabled,
-            positiveEmailAlertEnabled,
-            positiveSmsAlertEnabled,
-          };
-        });
-      } else {
-        setActiveBusiness((prev: any) => {
-          const isGoogleConnected = Boolean(
-            prev?.isGoogleConnected ||
-            initialBusiness?.isGoogleConnected ||
-            true ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || currentReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId || currentPlaceId)
-          );
-          return {
-            ...(prev || {}),
-            negativeAlertEmail: cleanNegEmail,
-            negativeAlertPhone: cleanNegPhone,
-            positiveAlertEmail: cleanPosEmail,
-            positiveAlertPhone: cleanPosPhone,
-            negativeAlertsEnabled,
-            negativeEmailAlertEnabled,
-            negativeSmsAlertEnabled,
-            positiveAlertsEnabled,
-            positiveEmailAlertEnabled,
-            positiveSmsAlertEnabled,
-            phone: primaryNotificationPhone || activeBusiness?.phone || '',
-            isGoogleConnected,
-            google_connected: isGoogleConnected,
-            isConnected: isGoogleConnected,
-            googleReviewUrl: prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || currentReviewUrl,
-            reviewUrl: prev?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
-            placeId: prev?.placeId || initialBusiness?.placeId || currentPlaceId,
-          };
-        });
-      }
+      const updatedBiz = resData.business || {};
+      setActiveBusiness((prev: any) => {
+        return {
+          ...(initialBusiness || {}),
+          ...(prev || {}),
+          ...(updatedBiz || {}),
+          isGoogleConnected: true,
+          google_connected: true,
+          isConnected: true,
+          googleReviewUrl: currentReviewUrl,
+          reviewUrl: currentReviewUrl,
+          reviewLink: currentReviewUrl,
+          placeId: currentPlaceId,
+          negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
+          negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
+          positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
+          positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
+          negativeAlertsEnabled,
+          negativeEmailAlertEnabled,
+          negativeSmsAlertEnabled,
+          positiveAlertsEnabled,
+          positiveEmailAlertEnabled,
+          positiveSmsAlertEnabled,
+        };
+      });
 
       router.refresh();
 
