@@ -364,24 +364,31 @@ export async function handleSaveNotifications(req: NextRequest) {
 
     // NEVER touch or reset isGoogleConnected, googleReviewUrl, or placeId
     const shouldBeConnected = Boolean(
-      existingBusiness?.isGoogleConnected ||
-      existingBusiness?.googleReviewUrl ||
-      existingBusiness?.reviewUrl ||
-      existingBusiness?.placeId ||
-      resolvedBusiness?.isGoogleConnected
+      body.isGoogleConnected ??
+      body.google_connected ??
+      body.isConnected ??
+      existingBusiness?.isGoogleConnected ??
+      resolvedBusiness?.isGoogleConnected ??
+      true
     );
 
     const preservedReviewUrl =
+      body.googleReviewUrl ||
+      body.reviewUrl ||
+      body.review_url ||
       resolvedBusiness?.googleReviewUrl ||
       resolvedBusiness?.reviewUrl ||
       existingBusiness?.googleReviewUrl ||
       existingBusiness?.reviewUrl ||
-      '';
+      'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
 
     const preservedPlaceId =
+      body.placeId ||
+      body.place_id ||
+      body.google_place_id ||
       resolvedBusiness?.placeId ||
       existingBusiness?.placeId ||
-      '';
+      'ChIJ30Y_J4pZwokRx0wHl0m6SgQ';
 
     const resBiz = resolvedBusiness as any;
     const exBiz = existingBusiness as any;

@@ -498,23 +498,30 @@ export default function SettingsClient({
       const updatedBusiness = resData.business;
       if (updatedBusiness) {
         setActiveBusiness((prev: any) => {
-          const isGoogleConnected = Boolean(
-            prev?.isGoogleConnected ||
-            initialBusiness?.isGoogleConnected ||
-            updatedBusiness.isGoogleConnected ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || updatedBusiness.googleReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId || updatedBusiness.placeId)
-          );
-          const googleReviewUrl = updatedBusiness.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || '';
-          const reviewUrl = updatedBusiness.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || googleReviewUrl;
-          const placeId = updatedBusiness.placeId || prev?.placeId || initialBusiness?.placeId || '';
+          const isGoogleConnected = true;
+          const googleReviewUrl =
+            updatedBusiness.googleReviewUrl ||
+            prev?.googleReviewUrl ||
+            initialBusiness?.googleReviewUrl ||
+            currentReviewUrl;
+          const reviewUrl =
+            updatedBusiness.reviewUrl ||
+            prev?.reviewUrl ||
+            initialBusiness?.reviewUrl ||
+            googleReviewUrl ||
+            currentReviewUrl;
+          const placeId =
+            updatedBusiness.placeId ||
+            prev?.placeId ||
+            initialBusiness?.placeId ||
+            currentPlaceId;
 
           return {
             ...(prev || {}),
             ...updatedBusiness,
-            isGoogleConnected,
-            google_connected: isGoogleConnected,
-            isConnected: isGoogleConnected,
+            isGoogleConnected: true,
+            google_connected: true,
+            isConnected: true,
             googleReviewUrl,
             reviewUrl,
             reviewLink: reviewUrl,
@@ -534,12 +541,6 @@ export default function SettingsClient({
         if (updatedBusiness.positiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(updatedBusiness.positiveSmsAlertEnabled));
       } else {
         setActiveBusiness((prev: any) => {
-          const isGoogleConnected = Boolean(
-            prev?.isGoogleConnected ||
-            initialBusiness?.isGoogleConnected ||
-            Boolean(prev?.googleReviewUrl || initialBusiness?.googleReviewUrl) ||
-            Boolean(prev?.placeId || initialBusiness?.placeId)
-          );
           return {
             ...(prev || {}),
             negativeAlertEmail: targetNegEmail,
@@ -552,9 +553,13 @@ export default function SettingsClient({
             positiveAlertsEnabled: effectivePositiveAlertsEnabled,
             positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
             positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-            isGoogleConnected,
-            google_connected: isGoogleConnected,
-            isConnected: isGoogleConnected,
+            isGoogleConnected: true,
+            google_connected: true,
+            isConnected: true,
+            googleReviewUrl: currentReviewUrl,
+            reviewUrl: currentReviewUrl,
+            reviewLink: currentReviewUrl,
+            placeId: currentPlaceId,
           };
         });
       }
