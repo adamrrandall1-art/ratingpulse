@@ -30,77 +30,107 @@ function getAdminClient() {
   });
 }
 
-export async function POST(req: NextRequest) {
+function sanitizeReviewUrl(url?: string | null): string {
+  if (!url) return 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+  if (url.includes('http')) {
+    const match = url.match(/https?:\/\/[^\s)\]]+/);
+    return match ? match[0] : url;
+  }
+  return url;
+}
+
+export async function handleSaveSettings(req: NextRequest) {
   try {
     const clerkAuth = await auth().catch(() => null);
-    const userId = clerkAuth?.userId;
-
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await req.json().catch(() => ({}));
 
-    // Find the real active business for this user
-    let business = null;
-    if (body.businessId && !body.businessId.startsWith('user_')) {
-      business = await db.business.findUnique({ where: { id: body.businessId } }).catch(() => null);
+    // 1. Resolve effective user ID
+    const effectiveUserId = clerkAuth?.userId || body.userId;
+
+    if (!effectiveUserId) {
+      return NextResponse.json({ success: false, error: 'User unauthorized or missing ID' }, { status: 401 });
     }
+
+    // 2. Try finding by explicit valid business ID if provided and not undefined
+    let business = null;
+    const incomingBizId = body.businessId || body.activeBusinessId || body.id;
+    if (incomingBizId && incomingBizId !== 'undefined' && !incomingBizId.startsWith('user_')) {
+      business = await db.business.findUnique({ where: { id: incomingBizId } }).catch(() => null);
+    }
+
+    // 3. If not found by ID, find the business owned by this Clerk user
     if (!business) {
       business = await db.business.findFirst({
         where: {
           OR: [
-            { userId: clerkAuth?.userId || userId },
-            { userId: body.userId },
+            { userId: effectiveUserId },
+            { clerkUserId: effectiveUserId },
           ],
         },
       }).catch(() => null);
     }
 
+    const rawReviewUrl = business?.googleReviewUrl || business?.reviewUrl || body.googleReviewUrl || body.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const cleanReviewUrl = sanitizeReviewUrl(rawReviewUrl);
+    const placeId = business?.placeId || body.placeId || '';
+
+    // 4. Fallback: if business record is still missing, auto-create or link it:
     if (!business) {
-      business = {
-        id: body.businessId && !body.businessId.startsWith('user_') ? body.businessId : (userId || 'bus_default'),
-        userId: userId,
-        name: body.full_name || 'My Business',
-        isGoogleConnected: true,
-        negativeAlertEmail: '',
-        negativeAlertPhone: '',
-        positiveAlertEmail: '',
-        positiveAlertPhone: '',
-        negativeAlertsEnabled: true,
-        negativeEmailAlertEnabled: true,
-        negativeSmsAlertEnabled: false,
-        positiveAlertsEnabled: true,
-        positiveEmailAlertEnabled: true,
-        positiveSmsAlertEnabled: false,
-      } as any;
+      business = await db.business.create({
+        data: {
+          userId: effectiveUserId,
+          name: body.full_name || body.name || 'RatingPulse',
+          googleReviewUrl: cleanReviewUrl,
+          reviewUrl: cleanReviewUrl,
+          placeId,
+          isGoogleConnected: true,
+          negativeAlertEmail: body.negativeAlertEmail !== undefined ? (body.negativeAlertEmail ? String(body.negativeAlertEmail).trim() : null) : null,
+          negativeAlertPhone: body.negativeAlertPhone !== undefined ? (body.negativeAlertPhone ? String(body.negativeAlertPhone).trim() : null) : null,
+          positiveAlertEmail: body.positiveAlertEmail !== undefined ? (body.positiveAlertEmail ? String(body.positiveAlertEmail).trim() : null) : null,
+          positiveAlertPhone: body.positiveAlertPhone !== undefined ? (body.positiveAlertPhone ? String(body.positiveAlertPhone).trim() : null) : null,
+          negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : true,
+          positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : true,
+          negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : true,
+          negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : false,
+          positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : true,
+          positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : false,
+        },
+      });
+    } else {
+      // Direct update to existing business:
+      business = await db.business.update({
+        where: { id: business.id },
+        data: {
+          negativeAlertEmail: body.negativeAlertEmail !== undefined ? (body.negativeAlertEmail ? String(body.negativeAlertEmail).trim() : null) : business.negativeAlertEmail,
+          negativeAlertPhone: body.negativeAlertPhone !== undefined ? (body.negativeAlertPhone ? String(body.negativeAlertPhone).trim() : null) : business.negativeAlertPhone,
+          positiveAlertEmail: body.positiveAlertEmail !== undefined ? (body.positiveAlertEmail ? String(body.positiveAlertEmail).trim() : null) : business.positiveAlertEmail,
+          positiveAlertPhone: body.positiveAlertPhone !== undefined ? (body.positiveAlertPhone ? String(body.positiveAlertPhone).trim() : null) : business.positiveAlertPhone,
+          negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business.negativeAlertsEnabled ?? true),
+          positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business.positiveAlertsEnabled ?? true),
+          negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business.negativeEmailAlertEnabled ?? true),
+          negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : (business.negativeSmsAlertEnabled ?? false),
+          positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : (business.positiveEmailAlertEnabled ?? true),
+          positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : (business.positiveSmsAlertEnabled ?? false),
+          googleReviewUrl: cleanReviewUrl,
+          reviewUrl: cleanReviewUrl,
+          placeId,
+          isGoogleConnected: true,
+          updatedAt: new Date(),
+        },
+      });
     }
-
-    // Clean notification inputs
-    const negativeAlertEmail = body.negativeAlertEmail !== undefined ? String(body.negativeAlertEmail).trim() : (business.negativeAlertEmail || '');
-    const negativeAlertPhone = body.negativeAlertPhone !== undefined ? String(body.negativeAlertPhone).trim() : (business.negativeAlertPhone || '');
-    const positiveAlertEmail = body.positiveAlertEmail !== undefined ? String(body.positiveAlertEmail).trim() : (business.positiveAlertEmail || '');
-    const positiveAlertPhone = body.positiveAlertPhone !== undefined ? String(body.positiveAlertPhone).trim() : (business.positiveAlertPhone || '');
-
-    // Preserve Google connection and Place ID override strictly
-    const rawReviewUrl = business.googleReviewUrl || body.googleReviewUrl || body.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-    const googleReviewUrl = rawReviewUrl.includes('http')
-      ? (rawReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawReviewUrl)
-      : rawReviewUrl;
-    const placeId = business.placeId || body.placeId || '';
-    const isGoogleConnected = true;
 
     // Optional direct Supabase sync safeguarded so missing keys never block or throw
     const supabase = getAdminClient();
-    if (supabase) {
+    if (supabase && business) {
       try {
         const updatePayload: Record<string, unknown> = {
-          negative_alert_email: negativeAlertEmail,
-          negative_alert_phone: negativeAlertPhone,
-          positive_alert_email: positiveAlertEmail,
-          positive_alert_phone: positiveAlertPhone,
-          google_review_url: googleReviewUrl,
-          review_url: googleReviewUrl,
+          negative_alert_email: business.negativeAlertEmail,
+          negative_alert_phone: business.negativeAlertPhone,
+          positive_alert_email: business.positiveAlertEmail,
+          positive_alert_phone: business.positiveAlertPhone,
+          google_review_url: cleanReviewUrl,
+          review_url: cleanReviewUrl,
           place_id: placeId,
           is_google_connected: true,
           google_connected: true,
@@ -112,48 +142,6 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Direct update to the Business record via Prisma db.business.update
-    const updated = await db.business.update({
-      where: { id: business.id },
-      data: {
-        negativeAlertEmail,
-        negativeAlertPhone,
-        positiveAlertEmail,
-        positiveAlertPhone,
-        negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business.negativeAlertsEnabled ?? true),
-        negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business.negativeEmailAlertEnabled ?? true),
-        negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : (business.negativeSmsAlertEnabled ?? false),
-        positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business.positiveAlertsEnabled ?? true),
-        positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : (business.positiveEmailAlertEnabled ?? true),
-        positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : (business.positiveSmsAlertEnabled ?? false),
-        googleReviewUrl,
-        reviewUrl: googleReviewUrl,
-        placeId,
-        isGoogleConnected,
-        updatedAt: new Date(),
-      },
-    }).catch((err) => {
-      console.warn('[Settings API] Prisma update note:', err);
-      return {
-        ...business,
-        negativeAlertEmail,
-        negativeAlertPhone,
-        positiveAlertEmail,
-        positiveAlertPhone,
-        negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business.negativeAlertsEnabled ?? true),
-        negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business.negativeEmailAlertEnabled ?? true),
-        negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : (business.negativeSmsAlertEnabled ?? false),
-        positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business.positiveAlertsEnabled ?? true),
-        positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : (business.positiveEmailAlertEnabled ?? true),
-        positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : (business.positiveSmsAlertEnabled ?? false),
-        googleReviewUrl,
-        reviewUrl: googleReviewUrl,
-        placeId,
-        isGoogleConnected: true,
-        updatedAt: new Date().toISOString(),
-      };
-    });
-
     // Invalidate dashboard caches
     try {
       revalidatePath('/dashboard', 'layout');
@@ -164,7 +152,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      business: updated,
+      business,
       message: 'Settings updated successfully',
     }, { status: 200 });
   } catch (error: any) {
@@ -173,8 +161,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function POST(req: NextRequest) {
+  return handleSaveSettings(req);
+}
+
 export async function PUT(req: NextRequest) {
-  return POST(req);
+  return handleSaveSettings(req);
 }
 
 export async function GET(req: NextRequest) {
@@ -187,7 +179,12 @@ export async function GET(req: NextRequest) {
     }
 
     const business = await db.business.findFirst({
-      where: { userId },
+      where: {
+        OR: [
+          { userId },
+          { clerkUserId: userId },
+        ],
+      },
     });
 
     return NextResponse.json({ success: true, business });

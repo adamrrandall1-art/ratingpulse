@@ -72,11 +72,13 @@ export const db = {
       const candidateBusinessIds: string[] = [];
 
       if (where?.userId) candidateUserIds.push(String(where.userId));
+      if (where?.clerkUserId) candidateUserIds.push(String(where.clerkUserId));
       if (where?.id) candidateBusinessIds.push(String(where.id));
 
       if (Array.isArray(where?.OR)) {
         for (const item of where.OR) {
           if (item?.userId) candidateUserIds.push(String(item.userId));
+          if (item?.clerkUserId) candidateUserIds.push(String(item.clerkUserId));
           if (item?.id) candidateBusinessIds.push(String(item.id));
         }
       }
@@ -241,6 +243,41 @@ export const db = {
         name: 'RatingPulse',
         ...data,
       });
+    },
+
+    create: async (args: {
+      data: Record<string, unknown>;
+    }): Promise<BusinessRecord> => {
+      const supabase = getAdminClient();
+      const data = args.data;
+      const id = (data.id as string) || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bus_${Date.now()}`);
+      const payload = {
+        id,
+        ...data,
+      };
+
+      if (supabase) {
+        try {
+          await supabase.from('businesses').insert({
+            id,
+            userId: data.userId || null,
+            user_id: data.userId || null,
+            name: data.name || 'RatingPulse',
+            google_review_url: data.googleReviewUrl || null,
+            review_url: data.reviewUrl || data.googleReviewUrl || null,
+            is_google_connected: data.isGoogleConnected ?? true,
+            google_connected: data.isGoogleConnected ?? true,
+            negative_alert_email: data.negativeAlertEmail || null,
+            negative_alert_phone: data.negativeAlertPhone || null,
+            positive_alert_email: data.positiveAlertEmail || null,
+            positive_alert_phone: data.positiveAlertPhone || null,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+        } catch {}
+      }
+
+      return normalizeBusiness(payload);
     },
   },
 };
