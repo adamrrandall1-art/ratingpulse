@@ -372,30 +372,21 @@ export default function SettingsClient({
     }));
   };
 
-  const handleSaveNotificationPreferences = async (
-    silent = false,
-    overrides?: Record<string, any>
-  ) => {
-    if (!silent) setIsSavingNotifications(true);
+  const handleSaveNotificationPreferences = async () => {
+    setIsSavingNotifications(true);
 
     try {
-      await executeSave(overrides);
-      if (silent) {
-        toast.success('Notification preferences saved.', { duration: 2000 });
-      } else {
-        setIsNotificationsSaved(true);
-        toast.success('Notification preferences saved successfully.');
-        setTimeout(() => setIsNotificationsSaved(false), 2500);
-      }
+      await executeSave();
+      setIsNotificationsSaved(true);
+      toast.success('Notification preferences saved successfully.');
+      setTimeout(() => setIsNotificationsSaved(false), 2500);
     } catch (err: any) {
       console.error('[Save Notifications Error]:', err);
-      if (!silent) {
-        toast.error('Failed to save notification preferences', {
-          description: err?.message || 'Please check your connection and try again.',
-        });
-      }
+      toast.error('Failed to save notification preferences', {
+        description: err?.message || 'Please check your connection and try again.',
+      });
     } finally {
-      if (!silent) setIsSavingNotifications(false);
+      setIsSavingNotifications(false);
     }
   };
 
@@ -406,8 +397,6 @@ export default function SettingsClient({
     if (field === 'positiveAlertsEnabled' || field === 'notifyPositiveEnabled') setPositiveAlertsEnabled(value);
     if (field === 'positiveEmailAlertEnabled' || field === 'notifyPositiveEmail') setPositiveEmailAlertEnabled(value);
     if (field === 'positiveSmsAlertEnabled' || field === 'notifyPositiveSms') setPositiveSmsAlertEnabled(value);
-
-    handleSaveNotificationPreferences(true, { [field]: value });
   };
 
   const handleSendTestWelcome = async () => {
@@ -660,10 +649,9 @@ export default function SettingsClient({
               setPositiveEmailAddress={setPositiveEmailAddress}
               onSendTestWelcome={handleSendTestWelcome}
               sendingTestWelcome={sendingTestWelcome}
-              onSaveNotificationPreferences={handleSaveSettings}
+              onSaveNotificationPreferences={handleSaveNotificationPreferences}
               isSavingNotifications={isSavingNotifications || isSaving}
               isNotificationsSaved={isNotificationsSaved || isSaved}
-              onAutoSaveNotifications={() => handleSaveNotificationPreferences(true)}
               onToggleChange={handleToggleNotification}
             />
           </div>
