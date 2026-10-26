@@ -52,7 +52,21 @@ export interface BusinessRecord {
 }
 
 export const db = {
+  $disconnect: async () => {},
   business: {
+    findMany: async (_args?: any): Promise<BusinessRecord[]> => {
+      const supabase = getAdminClient();
+      if (supabase) {
+        try {
+          const { data } = await supabase.from('businesses').select('*');
+          if (data && Array.isArray(data)) {
+            return data.map(normalizeBusiness);
+          }
+        } catch {}
+      }
+      return [];
+    },
+
     findFirst: async (args?: {
       where?: {
         userId?: string | null;
