@@ -18,28 +18,41 @@ function sanitizeReviewUrl(url?: string | null): string {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate via Clerk
+    const body = await req.json().catch(() => ({}));
+
+    // 1. Read the authenticated Clerk user with body fallback
     const clerkAuth = await auth().catch(() => null);
-    const userId = clerkAuth?.userId;
-    if (!userId) {
+    const effectiveUserId = clerkAuth?.userId || body.userId;
+
+    if (!effectiveUserId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await req.json().catch(() => ({}));
+    // 2. Try finding by explicit valid business ID if provided and not undefined
+    let business = null;
+    const incomingBizId = body.businessId || body.activeBusinessId || body.id;
+    if (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_')) {
+      business = await db.business.findUnique({
+        where: { id: incomingBizId },
+      }).catch(() => null);
+    }
 
-    // 2. Locate the user's business using Prisma exclusively
-    let business = await db.business.findFirst({
-      where: {
-        OR: [
-          { userId: userId },
-          { clerkUserId: userId },
-        ],
-      },
-    }).catch(() => null);
+    // 3. Locate the user's business using Prisma by effectiveUserId if not found by ID
+    if (!business) {
+      business = await db.business.findFirst({
+        where: {
+          OR: [
+            { userId: effectiveUserId },
+            { clerkUserId: effectiveUserId },
+          ],
+        },
+      }).catch(() => null);
+    }
 
-    // 3. If business doesn't exist, create it; otherwise update it directly by business.id
-    const rawReviewUrl = body.googleReviewUrl || business?.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    // 4. Sanitize and prepare review URL & placeId
+    const rawReviewUrl = body.googleReviewUrl || body.reviewUrl || business?.googleReviewUrl || business?.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
     const cleanReviewUrl = sanitizeReviewUrl(rawReviewUrl);
+    const placeId = body.placeId || business?.placeId || '';
 
     const data = {
       negativeAlertEmail: typeof body.negativeAlertEmail === 'string' ? body.negativeAlertEmail.trim() || null : (body.negativeAlertEmail?.trim?.() || null),
@@ -48,23 +61,36 @@ export async function POST(req: NextRequest) {
       positiveAlertPhone: typeof body.positiveAlertPhone === 'string' ? body.positiveAlertPhone.trim() || null : (body.positiveAlertPhone?.trim?.() || null),
       negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business?.negativeAlertsEnabled ?? true),
       positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business?.positiveAlertsEnabled ?? true),
+      negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business?.negativeEmailAlertEnabled ?? true),
+      negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : (business?.negativeSmsAlertEnabled ?? false),
+      positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : (business?.positiveEmailAlertEnabled ?? true),
+      positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : (business?.positiveSmsAlertEnabled ?? false),
       googleReviewUrl: cleanReviewUrl,
       reviewUrl: cleanReviewUrl,
+      placeId,
       isGoogleConnected: true,
       updatedAt: new Date(),
     };
 
+    // 5. If business doesn't exist, create it; otherwise update it directly by business.id
     const updated = business
       ? await db.business.update({ where: { id: business.id }, data })
-      : await db.business.create({ data: { ...data, userId, name: 'RatingPulse' } });
+      : await db.business.create({
+          data: {
+            ...data,
+            userId: effectiveUserId,
+            clerkUserId: effectiveUserId,
+            name: 'RatingPulse',
+          },
+        });
 
-    // 4. Invalidate caches
+    // 6. Invalidate caches
     try {
       revalidatePath('/dashboard', 'layout');
       revalidatePath('/dashboard/settings');
     } catch {}
 
-    // 5. Return updated business
+    // 7. Return updated business
     return NextResponse.json({ success: true, business: updated });
   } catch (error: any) {
     console.error('[SETTINGS_ROUTE_ERROR]', error);
@@ -79,7 +105,7 @@ export async function PUT(req: NextRequest) {
 export async function GET(req: NextRequest) {
   try {
     const clerkAuth = await auth().catch(() => null);
-    const userId = clerkAuth?.userId;
+    const userId = clerkAuth?.userId || req.nextUrl.searchParams.get('userId');
 
     if (!userId) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
