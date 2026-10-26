@@ -311,8 +311,6 @@ export default function SettingsClient({
       positiveEmailAlertEnabled: effectivePosEmail,
       positiveSmsAlertEnabled: effectivePosSms,
     }));
-
-    router.refresh();
   };
 
   const handleSaveNotificationPreferences = async (

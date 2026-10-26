@@ -22,21 +22,13 @@ export function isBusinessConnected(
   if (!business) return false;
 
   const googleReviewUrl =
-    business.googleReviewUrl && business.googleReviewUrl.startsWith('http')
+    business.googleReviewUrl && business.googleReviewUrl.trim().length > 0
       ? business.googleReviewUrl.trim()
-      : business.reviewUrl && business.reviewUrl.startsWith('http')
+      : business.reviewUrl && business.reviewUrl.trim().length > 0
       ? business.reviewUrl.trim()
-      : business.review_url && business.review_url.startsWith('http')
+      : business.review_url && business.review_url.trim().length > 0
       ? business.review_url.trim()
       : null;
-
-  if (googleReviewUrl) return true;
-
-  const isGoogleConnected = Boolean(
-    business.isGoogleConnected ??
-    business.google_connected ??
-    business.isConnected
-  );
 
   const placeId =
     business.placeId && !business.placeId.startsWith('demo_') && business.placeId.trim().length > 0
@@ -45,5 +37,14 @@ export function isBusinessConnected(
       ? business.google_place_id.trim()
       : null;
 
-  return Boolean(isGoogleConnected && placeId);
+  // If business has googleReviewUrl or placeId, unconditionally lock to true
+  if (googleReviewUrl || placeId) return true;
+
+  const isGoogleConnected = Boolean(
+    business.isGoogleConnected ??
+    business.google_connected ??
+    business.isConnected
+  );
+
+  return isGoogleConnected;
 }

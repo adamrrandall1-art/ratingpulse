@@ -855,10 +855,13 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
 
     if (store.liveBusiness) {
       const hasReviewUrl = Boolean(
-        (store.liveBusiness.googleReviewUrl && store.liveBusiness.googleReviewUrl.startsWith('http')) ||
-        (store.liveBusiness.reviewUrl && store.liveBusiness.reviewUrl.startsWith('http'))
+        (store.liveBusiness.googleReviewUrl && store.liveBusiness.googleReviewUrl.trim().length > 0) ||
+        (store.liveBusiness.reviewUrl && store.liveBusiness.reviewUrl.trim().length > 0)
       );
-      const isConnected = hasReviewUrl || isBusinessConnected(store.liveBusiness, false);
+      const hasPlaceId = Boolean(
+        store.liveBusiness.placeId && store.liveBusiness.placeId.trim().length > 0 && !store.liveBusiness.placeId.startsWith('demo_')
+      );
+      const isConnected = hasReviewUrl || hasPlaceId || isBusinessConnected(store.liveBusiness, false) || Boolean(store.liveBusiness.isConnected || store.liveBusiness.isGoogleConnected);
       return {
         ...store.liveBusiness,
         isConnected: isConnected,

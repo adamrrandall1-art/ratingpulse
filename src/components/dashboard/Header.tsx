@@ -153,7 +153,12 @@ export default function Header({
 
           {/* Google Connected Badge */}
           {(() => {
-            const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
+            const hasUrlOrPlace = Boolean(
+              activeBusiness?.googleReviewUrl ||
+              activeBusiness?.reviewUrl ||
+              activeBusiness?.placeId
+            );
+            const isConnected = isBusinessConnected(activeBusiness, isDemoMode) || hasUrlOrPlace;
             return (
               <div className="hidden xl:flex items-center gap-2">
                 {isConnected ? (
@@ -215,7 +220,7 @@ export default function Header({
                     {displayName}
                   </span>
                   <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
-                    {profile.business_name || 'No Business Connected'}
+                    {activeBusiness?.name || profile.business_name || 'RatingPulse Business'}
                   </span>
                   {isPro && (
                     <div className="mt-1 inline-flex items-center gap-1 px-2 py-0.2 rounded-md text-[9px] font-extrabold bg-blue-600 text-white shadow-2xs w-fit">
@@ -240,7 +245,7 @@ export default function Header({
                       {displayName}
                     </span>
                     <span className="text-[10px] text-slate-500 font-medium leading-tight mt-0.5">
-                      {profile.business_name || 'Demo Mode'}
+                      {activeBusiness?.name || profile.business_name || 'Demo Mode'}
                     </span>
                   </div>
                 </button>

@@ -38,8 +38,17 @@ export default function DashboardClientLayout({
   // Immediately hydrate persistent business record into client store upon refresh
   useEffect(() => {
     if (initialBusiness && initialBusiness.id) {
-      setLiveBusiness(initialBusiness);
-      setActiveBusiness(initialBusiness);
+      const hasReviewUrl = Boolean(initialBusiness.googleReviewUrl || initialBusiness.reviewUrl);
+      const hasPlaceId = Boolean(initialBusiness.placeId);
+      const isConnected = hasReviewUrl || hasPlaceId || initialBusiness.isGoogleConnected !== false;
+      const normalizedBiz = {
+        ...initialBusiness,
+        isGoogleConnected: isConnected,
+        google_connected: isConnected,
+        isConnected: isConnected,
+      };
+      setLiveBusiness(normalizedBiz);
+      setActiveBusiness(normalizedBiz);
     }
   }, [initialBusiness, setLiveBusiness, setActiveBusiness]);
 
@@ -156,7 +165,7 @@ export default function DashboardClientLayout({
                   <div className="px-3 py-2 border-b border-slate-100 mb-1">
                     <div className="font-bold text-slate-900 truncate">{displayName}</div>
                     <div className="text-[11px] text-slate-500 truncate mt-0.5">
-                      {initialBusiness?.name || profile.business_name || user?.email || 'No Business Connected'}
+                      {initialBusiness?.name || profile.business_name || user?.email || 'RatingPulse Business'}
                     </div>
                   </div>
 
