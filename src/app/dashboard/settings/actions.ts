@@ -1,8 +1,9 @@
-﻿'use server';
+'use server';
 
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
+import { cookies } from 'next/headers';
 
 export async function saveSettingsAction(formData: FormData) {
   const clerkAuth = await auth().catch(() => null);
@@ -28,7 +29,7 @@ export async function saveSettingsAction(formData: FormData) {
     ? (rawGoogleReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawGoogleReviewUrl)
     : rawGoogleReviewUrl;
 
-  // 1. Locate business by Clerk userId
+  // 1. Locate any existing business record
   let business = await db.business.findFirst({
     where: {
       OR: [
@@ -46,6 +47,7 @@ export async function saveSettingsAction(formData: FormData) {
     googleReviewUrl,
     reviewUrl: googleReviewUrl,
     isGoogleConnected: true,
+    google_connected: true,
     updatedAt: new Date(),
   };
 
@@ -87,24 +89,39 @@ export async function saveSettingsAction(formData: FormData) {
   const autoPublish5Star = getBool('autoPublish5Star');
   if (autoPublish5Star !== undefined) payload.autoPublish5Star = autoPublish5Star;
 
+  let savedBusiness;
   if (business) {
-    await db.business.update({
+    savedBusiness = await db.business.update({
       where: { id: business.id },
       data: payload,
     });
   } else {
-    await db.business.create({
+    // Create new business record tied directly to Clerk userId
+    savedBusiness = await db.business.create({
       data: {
         ...payload,
         userId: userId,
+        clerkUserId: userId,
         name: 'RatingPulse Business',
       },
     });
   }
 
+  // 2. Set active business cookie for layout/context readers
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set('activeBusinessId', savedBusiness.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    cookieStore.set('rp_active_business_id', savedBusiness.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+  } catch (e) {
+    console.error('Cookie set error:', e);
+  }
+
+  // 3. Purge server caches
+  revalidatePath('/', 'layout');
   revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard/settings');
+  revalidatePath('/dashboard/businesses');
   revalidatePath('/dashboard/invites');
 
-  return { success: true };
+  return { success: true, business: savedBusiness };
 }

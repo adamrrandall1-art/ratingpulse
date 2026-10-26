@@ -285,23 +285,25 @@ export default function SettingsClient({
     formData.append('autoPublish5Star', String(autoPublish5Star));
     formData.append('smsTemplate', smsTemplate);
 
-    await saveSettingsAction(formData);
+    const res = await saveSettingsAction(formData);
+    const savedBiz = res?.business || {};
 
     // Keep active business connected and retain values in memory
     setActiveBusiness((prev: any) => ({
       ...(initialBusiness || {}),
       ...(prev || {}),
+      ...(savedBiz || {}),
       isGoogleConnected: true,
       google_connected: true,
       isConnected: true,
       googleReviewUrl: currentReviewUrl,
       reviewUrl: currentReviewUrl,
       reviewLink: currentReviewUrl,
-      placeId: currentPlaceId,
-      negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
-      negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
-      positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
-      positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
+      placeId: currentPlaceId || savedBiz?.placeId || '',
+      negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || savedBiz?.negativeAlertEmail || '',
+      negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || savedBiz?.negativeAlertPhone || '',
+      positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || savedBiz?.positiveAlertEmail || '',
+      positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || savedBiz?.positiveAlertPhone || '',
       negativeAlertsEnabled: effectiveNegAlerts,
       negativeEmailAlertEnabled: effectiveNegEmail,
       negativeSmsAlertEnabled: effectiveNegSms,
