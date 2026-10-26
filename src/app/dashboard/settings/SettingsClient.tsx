@@ -25,6 +25,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
+import { saveSettingsAction } from './actions';
 
 import GbpIntegrationCard from '@/components/settings/GbpIntegrationCard';
 import AiPersonaCard, { BrandVoiceType } from '@/components/settings/AiPersonaCard';
@@ -242,306 +243,86 @@ export default function SettingsClient({
     }
   }, [initialBusiness, activeBusiness, setActiveBusiness]);
 
-  const freshSettingsLoadedRef = React.useRef(false);
+  // Direct Server Action save executor
+  const executeSave = async (overrides?: Record<string, any>) => {
+    const cleanNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
+    const cleanNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
+    const cleanPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
+    const cleanPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
 
-  // Load fresh settings form fields on mount without overwriting active business or populated inputs
-  useEffect(() => {
-    if (freshSettingsLoadedRef.current) return;
-    async function loadFreshSettings() {
-      const activeUserId = clerkUser?.id || supabaseUser?.id || profile.id;
-      if (!activeUserId || activeUserId.startsWith('usr_mock')) return;
+    const currentReviewUrl =
+      activeBusiness?.googleReviewUrl ||
+      initialBusiness?.googleReviewUrl ||
+      'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
 
-      try {
-        const res = await fetch(`/api/settings?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`, {
-          cache: 'no-store',
-          headers: { 'Cache-Control': 'no-cache' },
-        });
+    const currentPlaceId =
+      activeBusiness?.placeId ||
+      initialBusiness?.placeId ||
+      '';
 
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success) {
-            freshSettingsLoadedRef.current = true;
-            const p = json.profile;
-            const s = json.settings;
-            const b = json.business;
+    const formData = new FormData();
+    if (cleanNegEmail) formData.append('negativeAlertEmail', cleanNegEmail);
+    if (cleanNegPhone) formData.append('negativeAlertPhone', cleanNegPhone);
+    if (cleanPosEmail) formData.append('positiveAlertEmail', cleanPosEmail);
+    if (cleanPosPhone) formData.append('positiveAlertPhone', cleanPosPhone);
+    formData.append('googleReviewUrl', currentReviewUrl);
 
-            if (p?.full_name) setFullName(p.full_name);
-            if (p?.email) setAdminEmail(p.email);
+    const effectiveNegAlerts = overrides?.negativeAlertsEnabled ?? overrides?.notifyNegativeEnabled ?? negativeAlertsEnabled;
+    const effectiveNegEmail = overrides?.negativeEmailAlertEnabled ?? overrides?.notifyNegativeEmail ?? negativeEmailAlertEnabled;
+    const effectiveNegSms = overrides?.negativeSmsAlertEnabled ?? overrides?.notifyNegativeSms ?? negativeSmsAlertEnabled;
+    const effectivePosAlerts = overrides?.positiveAlertsEnabled ?? overrides?.notifyPositiveEnabled ?? positiveAlertsEnabled;
+    const effectivePosEmail = overrides?.positiveEmailAlertEnabled ?? overrides?.notifyPositiveEmail ?? positiveEmailAlertEnabled;
+    const effectivePosSms = overrides?.positiveSmsAlertEnabled ?? overrides?.notifyPositiveSms ?? positiveSmsAlertEnabled;
 
-            if (b) {
-              setActiveBusiness((prev: any) => {
-                const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-                const resolvedReviewUrl =
-                  b.googleReviewUrl ||
-                  prev?.googleReviewUrl ||
-                  initialBusiness?.googleReviewUrl ||
-                  b.reviewUrl ||
-                  prev?.reviewUrl ||
-                  initialBusiness?.reviewUrl ||
-                  defaultReviewUrl;
+    formData.append('negativeAlertsEnabled', String(effectiveNegAlerts));
+    formData.append('negativeEmailAlertEnabled', String(effectiveNegEmail));
+    formData.append('negativeSmsAlertEnabled', String(effectiveNegSms));
+    formData.append('positiveAlertsEnabled', String(effectivePosAlerts));
+    formData.append('positiveEmailAlertEnabled', String(effectivePosEmail));
+    formData.append('positiveSmsAlertEnabled', String(effectivePosSms));
 
-                return {
-                  ...(prev || {}),
-                  ...b,
-                  isGoogleConnected: true,
-                  google_connected: true,
-                  isConnected: true,
-                  googleReviewUrl: resolvedReviewUrl,
-                  reviewUrl: resolvedReviewUrl,
-                  placeId: b.placeId || prev?.placeId || initialBusiness?.placeId || '',
-                };
-              });
-            }
+    formData.append('brandVoice', brandVoice);
+    formData.append('autoPublish5Star', String(autoPublish5Star));
+    formData.append('smsTemplate', smsTemplate);
 
-            // Strictly string-only resolution for notification routing inputs
-            const resolvedNegativePhone =
-              (typeof json.notificationSettings?.negativeAlertPhone === 'string' && json.notificationSettings.negativeAlertPhone) ||
-              (typeof b?.negativeAlertPhone === 'string' && b.negativeAlertPhone) ||
-              (typeof s?.negative_alert_phone === 'string' && s.negative_alert_phone) ||
-              (typeof p?.negative_alert_phone === 'string' && p.negative_alert_phone) ||
-              '';
+    await saveSettingsAction(formData);
 
-            if (resolvedNegativePhone && resolvedNegativePhone.trim().length > 0) {
-              setNegativeAlertPhone((prev: string) => (prev ? prev : resolvedNegativePhone));
-            }
+    // Keep active business connected and retain values in memory
+    setActiveBusiness((prev: any) => ({
+      ...(initialBusiness || {}),
+      ...(prev || {}),
+      isGoogleConnected: true,
+      google_connected: true,
+      isConnected: true,
+      googleReviewUrl: currentReviewUrl,
+      reviewUrl: currentReviewUrl,
+      reviewLink: currentReviewUrl,
+      placeId: currentPlaceId,
+      negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
+      negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
+      positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
+      positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
+      negativeAlertsEnabled: effectiveNegAlerts,
+      negativeEmailAlertEnabled: effectiveNegEmail,
+      negativeSmsAlertEnabled: effectiveNegSms,
+      positiveAlertsEnabled: effectivePosAlerts,
+      positiveEmailAlertEnabled: effectivePosEmail,
+      positiveSmsAlertEnabled: effectivePosSms,
+    }));
 
-            const resolvedPositivePhone =
-              (typeof json.notificationSettings?.positiveAlertPhone === 'string' && json.notificationSettings.positiveAlertPhone) ||
-              (typeof b?.positiveAlertPhone === 'string' && b.positiveAlertPhone) ||
-              (typeof s?.positive_alert_phone === 'string' && s.positive_alert_phone) ||
-              (typeof p?.positive_alert_phone === 'string' && p.positive_alert_phone) ||
-              '';
+    router.refresh();
+  };
 
-            if (resolvedPositivePhone && resolvedPositivePhone.trim().length > 0) {
-              setPositiveAlertPhone((prev: string) => (prev ? prev : resolvedPositivePhone));
-            }
-
-            const resolvedNegEmail =
-              (typeof json.notificationSettings?.negativeAlertEmail === 'string' && json.notificationSettings.negativeAlertEmail) ||
-              (typeof b?.negativeAlertEmail === 'string' && b.negativeAlertEmail) ||
-              (typeof s?.negative_alert_email === 'string' && s.negative_alert_email) ||
-              (typeof p?.negative_alert_email === 'string' && p.negative_alert_email) ||
-              '';
-
-            if (resolvedNegEmail && resolvedNegEmail.trim().length > 0) {
-              setNegativeAlertEmail((prev: string) => (prev ? prev : resolvedNegEmail));
-            }
-
-            const resolvedPosEmail =
-              (typeof json.notificationSettings?.positiveAlertEmail === 'string' && json.notificationSettings.positiveAlertEmail) ||
-              (typeof b?.positiveAlertEmail === 'string' && b.positiveAlertEmail) ||
-              (typeof s?.positive_alert_email === 'string' && s.positive_alert_email) ||
-              (typeof p?.positive_alert_email === 'string' && p.positive_alert_email) ||
-              '';
-
-            if (resolvedPosEmail && resolvedPosEmail.trim().length > 0) {
-              setPositiveAlertEmail((prev: string) => (prev ? prev : resolvedPosEmail));
-            }
-
-            if (s?.notify_negative_enabled !== undefined && s?.notify_negative_enabled !== null) {
-              setNegativeAlertsEnabled(Boolean(s.notify_negative_enabled));
-            }
-            if (s?.notify_negative_email !== undefined && s?.notify_negative_email !== null) {
-              setNegativeEmailAlertEnabled(Boolean(s.notify_negative_email));
-            }
-            if (s?.notify_negative_sms !== undefined && s?.notify_negative_sms !== null) {
-              setNegativeSmsAlertEnabled(Boolean(s.notify_negative_sms));
-            }
-            if (s?.notify_positive_enabled !== undefined && s?.notify_positive_enabled !== null) {
-              setPositiveAlertsEnabled(Boolean(s.notify_positive_enabled));
-            }
-            if (s?.notify_positive_email !== undefined && s?.notify_positive_email !== null) {
-              setPositiveEmailAlertEnabled(Boolean(s.notify_positive_email));
-            }
-            if (s?.notify_positive_sms !== undefined && s?.notify_positive_sms !== null) {
-              setPositiveSmsAlertEnabled(Boolean(s.notify_positive_sms));
-            }
-            if (s?.auto_publish_5_star !== undefined) {
-              setAutoPublish5Star(Boolean(s.auto_publish_5_star));
-            }
-
-            if (s?.brand_voice) setBrandVoice(s.brand_voice as BrandVoiceType);
-            if (s?.sms_template) setSmsTemplate(s.sms_template);
-            if (Array.isArray(s?.custom_keywords)) setKeywords(s.custom_keywords);
-          }
-        }
-      } catch (err) {
-        console.warn('Error loading live settings:', err);
-      }
-    }
-
-    loadFreshSettings();
-  }, [user?.id, profile.id]);
-
-  // Dedicated Notification Routing Save Handler
   const handleSaveNotificationPreferences = async (
     silent = false,
-    overrides?: {
-      negativeAlertsEnabled?: boolean;
-      negativeEmailAlertEnabled?: boolean;
-      negativeSmsAlertEnabled?: boolean;
-      positiveAlertsEnabled?: boolean;
-      positiveEmailAlertEnabled?: boolean;
-      positiveSmsAlertEnabled?: boolean;
-      negativeAlertPhone?: string;
-      negativeAlertEmail?: string;
-      positiveAlertPhone?: string;
-      positiveAlertEmail?: string;
-      notifyNegativeEnabled?: boolean;
-      notifyNegativeEmail?: boolean;
-      notifyNegativeSms?: boolean;
-      notifyPositiveEnabled?: boolean;
-      notifyPositiveEmail?: boolean;
-      notifyPositiveSms?: boolean;
-      negativePhone?: string;
-      negativeEmailAddress?: string;
-      positiveEmailAddress?: string;
-      [key: string]: any;
-    }
+    overrides?: Record<string, any>
   ) => {
     if (!silent) setIsSavingNotifications(true);
 
     try {
-      const realBusinessId = 
-        (activeBusiness?.id && !activeBusiness.id.startsWith('user_')) ? activeBusiness.id :
-        (initialBusiness?.id && !initialBusiness.id.startsWith('user_')) ? initialBusiness.id :
-        undefined;
-
-      const cleanNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
-      const cleanNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
-      const cleanPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
-      const cleanPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
-
-      const effectiveNegativeAlertsEnabled = overrides?.negativeAlertsEnabled !== undefined
-        ? overrides.negativeAlertsEnabled
-        : (overrides?.notifyNegativeEnabled !== undefined ? overrides.notifyNegativeEnabled : negativeAlertsEnabled);
-
-      const effectiveNegativeEmailAlertEnabled = overrides?.negativeEmailAlertEnabled !== undefined
-        ? overrides.negativeEmailAlertEnabled
-        : (overrides?.notifyNegativeEmail !== undefined ? overrides.notifyNegativeEmail : negativeEmailAlertEnabled);
-
-      const effectiveNegativeSmsAlertEnabled = overrides?.negativeSmsAlertEnabled !== undefined
-        ? overrides.negativeSmsAlertEnabled
-        : (overrides?.notifyNegativeSms !== undefined ? overrides.notifyNegativeSms : negativeSmsAlertEnabled);
-
-      const effectivePositiveAlertsEnabled = overrides?.positiveAlertsEnabled !== undefined
-        ? overrides.positiveAlertsEnabled
-        : (overrides?.notifyPositiveEnabled !== undefined ? overrides.notifyPositiveEnabled : positiveAlertsEnabled);
-
-      const effectivePositiveEmailAlertEnabled = overrides?.positiveEmailAlertEnabled !== undefined
-        ? overrides.positiveEmailAlertEnabled
-        : (overrides?.notifyPositiveEmail !== undefined ? overrides.notifyPositiveEmail : positiveEmailAlertEnabled);
-
-      const effectivePositiveSmsAlertEnabled = overrides?.positiveSmsAlertEnabled !== undefined
-        ? overrides.positiveSmsAlertEnabled
-        : (overrides?.notifyPositiveSms !== undefined ? overrides.notifyPositiveSms : positiveSmsAlertEnabled);
-
-      const currentReviewUrl =
-        activeBusiness?.googleReviewUrl ||
-        initialBusiness?.googleReviewUrl ||
-        'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-
-      const currentPlaceId =
-        activeBusiness?.placeId ||
-        initialBusiness?.placeId ||
-        '';
-
-      const payload: Record<string, unknown> = {
-        userId: user?.id || profile?.id,
-        businessId: realBusinessId,
-        activeBusinessId: realBusinessId,
-        id: realBusinessId,
-        googleReviewUrl: currentReviewUrl,
-        reviewUrl: activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
-        placeId: currentPlaceId,
-        isGoogleConnected: true,
-        google_connected: true,
-        negativeAlertEmail: cleanNegEmail,
-        negativeAlertPhone: cleanNegPhone,
-        positiveAlertEmail: cleanPosEmail,
-        positiveAlertPhone: cleanPosPhone,
-        negativeAlertsEnabled: effectiveNegativeAlertsEnabled,
-        negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled,
-        negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled,
-        positiveAlertsEnabled: effectivePositiveAlertsEnabled,
-        positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled,
-        positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled,
-      };
-
-      console.log('[NOTIFICATIONS_CLIENT] Dispatching POST to /api/settings with payload:', payload);
-
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const resData = await res.json().catch(() => ({}));
-      if (!res.ok || !resData.success) {
-        throw new Error(resData?.error || 'Failed to save notification routing preferences.');
-      }
-
-      // Do NOT call updateProfile or updateSettings which fire secondary destructive POST requests
-      // Update local notification state and business to match returned updatedBusiness:
-      const updatedBusiness = resData.business || {};
-
-      // Persist local form state directly from what the user typed, never reset to blank
-      if (cleanNegEmail) setNegativeAlertEmail(cleanNegEmail);
-      if (cleanNegPhone) setNegativeAlertPhone(cleanNegPhone);
-      if (cleanPosEmail) setPositiveAlertEmail(cleanPosEmail);
-      if (cleanPosPhone) setPositiveAlertPhone(cleanPosPhone);
-
-      if (effectiveNegativeAlertsEnabled !== undefined) setNegativeAlertsEnabled(Boolean(effectiveNegativeAlertsEnabled));
-      if (effectiveNegativeEmailAlertEnabled !== undefined) setNegativeEmailAlertEnabled(Boolean(effectiveNegativeEmailAlertEnabled));
-      if (effectiveNegativeSmsAlertEnabled !== undefined) setNegativeSmsAlertEnabled(Boolean(effectiveNegativeSmsAlertEnabled));
-      if (effectivePositiveAlertsEnabled !== undefined) setPositiveAlertsEnabled(Boolean(effectivePositiveAlertsEnabled));
-      if (effectivePositiveEmailAlertEnabled !== undefined) setPositiveEmailAlertEnabled(Boolean(effectivePositiveEmailAlertEnabled));
-      if (effectivePositiveSmsAlertEnabled !== undefined) setPositiveSmsAlertEnabled(Boolean(effectivePositiveSmsAlertEnabled));
-
-      // Merge active business context while strictly preserving connected state and review URLs
-      setActiveBusiness((prev: any) => {
-        const currentReviewUrl = 
-          prev?.googleReviewUrl || 
-          prev?.reviewUrl || 
-          initialBusiness?.googleReviewUrl || 
-          initialBusiness?.reviewUrl || 
-          updatedBusiness?.googleReviewUrl || 
-          'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-
-        const currentPlaceId = 
-          prev?.placeId || 
-          initialBusiness?.placeId || 
-          updatedBusiness?.placeId || 
-          '';
-
-        return {
-          ...(initialBusiness || {}),
-          ...(prev || {}),
-          ...(updatedBusiness || {}),
-          isGoogleConnected: true,
-          google_connected: true,
-          isConnected: true,
-          googleReviewUrl: currentReviewUrl,
-          reviewUrl: currentReviewUrl,
-          reviewLink: currentReviewUrl,
-          placeId: currentPlaceId,
-          negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
-          negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
-          positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
-          positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
-          negativeAlertsEnabled: effectiveNegativeAlertsEnabled ?? prev?.negativeAlertsEnabled ?? true,
-          negativeEmailAlertEnabled: effectiveNegativeEmailAlertEnabled ?? prev?.negativeEmailAlertEnabled ?? true,
-          negativeSmsAlertEnabled: effectiveNegativeSmsAlertEnabled ?? prev?.negativeSmsAlertEnabled ?? false,
-          positiveAlertsEnabled: effectivePositiveAlertsEnabled ?? prev?.positiveAlertsEnabled ?? true,
-          positiveEmailAlertEnabled: effectivePositiveEmailAlertEnabled ?? prev?.positiveEmailAlertEnabled ?? true,
-          positiveSmsAlertEnabled: effectivePositiveSmsAlertEnabled ?? prev?.positiveSmsAlertEnabled ?? false,
-        };
-      });
-
-      router.refresh();
-
+      await executeSave(overrides);
       if (silent) {
-        toast.success('Notification preferences saved successfully.', { duration: 2000 });
+        toast.success('Notification preferences saved.', { duration: 2000 });
       } else {
         setIsNotificationsSaved(true);
         toast.success('Notification preferences saved successfully.');
@@ -632,7 +413,7 @@ export default function SettingsClient({
     }
   };
 
-  // Explicit Save Handler - Forms ONLY write upon explicit submit event
+  // Explicit Save Handler - Invokes Next.js Server Action directly
   const handleSaveSettings = async (e?: React.FormEvent | React.MouseEvent | unknown) => {
     if (e && typeof (e as any).preventDefault === 'function') {
       (e as any).preventDefault();
@@ -641,97 +422,7 @@ export default function SettingsClient({
     setIsSavingNotifications(true);
 
     try {
-      const cleanNegEmail = (negativeAlertEmail || '').trim();
-      const cleanNegPhone = (negativeAlertPhone || '').trim();
-      const cleanPosEmail = (positiveAlertEmail || '').trim();
-      const cleanPosPhone = (positiveAlertPhone || '').trim();
-
-      const realBusinessId = 
-        (activeBusiness?.id && !activeBusiness.id.startsWith('user_')) ? activeBusiness.id :
-        (initialBusiness?.id && !initialBusiness.id.startsWith('user_')) ? initialBusiness.id :
-        undefined;
-
-      const currentReviewUrl =
-        activeBusiness?.googleReviewUrl ||
-        initialBusiness?.googleReviewUrl ||
-        'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-
-      const currentPlaceId =
-        activeBusiness?.placeId ||
-        initialBusiness?.placeId ||
-        '';
-
-      // Post to Server-Side Settings API with protection for review URL & connection state
-      const payload: Record<string, unknown> = {
-        userId: user?.id || profile?.id,
-        businessId: realBusinessId,
-        activeBusinessId: realBusinessId,
-        id: realBusinessId,
-        googleReviewUrl: currentReviewUrl,
-        reviewUrl: activeBusiness?.reviewUrl || initialBusiness?.reviewUrl || currentReviewUrl,
-        placeId: currentPlaceId,
-        isGoogleConnected: true,
-        google_connected: true,
-        isConnected: true,
-        negativeAlertEmail: cleanNegEmail,
-        negativeAlertPhone: cleanNegPhone,
-        positiveAlertEmail: cleanPosEmail,
-        positiveAlertPhone: cleanPosPhone,
-        negativeAlertsEnabled,
-        negativeEmailAlertEnabled,
-        negativeSmsAlertEnabled,
-        positiveAlertsEnabled,
-        positiveEmailAlertEnabled,
-        positiveSmsAlertEnabled,
-        full_name: fullName,
-        brand_voice: brandVoice,
-        auto_publish_5_star: autoPublish5Star,
-        sms_template: smsTemplate,
-        custom_keywords: keywords,
-      };
-
-      console.log('[SETTINGS_CLIENT] Dispatching POST to /api/settings with payload:', payload);
-
-      const saveRes = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-
-      const resData = await saveRes.json().catch(() => ({}));
-      if (!saveRes.ok || !resData.success) {
-        const errorMsg = resData?.error || 'Server rejected settings update.';
-        throw new Error(errorMsg);
-      }
-
-      const updatedBiz = resData.business || {};
-      setActiveBusiness((prev: any) => {
-        return {
-          ...(initialBusiness || {}),
-          ...(prev || {}),
-          ...(updatedBiz || {}),
-          isGoogleConnected: true,
-          google_connected: true,
-          isConnected: true,
-          googleReviewUrl: currentReviewUrl,
-          reviewUrl: currentReviewUrl,
-          reviewLink: currentReviewUrl,
-          placeId: currentPlaceId,
-          negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || '',
-          negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || '',
-          positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || '',
-          positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || '',
-          negativeAlertsEnabled,
-          negativeEmailAlertEnabled,
-          negativeSmsAlertEnabled,
-          positiveAlertsEnabled,
-          positiveEmailAlertEnabled,
-          positiveSmsAlertEnabled,
-        };
-      });
-
-      router.refresh();
-
+      await executeSave();
       setIsSaved(true);
       setIsNotificationsSaved(true);
       toast.success('Settings Saved Successfully!', {
