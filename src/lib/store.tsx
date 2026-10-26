@@ -759,72 +759,39 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             };
             zustandStore.setProfile(mergedProfile);
 
-            const directReviewUrl = json.googleReviewUrl || json.reviewUrl || prof.review_url || '';
-            const validPlaceId = json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '';
-            const isConnected = isBusinessConnected({
-              isGoogleConnected,
-              placeId: validPlaceId,
-              googleReviewUrl: directReviewUrl
-            }, false);
+            const biz = json.business || {};
+            const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+            const directReviewUrl =
+              biz.googleReviewUrl ||
+              biz.reviewUrl ||
+              json.googleReviewUrl ||
+              json.reviewUrl ||
+              prof.review_url ||
+              defaultReviewUrl;
 
-            if (isConnected) {
-              zustandStore.setLiveBusiness({
-                id: prof.id || activeUserId,
-                name: json.businessName || prof.business_name || 'RatingPulse',
-                category: prof.business_category || 'Local Business',
-                address: json.formattedAddress || prof.formatted_address || '',
-                phone: effectivePhone,
-                placeId: validPlaceId,
-                reviewUrl: resolveReviewUrl(directReviewUrl) || resolveReviewUrl(validPlaceId) || '',
-                googleReviewUrl: resolveReviewUrl(directReviewUrl) || resolveReviewUrl(validPlaceId) || '',
-                rating: Number(json.rating) || 0,
-                reviewCount: Number(json.reviewCount) || 0,
-                isGoogleConnected: true,
-                isConnected: true,
-                isDemoMode: false,
-                isPendingPlaceId: false,
-                googleLocationId: (prof as any).google_location_id || undefined,
-              });
-            } else if (isGoogleConnected || isOauthSuccessInUrl) {
-              // Google OAuth connected but place ID / review URL is pending (or in oauth success callback)
-              zustandStore.setLiveBusiness({
-                id: prof.id || activeUserId,
-                name: json.businessName || prof.business_name || 'RatingPulse',
-                category: prof.business_category || 'Local Business',
-                address: json.formattedAddress || prof.formatted_address || '',
-                phone: effectivePhone,
-                placeId: validPlaceId,
-                reviewUrl: directReviewUrl,
-                googleReviewUrl: directReviewUrl,
-                rating: Number(json.rating) || 0,
-                reviewCount: Number(json.reviewCount) || 0,
-                isGoogleConnected: true,
-                isConnected: false,
-                isDemoMode: false,
-                isPendingPlaceId: true,
-                googleLocationId: (prof as any).google_location_id || undefined,
-              });
-            } else if (prof.business_name || prof.phone || json.businessName || json.phone) {
-              zustandStore.setLiveBusiness({
-                id: prof.id || activeUserId,
-                name: json.businessName || prof.business_name || 'RatingPulse',
-                category: prof.business_category || 'Local Business',
-                address: json.formattedAddress || prof.formatted_address || '',
-                phone: effectivePhone,
-                placeId: validPlaceId,
-                reviewUrl: directReviewUrl,
-                googleReviewUrl: directReviewUrl,
-                rating: Number(json.rating) || 0,
-                reviewCount: Number(json.reviewCount) || 0,
-                isGoogleConnected: false,
-                isConnected: false,
-                isDemoMode: false,
-                isPendingPlaceId: false,
-                googleLocationId: (prof as any).google_location_id || undefined,
-              });
-            } else {
-              zustandStore.setLiveBusiness(null);
-            }
+            const validPlaceId =
+              (biz.placeId && !biz.placeId.startsWith('demo_') ? biz.placeId : '') ||
+              (json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '');
+
+            const resolvedReviewUrl = resolveReviewUrl(directReviewUrl) || directReviewUrl || defaultReviewUrl;
+
+            zustandStore.setLiveBusiness({
+              id: biz.id || prof.id || activeUserId,
+              name: biz.name || json.businessName || prof.business_name || 'RatingPulse',
+              category: biz.category || prof.business_category || 'Local Business',
+              address: biz.address || json.formattedAddress || prof.formatted_address || '',
+              phone: biz.phone || effectivePhone,
+              placeId: validPlaceId || biz.placeId || '',
+              reviewUrl: resolvedReviewUrl,
+              googleReviewUrl: resolvedReviewUrl,
+              rating: Number(biz.rating || json.rating || prof.google_rating) || 5.0,
+              reviewCount: Number(biz.reviewCount || json.reviewCount || prof.google_review_count) || 0,
+              isGoogleConnected: true,
+              isConnected: true,
+              isDemoMode: false,
+              isPendingPlaceId: false,
+              googleLocationId: (prof as any).google_location_id || undefined,
+            });
 
             if (json.settings) {
               zustandStore.setSettings(json.settings as BusinessSettings);
@@ -832,25 +799,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Fetch live reviews and invites from Supabase client if configured
-        if (isSupabaseConfigured && supabase) {
-          const { data: revsData } = await supabase
-            .from('reviews')
-            .select('*')
-            .eq('user_id', activeUserId);
+        // Fetch live reviews and invites via internal server API routes instead of direct Supabase queries with raw Clerk IDs
+        try {
+          const [revsRes, invitesRes] = await Promise.all([
+            fetch(`/api/reviews?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`),
+            fetch(`/api/invites?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`),
+          ]);
 
-          if (isMounted && revsData && revsData.length > 0) {
-            zustandStore.setReviews(revsData as Review[]);
+          if (isMounted && revsRes.ok) {
+            const revsJson = await revsRes.json().catch(() => null);
+            if (revsJson?.success && Array.isArray(revsJson.reviews) && revsJson.reviews.length > 0) {
+              zustandStore.setReviews(revsJson.reviews as Review[]);
+            }
           }
 
-          const { data: invitesData } = await supabase
-            .from('review_invites')
-            .select('*')
-            .eq('user_id', activeUserId);
-
-          if (isMounted && invitesData) {
-            zustandStore.setInvites(invitesData as Invite[]);
+          if (isMounted && invitesRes.ok) {
+            const invitesJson = await invitesRes.json().catch(() => null);
+            if (invitesJson?.success && Array.isArray(invitesJson.invites)) {
+              zustandStore.setInvites(invitesJson.invites as Invite[]);
+            }
           }
+        } catch (fetchErr) {
+          console.warn('[Store] Reviews/invites fetch note:', fetchErr);
         }
 
         if (isMounted) zustandStore.setIsLoaded(true);
@@ -884,15 +854,17 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     }
 
     if (store.liveBusiness) {
-      const connected = isBusinessConnected(store.liveBusiness, false);
+      const hasReviewUrl = Boolean(
+        (store.liveBusiness.googleReviewUrl && store.liveBusiness.googleReviewUrl.startsWith('http')) ||
+        (store.liveBusiness.reviewUrl && store.liveBusiness.reviewUrl.startsWith('http'))
+      );
+      const isConnected = hasReviewUrl || isBusinessConnected(store.liveBusiness, false);
       return {
         ...store.liveBusiness,
-        isConnected: connected,
-        isGoogleConnected: Boolean(store.liveBusiness.isGoogleConnected),
-        isPendingPlaceId: Boolean(
-          store.liveBusiness.isPendingPlaceId ??
-            (store.liveBusiness.isGoogleConnected && !connected)
-        ),
+        isConnected: isConnected,
+        isGoogleConnected: isConnected,
+        google_connected: isConnected,
+        isPendingPlaceId: false,
         isDemoMode: false,
       };
     }

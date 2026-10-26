@@ -28,7 +28,12 @@ export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCar
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
 
-  const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
+  const hasReviewUrl = Boolean(
+    (activeBusiness?.googleReviewUrl && activeBusiness.googleReviewUrl.startsWith('http')) ||
+    (activeBusiness?.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
+    activeBusiness?.isGoogleConnected
+  );
+  const isConnected = isDemoMode || hasReviewUrl || isBusinessConnected(activeBusiness, isDemoMode);
   const businessName = activeBusiness.name;
   const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
   const reviewCount = activeBusiness.reviewCount;

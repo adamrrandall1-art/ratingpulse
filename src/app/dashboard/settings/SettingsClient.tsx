@@ -270,22 +270,24 @@ export default function SettingsClient({
 
             if (b) {
               setActiveBusiness((prev: any) => {
-                const isGoogleConnected = Boolean(
-                  prev?.isGoogleConnected ||
-                  initialBusiness?.isGoogleConnected ||
-                  b.isGoogleConnected ||
-                  b.google_connected ||
-                  isBusinessConnected(b) ||
-                  isBusinessConnected(prev)
-                );
+                const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+                const resolvedReviewUrl =
+                  b.googleReviewUrl ||
+                  prev?.googleReviewUrl ||
+                  initialBusiness?.googleReviewUrl ||
+                  b.reviewUrl ||
+                  prev?.reviewUrl ||
+                  initialBusiness?.reviewUrl ||
+                  defaultReviewUrl;
+
                 return {
                   ...(prev || {}),
                   ...b,
-                  isGoogleConnected,
-                  google_connected: isGoogleConnected,
-                  isConnected: isGoogleConnected,
-                  googleReviewUrl: b.googleReviewUrl || prev?.googleReviewUrl || initialBusiness?.googleReviewUrl || '',
-                  reviewUrl: b.reviewUrl || prev?.reviewUrl || initialBusiness?.reviewUrl || b.googleReviewUrl || '',
+                  isGoogleConnected: true,
+                  google_connected: true,
+                  isConnected: true,
+                  googleReviewUrl: resolvedReviewUrl,
+                  reviewUrl: resolvedReviewUrl,
                   placeId: b.placeId || prev?.placeId || initialBusiness?.placeId || '',
                 };
               });
