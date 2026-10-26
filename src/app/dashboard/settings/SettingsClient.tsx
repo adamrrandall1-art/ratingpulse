@@ -144,6 +144,7 @@ export default function SettingsClient({
 
   // Prioritize stored custom values. Only fallback to user defaults if the custom field is strictly undefined or null on first creation:
   const rawStoredNegEmail =
+    initialBusiness?.negativeAlertEmail ??
     initialNotificationSettings?.negativeAlertEmail ??
     business?.negativeAlertEmail ??
     business?.negative_alert_email ??
@@ -157,6 +158,7 @@ export default function SettingsClient({
   );
 
   const rawStoredNegPhone =
+    initialBusiness?.negativeAlertPhone ??
     initialNotificationSettings?.negativeAlertPhone ??
     business?.negativeAlertPhone ??
     business?.negative_alert_phone ??
@@ -170,25 +172,27 @@ export default function SettingsClient({
   );
 
   const rawStoredPosEmail =
+    initialBusiness?.positiveAlertEmail ??
     initialNotificationSettings?.positiveAlertEmail ??
     business?.positiveAlertEmail ??
     initialSettings?.positive_alert_email ??
     initialProfile?.positive_alert_email;
 
   const [positiveAlertEmail, setPositiveAlertEmail] = useState<string>(
-    rawStoredPosEmail !== undefined && rawStoredPosEmail !== null
+    rawStoredPosEmail !== undefined && rawStoredPosEmail !== null && String(rawStoredPosEmail).trim() !== ''
       ? String(rawStoredPosEmail)
       : ''
   );
 
   const rawStoredPosPhone =
+    initialBusiness?.positiveAlertPhone ??
     initialNotificationSettings?.positiveAlertPhone ??
     business?.positiveAlertPhone ??
     initialSettings?.positive_alert_phone ??
     initialProfile?.positive_alert_phone;
 
   const [positiveAlertPhone, setPositiveAlertPhone] = useState<string>(
-    rawStoredPosPhone !== undefined && rawStoredPosPhone !== null
+    rawStoredPosPhone !== undefined && rawStoredPosPhone !== null && String(rawStoredPosPhone).trim() !== ''
       ? String(rawStoredPosPhone)
       : ''
   );
@@ -216,13 +220,22 @@ export default function SettingsClient({
 
   // AI & Automation Preferences
   const [brandVoice, setBrandVoice] = useState<BrandVoiceType>(
-    (initialSettings?.brand_voice as BrandVoiceType) || (settings.brand_voice as BrandVoiceType) || 'friendly_professional'
+    (initialBusiness?.brandVoice as BrandVoiceType) ||
+    (initialSettings?.brand_voice as BrandVoiceType) ||
+    (settings.brand_voice as BrandVoiceType) ||
+    'friendly_professional'
   );
   const [autoPublish5Star, setAutoPublish5Star] = useState(
-    initialSettings?.auto_publish_5_star ?? settings.auto_publish_5_star ?? false
+    initialBusiness?.autoPublish5Star ??
+    initialSettings?.auto_publish_5_star ??
+    settings.auto_publish_5_star ??
+    false
   );
   const [smsTemplate, setSmsTemplate] = useState(
-    initialSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
+    initialBusiness?.smsTemplate ||
+    initialSettings?.sms_template ||
+    settings.sms_template ||
+    'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
   );
   const [keywords, setKeywords] = useState<string[]>(initialSettings?.custom_keywords || settings.custom_keywords || []);
 
@@ -234,14 +247,60 @@ export default function SettingsClient({
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
-  // Hydrate initial business if connected and store is not yet connected
+  // Keep form state & active business in sync with initialBusiness whenever loaded from server or updated
   useEffect(() => {
-    if (initialBusiness && isBusinessConnected(initialBusiness)) {
-      if (!isBusinessConnected(activeBusiness)) {
-        setActiveBusiness(initialBusiness);
-      }
+    if (!initialBusiness) return;
+
+    if (initialBusiness.negativeAlertEmail !== undefined && initialBusiness.negativeAlertEmail !== null && String(initialBusiness.negativeAlertEmail).trim() !== '') {
+      setNegativeAlertEmail(String(initialBusiness.negativeAlertEmail));
     }
-  }, [initialBusiness, activeBusiness, setActiveBusiness]);
+    if (initialBusiness.negativeAlertPhone !== undefined && initialBusiness.negativeAlertPhone !== null && String(initialBusiness.negativeAlertPhone).trim() !== '') {
+      setNegativeAlertPhone(String(initialBusiness.negativeAlertPhone));
+    }
+    if (initialBusiness.positiveAlertEmail !== undefined && initialBusiness.positiveAlertEmail !== null && String(initialBusiness.positiveAlertEmail).trim() !== '') {
+      setPositiveAlertEmail(String(initialBusiness.positiveAlertEmail));
+    }
+    if (initialBusiness.positiveAlertPhone !== undefined && initialBusiness.positiveAlertPhone !== null && String(initialBusiness.positiveAlertPhone).trim() !== '') {
+      setPositiveAlertPhone(String(initialBusiness.positiveAlertPhone));
+    }
+
+    if (initialBusiness.negativeAlertsEnabled !== undefined && initialBusiness.negativeAlertsEnabled !== null) {
+      setNegativeAlertsEnabled(Boolean(initialBusiness.negativeAlertsEnabled));
+    }
+    if (initialBusiness.negativeEmailAlertEnabled !== undefined && initialBusiness.negativeEmailAlertEnabled !== null) {
+      setNegativeEmailAlertEnabled(Boolean(initialBusiness.negativeEmailAlertEnabled));
+    }
+    if (initialBusiness.negativeSmsAlertEnabled !== undefined && initialBusiness.negativeSmsAlertEnabled !== null) {
+      setNegativeSmsAlertEnabled(Boolean(initialBusiness.negativeSmsAlertEnabled));
+    }
+    if (initialBusiness.positiveAlertsEnabled !== undefined && initialBusiness.positiveAlertsEnabled !== null) {
+      setPositiveAlertsEnabled(Boolean(initialBusiness.positiveAlertsEnabled));
+    }
+    if (initialBusiness.positiveEmailAlertEnabled !== undefined && initialBusiness.positiveEmailAlertEnabled !== null) {
+      setPositiveEmailAlertEnabled(Boolean(initialBusiness.positiveEmailAlertEnabled));
+    }
+    if (initialBusiness.positiveSmsAlertEnabled !== undefined && initialBusiness.positiveSmsAlertEnabled !== null) {
+      setPositiveSmsAlertEnabled(Boolean(initialBusiness.positiveSmsAlertEnabled));
+    }
+
+    if (initialBusiness.brandVoice) {
+      setBrandVoice(initialBusiness.brandVoice as BrandVoiceType);
+    }
+    if (initialBusiness.smsTemplate) {
+      setSmsTemplate(initialBusiness.smsTemplate);
+    }
+    if (initialBusiness.autoPublish5Star !== undefined && initialBusiness.autoPublish5Star !== null) {
+      setAutoPublish5Star(Boolean(initialBusiness.autoPublish5Star));
+    }
+
+    setActiveBusiness((prev: any) => ({
+      ...(prev || {}),
+      ...initialBusiness,
+      isGoogleConnected: true,
+      google_connected: true,
+      isConnected: true,
+    }));
+  }, [initialBusiness, setActiveBusiness]);
 
   // Direct Server Action save executor
   const executeSave = async (overrides?: Record<string, any>) => {

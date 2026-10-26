@@ -329,6 +329,9 @@ function normalizeBusiness(raw: any): BusinessRecord {
     positiveAlertsEnabled: raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true,
     positiveEmailAlertEnabled: raw.positiveEmailAlertEnabled ?? raw.positive_email_alert_enabled ?? true,
     positiveSmsAlertEnabled: raw.positiveSmsAlertEnabled ?? raw.positive_sms_alert_enabled ?? false,
+    brandVoice: raw.brandVoice ?? raw.brand_voice ?? 'friendly_professional',
+    smsTemplate: raw.smsTemplate ?? raw.sms_template ?? null,
+    autoPublish5Star: raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false,
     createdAt: raw.createdAt || raw.created_at || new Date(),
     updatedAt: raw.updatedAt || raw.updated_at || new Date(),
   };
