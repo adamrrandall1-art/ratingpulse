@@ -142,59 +142,37 @@ export default function SettingsClient({
     false
   );
 
-  // Prioritize stored custom values. Only fallback to user defaults if the custom field is strictly undefined or null on first creation:
-  const rawStoredNegEmail =
-    initialBusiness?.negativeAlertEmail ??
-    initialNotificationSettings?.negativeAlertEmail ??
-    business?.negativeAlertEmail ??
-    business?.negative_alert_email ??
-    initialSettings?.negative_alert_email ??
-    initialProfile?.negative_alert_email;
-
+  // Form input states mapped directly from initialBusiness
   const [negativeAlertEmail, setNegativeAlertEmail] = useState<string>(
-    rawStoredNegEmail !== undefined && rawStoredNegEmail !== null && String(rawStoredNegEmail).trim() !== ''
-      ? String(rawStoredNegEmail)
-      : (business?.email || user?.email || '')
+    initialBusiness?.negativeAlertEmail ||
+    initialBusiness?.negative_alert_email ||
+    initialNotificationSettings?.negativeAlertEmail ||
+    activeBusiness?.negativeAlertEmail ||
+    ''
   );
-
-  const rawStoredNegPhone =
-    initialBusiness?.negativeAlertPhone ??
-    initialNotificationSettings?.negativeAlertPhone ??
-    business?.negativeAlertPhone ??
-    business?.negative_alert_phone ??
-    initialSettings?.negative_alert_phone ??
-    initialProfile?.negative_alert_phone;
 
   const [negativeAlertPhone, setNegativeAlertPhone] = useState<string>(
-    rawStoredNegPhone !== undefined && rawStoredNegPhone !== null && String(rawStoredNegPhone).trim() !== ''
-      ? String(rawStoredNegPhone)
-      : (business?.phone || '')
+    initialBusiness?.negativeAlertPhone ||
+    initialBusiness?.negative_alert_phone ||
+    initialNotificationSettings?.negativeAlertPhone ||
+    activeBusiness?.negativeAlertPhone ||
+    ''
   );
-
-  const rawStoredPosEmail =
-    initialBusiness?.positiveAlertEmail ??
-    initialNotificationSettings?.positiveAlertEmail ??
-    business?.positiveAlertEmail ??
-    initialSettings?.positive_alert_email ??
-    initialProfile?.positive_alert_email;
 
   const [positiveAlertEmail, setPositiveAlertEmail] = useState<string>(
-    rawStoredPosEmail !== undefined && rawStoredPosEmail !== null && String(rawStoredPosEmail).trim() !== ''
-      ? String(rawStoredPosEmail)
-      : ''
+    initialBusiness?.positiveAlertEmail ||
+    initialBusiness?.positive_alert_email ||
+    initialNotificationSettings?.positiveAlertEmail ||
+    activeBusiness?.positiveAlertEmail ||
+    ''
   );
 
-  const rawStoredPosPhone =
-    initialBusiness?.positiveAlertPhone ??
-    initialNotificationSettings?.positiveAlertPhone ??
-    business?.positiveAlertPhone ??
-    initialSettings?.positive_alert_phone ??
-    initialProfile?.positive_alert_phone;
-
   const [positiveAlertPhone, setPositiveAlertPhone] = useState<string>(
-    rawStoredPosPhone !== undefined && rawStoredPosPhone !== null && String(rawStoredPosPhone).trim() !== ''
-      ? String(rawStoredPosPhone)
-      : ''
+    initialBusiness?.positiveAlertPhone ||
+    initialBusiness?.positive_alert_phone ||
+    initialNotificationSettings?.positiveAlertPhone ||
+    activeBusiness?.positiveAlertPhone ||
+    ''
   );
 
   // Aliases for full compatibility
@@ -247,59 +225,17 @@ export default function SettingsClient({
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
-  // Keep form state & active business in sync with initialBusiness whenever loaded from server or updated
+  // Hydrate active business in store without resetting form state
   useEffect(() => {
-    if (!initialBusiness) return;
-
-    if (initialBusiness.negativeAlertEmail !== undefined && initialBusiness.negativeAlertEmail !== null && String(initialBusiness.negativeAlertEmail).trim() !== '') {
-      setNegativeAlertEmail(String(initialBusiness.negativeAlertEmail));
+    if (initialBusiness) {
+      setActiveBusiness((prev: any) => ({
+        ...(prev || {}),
+        ...initialBusiness,
+        isGoogleConnected: true,
+        google_connected: true,
+        isConnected: true,
+      }));
     }
-    if (initialBusiness.negativeAlertPhone !== undefined && initialBusiness.negativeAlertPhone !== null && String(initialBusiness.negativeAlertPhone).trim() !== '') {
-      setNegativeAlertPhone(String(initialBusiness.negativeAlertPhone));
-    }
-    if (initialBusiness.positiveAlertEmail !== undefined && initialBusiness.positiveAlertEmail !== null && String(initialBusiness.positiveAlertEmail).trim() !== '') {
-      setPositiveAlertEmail(String(initialBusiness.positiveAlertEmail));
-    }
-    if (initialBusiness.positiveAlertPhone !== undefined && initialBusiness.positiveAlertPhone !== null && String(initialBusiness.positiveAlertPhone).trim() !== '') {
-      setPositiveAlertPhone(String(initialBusiness.positiveAlertPhone));
-    }
-
-    if (initialBusiness.negativeAlertsEnabled !== undefined && initialBusiness.negativeAlertsEnabled !== null) {
-      setNegativeAlertsEnabled(Boolean(initialBusiness.negativeAlertsEnabled));
-    }
-    if (initialBusiness.negativeEmailAlertEnabled !== undefined && initialBusiness.negativeEmailAlertEnabled !== null) {
-      setNegativeEmailAlertEnabled(Boolean(initialBusiness.negativeEmailAlertEnabled));
-    }
-    if (initialBusiness.negativeSmsAlertEnabled !== undefined && initialBusiness.negativeSmsAlertEnabled !== null) {
-      setNegativeSmsAlertEnabled(Boolean(initialBusiness.negativeSmsAlertEnabled));
-    }
-    if (initialBusiness.positiveAlertsEnabled !== undefined && initialBusiness.positiveAlertsEnabled !== null) {
-      setPositiveAlertsEnabled(Boolean(initialBusiness.positiveAlertsEnabled));
-    }
-    if (initialBusiness.positiveEmailAlertEnabled !== undefined && initialBusiness.positiveEmailAlertEnabled !== null) {
-      setPositiveEmailAlertEnabled(Boolean(initialBusiness.positiveEmailAlertEnabled));
-    }
-    if (initialBusiness.positiveSmsAlertEnabled !== undefined && initialBusiness.positiveSmsAlertEnabled !== null) {
-      setPositiveSmsAlertEnabled(Boolean(initialBusiness.positiveSmsAlertEnabled));
-    }
-
-    if (initialBusiness.brandVoice) {
-      setBrandVoice(initialBusiness.brandVoice as BrandVoiceType);
-    }
-    if (initialBusiness.smsTemplate) {
-      setSmsTemplate(initialBusiness.smsTemplate);
-    }
-    if (initialBusiness.autoPublish5Star !== undefined && initialBusiness.autoPublish5Star !== null) {
-      setAutoPublish5Star(Boolean(initialBusiness.autoPublish5Star));
-    }
-
-    setActiveBusiness((prev: any) => ({
-      ...(prev || {}),
-      ...initialBusiness,
-      isGoogleConnected: true,
-      google_connected: true,
-      isConnected: true,
-    }));
   }, [initialBusiness, setActiveBusiness]);
 
   // Direct Server Action save executor

@@ -10,6 +10,7 @@ generator client {
 model Business {
   id                        String   @id @default(uuid())
   userId                    String?  @unique
+  clerkUserId               String?
   name                      String
   category                  String?
   address                   String?
@@ -33,6 +34,11 @@ model Business {
   positiveAlertsEnabled     Boolean  @default(true)
   positiveEmailAlertEnabled Boolean  @default(true)
   positiveSmsAlertEnabled   Boolean  @default(false)
+
+  // AI & Channels
+  brandVoice                String?  @default("friendly_professional")
+  smsTemplate               String?
+  autoPublish5Star          Boolean? @default(false)
 
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

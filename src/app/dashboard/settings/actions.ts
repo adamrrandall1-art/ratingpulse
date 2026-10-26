@@ -29,7 +29,7 @@ export async function saveSettingsAction(formData: FormData) {
     ? (rawGoogleReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawGoogleReviewUrl)
     : rawGoogleReviewUrl;
 
-  // 1. Locate any existing business record
+  // 1. Locate primary business owned by this user
   let business = await db.business.findFirst({
     where: {
       OR: [
@@ -37,6 +37,7 @@ export async function saveSettingsAction(formData: FormData) {
         { clerkUserId: userId },
       ],
     },
+    orderBy: { createdAt: 'desc' },
   });
 
   const payload: Record<string, any> = {

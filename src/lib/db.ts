@@ -78,6 +78,10 @@ export const db = {
         }>;
         [key: string]: any;
       };
+      orderBy?: Record<string, 'asc' | 'desc'> | Array<Record<string, 'asc' | 'desc'>> | any;
+      select?: any;
+      include?: any;
+      [key: string]: any;
     }): Promise<BusinessRecord | null> => {
       const supabase = getAdminClient();
       const where = args?.where;
@@ -105,26 +109,67 @@ export const db = {
         for (const bId of uniqueBusinessIds) {
           if (UUID_REGEX.test(bId)) {
             try {
-              const { data } = await supabase.from('businesses').select('*').eq('id', bId).maybeSingle();
-              if (data) return normalizeBusiness(data);
+              const { data } = await supabase.from('businesses').select('*').eq('id', bId).limit(1);
+              if (data && data[0]) return normalizeBusiness(data[0]);
             } catch {}
           }
         }
 
-        // 2. Try querying businesses by userId / user_id
+        // 2. Try querying businesses by userId / clerkUserId / user_id with createdAt desc ordering
         for (const uId of uniqueUserIds) {
           try {
-            const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', uId).maybeSingle();
-            if (bByUserId) return normalizeBusiness(bByUserId);
+            const { data: bByUserId } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('userId', uId)
+              .order('createdAt', { ascending: false })
+              .limit(1);
+            if (bByUserId && bByUserId[0]) return normalizeBusiness(bByUserId[0]);
           } catch {}
           try {
-            const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', uId).maybeSingle();
-            if (bByUser_id) return normalizeBusiness(bByUser_id);
+            const { data: bByUserIdSnake } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('userId', uId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (bByUserIdSnake && bByUserIdSnake[0]) return normalizeBusiness(bByUserIdSnake[0]);
+          } catch {}
+          try {
+            const { data: bByUser_id } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('user_id', uId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (bByUser_id && bByUser_id[0]) return normalizeBusiness(bByUser_id[0]);
+          } catch {}
+          try {
+            const { data: bByClerk } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('clerkUserId', uId)
+              .order('createdAt', { ascending: false })
+              .limit(1);
+            if (bByClerk && bByClerk[0]) return normalizeBusiness(bByClerk[0]);
+          } catch {}
+          try {
+            const { data: bByClerkSnake } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('clerk_user_id', uId)
+              .order('created_at', { ascending: false })
+              .limit(1);
+            if (bByClerkSnake && bByClerkSnake[0]) return normalizeBusiness(bByClerkSnake[0]);
           } catch {}
           if (UUID_REGEX.test(uId)) {
             try {
-              const { data: bById } = await supabase.from('businesses').select('*').eq('id', uId).maybeSingle();
-              if (bById) return normalizeBusiness(bById);
+              const { data: bById } = await supabase
+                .from('businesses')
+                .select('*')
+                .eq('id', uId)
+                .limit(1);
+              if (bById && bById[0]) return normalizeBusiness(bById[0]);
             } catch {}
           }
         }
