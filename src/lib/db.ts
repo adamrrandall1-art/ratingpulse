@@ -1,5 +1,63 @@
 import { createClient } from '@supabase/supabase-js';
 import { getInitialServerBusiness } from '@/lib/server-business';
+import fs from 'fs';
+import path from 'path';
+
+// Server-side persistent business store for robust navigation and resilience
+const globalStore = globalThis as unknown as {
+  __rp_businesses?: Map<string, BusinessRecord>;
+};
+if (!globalStore.__rp_businesses) {
+  globalStore.__rp_businesses = new Map<string, BusinessRecord>();
+}
+
+function getCacheFilePath(): string | null {
+  try {
+    const dir = path.join(process.cwd(), 'node_modules', '.cache');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return path.join(dir, 'rp_businesses.json');
+  } catch {
+    return null;
+  }
+}
+
+function saveToDisk(record: BusinessRecord) {
+  try {
+    const filePath = getCacheFilePath();
+    if (!filePath) return;
+    let data: Record<string, BusinessRecord> = {};
+    if (fs.existsSync(filePath)) {
+      try {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {}
+    }
+    data[record.id] = record;
+    if (record.userId) data[record.userId] = record;
+    if (record.clerkUserId) data[record.clerkUserId] = record;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch {}
+}
+
+function loadFromDisk(targetId: string): BusinessRecord | null {
+  try {
+    const filePath = getCacheFilePath();
+    if (!filePath || !fs.existsSync(filePath)) return null;
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return data[targetId] || null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheRecord(record: BusinessRecord) {
+  if (!globalStore.__rp_businesses) globalStore.__rp_businesses = new Map<string, BusinessRecord>();
+  if (record.id) globalStore.__rp_businesses.set(record.id, record);
+  if (record.userId) globalStore.__rp_businesses.set(record.userId, record);
+  if (record.clerkUserId) globalStore.__rp_businesses.set(record.clerkUserId, record);
+  saveToDisk(record);
+}
 
 function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -60,10 +118,22 @@ export const db = {
         try {
           const { data } = await supabase.from('businesses').select('*');
           if (data && Array.isArray(data)) {
-            return data.map(normalizeBusiness);
+            const records = data.map(normalizeBusiness);
+            records.forEach(cacheRecord);
+            return records;
           }
         } catch {}
       }
+      if (globalStore.__rp_businesses && globalStore.__rp_businesses.size > 0) {
+        return Array.from(new Set(Array.from(globalStore.__rp_businesses.values())));
+      }
+      try {
+        const filePath = getCacheFilePath();
+        if (filePath && fs.existsSync(filePath)) {
+          const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          return Object.values(data).map(normalizeBusiness);
+        }
+      } catch {}
       return [];
     },
 
@@ -110,7 +180,11 @@ export const db = {
           if (UUID_REGEX.test(bId)) {
             try {
               const { data } = await supabase.from('businesses').select('*').eq('id', bId).limit(1);
-              if (data && data[0]) return normalizeBusiness(data[0]);
+              if (data && data[0]) {
+                const norm = normalizeBusiness(data[0]);
+                cacheRecord(norm);
+                return norm;
+              }
             } catch {}
           }
         }
@@ -124,7 +198,11 @@ export const db = {
               .eq('userId', uId)
               .order('createdAt', { ascending: false })
               .limit(1);
-            if (bByUserId && bByUserId[0]) return normalizeBusiness(bByUserId[0]);
+            if (bByUserId && bByUserId[0]) {
+              const norm = normalizeBusiness(bByUserId[0]);
+              cacheRecord(norm);
+              return norm;
+            }
           } catch {}
           try {
             const { data: bByUserIdSnake } = await supabase
@@ -133,7 +211,11 @@ export const db = {
               .eq('userId', uId)
               .order('created_at', { ascending: false })
               .limit(1);
-            if (bByUserIdSnake && bByUserIdSnake[0]) return normalizeBusiness(bByUserIdSnake[0]);
+            if (bByUserIdSnake && bByUserIdSnake[0]) {
+              const norm = normalizeBusiness(bByUserIdSnake[0]);
+              cacheRecord(norm);
+              return norm;
+            }
           } catch {}
           try {
             const { data: bByUser_id } = await supabase
@@ -142,7 +224,11 @@ export const db = {
               .eq('user_id', uId)
               .order('created_at', { ascending: false })
               .limit(1);
-            if (bByUser_id && bByUser_id[0]) return normalizeBusiness(bByUser_id[0]);
+            if (bByUser_id && bByUser_id[0]) {
+              const norm = normalizeBusiness(bByUser_id[0]);
+              cacheRecord(norm);
+              return norm;
+            }
           } catch {}
           try {
             const { data: bByClerk } = await supabase
@@ -151,7 +237,11 @@ export const db = {
               .eq('clerkUserId', uId)
               .order('createdAt', { ascending: false })
               .limit(1);
-            if (bByClerk && bByClerk[0]) return normalizeBusiness(bByClerk[0]);
+            if (bByClerk && bByClerk[0]) {
+              const norm = normalizeBusiness(bByClerk[0]);
+              cacheRecord(norm);
+              return norm;
+            }
           } catch {}
           try {
             const { data: bByClerkSnake } = await supabase
@@ -160,7 +250,11 @@ export const db = {
               .eq('clerk_user_id', uId)
               .order('created_at', { ascending: false })
               .limit(1);
-            if (bByClerkSnake && bByClerkSnake[0]) return normalizeBusiness(bByClerkSnake[0]);
+            if (bByClerkSnake && bByClerkSnake[0]) {
+              const norm = normalizeBusiness(bByClerkSnake[0]);
+              cacheRecord(norm);
+              return norm;
+            }
           } catch {}
           if (UUID_REGEX.test(uId)) {
             try {
@@ -169,17 +263,42 @@ export const db = {
                 .select('*')
                 .eq('id', uId)
                 .limit(1);
-              if (bById && bById[0]) return normalizeBusiness(bById[0]);
+              if (bById && bById[0]) {
+                const norm = normalizeBusiness(bById[0]);
+                cacheRecord(norm);
+                return norm;
+              }
             } catch {}
           }
         }
       }
 
-      // 3. Fall back to getInitialServerBusiness resolver
+      // 3. Check server-side memory cache
+      for (const candId of [...uniqueUserIds, ...uniqueBusinessIds]) {
+        if (globalStore.__rp_businesses?.has(candId)) {
+          const found = globalStore.__rp_businesses.get(candId);
+          if (found) return normalizeBusiness(found);
+        }
+      }
+
+      // 4. Check disk cache
+      for (const candId of [...uniqueUserIds, ...uniqueBusinessIds]) {
+        const diskFound = loadFromDisk(candId);
+        if (diskFound) {
+          cacheRecord(diskFound);
+          return normalizeBusiness(diskFound);
+        }
+      }
+
+      // 5. Fall back to getInitialServerBusiness resolver
       const targetId = uniqueUserIds[0] || uniqueBusinessIds[0];
       if (targetId) {
         const fallbackBiz = await getInitialServerBusiness(targetId);
-        if (fallbackBiz) return normalizeBusiness(fallbackBiz);
+        if (fallbackBiz) {
+          const normalized = normalizeBusiness(fallbackBiz);
+          cacheRecord(normalized);
+          return normalized;
+        }
       }
 
       return null;
@@ -197,10 +316,29 @@ export const db = {
       const targetId = args.where.id;
       const data = args.data;
 
+      // Find existing record to preserve fields
+      const existing = await db.business.findFirst({
+        where: {
+          OR: [
+            { id: targetId },
+            { userId: targetId },
+            { clerkUserId: targetId },
+          ],
+        },
+      });
+
       const normalizedData = { ...data };
       if (normalizedData.updatedAt instanceof Date) {
         normalizedData.updatedAt = normalizedData.updatedAt.toISOString();
       }
+
+      const merged = normalizeBusiness({
+        ...(existing || {}),
+        ...normalizedData,
+        id: existing?.id || targetId,
+        updatedAt: new Date().toISOString(),
+      });
+      cacheRecord(merged);
 
       // Prepare partial update for businesses table
       const partialUpdate: Record<string, unknown> = {
@@ -284,24 +422,7 @@ export const db = {
         } catch {}
       }
 
-      // Re-fetch or normalize
-      const refreshed = await db.business.findFirst({
-        where: { id: targetId, userId: targetId },
-      });
-
-      if (refreshed) {
-        return normalizeBusiness({
-          ...refreshed,
-          ...data,
-          id: refreshed.id || targetId,
-        });
-      }
-
-      return normalizeBusiness({
-        id: targetId,
-        name: 'RatingPulse',
-        ...data,
-      });
+      return merged;
     },
 
     create: async (args: {
@@ -310,10 +431,14 @@ export const db = {
       const supabase = getAdminClient();
       const data = args.data;
       const id = (data.id as string) || (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `bus_${Date.now()}`);
-      const payload = {
+      const payload = normalizeBusiness({
         id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         ...data,
-      };
+      });
+
+      cacheRecord(payload);
 
       if (supabase) {
         try {
@@ -336,7 +461,7 @@ export const db = {
         } catch {}
       }
 
-      return normalizeBusiness(payload);
+      return payload;
     },
   },
 };

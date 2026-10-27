@@ -40,17 +40,33 @@ export async function saveSettingsAction(formData: FormData) {
     orderBy: { createdAt: 'desc' },
   });
 
+  if (!business) {
+    try {
+      const cookieStore = await cookies();
+      const activeId =
+        cookieStore.get('activeBusinessId')?.value ||
+        cookieStore.get('rp_active_business_id')?.value;
+      if (activeId) {
+        business = await db.business.findFirst({
+          where: { id: activeId },
+          orderBy: { createdAt: 'desc' },
+        });
+      }
+    } catch {}
+  }
+
   const payload: Record<string, any> = {
-    negativeAlertEmail,
-    negativeAlertPhone,
-    positiveAlertEmail,
-    positiveAlertPhone,
     googleReviewUrl,
     reviewUrl: googleReviewUrl,
     isGoogleConnected: true,
     google_connected: true,
     updatedAt: new Date(),
   };
+
+  if (negativeAlertEmail !== null) payload.negativeAlertEmail = negativeAlertEmail;
+  if (negativeAlertPhone !== null) payload.negativeAlertPhone = negativeAlertPhone;
+  if (positiveAlertEmail !== null) payload.positiveAlertEmail = positiveAlertEmail;
+  if (positiveAlertPhone !== null) payload.positiveAlertPhone = positiveAlertPhone;
 
   const getBool = (key: string) => {
     if (formData instanceof FormData) {
@@ -94,7 +110,11 @@ export async function saveSettingsAction(formData: FormData) {
   if (business) {
     savedBusiness = await db.business.update({
       where: { id: business.id },
-      data: payload,
+      data: {
+        ...payload,
+        userId: userId,
+        clerkUserId: userId,
+      },
     });
   } else {
     // Create new business record tied directly to Clerk userId

@@ -65,6 +65,7 @@ interface MessagingChannelsCardProps {
   setPositiveEmailAddress?: (val: string) => void;
 
   // Actions & Persistence
+  initialBusiness?: any;
   onSendTestWelcome?: () => Promise<void>;
   sendingTestWelcome?: boolean;
   onSaveNotificationPreferences?: () => Promise<void>;
@@ -116,6 +117,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
     setNotifyPositiveSms,
     positiveEmailAddress,
     setPositiveEmailAddress,
+    initialBusiness,
     onSendTestWelcome,
     sendingTestWelcome = false,
     onSaveNotificationPreferences,
@@ -125,20 +127,20 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
     onToggleChange,
   } = props;
 
-  const effectiveNegativeAlertsEnabled = negativeAlertsEnabled ?? notifyNegativeEnabled ?? true;
-  const effectiveNegativeEmailAlertEnabled = negativeEmailAlertEnabled ?? notifyNegativeEmail ?? true;
-  const effectiveNegativeSmsAlertEnabled = negativeSmsAlertEnabled ?? notifyNegativeSms ?? false;
-  const rawNegEmail = (typeof negativeAlertEmail === 'string' ? negativeAlertEmail : (typeof negativeEmailAddress === 'string' ? negativeEmailAddress : ''));
+  const effectiveNegativeAlertsEnabled = negativeAlertsEnabled ?? notifyNegativeEnabled ?? props.initialBusiness?.negativeAlertsEnabled ?? true;
+  const effectiveNegativeEmailAlertEnabled = negativeEmailAlertEnabled ?? notifyNegativeEmail ?? props.initialBusiness?.negativeEmailAlertEnabled ?? true;
+  const effectiveNegativeSmsAlertEnabled = negativeSmsAlertEnabled ?? notifyNegativeSms ?? props.initialBusiness?.negativeSmsAlertEnabled ?? false;
+  const rawNegEmail = (typeof negativeAlertEmail === 'string' && negativeAlertEmail.trim() !== '' ? negativeAlertEmail : (typeof negativeEmailAddress === 'string' && negativeEmailAddress.trim() !== '' ? negativeEmailAddress : (props.initialBusiness?.negativeAlertEmail || props.initialBusiness?.negative_alert_email || '')));
   const effectiveNegativeAlertEmail = (rawNegEmail === 'true' || rawNegEmail === 'false') ? '' : rawNegEmail;
-  const rawNegPhone = (typeof negativeAlertPhone === 'string' ? negativeAlertPhone : (typeof negativePhone === 'string' ? negativePhone : ''));
+  const rawNegPhone = (typeof negativeAlertPhone === 'string' && negativeAlertPhone.trim() !== '' ? negativeAlertPhone : (typeof negativePhone === 'string' && negativePhone.trim() !== '' ? negativePhone : (props.initialBusiness?.negativeAlertPhone || props.initialBusiness?.negative_alert_phone || '')));
   const effectiveNegativeAlertPhone = (rawNegPhone === 'true' || rawNegPhone === 'false') ? '' : rawNegPhone;
 
-  const effectivePositiveAlertsEnabled = positiveAlertsEnabled ?? notifyPositiveEnabled ?? true;
-  const effectivePositiveEmailAlertEnabled = positiveEmailAlertEnabled ?? notifyPositiveEmail ?? true;
-  const effectivePositiveSmsAlertEnabled = positiveSmsAlertEnabled ?? notifyPositiveSms ?? false;
-  const rawPosEmail = (typeof positiveAlertEmail === 'string' ? positiveAlertEmail : (typeof positiveEmailAddress === 'string' ? positiveEmailAddress : ''));
+  const effectivePositiveAlertsEnabled = positiveAlertsEnabled ?? notifyPositiveEnabled ?? props.initialBusiness?.positiveAlertsEnabled ?? true;
+  const effectivePositiveEmailAlertEnabled = positiveEmailAlertEnabled ?? notifyPositiveEmail ?? props.initialBusiness?.positiveEmailAlertEnabled ?? true;
+  const effectivePositiveSmsAlertEnabled = positiveSmsAlertEnabled ?? notifyPositiveSms ?? props.initialBusiness?.positiveSmsAlertEnabled ?? false;
+  const rawPosEmail = (typeof positiveAlertEmail === 'string' && positiveAlertEmail.trim() !== '' ? positiveAlertEmail : (typeof positiveEmailAddress === 'string' && positiveEmailAddress.trim() !== '' ? positiveEmailAddress : (props.initialBusiness?.positiveAlertEmail || props.initialBusiness?.positive_alert_email || '')));
   const effectivePositiveAlertEmail = (rawPosEmail === 'true' || rawPosEmail === 'false') ? '' : rawPosEmail;
-  const rawPosPhone = (typeof positiveAlertPhone === 'string' ? positiveAlertPhone : '');
+  const rawPosPhone = (typeof positiveAlertPhone === 'string' && positiveAlertPhone.trim() !== '' ? positiveAlertPhone : (props.initialBusiness?.positiveAlertPhone || props.initialBusiness?.positive_alert_phone || ''));
   const effectivePositiveAlertPhone = (rawPosPhone === 'true' || rawPosPhone === 'false') ? '' : rawPosPhone;
 
   const handleNegEmailChange = (val: string) => {
@@ -357,7 +359,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     placeholder="manager@business.com"
                     value={effectiveNegativeAlertEmail}
                     onChange={(e) => handleNegEmailChange(e.target.value)}
-                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!effectiveNegativeEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -372,7 +373,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     placeholder="+1 (555) 000-0000"
                     value={effectiveNegativeAlertPhone}
                     onChange={(e) => handleNegPhoneChange(e.target.value)}
-                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!effectiveNegativeSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -464,7 +464,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     placeholder="marketing@business.com"
                     value={effectivePositiveAlertEmail}
                     onChange={(e) => handlePosEmailChange(e.target.value)}
-                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!effectivePositiveEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />
@@ -479,7 +478,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     placeholder="+1 (555) 000-0000"
                     value={effectivePositiveAlertPhone}
                     onChange={(e) => handlePosPhoneChange(e.target.value)}
-                    onBlur={() => onAutoSaveNotifications?.()}
                     disabled={!effectivePositiveSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
                   />

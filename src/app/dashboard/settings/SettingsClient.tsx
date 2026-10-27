@@ -225,7 +225,7 @@ export default function SettingsClient({
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
-  // Hydrate active business in store without resetting form state
+  // Hydrate active business in store and synchronize form state
   useEffect(() => {
     if (initialBusiness) {
       setActiveBusiness((prev: any) => ({
@@ -235,6 +235,51 @@ export default function SettingsClient({
         google_connected: true,
         isConnected: true,
       }));
+
+      const email = initialBusiness.negativeAlertEmail || initialBusiness.negative_alert_email;
+      if (email && email !== 'true' && email !== 'false') {
+        setNegativeAlertEmail(email);
+      }
+      const phone = initialBusiness.negativeAlertPhone || initialBusiness.negative_alert_phone;
+      if (phone && phone !== 'true' && phone !== 'false') {
+        setNegativeAlertPhone(phone);
+      }
+      const posEmail = initialBusiness.positiveAlertEmail || initialBusiness.positive_alert_email;
+      if (posEmail && posEmail !== 'true' && posEmail !== 'false') {
+        setPositiveAlertEmail(posEmail);
+      }
+      const posPhone = initialBusiness.positiveAlertPhone || initialBusiness.positive_alert_phone;
+      if (posPhone && posPhone !== 'true' && posPhone !== 'false') {
+        setPositiveAlertPhone(posPhone);
+      }
+
+      if (initialBusiness.negativeAlertsEnabled !== undefined) {
+        setNegativeAlertsEnabled(Boolean(initialBusiness.negativeAlertsEnabled));
+      }
+      if (initialBusiness.negativeEmailAlertEnabled !== undefined) {
+        setNegativeEmailAlertEnabled(Boolean(initialBusiness.negativeEmailAlertEnabled));
+      }
+      if (initialBusiness.negativeSmsAlertEnabled !== undefined) {
+        setNegativeSmsAlertEnabled(Boolean(initialBusiness.negativeSmsAlertEnabled));
+      }
+      if (initialBusiness.positiveAlertsEnabled !== undefined) {
+        setPositiveAlertsEnabled(Boolean(initialBusiness.positiveAlertsEnabled));
+      }
+      if (initialBusiness.positiveEmailAlertEnabled !== undefined) {
+        setPositiveEmailAlertEnabled(Boolean(initialBusiness.positiveEmailAlertEnabled));
+      }
+      if (initialBusiness.positiveSmsAlertEnabled !== undefined) {
+        setPositiveSmsAlertEnabled(Boolean(initialBusiness.positiveSmsAlertEnabled));
+      }
+      if (initialBusiness.brandVoice) {
+        setBrandVoice(initialBusiness.brandVoice as BrandVoiceType);
+      }
+      if (initialBusiness.smsTemplate) {
+        setSmsTemplate(initialBusiness.smsTemplate);
+      }
+      if (initialBusiness.autoPublish5Star !== undefined) {
+        setAutoPublish5Star(Boolean(initialBusiness.autoPublish5Star));
+      }
     }
   }, [initialBusiness, setActiveBusiness]);
 
@@ -256,10 +301,10 @@ export default function SettingsClient({
       '';
 
     const formData = new FormData();
-    if (cleanNegEmail) formData.append('negativeAlertEmail', cleanNegEmail);
-    if (cleanNegPhone) formData.append('negativeAlertPhone', cleanNegPhone);
-    if (cleanPosEmail) formData.append('positiveAlertEmail', cleanPosEmail);
-    if (cleanPosPhone) formData.append('positiveAlertPhone', cleanPosPhone);
+    formData.append('negativeAlertEmail', cleanNegEmail);
+    formData.append('negativeAlertPhone', cleanNegPhone);
+    formData.append('positiveAlertEmail', cleanPosEmail);
+    formData.append('positiveAlertPhone', cleanPosPhone);
     formData.append('googleReviewUrl', currentReviewUrl);
 
     const effectiveNegAlerts = overrides?.negativeAlertsEnabled ?? overrides?.notifyNegativeEnabled ?? negativeAlertsEnabled;
@@ -551,9 +596,9 @@ export default function SettingsClient({
               setNegativeEmailAlertEnabled={setNegativeEmailAlertEnabled}
               negativeSmsAlertEnabled={negativeSmsAlertEnabled}
               setNegativeSmsAlertEnabled={setNegativeSmsAlertEnabled}
-              negativeAlertEmail={negativeAlertEmail}
+              negativeAlertEmail={negativeAlertEmail || initialBusiness?.negativeAlertEmail || activeBusiness?.negativeAlertEmail || ''}
               setNegativeAlertEmail={setNegativeAlertEmail}
-              negativeAlertPhone={negativeAlertPhone}
+              negativeAlertPhone={negativeAlertPhone || initialBusiness?.negativeAlertPhone || activeBusiness?.negativeAlertPhone || ''}
               setNegativeAlertPhone={setNegativeAlertPhone}
               positiveAlertsEnabled={positiveAlertsEnabled}
               setPositiveAlertsEnabled={setPositiveAlertsEnabled}
@@ -561,9 +606,9 @@ export default function SettingsClient({
               setPositiveEmailAlertEnabled={setPositiveEmailAlertEnabled}
               positiveSmsAlertEnabled={positiveSmsAlertEnabled}
               setPositiveSmsAlertEnabled={setPositiveSmsAlertEnabled}
-              positiveAlertEmail={positiveAlertEmail}
+              positiveAlertEmail={positiveAlertEmail || initialBusiness?.positiveAlertEmail || activeBusiness?.positiveAlertEmail || ''}
               setPositiveAlertEmail={setPositiveAlertEmail}
-              positiveAlertPhone={positiveAlertPhone}
+              positiveAlertPhone={positiveAlertPhone || initialBusiness?.positiveAlertPhone || activeBusiness?.positiveAlertPhone || ''}
               setPositiveAlertPhone={setPositiveAlertPhone}
               notifyNegativeEnabled={notifyNegativeEnabled}
               setNotifyNegativeEnabled={setNotifyNegativeEnabled}
@@ -571,9 +616,9 @@ export default function SettingsClient({
               setNotifyNegativeEmail={setNotifyNegativeEmail}
               notifyNegativeSms={notifyNegativeSms}
               setNotifyNegativeSms={setNotifyNegativeSms}
-              negativeEmailAddress={negativeEmailAddress}
+              negativeEmailAddress={negativeEmailAddress || initialBusiness?.negativeAlertEmail || activeBusiness?.negativeAlertEmail || ''}
               setNegativeEmailAddress={setNegativeEmailAddress}
-              negativePhone={negativePhone}
+              negativePhone={negativePhone || initialBusiness?.negativeAlertPhone || activeBusiness?.negativeAlertPhone || ''}
               setNegativePhone={setNegativePhone}
               notifyPositiveEnabled={notifyPositiveEnabled}
               setNotifyPositiveEnabled={setNotifyPositiveEnabled}
@@ -581,8 +626,9 @@ export default function SettingsClient({
               setNotifyPositiveEmail={setNotifyPositiveEmail}
               notifyPositiveSms={notifyPositiveSms}
               setNotifyPositiveSms={setNotifyPositiveSms}
-              positiveEmailAddress={positiveEmailAddress}
+              positiveEmailAddress={positiveEmailAddress || initialBusiness?.positiveAlertEmail || activeBusiness?.positiveAlertEmail || ''}
               setPositiveEmailAddress={setPositiveEmailAddress}
+              initialBusiness={initialBusiness || activeBusiness}
               onSendTestWelcome={handleSendTestWelcome}
               sendingTestWelcome={sendingTestWelcome}
               onSaveNotificationPreferences={handleSaveNotificationPreferences}
