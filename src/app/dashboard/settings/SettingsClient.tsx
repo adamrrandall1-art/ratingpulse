@@ -269,10 +269,15 @@ export default function SettingsClient({
 
   // Direct Server Action save executor
   const executeSave = async (overrides?: Record<string, any>) => {
-    const cleanNegEmail = (overrides?.negativeAlertEmail ?? overrides?.negativeEmailAddress ?? negativeAlertEmail ?? '').trim();
-    const cleanNegPhone = (overrides?.negativeAlertPhone ?? overrides?.negativePhone ?? negativeAlertPhone ?? '').trim();
-    const cleanPosEmail = (overrides?.positiveAlertEmail ?? overrides?.positiveEmailAddress ?? positiveAlertEmail ?? '').trim();
-    const cleanPosPhone = (overrides?.positiveAlertPhone ?? positiveAlertPhone ?? '').trim();
+    console.log('[CLIENT] Submitting settings form with values:', {
+      negativeAlertEmail,
+      negativeAlertPhone,
+    });
+
+    const cleanNegEmail = (overrides?.negativeAlertEmail || overrides?.negativeEmailAddress || negativeAlertEmail || initialBusiness?.negativeAlertEmail || '').trim();
+    const cleanNegPhone = (overrides?.negativeAlertPhone || overrides?.negativePhone || negativeAlertPhone || initialBusiness?.negativeAlertPhone || '').trim();
+    const cleanPosEmail = (overrides?.positiveAlertEmail || overrides?.positiveEmailAddress || positiveAlertEmail || initialBusiness?.positiveAlertEmail || '').trim();
+    const cleanPosPhone = (overrides?.positiveAlertPhone || positiveAlertPhone || initialBusiness?.positiveAlertPhone || '').trim();
 
     const currentReviewUrl =
       activeBusiness?.googleReviewUrl ||
@@ -337,7 +342,14 @@ export default function SettingsClient({
     }));
   };
 
-  const handleSaveNotificationPreferences = async () => {
+  const handleSaveNotificationPreferences = async (e?: React.MouseEvent | React.FormEvent) => {
+    if (e && typeof (e as any).preventDefault === 'function') {
+      (e as any).preventDefault();
+    }
+    console.log('[CLIENT] Submitting settings form with values:', {
+      negativeAlertEmail,
+      negativeAlertPhone,
+    });
     setIsSavingNotifications(true);
 
     try {
@@ -431,6 +443,10 @@ export default function SettingsClient({
     if (e && typeof (e as any).preventDefault === 'function') {
       (e as any).preventDefault();
     }
+    console.log('[CLIENT] Submitting settings form with values:', {
+      negativeAlertEmail,
+      negativeAlertPhone,
+    });
     setIsSaving(true);
     setIsSavingNotifications(true);
 
@@ -457,7 +473,11 @@ export default function SettingsClient({
   };
 
   return (
-    <div className="space-y-6 max-w-5xl pb-16">
+    <form
+      onSubmit={handleSaveSettings}
+      action={handleSaveSettings}
+      className="space-y-6 max-w-5xl pb-16"
+    >
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-4">
         <div>
@@ -472,7 +492,7 @@ export default function SettingsClient({
 
         <div className="flex items-center gap-3">
           <button
-            type="button"
+            type="submit"
             onClick={handleSaveSettings}
             disabled={isSaving}
             className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
@@ -722,7 +742,7 @@ export default function SettingsClient({
           Changes will apply across all review reply generators and invite channels immediately.
         </div>
         <button
-          type="button"
+          type="submit"
           onClick={handleSaveSettings}
           disabled={isSaving}
           className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
@@ -740,6 +760,6 @@ export default function SettingsClient({
           )}
         </button>
       </div>
-    </div>
+    </form>
   );
 }

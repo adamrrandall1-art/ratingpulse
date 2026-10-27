@@ -29,6 +29,12 @@ export async function saveSettingsAction(formData: FormData) {
     ? (rawGoogleReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawGoogleReviewUrl)
     : rawGoogleReviewUrl;
 
+  console.log('[SERVER ACTION] Received save request:', {
+    userId,
+    negativeAlertEmail,
+    negativeAlertPhone,
+  });
+
   // 1. Locate primary business owned by this user
   let business = await db.business.findFirst({
     where: {
@@ -127,6 +133,9 @@ export async function saveSettingsAction(formData: FormData) {
       },
     });
   }
+
+  const updated = savedBusiness;
+  console.log('[SERVER ACTION] Prisma update success:', updated);
 
   // 2. Set active business cookie for layout/context readers
   try {

@@ -356,6 +356,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   </label>
                   <input
                     type="email"
+                    name="negativeAlertEmail"
                     placeholder="manager@business.com"
                     value={effectiveNegativeAlertEmail || initialBusiness?.negativeAlertEmail || ''}
                     onChange={(e) => handleNegEmailChange(e.target.value)}
@@ -370,6 +371,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   </label>
                   <input
                     type="tel"
+                    name="negativeAlertPhone"
                     placeholder="+1 (555) 000-0000"
                     value={effectiveNegativeAlertPhone || initialBusiness?.negativeAlertPhone || ''}
                     onChange={(e) => handleNegPhoneChange(e.target.value)}
@@ -461,6 +463,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   </label>
                   <input
                     type="email"
+                    name="positiveAlertEmail"
                     placeholder="marketing@business.com"
                     value={effectivePositiveAlertEmail || initialBusiness?.positiveAlertEmail || ''}
                     onChange={(e) => handlePosEmailChange(e.target.value)}
@@ -475,6 +478,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   </label>
                   <input
                     type="tel"
+                    name="positiveAlertPhone"
                     placeholder="+1 (555) 000-0000"
                     value={effectivePositiveAlertPhone || initialBusiness?.positiveAlertPhone || ''}
                     onChange={(e) => handlePosPhoneChange(e.target.value)}
@@ -500,7 +504,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
               </div>
             </div>
             <button
-              type="button"
+              type="submit"
               onClick={onSaveNotificationPreferences}
               disabled={isSavingNotifications}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
