@@ -144,35 +144,19 @@ export default function SettingsClient({
 
   // Form input states mapped directly from initialBusiness
   const [negativeAlertEmail, setNegativeAlertEmail] = useState<string>(
-    initialBusiness?.negativeAlertEmail ||
-    initialBusiness?.negative_alert_email ||
-    initialNotificationSettings?.negativeAlertEmail ||
-    activeBusiness?.negativeAlertEmail ||
-    ''
+    initialBusiness?.negativeAlertEmail || ''
   );
 
   const [negativeAlertPhone, setNegativeAlertPhone] = useState<string>(
-    initialBusiness?.negativeAlertPhone ||
-    initialBusiness?.negative_alert_phone ||
-    initialNotificationSettings?.negativeAlertPhone ||
-    activeBusiness?.negativeAlertPhone ||
-    ''
+    initialBusiness?.negativeAlertPhone || ''
   );
 
   const [positiveAlertEmail, setPositiveAlertEmail] = useState<string>(
-    initialBusiness?.positiveAlertEmail ||
-    initialBusiness?.positive_alert_email ||
-    initialNotificationSettings?.positiveAlertEmail ||
-    activeBusiness?.positiveAlertEmail ||
-    ''
+    initialBusiness?.positiveAlertEmail || ''
   );
 
   const [positiveAlertPhone, setPositiveAlertPhone] = useState<string>(
-    initialBusiness?.positiveAlertPhone ||
-    initialBusiness?.positive_alert_phone ||
-    initialNotificationSettings?.positiveAlertPhone ||
-    activeBusiness?.positiveAlertPhone ||
-    ''
+    initialBusiness?.positiveAlertPhone || ''
   );
 
   // Aliases for full compatibility
@@ -588,6 +572,7 @@ export default function SettingsClient({
         {activeTab === 'channels' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <MessagingChannelsCard
+              initialBusiness={initialBusiness}
               smsTemplate={smsTemplate}
               setSmsTemplate={setSmsTemplate}
               negativeAlertsEnabled={negativeAlertsEnabled}
@@ -596,9 +581,9 @@ export default function SettingsClient({
               setNegativeEmailAlertEnabled={setNegativeEmailAlertEnabled}
               negativeSmsAlertEnabled={negativeSmsAlertEnabled}
               setNegativeSmsAlertEnabled={setNegativeSmsAlertEnabled}
-              negativeAlertEmail={negativeAlertEmail || initialBusiness?.negativeAlertEmail || activeBusiness?.negativeAlertEmail || ''}
+              negativeAlertEmail={negativeAlertEmail || initialBusiness?.negativeAlertEmail || ''}
               setNegativeAlertEmail={setNegativeAlertEmail}
-              negativeAlertPhone={negativeAlertPhone || initialBusiness?.negativeAlertPhone || activeBusiness?.negativeAlertPhone || ''}
+              negativeAlertPhone={negativeAlertPhone || initialBusiness?.negativeAlertPhone || ''}
               setNegativeAlertPhone={setNegativeAlertPhone}
               positiveAlertsEnabled={positiveAlertsEnabled}
               setPositiveAlertsEnabled={setPositiveAlertsEnabled}
@@ -606,9 +591,9 @@ export default function SettingsClient({
               setPositiveEmailAlertEnabled={setPositiveEmailAlertEnabled}
               positiveSmsAlertEnabled={positiveSmsAlertEnabled}
               setPositiveSmsAlertEnabled={setPositiveSmsAlertEnabled}
-              positiveAlertEmail={positiveAlertEmail || initialBusiness?.positiveAlertEmail || activeBusiness?.positiveAlertEmail || ''}
+              positiveAlertEmail={positiveAlertEmail || initialBusiness?.positiveAlertEmail || ''}
               setPositiveAlertEmail={setPositiveAlertEmail}
-              positiveAlertPhone={positiveAlertPhone || initialBusiness?.positiveAlertPhone || activeBusiness?.positiveAlertPhone || ''}
+              positiveAlertPhone={positiveAlertPhone || initialBusiness?.positiveAlertPhone || ''}
               setPositiveAlertPhone={setPositiveAlertPhone}
               notifyNegativeEnabled={notifyNegativeEnabled}
               setNotifyNegativeEnabled={setNotifyNegativeEnabled}
@@ -616,9 +601,9 @@ export default function SettingsClient({
               setNotifyNegativeEmail={setNotifyNegativeEmail}
               notifyNegativeSms={notifyNegativeSms}
               setNotifyNegativeSms={setNotifyNegativeSms}
-              negativeEmailAddress={negativeEmailAddress || initialBusiness?.negativeAlertEmail || activeBusiness?.negativeAlertEmail || ''}
+              negativeEmailAddress={negativeEmailAddress || initialBusiness?.negativeAlertEmail || ''}
               setNegativeEmailAddress={setNegativeEmailAddress}
-              negativePhone={negativePhone || initialBusiness?.negativeAlertPhone || activeBusiness?.negativeAlertPhone || ''}
+              negativePhone={negativePhone || initialBusiness?.negativeAlertPhone || ''}
               setNegativePhone={setNegativePhone}
               notifyPositiveEnabled={notifyPositiveEnabled}
               setNotifyPositiveEnabled={setNotifyPositiveEnabled}
@@ -626,9 +611,8 @@ export default function SettingsClient({
               setNotifyPositiveEmail={setNotifyPositiveEmail}
               notifyPositiveSms={notifyPositiveSms}
               setNotifyPositiveSms={setNotifyPositiveSms}
-              positiveEmailAddress={positiveEmailAddress || initialBusiness?.positiveAlertEmail || activeBusiness?.positiveAlertEmail || ''}
+              positiveEmailAddress={positiveEmailAddress || initialBusiness?.positiveAlertEmail || ''}
               setPositiveEmailAddress={setPositiveEmailAddress}
-              initialBusiness={initialBusiness || activeBusiness}
               onSendTestWelcome={handleSendTestWelcome}
               sendingTestWelcome={sendingTestWelcome}
               onSaveNotificationPreferences={handleSaveNotificationPreferences}

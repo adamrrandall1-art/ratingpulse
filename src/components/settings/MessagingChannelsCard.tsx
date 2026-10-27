@@ -357,7 +357,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="email"
                     placeholder="manager@business.com"
-                    value={effectiveNegativeAlertEmail}
+                    value={effectiveNegativeAlertEmail || initialBusiness?.negativeAlertEmail || ''}
                     onChange={(e) => handleNegEmailChange(e.target.value)}
                     disabled={!effectiveNegativeEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -371,7 +371,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="tel"
                     placeholder="+1 (555) 000-0000"
-                    value={effectiveNegativeAlertPhone}
+                    value={effectiveNegativeAlertPhone || initialBusiness?.negativeAlertPhone || ''}
                     onChange={(e) => handleNegPhoneChange(e.target.value)}
                     disabled={!effectiveNegativeSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -462,7 +462,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="email"
                     placeholder="marketing@business.com"
-                    value={effectivePositiveAlertEmail}
+                    value={effectivePositiveAlertEmail || initialBusiness?.positiveAlertEmail || ''}
                     onChange={(e) => handlePosEmailChange(e.target.value)}
                     disabled={!effectivePositiveEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -476,7 +476,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="tel"
                     placeholder="+1 (555) 000-0000"
-                    value={effectivePositiveAlertPhone}
+                    value={effectivePositiveAlertPhone || initialBusiness?.positiveAlertPhone || ''}
                     onChange={(e) => handlePosPhoneChange(e.target.value)}
                     disabled={!effectivePositiveSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
