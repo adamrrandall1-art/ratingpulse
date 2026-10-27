@@ -21,6 +21,8 @@ import { toast } from 'sonner';
 export type BrandVoiceType = 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic';
 
 interface AiPersonaCardProps {
+  business?: any;
+  initialBusiness?: any;
   brandVoice: BrandVoiceType;
   setBrandVoice: (voice: BrandVoiceType) => void;
   keywords: string[];

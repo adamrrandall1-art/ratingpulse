@@ -15,7 +15,12 @@ import {
 import { useRatingPulseStore } from '@/lib/store';
 import { useAuth } from '@/lib/auth-context';
 
-export default function BillingSection() {
+interface BillingSectionProps {
+  business?: any;
+  initialBusiness?: any;
+}
+
+export default function BillingSection({ business, initialBusiness }: BillingSectionProps = {}) {
   const { profile } = useRatingPulseStore();
   const { user } = useAuth();
 

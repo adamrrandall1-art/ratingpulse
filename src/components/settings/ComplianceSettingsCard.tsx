@@ -25,7 +25,12 @@ const TIMEZONE_OPTIONS = [
   { value: 'Pacific/Honolulu', label: 'Hawaii Time (HST) – Honolulu' },
 ];
 
-export default function ComplianceSettingsCard() {
+interface ComplianceSettingsCardProps {
+  business?: any;
+  initialBusiness?: any;
+}
+
+export default function ComplianceSettingsCard({ business, initialBusiness }: ComplianceSettingsCardProps = {}) {
   const [selectedTimeZone, setSelectedTimeZone] = useState('America/New_York');
   const [quietStatus, setQuietStatus] = useState<{ isWithinAllowedWindow: boolean; currentHour: number }>({
     isWithinAllowedWindow: true,

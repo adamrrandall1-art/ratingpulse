@@ -20,9 +20,11 @@ import { toast } from 'sonner';
 
 interface GbpIntegrationCardProps {
   onSyncComplete?: (count: number) => void;
+  business?: any;
+  initialBusiness?: any;
 }
 
-export default function GbpIntegrationCard({ onSyncComplete }: GbpIntegrationCardProps) {
+export default function GbpIntegrationCard({ onSyncComplete, business, initialBusiness }: GbpIntegrationCardProps) {
   const { activeBusiness, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);

@@ -569,7 +569,7 @@ export default function SettingsClient({
         {/* TAB 1: GOOGLE BUSINESS PROFILE */}
         {activeTab === 'gbp' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <GbpIntegrationCard />
+            <GbpIntegrationCard business={initialBusiness} initialBusiness={initialBusiness} />
           </div>
         )}
 
@@ -577,6 +577,8 @@ export default function SettingsClient({
         {activeTab === 'ai' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <AiPersonaCard
+              business={initialBusiness}
+              initialBusiness={initialBusiness}
               brandVoice={brandVoice}
               setBrandVoice={setBrandVoice}
               keywords={keywords}
@@ -592,6 +594,7 @@ export default function SettingsClient({
         {activeTab === 'channels' && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <MessagingChannelsCard
+              business={initialBusiness}
               initialBusiness={initialBusiness}
               smsTemplate={smsTemplate}
               setSmsTemplate={setSmsTemplate}
@@ -646,14 +649,14 @@ export default function SettingsClient({
         {/* TAB 4: LEGAL & QUIET HOURS */}
         {activeTab === 'compliance' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <ComplianceSettingsCard />
+            <ComplianceSettingsCard business={initialBusiness} initialBusiness={initialBusiness} />
           </div>
         )}
 
         {/* TAB 5: ACCOUNT & BILLING */}
         {activeTab === 'billing' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <BillingSection />
+            <BillingSection business={initialBusiness} initialBusiness={initialBusiness} />
 
             {/* Administrator Profile & Security Card */}
             <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-5">
