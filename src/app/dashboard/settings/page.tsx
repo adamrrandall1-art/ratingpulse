@@ -19,7 +19,7 @@ export default async function SettingsPage() {
           { clerkUserId: userId },
         ],
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
   }
 
@@ -31,7 +31,7 @@ export default async function SettingsPage() {
     if (activeId) {
       business = await db.business.findFirst({
         where: { id: activeId },
-        orderBy: { createdAt: 'desc' },
+        orderBy: { updatedAt: 'desc' },
       });
     }
   }

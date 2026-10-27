@@ -189,8 +189,47 @@ export const db = {
           }
         }
 
-        // 2. Try querying businesses by userId / clerkUserId / user_id with createdAt desc ordering
+        // 2. Try querying businesses by userId / clerkUserId / user_id with updatedAt desc ordering
         for (const uId of uniqueUserIds) {
+          try {
+            const { data: bByUserIdUp } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('userId', uId)
+              .order('updatedAt', { ascending: false })
+              .limit(1);
+            if (bByUserIdUp && bByUserIdUp[0]) {
+              const norm = normalizeBusiness(bByUserIdUp[0]);
+              cacheRecord(norm);
+              return norm;
+            }
+          } catch {}
+          try {
+            const { data: bByUserIdSnakeUp } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('user_id', uId)
+              .order('updated_at', { ascending: false })
+              .limit(1);
+            if (bByUserIdSnakeUp && bByUserIdSnakeUp[0]) {
+              const norm = normalizeBusiness(bByUserIdSnakeUp[0]);
+              cacheRecord(norm);
+              return norm;
+            }
+          } catch {}
+          try {
+            const { data: bByClerkSnakeUp } = await supabase
+              .from('businesses')
+              .select('*')
+              .eq('clerk_user_id', uId)
+              .order('updated_at', { ascending: false })
+              .limit(1);
+            if (bByClerkSnakeUp && bByClerkSnakeUp[0]) {
+              const norm = normalizeBusiness(bByClerkSnakeUp[0]);
+              cacheRecord(norm);
+              return norm;
+            }
+          } catch {}
           try {
             const { data: bByUserId } = await supabase
               .from('businesses')

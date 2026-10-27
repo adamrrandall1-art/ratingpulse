@@ -220,22 +220,10 @@ export default function SettingsClient({
         isConnected: true,
       }));
 
-      const email = initialBusiness.negativeAlertEmail || initialBusiness.negative_alert_email;
-      if (email && email !== 'true' && email !== 'false') {
-        setNegativeAlertEmail(email);
-      }
-      const phone = initialBusiness.negativeAlertPhone || initialBusiness.negative_alert_phone;
-      if (phone && phone !== 'true' && phone !== 'false') {
-        setNegativeAlertPhone(phone);
-      }
-      const posEmail = initialBusiness.positiveAlertEmail || initialBusiness.positive_alert_email;
-      if (posEmail && posEmail !== 'true' && posEmail !== 'false') {
-        setPositiveAlertEmail(posEmail);
-      }
-      const posPhone = initialBusiness.positiveAlertPhone || initialBusiness.positive_alert_phone;
-      if (posPhone && posPhone !== 'true' && posPhone !== 'false') {
-        setPositiveAlertPhone(posPhone);
-      }
+      setNegativeAlertEmail(initialBusiness.negativeAlertEmail || initialBusiness.negative_alert_email || '');
+      setNegativeAlertPhone(initialBusiness.negativeAlertPhone || initialBusiness.negative_alert_phone || '');
+      setPositiveAlertEmail(initialBusiness.positiveAlertEmail || initialBusiness.positive_alert_email || '');
+      setPositiveAlertPhone(initialBusiness.positiveAlertPhone || initialBusiness.positive_alert_phone || '');
 
       if (initialBusiness.negativeAlertsEnabled !== undefined) {
         setNegativeAlertsEnabled(Boolean(initialBusiness.negativeAlertsEnabled));

@@ -43,7 +43,7 @@ export async function saveSettingsAction(formData: FormData) {
         { clerkUserId: userId },
       ],
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { updatedAt: 'desc' },
   });
 
   if (!business) {
@@ -55,7 +55,7 @@ export async function saveSettingsAction(formData: FormData) {
       if (activeId) {
         business = await db.business.findFirst({
           where: { id: activeId },
-          orderBy: { createdAt: 'desc' },
+          orderBy: { updatedAt: 'desc' },
         });
       }
     } catch {}
