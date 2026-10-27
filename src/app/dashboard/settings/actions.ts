@@ -13,19 +13,21 @@ export async function saveSettingsAction(formData: FormData) {
     throw new Error('Unauthorized');
   }
 
-  const getVal = (key: string) => {
-    if (formData instanceof FormData) {
-      return formData.get(key)?.toString().trim() || null;
+  // Handle both FormData and plain object body
+  const body: Record<string, any> = {};
+  if (formData instanceof FormData) {
+    for (const [key, val] of formData.entries()) {
+      body[key] = typeof val === 'string' ? val.trim() : val;
     }
-    return (formData as any)?.[key]?.toString?.().trim?.() || null;
-  };
+  } else if (formData && typeof formData === 'object') {
+    for (const [key, val] of Object.entries(formData)) {
+      body[key] = typeof val === 'string' ? val.trim() : val;
+    }
+  }
 
-  const negativeAlertEmail = getVal('negativeAlertEmail');
-  const negativeAlertPhone = getVal('negativeAlertPhone');
-  const positiveAlertEmail = getVal('positiveAlertEmail');
-  const positiveAlertPhone = getVal('positiveAlertPhone');
-  const rawGoogleReviewUrl = getVal('googleReviewUrl') || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-  const googleReviewUrl = rawGoogleReviewUrl.includes('http')
+  const { negativeAlertEmail, negativeAlertPhone, positiveAlertEmail, positiveAlertPhone } = body;
+  const rawGoogleReviewUrl = body.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+  const googleReviewUrl = typeof rawGoogleReviewUrl === 'string' && rawGoogleReviewUrl.includes('http')
     ? (rawGoogleReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawGoogleReviewUrl)
     : rawGoogleReviewUrl;
 
@@ -33,6 +35,8 @@ export async function saveSettingsAction(formData: FormData) {
     userId,
     negativeAlertEmail,
     negativeAlertPhone,
+    positiveAlertEmail,
+    positiveAlertPhone,
   });
 
   // 1. Locate primary business owned by this user
@@ -62,6 +66,10 @@ export async function saveSettingsAction(formData: FormData) {
   }
 
   const payload: Record<string, any> = {
+    negativeAlertEmail: negativeAlertEmail || null,
+    negativeAlertPhone: negativeAlertPhone || null,
+    positiveAlertEmail: positiveAlertEmail || null,
+    positiveAlertPhone: positiveAlertPhone || null,
     googleReviewUrl,
     reviewUrl: googleReviewUrl,
     isGoogleConnected: true,
@@ -69,19 +77,12 @@ export async function saveSettingsAction(formData: FormData) {
     updatedAt: new Date(),
   };
 
-  if (negativeAlertEmail !== null) payload.negativeAlertEmail = negativeAlertEmail;
-  if (negativeAlertPhone !== null) payload.negativeAlertPhone = negativeAlertPhone;
-  if (positiveAlertEmail !== null) payload.positiveAlertEmail = positiveAlertEmail;
-  if (positiveAlertPhone !== null) payload.positiveAlertPhone = positiveAlertPhone;
-
   const getBool = (key: string) => {
-    if (formData instanceof FormData) {
-      const val = formData.get(key);
-      if (val === null || val === undefined) return undefined;
+    const val = body[key];
+    if (val === null || val === undefined) return undefined;
+    if (typeof val === 'string') {
       return val === 'true' || val === '1' || val === 'on';
     }
-    const val = (formData as any)?.[key];
-    if (val === null || val === undefined) return undefined;
     return Boolean(val);
   };
 
@@ -103,10 +104,10 @@ export async function saveSettingsAction(formData: FormData) {
   const posSms = getBool('positiveSmsAlertEnabled');
   if (posSms !== undefined) payload.positiveSmsAlertEnabled = posSms;
 
-  const brandVoice = getVal('brandVoice');
+  const brandVoice = body.brandVoice;
   if (brandVoice) payload.brandVoice = brandVoice;
 
-  const smsTemplate = getVal('smsTemplate');
+  const smsTemplate = body.smsTemplate;
   if (smsTemplate) payload.smsTemplate = smsTemplate;
 
   const autoPublish5Star = getBool('autoPublish5Star');

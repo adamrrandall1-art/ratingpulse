@@ -424,7 +424,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     type="email"
                     name="negativeAlertEmail"
                     value={negativeAlertEmail}
-                    defaultValue={initialBusiness?.negativeAlertEmail || initialBiz?.negativeAlertEmail || ''}
                     onChange={(e) => handleNegEmailChange(e.target.value)}
                     disabled={!effectiveNegativeEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -440,7 +439,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     type="tel"
                     name="negativeAlertPhone"
                     value={negativeAlertPhone}
-                    defaultValue={initialBusiness?.negativeAlertPhone || initialBiz?.negativeAlertPhone || ''}
                     onChange={(e) => handleNegPhoneChange(e.target.value)}
                     disabled={!effectiveNegativeSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -533,7 +531,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     type="email"
                     name="positiveAlertEmail"
                     value={positiveAlertEmail}
-                    defaultValue={initialBusiness?.positiveAlertEmail || initialBiz?.positiveAlertEmail || ''}
                     onChange={(e) => handlePosEmailChange(e.target.value)}
                     disabled={!effectivePositiveEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -549,7 +546,6 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     type="tel"
                     name="positiveAlertPhone"
                     value={positiveAlertPhone}
-                    defaultValue={initialBusiness?.positiveAlertPhone || initialBiz?.positiveAlertPhone || ''}
                     onChange={(e) => handlePosPhoneChange(e.target.value)}
                     disabled={!effectivePositiveSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"

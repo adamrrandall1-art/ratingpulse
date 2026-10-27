@@ -28,7 +28,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Try finding by explicit valid business ID if provided and not undefined
+    // 2. Destructure alert fields
+    const { negativeAlertEmail, negativeAlertPhone, positiveAlertEmail, positiveAlertPhone } = body;
+
+    // 3. Try finding by explicit valid business ID if provided and not undefined
     let business = null;
     const incomingBizId = body.businessId || body.activeBusinessId || body.id;
     if (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_')) {
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
       }).catch(() => null);
     }
 
-    // 3. Locate the user's business using Prisma by effectiveUserId if not found by ID
+    // 4. Locate the user's business using Prisma by effectiveUserId if not found by ID
     if (!business) {
       business = await db.business.findFirst({
         where: {
@@ -46,19 +49,20 @@ export async function POST(req: NextRequest) {
             { clerkUserId: effectiveUserId },
           ],
         },
+        orderBy: { updatedAt: 'desc' },
       }).catch(() => null);
     }
 
-    // 4. Sanitize and prepare review URL & placeId
+    // 5. Sanitize and prepare review URL & placeId
     const rawReviewUrl = body.googleReviewUrl || body.reviewUrl || business?.googleReviewUrl || business?.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
     const cleanReviewUrl = sanitizeReviewUrl(rawReviewUrl);
     const placeId = body.placeId || business?.placeId || '';
 
     const data = {
-      negativeAlertEmail: typeof body.negativeAlertEmail === 'string' ? body.negativeAlertEmail.trim() || null : (body.negativeAlertEmail?.trim?.() || null),
-      negativeAlertPhone: typeof body.negativeAlertPhone === 'string' ? body.negativeAlertPhone.trim() || null : (body.negativeAlertPhone?.trim?.() || null),
-      positiveAlertEmail: typeof body.positiveAlertEmail === 'string' ? body.positiveAlertEmail.trim() || null : (body.positiveAlertEmail?.trim?.() || null),
-      positiveAlertPhone: typeof body.positiveAlertPhone === 'string' ? body.positiveAlertPhone.trim() || null : (body.positiveAlertPhone?.trim?.() || null),
+      negativeAlertEmail: negativeAlertEmail || null,
+      negativeAlertPhone: negativeAlertPhone || null,
+      positiveAlertEmail: positiveAlertEmail || null,
+      positiveAlertPhone: positiveAlertPhone || null,
       negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business?.negativeAlertsEnabled ?? true),
       positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business?.positiveAlertsEnabled ?? true),
       negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business?.negativeEmailAlertEnabled ?? true),
@@ -72,7 +76,7 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     };
 
-    // 5. If business doesn't exist, create it; otherwise update it directly by business.id
+    // 6. If business doesn't exist, create it; otherwise update it directly by business.id
     const updated = business
       ? await db.business.update({ where: { id: business.id }, data })
       : await db.business.create({
@@ -84,13 +88,13 @@ export async function POST(req: NextRequest) {
           },
         });
 
-    // 6. Invalidate caches
+    // 7. Invalidate caches
     try {
       revalidatePath('/dashboard', 'layout');
       revalidatePath('/dashboard/settings');
     } catch {}
 
-    // 7. Return updated business
+    // 8. Return updated business
     return NextResponse.json({ success: true, business: updated });
   } catch (error: any) {
     console.error('[SETTINGS_ROUTE_ERROR]', error);
@@ -118,6 +122,7 @@ export async function GET(req: NextRequest) {
           { clerkUserId: userId },
         ],
       },
+      orderBy: { updatedAt: 'desc' },
     });
 
     return NextResponse.json({ success: true, business });
