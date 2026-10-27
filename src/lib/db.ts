@@ -347,6 +347,28 @@ export const db = {
       return db.business.findFirst({ where: args.where });
     },
 
+    upsert: async (args: {
+      where: { id?: string; userId?: string; clerkUserId?: string; [key: string]: any };
+      update: Record<string, unknown>;
+      create: Record<string, unknown>;
+    }): Promise<BusinessRecord> => {
+      const existing = await db.business.findFirst({ where: args.where });
+      if (existing) {
+        return db.business.update({
+          where: { id: existing.id },
+          data: args.update,
+        });
+      } else {
+        const createData = { ...args.create };
+        if (args.where.id && !createData.id) {
+          createData.id = args.where.id;
+        }
+        return db.business.create({
+          data: createData,
+        });
+      }
+    },
+
     update: async (args: {
       where: { id: string };
       data: Record<string, unknown>;
@@ -416,7 +438,23 @@ export const db = {
       if (supabase) {
         // Attempt update across matching ID columns
         try {
-          await supabase.from('businesses').update(partialUpdate).eq('id', targetId);
+          const res1 = await supabase.from('businesses').update(partialUpdate).eq('id', targetId);
+          if (res1.error) {
+            const snakeUpdate: Record<string, unknown> = {
+              negative_alert_email: normalizedData.negativeAlertEmail || null,
+              negative_alert_phone: normalizedData.negativeAlertPhone || null,
+              positive_alert_email: normalizedData.positiveAlertEmail || null,
+              positive_alert_phone: normalizedData.positiveAlertPhone || null,
+              google_review_url: normalizedData.googleReviewUrl || null,
+              review_url: normalizedData.googleReviewUrl || null,
+              is_google_connected: normalizedData.isGoogleConnected ?? true,
+              google_connected: normalizedData.isGoogleConnected ?? true,
+              updated_at: new Date().toISOString(),
+            };
+            await supabase.from('businesses').update(snakeUpdate).eq('id', targetId);
+            await supabase.from('businesses').update(snakeUpdate).eq('user_id', targetId);
+            await supabase.from('businesses').update(snakeUpdate).eq('userId', targetId);
+          }
         } catch {}
         try {
           await supabase.from('businesses').update(partialUpdate).eq('userId', targetId);
@@ -481,7 +519,7 @@ export const db = {
 
       if (supabase) {
         try {
-          await supabase.from('businesses').insert({
+          const insertPayload: Record<string, unknown> = {
             id,
             userId: data.userId || null,
             user_id: data.userId || null,
@@ -494,9 +532,30 @@ export const db = {
             negative_alert_phone: data.negativeAlertPhone || null,
             positive_alert_email: data.positiveAlertEmail || null,
             positive_alert_phone: data.positiveAlertPhone || null,
+            negativeAlertEmail: data.negativeAlertEmail || null,
+            negativeAlertPhone: data.negativeAlertPhone || null,
+            positiveAlertEmail: data.positiveAlertEmail || null,
+            positiveAlertPhone: data.positiveAlertPhone || null,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-          });
+          };
+          const { error: insErr } = await supabase.from('businesses').insert(insertPayload);
+          if (insErr) {
+            await supabase.from('businesses').insert({
+              id,
+              user_id: data.userId || null,
+              name: data.name || 'RatingPulse',
+              google_review_url: data.googleReviewUrl || null,
+              review_url: data.reviewUrl || data.googleReviewUrl || null,
+              is_google_connected: data.isGoogleConnected ?? true,
+              negative_alert_email: data.negativeAlertEmail || null,
+              negative_alert_phone: data.negativeAlertPhone || null,
+              positive_alert_email: data.positiveAlertEmail || null,
+              positive_alert_phone: data.positiveAlertPhone || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            });
+          }
         } catch {}
       }
 

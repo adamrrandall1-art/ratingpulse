@@ -28,8 +28,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Destructure alert fields
-    const { negativeAlertEmail, negativeAlertPhone, positiveAlertEmail, positiveAlertPhone } = body;
+    // 2. Extract settings fields from request body
+    const {
+      negativeAlertEmail,
+      negativeAlertPhone,
+      positiveAlertEmail,
+      positiveAlertPhone,
+      googleReviewUrl,
+    } = body;
 
     // 3. Try finding by explicit valid business ID if provided and not undefined
     let business = null;
@@ -53,40 +59,46 @@ export async function POST(req: NextRequest) {
       }).catch(() => null);
     }
 
+    const businessId = business?.id || incomingBizId || effectiveUserId;
+
     // 5. Sanitize and prepare review URL & placeId
-    const rawReviewUrl = body.googleReviewUrl || body.reviewUrl || business?.googleReviewUrl || business?.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const rawReviewUrl = googleReviewUrl || body.reviewUrl || business?.googleReviewUrl || business?.reviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
     const cleanReviewUrl = sanitizeReviewUrl(rawReviewUrl);
     const placeId = body.placeId || business?.placeId || '';
 
-    const data = {
-      negativeAlertEmail: negativeAlertEmail || null,
-      negativeAlertPhone: negativeAlertPhone || null,
-      positiveAlertEmail: positiveAlertEmail || null,
-      positiveAlertPhone: positiveAlertPhone || null,
-      negativeAlertsEnabled: body.negativeAlertsEnabled !== undefined ? Boolean(body.negativeAlertsEnabled) : (business?.negativeAlertsEnabled ?? true),
-      positiveAlertsEnabled: body.positiveAlertsEnabled !== undefined ? Boolean(body.positiveAlertsEnabled) : (business?.positiveAlertsEnabled ?? true),
-      negativeEmailAlertEnabled: body.negativeEmailAlertEnabled !== undefined ? Boolean(body.negativeEmailAlertEnabled) : (business?.negativeEmailAlertEnabled ?? true),
-      negativeSmsAlertEnabled: body.negativeSmsAlertEnabled !== undefined ? Boolean(body.negativeSmsAlertEnabled) : (business?.negativeSmsAlertEnabled ?? false),
-      positiveEmailAlertEnabled: body.positiveEmailAlertEnabled !== undefined ? Boolean(body.positiveEmailAlertEnabled) : (business?.positiveEmailAlertEnabled ?? true),
-      positiveSmsAlertEnabled: body.positiveSmsAlertEnabled !== undefined ? Boolean(body.positiveSmsAlertEnabled) : (business?.positiveSmsAlertEnabled ?? false),
-      googleReviewUrl: cleanReviewUrl,
-      reviewUrl: cleanReviewUrl,
-      placeId,
-      isGoogleConnected: true,
-      updatedAt: new Date(),
-    };
-
-    // 6. If business doesn't exist, create it; otherwise update it directly by business.id
-    const updated = business
-      ? await db.business.update({ where: { id: business.id }, data })
-      : await db.business.create({
-          data: {
-            ...data,
-            userId: effectiveUserId,
-            clerkUserId: effectiveUserId,
-            name: 'RatingPulse',
-          },
-        });
+    // 6. Save directly inside the Prisma upsert query
+    const updated = await db.business.upsert({
+      where: { id: businessId },
+      update: {
+        negativeAlertEmail: negativeAlertEmail || null,
+        negativeAlertPhone: negativeAlertPhone || null,
+        positiveAlertEmail: positiveAlertEmail || null,
+        positiveAlertPhone: positiveAlertPhone || null,
+        isGoogleConnected: true,
+        updatedAt: new Date(),
+        ...(cleanReviewUrl && { googleReviewUrl: cleanReviewUrl, reviewUrl: cleanReviewUrl }),
+        ...(placeId && { placeId }),
+        ...(body.negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(body.negativeAlertsEnabled) }),
+        ...(body.positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(body.positiveAlertsEnabled) }),
+        ...(body.negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(body.negativeEmailAlertEnabled) }),
+        ...(body.negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(body.negativeSmsAlertEnabled) }),
+        ...(body.positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(body.positiveEmailAlertEnabled) }),
+        ...(body.positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(body.positiveSmsAlertEnabled) }),
+      },
+      create: {
+        id: businessId,
+        userId: effectiveUserId,
+        clerkUserId: effectiveUserId,
+        negativeAlertEmail: negativeAlertEmail || null,
+        negativeAlertPhone: negativeAlertPhone || null,
+        positiveAlertEmail: positiveAlertEmail || null,
+        positiveAlertPhone: positiveAlertPhone || null,
+        isGoogleConnected: true,
+        name: business?.name || 'RatingPulse',
+        ...(cleanReviewUrl && { googleReviewUrl: cleanReviewUrl, reviewUrl: cleanReviewUrl }),
+        ...(placeId && { placeId }),
+      },
+    });
 
     // 7. Invalidate caches
     try {

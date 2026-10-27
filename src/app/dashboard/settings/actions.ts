@@ -113,30 +113,37 @@ export async function saveSettingsAction(formData: FormData) {
   const autoPublish5Star = getBool('autoPublish5Star');
   if (autoPublish5Star !== undefined) payload.autoPublish5Star = autoPublish5Star;
 
-  let savedBusiness;
-  if (business) {
-    savedBusiness = await db.business.update({
-      where: { id: business.id },
-      data: {
-        ...payload,
-        userId: userId,
-        clerkUserId: userId,
-      },
-    });
-  } else {
-    // Create new business record tied directly to Clerk userId
-    savedBusiness = await db.business.create({
-      data: {
-        ...payload,
-        userId: userId,
-        clerkUserId: userId,
-        name: 'RatingPulse Business',
-      },
-    });
-  }
+  const businessId = business?.id || userId;
+
+  const savedBusiness = await db.business.upsert({
+    where: { id: businessId },
+    update: {
+      negativeAlertEmail: negativeAlertEmail || null,
+      negativeAlertPhone: negativeAlertPhone || null,
+      positiveAlertEmail: positiveAlertEmail || null,
+      positiveAlertPhone: positiveAlertPhone || null,
+      isGoogleConnected: true,
+      updatedAt: new Date(),
+      ...payload,
+      userId: userId,
+      clerkUserId: userId,
+    },
+    create: {
+      id: businessId,
+      userId: userId,
+      clerkUserId: userId,
+      name: business?.name || 'RatingPulse Business',
+      negativeAlertEmail: negativeAlertEmail || null,
+      negativeAlertPhone: negativeAlertPhone || null,
+      positiveAlertEmail: positiveAlertEmail || null,
+      positiveAlertPhone: positiveAlertPhone || null,
+      isGoogleConnected: true,
+      ...payload,
+    },
+  });
 
   const updated = savedBusiness;
-  console.log('[SERVER ACTION] Prisma update success:', updated);
+  console.log('[SERVER ACTION] Prisma upsert success:', updated);
 
   // 2. Set active business cookie for layout/context readers
   try {
