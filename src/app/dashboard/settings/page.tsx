@@ -8,18 +8,20 @@ export const revalidate = 0;
 
 export default async function SettingsPage() {
   const clerkAuth = await auth().catch(() => null);
-  const userId = clerkAuth?.userId;
+  const clerkUserId = clerkAuth?.userId;
 
   let business = null;
-  if (userId) {
+  if (clerkUserId) {
     business = await db.business.findFirst({
       where: {
         OR: [
-          { userId },
-          { clerkUserId: userId },
+          { userId: clerkUserId },
+          { clerkUserId: clerkUserId },
         ],
       },
-      orderBy: { updatedAt: 'desc' },
+      orderBy: {
+        updatedAt: 'desc',
+      },
     });
   }
 

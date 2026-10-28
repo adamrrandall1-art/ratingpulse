@@ -74,20 +74,25 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       if (businessRecord) break;
       try {
         if (UUID_REGEX.test(candId)) {
-          const { data: bById } = await supabase.from('businesses').select('*').eq('id', candId).maybeSingle();
-          if (bById) {
-            businessRecord = bById;
+          const { data: bById } = await supabase.from('businesses').select('*').eq('id', candId).order('updated_at', { ascending: false }).limit(1);
+          if (bById && bById[0]) {
+            businessRecord = bById[0];
             break;
           }
         }
-        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', candId).maybeSingle();
-        if (bByUserId) {
-          businessRecord = bByUserId;
+        const { data: bByUserId } = await supabase.from('businesses').select('*').eq('userId', candId).order('updated_at', { ascending: false }).limit(1);
+        if (bByUserId && bByUserId[0]) {
+          businessRecord = bByUserId[0];
           break;
         }
-        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', candId).maybeSingle();
-        if (bByUser_id) {
-          businessRecord = bByUser_id;
+        const { data: bByClerk } = await supabase.from('businesses').select('*').eq('clerkUserId', candId).order('updated_at', { ascending: false }).limit(1);
+        if (bByClerk && bByClerk[0]) {
+          businessRecord = bByClerk[0];
+          break;
+        }
+        const { data: bByUser_id } = await supabase.from('businesses').select('*').eq('user_id', candId).order('updated_at', { ascending: false }).limit(1);
+        if (bByUser_id && bByUser_id[0]) {
+          businessRecord = bByUser_id[0];
           break;
         }
       } catch {}

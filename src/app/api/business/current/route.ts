@@ -5,6 +5,7 @@ export const revalidate = 0;
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { getInitialServerBusiness } from '@/lib/server-business';
+import { db } from '@/lib/db';
 
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -18,8 +19,24 @@ export async function GET(req: NextRequest) {
     const clerkAuth = await auth().catch(() => null);
     const userId = searchParams.get('userId') || searchParams.get('id') || clerkAuth?.userId;
 
-    const business = await getInitialServerBusiness(userId);
-    console.log("[DASHBOARD_LOAD] Loaded business for user:", business);
+    let business = null;
+    if (userId) {
+      business = await db.business.findFirst({
+        where: {
+          OR: [
+            { userId },
+            { clerkUserId: userId },
+            { id: userId },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+    }
+
+    if (!business) {
+      business = await getInitialServerBusiness(userId);
+    }
+    console.log("[DASHBOARD_LOAD] Loaded business for user:", business?.id, business?.name);
 
     if (!business) {
       return NextResponse.json({

@@ -776,6 +776,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const resolvedReviewUrl = resolveReviewUrl(directReviewUrl) || directReviewUrl || defaultReviewUrl;
 
             zustandStore.setLiveBusiness({
+              ...(biz || {}),
               id: biz.id || prof.id || activeUserId,
               name: biz.name || json.businessName || prof.business_name || 'RatingPulse',
               category: biz.category || prof.business_category || 'Local Business',
@@ -791,6 +792,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               isDemoMode: false,
               isPendingPlaceId: false,
               googleLocationId: (prof as any).google_location_id || undefined,
+              negativeAlertEmail: biz.negativeAlertEmail || json.negativeAlertEmail || undefined,
+              negativeAlertPhone: biz.negativeAlertPhone || json.negativeAlertPhone || undefined,
+              positiveAlertEmail: biz.positiveAlertEmail || json.positiveAlertEmail || undefined,
+              positiveAlertPhone: biz.positiveAlertPhone || json.positiveAlertPhone || undefined,
             });
 
             if (json.settings) {

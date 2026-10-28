@@ -42,6 +42,7 @@ async function resolveBusinessStatus(userId: string) {
         { id: userId },
       ],
     },
+    orderBy: { updatedAt: 'desc' },
   }).catch(() => null);
 
   const supabase = getSupabaseAdmin();
@@ -109,7 +110,13 @@ async function resolveBusinessStatus(userId: string) {
   const rating = Number(prismaBiz?.rating || profile?.google_rating) || 5.0;
   const reviewCount = Number(prismaBiz?.reviewCount || profile?.google_review_count) || 0;
 
+  const negativeAlertEmail = prismaBiz?.negativeAlertEmail || settings?.negative_alert_email || profile?.negative_alert_email || '';
+  const negativeAlertPhone = prismaBiz?.negativeAlertPhone || settings?.negative_alert_phone || profile?.negative_alert_phone || '';
+  const positiveAlertEmail = prismaBiz?.positiveAlertEmail || settings?.positive_alert_email || profile?.positive_alert_email || '';
+  const positiveAlertPhone = prismaBiz?.positiveAlertPhone || settings?.positive_alert_phone || profile?.positive_alert_phone || '';
+
   const business = {
+    ...(prismaBiz || {}),
     id: prismaBiz?.id || profile?.id || userId,
     businessId: prismaBiz?.id || profile?.id || userId,
     name: businessName,
@@ -118,7 +125,7 @@ async function resolveBusinessStatus(userId: string) {
     phone: activePhone || outboundPhone || '',
     smsSenderNumber: activePhone || outboundPhone || '',
     emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
-    placeId: hasValidPlaceId ? placeId : '',
+    placeId: hasValidPlaceId ? placeId : (prismaBiz?.placeId || ''),
     reviewUrl: effectiveReviewUrl,
     googleReviewUrl: effectiveReviewUrl,
     reviewLink: effectiveReviewUrl,
@@ -128,6 +135,19 @@ async function resolveBusinessStatus(userId: string) {
     google_connected: true,
     isConnected: true,
     isPendingPlaceId: false,
+    negativeAlertEmail,
+    negativeAlertPhone,
+    positiveAlertEmail,
+    positiveAlertPhone,
+    negativeAlertsEnabled: prismaBiz?.negativeAlertsEnabled ?? true,
+    negativeEmailAlertEnabled: prismaBiz?.negativeEmailAlertEnabled ?? true,
+    negativeSmsAlertEnabled: prismaBiz?.negativeSmsAlertEnabled ?? false,
+    positiveAlertsEnabled: prismaBiz?.positiveAlertsEnabled ?? true,
+    positiveEmailAlertEnabled: prismaBiz?.positiveEmailAlertEnabled ?? true,
+    positiveSmsAlertEnabled: prismaBiz?.positiveSmsAlertEnabled ?? false,
+    brandVoice: prismaBiz?.brandVoice ?? 'friendly_professional',
+    smsTemplate: prismaBiz?.smsTemplate ?? null,
+    autoPublish5Star: prismaBiz?.autoPublish5Star ?? false,
   };
 
   return {
@@ -148,6 +168,10 @@ async function resolveBusinessStatus(userId: string) {
     twilioPhoneNumber: outboundPhone,
     rating,
     reviewCount,
+    negativeAlertEmail,
+    negativeAlertPhone,
+    positiveAlertEmail,
+    positiveAlertPhone,
     business,
     profile,
     settings,
