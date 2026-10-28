@@ -112,29 +112,103 @@ export interface BusinessRecord {
 export const db = {
   $disconnect: async () => {},
   business: {
-    findMany: async (_args?: any): Promise<BusinessRecord[]> => {
+    findMany: async (args?: {
+      where?: any;
+      orderBy?: any;
+      [key: string]: any;
+    }): Promise<BusinessRecord[]> => {
       const supabase = getAdminClient();
+      let records: BusinessRecord[] = [];
+
       if (supabase) {
         try {
           const { data } = await supabase.from('businesses').select('*');
           if (data && Array.isArray(data)) {
-            const records = data.map(normalizeBusiness);
+            records = data.map(normalizeBusiness);
             records.forEach(cacheRecord);
-            return records;
           }
         } catch {}
       }
+
+      // Merge memory cache records
       if (globalStore.__rp_businesses && globalStore.__rp_businesses.size > 0) {
-        return Array.from(new Set(Array.from(globalStore.__rp_businesses.values())));
+        for (const biz of globalStore.__rp_businesses.values()) {
+          const norm = normalizeBusiness(biz);
+          if (!records.some(r => r.id === norm.id)) {
+            records.push(norm);
+          }
+        }
       }
+
+      // Merge disk cache records
       try {
         const filePath = getCacheFilePath();
         if (filePath && fs.existsSync(filePath)) {
           const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          return Object.values(data).map(normalizeBusiness);
+          for (const raw of Object.values(data)) {
+            const norm = normalizeBusiness(raw);
+            if (!records.some(r => r.id === norm.id)) {
+              records.push(norm);
+            }
+          }
         }
       } catch {}
-      return [];
+
+      // Apply where filtering if provided
+      if (args?.where) {
+        const candidateUserIds: string[] = [];
+        const candidateBusinessIds: string[] = [];
+
+        if (args.where.userId) candidateUserIds.push(String(args.where.userId));
+        if (args.where.clerkUserId) candidateUserIds.push(String(args.where.clerkUserId));
+        if (args.where.id) candidateBusinessIds.push(String(args.where.id));
+
+        if (Array.isArray(args.where.OR)) {
+          for (const item of args.where.OR) {
+            if (item?.userId) candidateUserIds.push(String(item.userId));
+            if (item?.clerkUserId) candidateUserIds.push(String(item.clerkUserId));
+            if (item?.id) candidateBusinessIds.push(String(item.id));
+          }
+        }
+
+        const validCandUserIds = new Set(candidateUserIds.filter(Boolean));
+        const validCandBizIds = new Set(candidateBusinessIds.filter(Boolean));
+
+        if (validCandUserIds.size > 0 || validCandBizIds.size > 0) {
+          records = records.filter(r => {
+            if (r.id && validCandBizIds.has(String(r.id))) return true;
+            if (r.userId && validCandUserIds.has(String(r.userId))) return true;
+            if (r.clerkUserId && validCandUserIds.has(String(r.clerkUserId))) return true;
+            if (r.user_id && validCandUserIds.has(String(r.user_id))) return true;
+            if (r.clerk_user_id && validCandUserIds.has(String(r.clerk_user_id))) return true;
+            if (r.id && validCandUserIds.has(String(r.id))) return true;
+            return false;
+          });
+        }
+      }
+
+      // Deduplicate records by id
+      const seen = new Set<string>();
+      records = records.filter(r => {
+        if (!r.id || seen.has(r.id)) return false;
+        seen.add(r.id);
+        return true;
+      });
+
+      // Sort by updatedAt desc if specified
+      if (args?.orderBy) {
+        const orderProp = args.orderBy.updatedAt ? 'updatedAt' : (args.orderBy.createdAt ? 'createdAt' : null);
+        if (orderProp) {
+          const isDesc = args.orderBy[orderProp] === 'desc';
+          records.sort((a, b) => {
+            const dateA = a[orderProp] ? new Date(a[orderProp]).getTime() : 0;
+            const dateB = b[orderProp] ? new Date(b[orderProp]).getTime() : 0;
+            return isDesc ? dateB - dateA : dateA - dateB;
+          });
+        }
+      }
+
+      return records;
     },
 
     findFirst: async (args?: {

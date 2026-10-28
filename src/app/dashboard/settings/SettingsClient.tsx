@@ -209,7 +209,33 @@ export default function SettingsClient({
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
-  // Hydrate active business in store and synchronize form state
+  // 1. Initial mount fallback to localStorage if local state is empty
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const cachedPhone = localStorage.getItem('rp_alert_phone') || localStorage.getItem('rp_negative_alert_phone');
+      const cachedEmail = localStorage.getItem('rp_alert_email') || localStorage.getItem('rp_negative_alert_email');
+      const cachedPosPhone = localStorage.getItem('rp_pos_alert_phone') || localStorage.getItem('rp_positive_alert_phone');
+      const cachedPosEmail = localStorage.getItem('rp_pos_alert_email') || localStorage.getItem('rp_positive_alert_email');
+
+      if (!negativeAlertPhone && cachedPhone) {
+        setNegativeAlertPhone(cachedPhone);
+      }
+      if (!negativeAlertEmail && cachedEmail) {
+        setNegativeAlertEmail(cachedEmail);
+      }
+      if (!positiveAlertPhone && cachedPosPhone) {
+        setPositiveAlertPhone(cachedPosPhone);
+      }
+      if (!positiveAlertEmail && cachedPosEmail) {
+        setPositiveAlertEmail(cachedPosEmail);
+      }
+    } catch (e) {
+      console.warn('Failed to read settings from localStorage:', e);
+    }
+  }, []);
+
+  // 2. Hydrate active business in store and synchronize form state with localStorage
   useEffect(() => {
     if (initialBusiness) {
       setActiveBusiness((prev: any) => ({
@@ -220,10 +246,50 @@ export default function SettingsClient({
         isConnected: true,
       }));
 
-      setNegativeAlertEmail(initialBusiness.negativeAlertEmail || initialBusiness.negative_alert_email || '');
-      setNegativeAlertPhone(initialBusiness.negativeAlertPhone || initialBusiness.negative_alert_phone || '');
-      setPositiveAlertEmail(initialBusiness.positiveAlertEmail || initialBusiness.positive_alert_email || '');
-      setPositiveAlertPhone(initialBusiness.positiveAlertPhone || initialBusiness.positive_alert_phone || '');
+      const serverNegEmail = initialBusiness.negativeAlertEmail || initialBusiness.negative_alert_email || '';
+      const serverNegPhone = initialBusiness.negativeAlertPhone || initialBusiness.negative_alert_phone || '';
+      const serverPosEmail = initialBusiness.positiveAlertEmail || initialBusiness.positive_alert_email || '';
+      const serverPosPhone = initialBusiness.positiveAlertPhone || initialBusiness.positive_alert_phone || '';
+
+      if (serverNegEmail) {
+        setNegativeAlertEmail(serverNegEmail);
+        try { localStorage.setItem('rp_alert_email', serverNegEmail); } catch {}
+      } else if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('rp_alert_email') || localStorage.getItem('rp_negative_alert_email');
+          if (cached) setNegativeAlertEmail(cached);
+        } catch {}
+      }
+
+      if (serverNegPhone) {
+        setNegativeAlertPhone(serverNegPhone);
+        try { localStorage.setItem('rp_alert_phone', serverNegPhone); } catch {}
+      } else if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('rp_alert_phone') || localStorage.getItem('rp_negative_alert_phone');
+          if (cached) setNegativeAlertPhone(cached);
+        } catch {}
+      }
+
+      if (serverPosEmail) {
+        setPositiveAlertEmail(serverPosEmail);
+        try { localStorage.setItem('rp_pos_alert_email', serverPosEmail); } catch {}
+      } else if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('rp_pos_alert_email') || localStorage.getItem('rp_positive_alert_email');
+          if (cached) setPositiveAlertEmail(cached);
+        } catch {}
+      }
+
+      if (serverPosPhone) {
+        setPositiveAlertPhone(serverPosPhone);
+        try { localStorage.setItem('rp_pos_alert_phone', serverPosPhone); } catch {}
+      } else if (typeof window !== 'undefined') {
+        try {
+          const cached = localStorage.getItem('rp_pos_alert_phone') || localStorage.getItem('rp_positive_alert_phone');
+          if (cached) setPositiveAlertPhone(cached);
+        } catch {}
+      }
 
       if (initialBusiness.negativeAlertsEnabled !== undefined) {
         setNegativeAlertsEnabled(Boolean(initialBusiness.negativeAlertsEnabled));
@@ -277,7 +343,13 @@ export default function SettingsClient({
       initialBusiness?.placeId ||
       '';
 
+    const targetBusinessId = activeBusiness?.id || initialBusiness?.id || '';
+
     const formData = new FormData();
+    if (targetBusinessId) {
+      formData.append('businessId', targetBusinessId);
+      formData.append('id', targetBusinessId);
+    }
     formData.append('negativeAlertEmail', cleanNegEmail);
     formData.append('negativeAlertPhone', cleanNegPhone);
     formData.append('positiveAlertEmail', cleanPosEmail);
@@ -304,6 +376,28 @@ export default function SettingsClient({
 
     const res = await saveSettingsAction(formData);
     const savedBiz = res?.business || {};
+
+    // Safety net: persist to localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        if (cleanNegPhone) {
+          localStorage.setItem('rp_alert_phone', cleanNegPhone);
+          localStorage.setItem('rp_negative_alert_phone', cleanNegPhone);
+        }
+        if (cleanNegEmail) {
+          localStorage.setItem('rp_alert_email', cleanNegEmail);
+          localStorage.setItem('rp_negative_alert_email', cleanNegEmail);
+        }
+        if (cleanPosPhone) {
+          localStorage.setItem('rp_pos_alert_phone', cleanPosPhone);
+          localStorage.setItem('rp_positive_alert_phone', cleanPosPhone);
+        }
+        if (cleanPosEmail) {
+          localStorage.setItem('rp_pos_alert_email', cleanPosEmail);
+          localStorage.setItem('rp_positive_alert_email', cleanPosEmail);
+        }
+      } catch {}
+    }
 
     // Keep active business connected and retain values in memory
     setActiveBusiness((prev: any) => ({

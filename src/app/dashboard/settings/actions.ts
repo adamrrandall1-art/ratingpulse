@@ -39,25 +39,35 @@ export async function saveSettingsAction(formData: FormData) {
     positiveAlertPhone,
   });
 
-  // 1. Locate primary business owned by this user
-  let business = await db.business.findFirst({
+  // 1. Locate primary business owned by this user among all records
+  const businesses = await db.business.findMany({
     where: {
       OR: [
-        { userId: userId },
+        { userId },
         { clerkUserId: userId },
+        { id: userId },
       ],
     },
     orderBy: { updatedAt: 'desc' },
   });
 
-  if (!business) {
+  const incomingBizId = body.businessId || body.activeBusinessId || body.id;
+  let targetBusiness = (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_'))
+    ? businesses.find(b => b.id === incomingBizId)
+    : null;
+
+  if (!targetBusiness) {
+    targetBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone) || businesses[0] || null;
+  }
+
+  if (!targetBusiness) {
     try {
       const cookieStore = await cookies();
       const activeId =
         cookieStore.get('activeBusinessId')?.value ||
         cookieStore.get('rp_active_business_id')?.value;
       if (activeId) {
-        business = await db.business.findFirst({
+        targetBusiness = await db.business.findFirst({
           where: { id: activeId },
           orderBy: { updatedAt: 'desc' },
         });
@@ -113,37 +123,73 @@ export async function saveSettingsAction(formData: FormData) {
   const autoPublish5Star = getBool('autoPublish5Star');
   if (autoPublish5Star !== undefined) payload.autoPublish5Star = autoPublish5Star;
 
-  const businessId = business?.id || userId;
+  const targetBusinessId = targetBusiness?.id || incomingBizId || userId;
 
-  const savedBusiness = await db.business.upsert({
-    where: { id: businessId },
-    update: {
-      negativeAlertEmail: negativeAlertEmail || null,
-      negativeAlertPhone: negativeAlertPhone || null,
-      positiveAlertEmail: positiveAlertEmail || null,
-      positiveAlertPhone: positiveAlertPhone || null,
-      isGoogleConnected: true,
-      updatedAt: new Date(),
-      ...payload,
-      userId: userId,
-      clerkUserId: userId,
-    },
-    create: {
-      id: businessId,
-      userId: userId,
-      clerkUserId: userId,
-      name: business?.name || 'RatingPulse Business',
-      negativeAlertEmail: negativeAlertEmail || null,
-      negativeAlertPhone: negativeAlertPhone || null,
-      positiveAlertEmail: positiveAlertEmail || null,
-      positiveAlertPhone: positiveAlertPhone || null,
-      isGoogleConnected: true,
-      ...payload,
-    },
-  });
+  let savedBusiness;
+  if (targetBusiness) {
+    savedBusiness = await db.business.update({
+      where: { id: targetBusiness.id },
+      data: {
+        negativeAlertEmail: negativeAlertEmail || null,
+        negativeAlertPhone: negativeAlertPhone || null,
+        positiveAlertEmail: positiveAlertEmail || null,
+        positiveAlertPhone: positiveAlertPhone || null,
+        isGoogleConnected: true,
+        updatedAt: new Date(),
+        ...payload,
+        userId: userId,
+        clerkUserId: userId,
+      },
+    });
+  } else {
+    savedBusiness = await db.business.upsert({
+      where: { id: targetBusinessId },
+      update: {
+        negativeAlertEmail: negativeAlertEmail || null,
+        negativeAlertPhone: negativeAlertPhone || null,
+        positiveAlertEmail: positiveAlertEmail || null,
+        positiveAlertPhone: positiveAlertPhone || null,
+        isGoogleConnected: true,
+        updatedAt: new Date(),
+        ...payload,
+        userId: userId,
+        clerkUserId: userId,
+      },
+      create: {
+        id: targetBusinessId,
+        userId: userId,
+        clerkUserId: userId,
+        name: 'RatingPulse Business',
+        negativeAlertEmail: negativeAlertEmail || null,
+        negativeAlertPhone: negativeAlertPhone || null,
+        positiveAlertEmail: positiveAlertEmail || null,
+        positiveAlertPhone: positiveAlertPhone || null,
+        isGoogleConnected: true,
+        ...payload,
+      },
+    });
+  }
 
-  const updated = savedBusiness;
-  console.log('[SERVER ACTION] Prisma upsert success:', updated);
+  // Prune / synchronize any other duplicate business records for this user
+  if (businesses.length > 1) {
+    for (const dup of businesses) {
+      if (dup.id !== savedBusiness.id) {
+        await db.business.update({
+          where: { id: dup.id },
+          data: {
+            negativeAlertEmail: negativeAlertEmail || null,
+            negativeAlertPhone: negativeAlertPhone || null,
+            positiveAlertEmail: positiveAlertEmail || null,
+            positiveAlertPhone: positiveAlertPhone || null,
+            isGoogleConnected: true,
+            updatedAt: new Date(),
+          },
+        }).catch(() => null);
+      }
+    }
+  }
+
+  console.log('[SERVER ACTION] Business update success:', savedBusiness);
 
   // 2. Set active business cookie for layout/context readers
   try {
@@ -155,11 +201,11 @@ export async function saveSettingsAction(formData: FormData) {
   }
 
   // 3. Purge server caches
-  revalidatePath('/', 'layout');
   revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard/settings');
   revalidatePath('/dashboard/businesses');
   revalidatePath('/dashboard/invites');
+  revalidatePath('/', 'layout');
 
   return { success: true, business: savedBusiness };
 }
