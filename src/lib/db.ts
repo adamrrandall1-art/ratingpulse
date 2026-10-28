@@ -104,6 +104,10 @@ export interface BusinessRecord {
   positiveAlertsEnabled: boolean;
   positiveEmailAlertEnabled: boolean;
   positiveSmsAlertEnabled: boolean;
+  negativeAlertSmsEnabled?: boolean;
+  negativeAlertEmailEnabled?: boolean;
+  positiveAlertSmsEnabled?: boolean;
+  positiveAlertEmailEnabled?: boolean;
   brandVoice?: string | null;
   aiTone?: string | null;
   aiInstructions?: string | null;
@@ -504,6 +508,42 @@ export const db = {
       if (normalizedData.positiveAlertPhone !== undefined) {
         partialUpdate.positive_alert_phone = normalizedData.positiveAlertPhone;
       }
+      if (normalizedData.negativeAlertsEnabled !== undefined) {
+        partialUpdate.negative_alerts_enabled = normalizedData.negativeAlertsEnabled;
+        partialUpdate.negativeAlertsEnabled = normalizedData.negativeAlertsEnabled;
+      }
+      if (normalizedData.negativeAlertSmsEnabled !== undefined || normalizedData.negativeSmsAlertEnabled !== undefined) {
+        const val = Boolean(normalizedData.negativeAlertSmsEnabled ?? normalizedData.negativeSmsAlertEnabled);
+        partialUpdate.negative_alert_sms_enabled = val;
+        partialUpdate.negative_sms_alert_enabled = val;
+        partialUpdate.negativeAlertSmsEnabled = val;
+        partialUpdate.negativeSmsAlertEnabled = val;
+      }
+      if (normalizedData.negativeAlertEmailEnabled !== undefined || normalizedData.negativeEmailAlertEnabled !== undefined) {
+        const val = Boolean(normalizedData.negativeAlertEmailEnabled ?? normalizedData.negativeEmailAlertEnabled);
+        partialUpdate.negative_alert_email_enabled = val;
+        partialUpdate.negative_email_alert_enabled = val;
+        partialUpdate.negativeAlertEmailEnabled = val;
+        partialUpdate.negativeEmailAlertEnabled = val;
+      }
+      if (normalizedData.positiveAlertsEnabled !== undefined) {
+        partialUpdate.positive_alerts_enabled = normalizedData.positiveAlertsEnabled;
+        partialUpdate.positiveAlertsEnabled = normalizedData.positiveAlertsEnabled;
+      }
+      if (normalizedData.positiveAlertSmsEnabled !== undefined || normalizedData.positiveSmsAlertEnabled !== undefined) {
+        const val = Boolean(normalizedData.positiveAlertSmsEnabled ?? normalizedData.positiveSmsAlertEnabled);
+        partialUpdate.positive_alert_sms_enabled = val;
+        partialUpdate.positive_sms_alert_enabled = val;
+        partialUpdate.positiveAlertSmsEnabled = val;
+        partialUpdate.positiveSmsAlertEnabled = val;
+      }
+      if (normalizedData.positiveAlertEmailEnabled !== undefined || normalizedData.positiveEmailAlertEnabled !== undefined) {
+        const val = Boolean(normalizedData.positiveAlertEmailEnabled ?? normalizedData.positiveEmailAlertEnabled);
+        partialUpdate.positive_alert_email_enabled = val;
+        partialUpdate.positive_email_alert_enabled = val;
+        partialUpdate.positiveAlertEmailEnabled = val;
+        partialUpdate.positiveEmailAlertEnabled = val;
+      }
       if (normalizedData.googleReviewUrl !== undefined) {
         partialUpdate.google_review_url = normalizedData.googleReviewUrl;
       }
@@ -728,12 +768,16 @@ function normalizeBusiness(raw: any): BusinessRecord {
     negativeAlertPhone: raw.negativeAlertPhone ?? raw.negative_alert_phone ?? null,
     positiveAlertEmail: raw.positiveAlertEmail ?? raw.positive_alert_email ?? null,
     positiveAlertPhone: raw.positiveAlertPhone ?? raw.positive_alert_phone ?? null,
-    negativeAlertsEnabled: raw.negativeAlertsEnabled ?? raw.negative_alerts_enabled ?? true,
-    negativeEmailAlertEnabled: raw.negativeEmailAlertEnabled ?? raw.negative_email_alert_enabled ?? true,
-    negativeSmsAlertEnabled: raw.negativeSmsAlertEnabled ?? raw.negative_sms_alert_enabled ?? false,
-    positiveAlertsEnabled: raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true,
-    positiveEmailAlertEnabled: raw.positiveEmailAlertEnabled ?? raw.positive_email_alert_enabled ?? true,
-    positiveSmsAlertEnabled: raw.positiveSmsAlertEnabled ?? raw.positive_sms_alert_enabled ?? false,
+    negativeAlertsEnabled: Boolean(raw.negativeAlertsEnabled ?? raw.negative_alerts_enabled ?? true),
+    negativeEmailAlertEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
+    negativeSmsAlertEnabled: Boolean(raw.negativeAlertSmsEnabled ?? raw.negativeSmsAlertEnabled ?? raw.negative_alert_sms_enabled ?? raw.negative_sms_alert_enabled ?? true),
+    positiveAlertsEnabled: Boolean(raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true),
+    positiveEmailAlertEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
+    positiveSmsAlertEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
+    negativeAlertSmsEnabled: Boolean(raw.negativeAlertSmsEnabled ?? raw.negativeSmsAlertEnabled ?? raw.negative_alert_sms_enabled ?? raw.negative_sms_alert_enabled ?? true),
+    negativeAlertEmailEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
+    positiveAlertSmsEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
+    positiveAlertEmailEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
     brandVoice: raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? 'friendly_professional',
     aiTone: raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? 'friendly_professional',
     aiInstructions: raw.aiInstructions ?? raw.ai_instructions ?? null,

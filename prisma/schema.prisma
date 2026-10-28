@@ -30,10 +30,14 @@ model Business {
   positiveAlertPhone        String?
   negativeAlertsEnabled     Boolean  @default(true)
   negativeEmailAlertEnabled Boolean  @default(true)
-  negativeSmsAlertEnabled   Boolean  @default(false)
+  negativeSmsAlertEnabled   Boolean  @default(true)
   positiveAlertsEnabled     Boolean  @default(true)
   positiveEmailAlertEnabled Boolean  @default(true)
   positiveSmsAlertEnabled   Boolean  @default(false)
+  negativeAlertSmsEnabled   Boolean  @default(true)
+  negativeAlertEmailEnabled Boolean  @default(true)
+  positiveAlertSmsEnabled   Boolean  @default(false)
+  positiveAlertEmailEnabled Boolean  @default(true)
 
   // AI Persona & Replies
   brandVoice                String?  @default("friendly_professional")

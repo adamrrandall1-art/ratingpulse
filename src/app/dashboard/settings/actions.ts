@@ -25,9 +25,13 @@ export async function saveAllSettingsAction(payload: {
   negativeAlertsEnabled?: boolean;
   negativeEmailAlertEnabled?: boolean;
   negativeSmsAlertEnabled?: boolean;
+  negativeAlertSmsEnabled?: boolean;
+  negativeAlertEmailEnabled?: boolean;
   positiveAlertsEnabled?: boolean;
   positiveEmailAlertEnabled?: boolean;
   positiveSmsAlertEnabled?: boolean;
+  positiveAlertSmsEnabled?: boolean;
+  positiveAlertEmailEnabled?: boolean;
 }) {
   const clerkAuth = await auth().catch(() => null);
   const userId = clerkAuth?.userId;
@@ -91,11 +95,40 @@ export async function saveAllSettingsAction(payload: {
   if (payload.smsTemplate !== undefined) updateData.smsTemplate = payload.smsTemplate;
 
   if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
-  if (payload.negativeEmailAlertEnabled !== undefined) updateData.negativeEmailAlertEnabled = payload.negativeEmailAlertEnabled;
-  if (payload.negativeSmsAlertEnabled !== undefined) updateData.negativeSmsAlertEnabled = payload.negativeSmsAlertEnabled;
+  
+  const negSms = payload.negativeAlertSmsEnabled !== undefined 
+    ? Boolean(payload.negativeAlertSmsEnabled) 
+    : (payload.negativeSmsAlertEnabled !== undefined ? Boolean(payload.negativeSmsAlertEnabled) : undefined);
+  if (negSms !== undefined) {
+    updateData.negativeAlertSmsEnabled = negSms;
+    updateData.negativeSmsAlertEnabled = negSms;
+  }
+
+  const negEmail = payload.negativeAlertEmailEnabled !== undefined
+    ? Boolean(payload.negativeAlertEmailEnabled)
+    : (payload.negativeEmailAlertEnabled !== undefined ? Boolean(payload.negativeEmailAlertEnabled) : undefined);
+  if (negEmail !== undefined) {
+    updateData.negativeAlertEmailEnabled = negEmail;
+    updateData.negativeEmailAlertEnabled = negEmail;
+  }
+
   if (payload.positiveAlertsEnabled !== undefined) updateData.positiveAlertsEnabled = payload.positiveAlertsEnabled;
-  if (payload.positiveEmailAlertEnabled !== undefined) updateData.positiveEmailAlertEnabled = payload.positiveEmailAlertEnabled;
-  if (payload.positiveSmsAlertEnabled !== undefined) updateData.positiveSmsAlertEnabled = payload.positiveSmsAlertEnabled;
+
+  const posSms = payload.positiveAlertSmsEnabled !== undefined
+    ? Boolean(payload.positiveAlertSmsEnabled)
+    : (payload.positiveSmsAlertEnabled !== undefined ? Boolean(payload.positiveSmsAlertEnabled) : undefined);
+  if (posSms !== undefined) {
+    updateData.positiveAlertSmsEnabled = posSms;
+    updateData.positiveSmsAlertEnabled = posSms;
+  }
+
+  const posEmail = payload.positiveAlertEmailEnabled !== undefined
+    ? Boolean(payload.positiveAlertEmailEnabled)
+    : (payload.positiveEmailAlertEnabled !== undefined ? Boolean(payload.positiveEmailAlertEnabled) : undefined);
+  if (posEmail !== undefined) {
+    updateData.positiveAlertEmailEnabled = posEmail;
+    updateData.positiveEmailAlertEnabled = posEmail;
+  }
 
   console.log('[SERVER ACTION] saveAllSettingsAction payload:', {
     businessId,
