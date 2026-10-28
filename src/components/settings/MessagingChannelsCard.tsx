@@ -570,7 +570,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
               </div>
             </div>
             <button
-              type="submit"
+              type="button"
               onClick={onSaveNotificationPreferences}
               disabled={isSavingNotifications}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"

@@ -5,15 +5,149 @@ import { db } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
-export async function saveSettingsAction(formData: FormData) {
+export async function saveAllSettingsAction(payload: {
+  businessId?: string;
+  negativeAlertEmail?: string | null;
+  negativeAlertPhone?: string | null;
+  positiveAlertEmail?: string | null;
+  positiveAlertPhone?: string | null;
+  googleReviewUrl?: string | null;
+  aiTone?: string | null;
+  brandVoice?: string | null;
+  aiInstructions?: string | null;
+  aiSignature?: string | null;
+  autoReplyEnabled?: boolean;
+  autoPublish5Star?: boolean;
+  selectedModel?: string | null;
+  customKeywords?: string | string[] | null;
+  keywords?: string[];
+  smsTemplate?: string | null;
+  negativeAlertsEnabled?: boolean;
+  negativeEmailAlertEnabled?: boolean;
+  negativeSmsAlertEnabled?: boolean;
+  positiveAlertsEnabled?: boolean;
+  positiveEmailAlertEnabled?: boolean;
+  positiveSmsAlertEnabled?: boolean;
+}) {
   const clerkAuth = await auth().catch(() => null);
   const userId = clerkAuth?.userId;
-
   if (!userId) {
     throw new Error('Unauthorized');
   }
 
-  // Handle both FormData and plain object body
+  // Find the definitive business row
+  let targetBusiness = null;
+  if (payload.businessId && payload.businessId !== 'undefined' && payload.businessId !== 'null' && !payload.businessId.startsWith('user_')) {
+    targetBusiness = await db.business.findUnique({
+      where: { id: payload.businessId },
+    });
+  }
+
+  if (!targetBusiness) {
+    targetBusiness = await db.business.findFirst({
+      where: {
+        OR: [{ userId }, { clerkUserId: userId }, { id: userId }],
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  const businessId = targetBusiness?.id || payload.businessId || userId;
+
+  // Construct data payload ONLY with defined keys (never overwrite with undefined)
+  const updateData: Record<string, any> = {
+    updatedAt: new Date(),
+    isGoogleConnected: true,
+  };
+
+  if (payload.negativeAlertEmail !== undefined) updateData.negativeAlertEmail = payload.negativeAlertEmail;
+  if (payload.negativeAlertPhone !== undefined) updateData.negativeAlertPhone = payload.negativeAlertPhone;
+  if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail;
+  if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone;
+  if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
+
+  const tone = payload.aiTone !== undefined ? payload.aiTone : payload.brandVoice;
+  if (tone !== undefined) {
+    updateData.aiTone = tone;
+    updateData.brandVoice = tone;
+  }
+
+  if (payload.aiInstructions !== undefined) updateData.aiInstructions = payload.aiInstructions;
+  if (payload.aiSignature !== undefined) updateData.aiSignature = payload.aiSignature;
+
+  const autoReply = payload.autoReplyEnabled !== undefined ? payload.autoReplyEnabled : payload.autoPublish5Star;
+  if (autoReply !== undefined) {
+    updateData.autoReplyEnabled = autoReply;
+    updateData.autoPublish5Star = autoReply;
+  }
+
+  if (payload.selectedModel !== undefined) updateData.selectedModel = payload.selectedModel;
+
+  const kw = payload.customKeywords !== undefined ? payload.customKeywords : payload.keywords;
+  if (kw !== undefined) {
+    updateData.customKeywords = Array.isArray(kw) ? kw.join(',') : kw;
+  }
+
+  if (payload.smsTemplate !== undefined) updateData.smsTemplate = payload.smsTemplate;
+
+  if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
+  if (payload.negativeEmailAlertEnabled !== undefined) updateData.negativeEmailAlertEnabled = payload.negativeEmailAlertEnabled;
+  if (payload.negativeSmsAlertEnabled !== undefined) updateData.negativeSmsAlertEnabled = payload.negativeSmsAlertEnabled;
+  if (payload.positiveAlertsEnabled !== undefined) updateData.positiveAlertsEnabled = payload.positiveAlertsEnabled;
+  if (payload.positiveEmailAlertEnabled !== undefined) updateData.positiveEmailAlertEnabled = payload.positiveEmailAlertEnabled;
+  if (payload.positiveSmsAlertEnabled !== undefined) updateData.positiveSmsAlertEnabled = payload.positiveSmsAlertEnabled;
+
+  console.log('[SERVER ACTION] saveAllSettingsAction payload:', {
+    businessId,
+    updateData,
+  });
+
+  const updated = await db.business.upsert({
+    where: { id: businessId },
+    update: updateData,
+    create: {
+      id: businessId,
+      userId,
+      clerkUserId: userId,
+      ...updateData,
+    },
+  });
+
+  // Synchronize duplicate rows for this user without clearing columns
+  try {
+    const businesses = await db.business.findMany({
+      where: {
+        OR: [{ userId }, { clerkUserId: userId }, { id: userId }],
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    if (businesses.length > 1) {
+      for (const dup of businesses) {
+        if (dup.id !== updated.id) {
+          await db.business.update({
+            where: { id: dup.id },
+            data: updateData,
+          }).catch(() => null);
+        }
+      }
+    }
+  } catch {}
+
+  // Set active business cookies
+  try {
+    const cookieStore = await cookies();
+    cookieStore.set('activeBusinessId', updated.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    cookieStore.set('rp_active_business_id', updated.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+  } catch {}
+
+  revalidatePath('/dashboard', 'layout');
+  revalidatePath('/dashboard/settings');
+
+  return { success: true, business: updated };
+}
+
+// Backward-compatible wrappers
+export async function saveSettingsAction(formData: FormData | Record<string, any>) {
   const body: Record<string, any> = {};
   if (formData instanceof FormData) {
     for (const [key, val] of formData.entries()) {
@@ -24,338 +158,9 @@ export async function saveSettingsAction(formData: FormData) {
       body[key] = typeof val === 'string' ? val.trim() : val;
     }
   }
-
-  const { negativeAlertEmail, negativeAlertPhone, positiveAlertEmail, positiveAlertPhone } = body;
-  const rawGoogleReviewUrl = body.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-  const googleReviewUrl = typeof rawGoogleReviewUrl === 'string' && rawGoogleReviewUrl.includes('http')
-    ? (rawGoogleReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || rawGoogleReviewUrl)
-    : rawGoogleReviewUrl;
-
-  console.log('[SERVER ACTION] Received save request:', {
-    userId,
-    negativeAlertEmail,
-    negativeAlertPhone,
-    positiveAlertEmail,
-    positiveAlertPhone,
-  });
-
-  // 1. Locate primary business owned by this user among all records
-  const businesses = await db.business.findMany({
-    where: {
-      OR: [
-        { userId },
-        { clerkUserId: userId },
-        { id: userId },
-      ],
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  const incomingBizId = body.businessId || body.activeBusinessId || body.id;
-  let targetBusiness = (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_'))
-    ? businesses.find(b => b.id === incomingBizId)
-    : null;
-
-  if (!targetBusiness) {
-    targetBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone) || businesses[0] || null;
-  }
-
-  if (!targetBusiness) {
-    try {
-      const cookieStore = await cookies();
-      const activeId =
-        cookieStore.get('activeBusinessId')?.value ||
-        cookieStore.get('rp_active_business_id')?.value;
-      if (activeId) {
-        targetBusiness = await db.business.findFirst({
-          where: { id: activeId },
-          orderBy: { updatedAt: 'desc' },
-        });
-      }
-    } catch {}
-  }
-
-  const payload: Record<string, any> = {
-    negativeAlertEmail: negativeAlertEmail || null,
-    negativeAlertPhone: negativeAlertPhone || null,
-    positiveAlertEmail: positiveAlertEmail || null,
-    positiveAlertPhone: positiveAlertPhone || null,
-    googleReviewUrl,
-    reviewUrl: googleReviewUrl,
-    isGoogleConnected: true,
-    google_connected: true,
-    updatedAt: new Date(),
-  };
-
-  const getBool = (key: string) => {
-    const val = body[key];
-    if (val === null || val === undefined) return undefined;
-    if (typeof val === 'string') {
-      return val === 'true' || val === '1' || val === 'on';
-    }
-    return Boolean(val);
-  };
-
-  const negAlerts = getBool('negativeAlertsEnabled');
-  if (negAlerts !== undefined) payload.negativeAlertsEnabled = negAlerts;
-
-  const negEmail = getBool('negativeEmailAlertEnabled');
-  if (negEmail !== undefined) payload.negativeEmailAlertEnabled = negEmail;
-
-  const negSms = getBool('negativeSmsAlertEnabled');
-  if (negSms !== undefined) payload.negativeSmsAlertEnabled = negSms;
-
-  const posAlerts = getBool('positiveAlertsEnabled');
-  if (posAlerts !== undefined) payload.positiveAlertsEnabled = posAlerts;
-
-  const posEmail = getBool('positiveEmailAlertEnabled');
-  if (posEmail !== undefined) payload.positiveEmailAlertEnabled = posEmail;
-
-  const posSms = getBool('positiveSmsAlertEnabled');
-  if (posSms !== undefined) payload.positiveSmsAlertEnabled = posSms;
-
-  const brandVoice = body.brandVoice || body.aiTone;
-  if (brandVoice) {
-    payload.brandVoice = brandVoice;
-    payload.aiTone = brandVoice;
-  }
-
-  const aiInstructions = body.aiInstructions;
-  if (aiInstructions !== undefined) payload.aiInstructions = aiInstructions;
-
-  const aiSignature = body.aiSignature;
-  if (aiSignature !== undefined) payload.aiSignature = aiSignature;
-
-  const autoReplyEnabled = getBool('autoReplyEnabled') ?? getBool('autoPublish5Star');
-  if (autoReplyEnabled !== undefined) {
-    payload.autoReplyEnabled = autoReplyEnabled;
-    payload.autoPublish5Star = autoReplyEnabled;
-  }
-
-  const customKeywords = body.customKeywords || (Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords);
-  if (customKeywords !== undefined) payload.customKeywords = customKeywords;
-
-  const selectedModel = body.selectedModel;
-  if (selectedModel) payload.selectedModel = selectedModel;
-
-  const smsTemplate = body.smsTemplate;
-  if (smsTemplate) payload.smsTemplate = smsTemplate;
-
-  const targetBusinessId = targetBusiness?.id || incomingBizId || userId;
-
-  let savedBusiness;
-  if (targetBusiness) {
-    savedBusiness = await db.business.update({
-      where: { id: targetBusiness.id },
-      data: {
-        negativeAlertEmail: negativeAlertEmail || null,
-        negativeAlertPhone: negativeAlertPhone || null,
-        positiveAlertEmail: positiveAlertEmail || null,
-        positiveAlertPhone: positiveAlertPhone || null,
-        isGoogleConnected: true,
-        updatedAt: new Date(),
-        ...payload,
-        userId: userId,
-        clerkUserId: userId,
-      },
-    });
-  } else {
-    savedBusiness = await db.business.upsert({
-      where: { id: targetBusinessId },
-      update: {
-        negativeAlertEmail: negativeAlertEmail || null,
-        negativeAlertPhone: negativeAlertPhone || null,
-        positiveAlertEmail: positiveAlertEmail || null,
-        positiveAlertPhone: positiveAlertPhone || null,
-        isGoogleConnected: true,
-        updatedAt: new Date(),
-        ...payload,
-        userId: userId,
-        clerkUserId: userId,
-      },
-      create: {
-        id: targetBusinessId,
-        userId: userId,
-        clerkUserId: userId,
-        name: 'RatingPulse Business',
-        negativeAlertEmail: negativeAlertEmail || null,
-        negativeAlertPhone: negativeAlertPhone || null,
-        positiveAlertEmail: positiveAlertEmail || null,
-        positiveAlertPhone: positiveAlertPhone || null,
-        isGoogleConnected: true,
-        ...payload,
-      },
-    });
-  }
-
-  // Prune / synchronize any other duplicate business records for this user
-  if (businesses.length > 1) {
-    for (const dup of businesses) {
-      if (dup.id !== savedBusiness.id) {
-        await db.business.update({
-          where: { id: dup.id },
-          data: {
-            negativeAlertEmail: negativeAlertEmail || null,
-            negativeAlertPhone: negativeAlertPhone || null,
-            positiveAlertEmail: positiveAlertEmail || null,
-            positiveAlertPhone: positiveAlertPhone || null,
-            isGoogleConnected: true,
-            updatedAt: new Date(),
-            ...payload,
-          },
-        }).catch(() => null);
-      }
-    }
-  }
-
-  console.log('[SERVER ACTION] Business update success:', savedBusiness);
-
-  // 2. Set active business cookie for layout/context readers
-  try {
-    const cookieStore = await cookies();
-    cookieStore.set('activeBusinessId', savedBusiness.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
-    cookieStore.set('rp_active_business_id', savedBusiness.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
-  } catch (e) {
-    console.error('Cookie set error:', e);
-  }
-
-  // 3. Purge server caches
-  revalidatePath('/dashboard', 'layout');
-  revalidatePath('/dashboard/settings');
-  revalidatePath('/dashboard/businesses');
-  revalidatePath('/dashboard/invites');
-  revalidatePath('/', 'layout');
-
-  return { success: true, business: savedBusiness };
+  return saveAllSettingsAction(body);
 }
 
-export async function updateAiPersonaAction(data: {
-  businessId?: string;
-  aiTone?: string;
-  brandVoice?: string;
-  aiInstructions?: string;
-  aiSignature?: string;
-  autoReplyEnabled?: boolean;
-  autoPublish5Star?: boolean;
-  selectedModel?: string;
-  customKeywords?: string | string[];
-  keywords?: string[];
-}) {
-  const clerkAuth = await auth().catch(() => null);
-  const userId = clerkAuth?.userId;
-
-  if (!userId) {
-    throw new Error('Unauthorized');
-  }
-
-  // Locate businesses owned by this user
-  const businesses = await db.business.findMany({
-    where: {
-      OR: [
-        { userId },
-        { clerkUserId: userId },
-        { id: userId },
-      ],
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  const incomingBizId = data.businessId;
-  let targetBusiness = (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_'))
-    ? businesses.find(b => b.id === incomingBizId)
-    : null;
-
-  if (!targetBusiness) {
-    targetBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone || b.brandVoice || b.aiTone) || businesses[0] || null;
-  }
-
-  if (!targetBusiness) {
-    try {
-      const cookieStore = await cookies();
-      const activeId =
-        cookieStore.get('activeBusinessId')?.value ||
-        cookieStore.get('rp_active_business_id')?.value;
-      if (activeId) {
-        targetBusiness = await db.business.findFirst({
-          where: { id: activeId },
-          orderBy: { updatedAt: 'desc' },
-        });
-      }
-    } catch {}
-  }
-
-  const targetBusinessId = targetBusiness?.id || incomingBizId || userId;
-
-  const personaFields: Record<string, any> = {
-    updatedAt: new Date(),
-  };
-
-  const tone = data.aiTone || data.brandVoice;
-  if (tone) {
-    personaFields.aiTone = tone;
-    personaFields.brandVoice = tone;
-  }
-
-  if (data.aiInstructions !== undefined) {
-    personaFields.aiInstructions = data.aiInstructions;
-  }
-
-  if (data.aiSignature !== undefined) {
-    personaFields.aiSignature = data.aiSignature;
-  }
-
-  if (data.autoReplyEnabled !== undefined || data.autoPublish5Star !== undefined) {
-    const auto = Boolean(data.autoReplyEnabled ?? data.autoPublish5Star);
-    personaFields.autoReplyEnabled = auto;
-    personaFields.autoPublish5Star = auto;
-  }
-
-  if (data.selectedModel !== undefined) {
-    personaFields.selectedModel = data.selectedModel;
-  }
-
-  const rawKw = data.customKeywords ?? data.keywords;
-  if (rawKw !== undefined) {
-    personaFields.customKeywords = Array.isArray(rawKw) ? rawKw.join(',') : rawKw;
-  }
-
-  console.log('[SERVER ACTION] updateAiPersonaAction called for business:', targetBusinessId, personaFields);
-
-  let savedBusiness;
-  if (targetBusiness) {
-    savedBusiness = await db.business.update({
-      where: { id: targetBusiness.id },
-      data: personaFields,
-    });
-  } else {
-    savedBusiness = await db.business.upsert({
-      where: { id: targetBusinessId },
-      update: personaFields,
-      create: {
-        id: targetBusinessId,
-        userId: userId,
-        clerkUserId: userId,
-        name: 'RatingPulse Business',
-        isGoogleConnected: true,
-        ...personaFields,
-      },
-    });
-  }
-
-  // Synchronize persona fields across duplicate user rows without touching their alert settings
-  if (businesses.length > 1) {
-    for (const dup of businesses) {
-      if (dup.id !== savedBusiness.id) {
-        await db.business.update({
-          where: { id: dup.id },
-          data: personaFields,
-        }).catch(() => null);
-      }
-    }
-  }
-
-  revalidatePath('/dashboard', 'layout');
-  revalidatePath('/dashboard/settings');
-
-  return { success: true, business: savedBusiness };
+export async function updateAiPersonaAction(data: any) {
+  return saveAllSettingsAction(data);
 }

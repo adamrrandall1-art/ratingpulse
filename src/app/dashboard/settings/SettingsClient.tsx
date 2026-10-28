@@ -25,7 +25,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
-import { saveSettingsAction, updateAiPersonaAction } from './actions';
+import { saveAllSettingsAction, saveSettingsAction } from './actions';
 
 import GbpIntegrationCard from '@/components/settings/GbpIntegrationCard';
 import AiPersonaCard, { BrandVoiceType } from '@/components/settings/AiPersonaCard';
@@ -88,6 +88,38 @@ export default function SettingsClient({
     initialProfile?.email || user?.email || profile.email || ''
   );
 
+  // Unified Atomic Settings State
+  const [settingsState, setSettingsState] = useState({
+    negativeAlertEmail: initialBusiness?.negativeAlertEmail || '',
+    negativeAlertPhone: initialBusiness?.negativeAlertPhone || '',
+    positiveAlertEmail: initialBusiness?.positiveAlertEmail || '',
+    positiveAlertPhone: initialBusiness?.positiveAlertPhone || '',
+    aiTone: initialBusiness?.aiTone || initialBusiness?.brandVoice || 'friendly_professional',
+    aiInstructions: initialBusiness?.aiInstructions || '',
+    autoReplyEnabled: initialBusiness?.autoReplyEnabled ?? initialBusiness?.autoPublish5Star ?? false,
+    selectedModel: initialBusiness?.selectedModel || 'gemini-3.8-flash',
+  });
+
+  const updateSettingsField = (field: string, value: any) => {
+    setSettingsState((prev) => ({ ...prev, [field]: value }));
+  };
+
+  // Synchronize unified state on initialBusiness change
+  useEffect(() => {
+    if (initialBusiness) {
+      setSettingsState({
+        negativeAlertEmail: initialBusiness.negativeAlertEmail || '',
+        negativeAlertPhone: initialBusiness.negativeAlertPhone || '',
+        positiveAlertEmail: initialBusiness.positiveAlertEmail || '',
+        positiveAlertPhone: initialBusiness.positiveAlertPhone || '',
+        aiTone: initialBusiness.aiTone || initialBusiness.brandVoice || 'friendly_professional',
+        aiInstructions: initialBusiness.aiInstructions || '',
+        autoReplyEnabled: initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star ?? false,
+        selectedModel: initialBusiness.selectedModel || 'gemini-3.8-flash',
+      });
+    }
+  }, [initialBusiness]);
+
   // Unified Notification Routing Initial Values from Server Loader
   const business = initialBusiness || activeBusiness;
 
@@ -142,22 +174,18 @@ export default function SettingsClient({
     false
   );
 
-  // Form input states mapped directly from initialBusiness
-  const [negativeAlertEmail, setNegativeAlertEmail] = useState<string>(
-    initialBusiness?.negativeAlertEmail || ''
-  );
+  // Form input states wired to unified settingsState
+  const negativeAlertEmail = settingsState.negativeAlertEmail;
+  const setNegativeAlertEmail = (val: string) => updateSettingsField('negativeAlertEmail', val);
 
-  const [negativeAlertPhone, setNegativeAlertPhone] = useState<string>(
-    initialBusiness?.negativeAlertPhone || ''
-  );
+  const negativeAlertPhone = settingsState.negativeAlertPhone;
+  const setNegativeAlertPhone = (val: string) => updateSettingsField('negativeAlertPhone', val);
 
-  const [positiveAlertEmail, setPositiveAlertEmail] = useState<string>(
-    initialBusiness?.positiveAlertEmail || ''
-  );
+  const positiveAlertEmail = settingsState.positiveAlertEmail;
+  const setPositiveAlertEmail = (val: string) => updateSettingsField('positiveAlertEmail', val);
 
-  const [positiveAlertPhone, setPositiveAlertPhone] = useState<string>(
-    initialBusiness?.positiveAlertPhone || ''
-  );
+  const positiveAlertPhone = settingsState.positiveAlertPhone;
+  const setPositiveAlertPhone = (val: string) => updateSettingsField('positiveAlertPhone', val);
 
   // Aliases for full compatibility
   const notifyNegativeEnabled = negativeAlertsEnabled;
@@ -180,44 +208,35 @@ export default function SettingsClient({
   const positiveEmailAddress = positiveAlertEmail;
   const setPositiveEmailAddress = setPositiveAlertEmail;
 
-  // AI & Automation Preferences
-  const [brandVoice, setBrandVoice] = useState<BrandVoiceType>(
-    (initialBusiness?.brandVoice as BrandVoiceType) ||
-    (initialBusiness?.aiTone as BrandVoiceType) ||
-    (initialSettings?.brand_voice as BrandVoiceType) ||
-    (settings.brand_voice as BrandVoiceType) ||
-    'friendly_professional'
-  );
-  const [aiTone, setAiTone] = useState<string>(
-    initialBusiness?.aiTone || initialBusiness?.brandVoice || 'friendly_professional'
-  );
-  const [aiInstructions, setAiInstructions] = useState<string>(
-    initialBusiness?.aiInstructions || ''
-  );
+  // AI & Automation Preferences wired to unified settingsState
+  const brandVoice = (settingsState.aiTone as BrandVoiceType) || 'friendly_professional';
+  const setBrandVoice = (val: BrandVoiceType) => updateSettingsField('aiTone', val);
+
+  const aiTone = settingsState.aiTone;
+  const setAiTone = (val: string) => updateSettingsField('aiTone', val);
+
+  const aiInstructions = settingsState.aiInstructions;
+  const setAiInstructions = (val: string) => updateSettingsField('aiInstructions', val);
+
   const [aiSignature, setAiSignature] = useState<string>(
     initialBusiness?.aiSignature || ''
   );
-  const [autoPublish5Star, setAutoPublish5Star] = useState(
-    initialBusiness?.autoPublish5Star ??
-    initialBusiness?.autoReplyEnabled ??
-    initialSettings?.auto_publish_5_star ??
-    settings.auto_publish_5_star ??
-    false
-  );
-  const [autoReplyEnabled, setAutoReplyEnabled] = useState(
-    initialBusiness?.autoReplyEnabled ??
-    initialBusiness?.autoPublish5Star ??
-    false
-  );
+
+  const autoPublish5Star = settingsState.autoReplyEnabled;
+  const setAutoPublish5Star = (val: boolean) => updateSettingsField('autoReplyEnabled', val);
+
+  const autoReplyEnabled = settingsState.autoReplyEnabled;
+  const setAutoReplyEnabled = (val: boolean) => updateSettingsField('autoReplyEnabled', val);
+
   const [smsTemplate, setSmsTemplate] = useState(
     initialBusiness?.smsTemplate ||
     initialSettings?.sms_template ||
     settings.sms_template ||
     'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
   );
-  const [selectedModel, setSelectedModel] = useState<string>(
-    initialBusiness?.selectedModel || 'gemini-3.8-flash'
-  );
+
+  const selectedModel = settingsState.selectedModel;
+  const setSelectedModel = (val: string) => updateSettingsField('selectedModel', val);
   const [keywords, setKeywords] = useState<string[]>(
     initialBusiness?.customKeywords
       ? initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
@@ -380,199 +399,6 @@ export default function SettingsClient({
     }
   }, [initialBusiness, setActiveBusiness]);
 
-  // Direct Server Action save executor
-  const executeSave = async (overrides?: Record<string, any>) => {
-    console.log('[CLIENT] Submitting settings form with values:', {
-      negativeAlertEmail,
-      negativeAlertPhone,
-      brandVoice,
-      aiInstructions,
-    });
-
-    const cleanNegEmail = (overrides?.negativeAlertEmail || overrides?.negativeEmailAddress || negativeAlertEmail || initialBusiness?.negativeAlertEmail || '').trim();
-    const cleanNegPhone = (overrides?.negativeAlertPhone || overrides?.negativePhone || negativeAlertPhone || initialBusiness?.negativeAlertPhone || '').trim();
-    const cleanPosEmail = (overrides?.positiveAlertEmail || overrides?.positiveEmailAddress || positiveAlertEmail || initialBusiness?.positiveAlertEmail || '').trim();
-    const cleanPosPhone = (overrides?.positiveAlertPhone || positiveAlertPhone || initialBusiness?.positiveAlertPhone || '').trim();
-
-    const currentReviewUrl =
-      activeBusiness?.googleReviewUrl ||
-      initialBusiness?.googleReviewUrl ||
-      'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-
-    const currentPlaceId =
-      activeBusiness?.placeId ||
-      initialBusiness?.placeId ||
-      '';
-
-    const targetBusinessId = activeBusiness?.id || initialBusiness?.id || '';
-
-    const formData = new FormData();
-    if (targetBusinessId) {
-      formData.append('businessId', targetBusinessId);
-      formData.append('id', targetBusinessId);
-    }
-    formData.append('negativeAlertEmail', cleanNegEmail);
-    formData.append('negativeAlertPhone', cleanNegPhone);
-    formData.append('positiveAlertEmail', cleanPosEmail);
-    formData.append('positiveAlertPhone', cleanPosPhone);
-    formData.append('googleReviewUrl', currentReviewUrl);
-
-    const effectiveNegAlerts = overrides?.negativeAlertsEnabled ?? overrides?.notifyNegativeEnabled ?? negativeAlertsEnabled;
-    const effectiveNegEmail = overrides?.negativeEmailAlertEnabled ?? overrides?.notifyNegativeEmail ?? negativeEmailAlertEnabled;
-    const effectiveNegSms = overrides?.negativeSmsAlertEnabled ?? overrides?.notifyNegativeSms ?? negativeSmsAlertEnabled;
-    const effectivePosAlerts = overrides?.positiveAlertsEnabled ?? overrides?.notifyPositiveEnabled ?? positiveAlertsEnabled;
-    const effectivePosEmail = overrides?.positiveEmailAlertEnabled ?? overrides?.notifyPositiveEmail ?? positiveEmailAlertEnabled;
-    const effectivePosSms = overrides?.positiveSmsAlertEnabled ?? overrides?.notifyPositiveSms ?? positiveSmsAlertEnabled;
-
-    formData.append('negativeAlertsEnabled', String(effectiveNegAlerts));
-    formData.append('negativeEmailAlertEnabled', String(effectiveNegEmail));
-    formData.append('negativeSmsAlertEnabled', String(effectiveNegSms));
-    formData.append('positiveAlertsEnabled', String(effectivePosAlerts));
-    formData.append('positiveEmailAlertEnabled', String(effectivePosEmail));
-    formData.append('positiveSmsAlertEnabled', String(effectivePosSms));
-
-    const effectiveVoice = overrides?.brandVoice || overrides?.aiTone || brandVoice || aiTone;
-    formData.append('brandVoice', effectiveVoice);
-    formData.append('aiTone', effectiveVoice);
-    formData.append('aiInstructions', overrides?.aiInstructions ?? aiInstructions);
-    formData.append('aiSignature', overrides?.aiSignature ?? aiSignature);
-
-    const effectiveAutoReply = overrides?.autoReplyEnabled ?? overrides?.autoPublish5Star ?? autoReplyEnabled ?? autoPublish5Star;
-    formData.append('autoPublish5Star', String(effectiveAutoReply));
-    formData.append('autoReplyEnabled', String(effectiveAutoReply));
-
-    const effectiveModel = overrides?.selectedModel || selectedModel || 'gemini-3.8-flash';
-    formData.append('selectedModel', effectiveModel);
-    formData.append('smsTemplate', smsTemplate);
-    const effectiveKeywords = overrides?.keywords || keywords;
-    formData.append('customKeywords', Array.isArray(effectiveKeywords) ? effectiveKeywords.join(',') : String(effectiveKeywords || ''));
-
-    const res = await saveSettingsAction(formData);
-    const savedBiz = res?.business || {};
-
-    // Safety net: persist to localStorage
-    if (typeof window !== 'undefined') {
-      try {
-        if (cleanNegPhone) {
-          localStorage.setItem('rp_alert_phone', cleanNegPhone);
-          localStorage.setItem('rp_negative_alert_phone', cleanNegPhone);
-        }
-        if (cleanNegEmail) {
-          localStorage.setItem('rp_alert_email', cleanNegEmail);
-          localStorage.setItem('rp_negative_alert_email', cleanNegEmail);
-        }
-        if (cleanPosPhone) {
-          localStorage.setItem('rp_pos_alert_phone', cleanPosPhone);
-          localStorage.setItem('rp_positive_alert_phone', cleanPosPhone);
-        }
-        if (cleanPosEmail) {
-          localStorage.setItem('rp_pos_alert_email', cleanPosEmail);
-          localStorage.setItem('rp_positive_alert_email', cleanPosEmail);
-        }
-        if (effectiveVoice) localStorage.setItem('rp_ai_tone', effectiveVoice);
-        if (aiInstructions) localStorage.setItem('rp_ai_instructions', aiInstructions);
-        if (aiSignature) localStorage.setItem('rp_ai_signature', aiSignature);
-        localStorage.setItem('rp_auto_reply', String(effectiveAutoReply));
-      } catch {}
-    }
-
-    // Keep active business connected and retain values in memory
-    setActiveBusiness((prev: any) => ({
-      ...(initialBusiness || {}),
-      ...(prev || {}),
-      ...(savedBiz || {}),
-      isGoogleConnected: true,
-      google_connected: true,
-      isConnected: true,
-      googleReviewUrl: currentReviewUrl,
-      reviewUrl: currentReviewUrl,
-      reviewLink: currentReviewUrl,
-      placeId: currentPlaceId || savedBiz?.placeId || '',
-      negativeAlertEmail: cleanNegEmail || prev?.negativeAlertEmail || savedBiz?.negativeAlertEmail || '',
-      negativeAlertPhone: cleanNegPhone || prev?.negativeAlertPhone || savedBiz?.negativeAlertPhone || '',
-      positiveAlertEmail: cleanPosEmail || prev?.positiveAlertEmail || savedBiz?.positiveAlertEmail || '',
-      positiveAlertPhone: cleanPosPhone || prev?.positiveAlertPhone || savedBiz?.positiveAlertPhone || '',
-      negativeAlertsEnabled: effectiveNegAlerts,
-      negativeEmailAlertEnabled: effectiveNegEmail,
-      negativeSmsAlertEnabled: effectiveNegSms,
-      positiveAlertsEnabled: effectivePosAlerts,
-      positiveEmailAlertEnabled: effectivePosEmail,
-      positiveSmsAlertEnabled: effectivePosSms,
-      brandVoice: effectiveVoice,
-      aiTone: effectiveVoice,
-      aiInstructions: overrides?.aiInstructions ?? aiInstructions,
-      aiSignature: overrides?.aiSignature ?? aiSignature,
-      autoPublish5Star: effectiveAutoReply,
-      autoReplyEnabled: effectiveAutoReply,
-    }));
-  };
-
-  const handleSaveAiPersona = async (e?: React.MouseEvent | React.FormEvent) => {
-    if (e && typeof (e as any).preventDefault === 'function') {
-      (e as any).preventDefault();
-    }
-    setIsSavingAiPersona(true);
-    try {
-      const targetBusinessId = activeBusiness?.id || initialBusiness?.id;
-      const res = await updateAiPersonaAction({
-        businessId: targetBusinessId,
-        aiTone: brandVoice || aiTone,
-        brandVoice: brandVoice || aiTone,
-        aiInstructions,
-        aiSignature,
-        autoReplyEnabled,
-        autoPublish5Star: autoReplyEnabled,
-        selectedModel,
-        keywords,
-      });
-      if (res?.business) {
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          ...res.business,
-          isGoogleConnected: true,
-          google_connected: true,
-          isConnected: true,
-        }));
-      }
-      setIsAiPersonaSaved(true);
-      router.refresh();
-      toast.success('AI Reply Persona preferences saved successfully.');
-      setTimeout(() => setIsAiPersonaSaved(false), 2500);
-    } catch (err: any) {
-      console.error('[Save AI Persona Error]:', err);
-      toast.error('Failed to save AI persona preferences', {
-        description: err?.message || 'Please check your connection and try again.',
-      });
-    } finally {
-      setIsSavingAiPersona(false);
-    }
-  };
-
-  const handleSaveNotificationPreferences = async (e?: React.MouseEvent | React.FormEvent) => {
-    if (e && typeof (e as any).preventDefault === 'function') {
-      (e as any).preventDefault();
-    }
-    console.log('[CLIENT] Submitting settings form with values:', {
-      negativeAlertEmail,
-      negativeAlertPhone,
-    });
-    setIsSavingNotifications(true);
-
-    try {
-      await executeSave();
-      setIsNotificationsSaved(true);
-      toast.success('Notification preferences saved successfully.');
-      setTimeout(() => setIsNotificationsSaved(false), 2500);
-    } catch (err: any) {
-      console.error('[Save Notifications Error]:', err);
-      toast.error('Failed to save notification preferences', {
-        description: err?.message || 'Please check your connection and try again.',
-      });
-    } finally {
-      setIsSavingNotifications(false);
-    }
-  };
-
   const handleToggleNotification = (field: string, value: boolean) => {
     if (field === 'negativeAlertsEnabled' || field === 'notifyNegativeEnabled') setNegativeAlertsEnabled(value);
     if (field === 'negativeEmailAlertEnabled' || field === 'notifyNegativeEmail') setNegativeEmailAlertEnabled(value);
@@ -583,7 +409,7 @@ export default function SettingsClient({
   };
 
   const handleSendTestWelcome = async () => {
-    const targetEmail = negativeEmailAddress || positiveEmailAddress || profile.email || user?.email || 'admin@business.com';
+    const targetEmail = settingsState.negativeAlertEmail || settingsState.positiveAlertEmail || profile.email || user?.email || 'admin@business.com';
     setSendingTestWelcome(true);
 
     try {
@@ -644,39 +470,69 @@ export default function SettingsClient({
     }
   };
 
-  // Explicit Save Handler - Invokes Next.js Server Action directly
-  const handleSaveSettings = async (e?: React.FormEvent | React.MouseEvent | unknown) => {
+  // Single Unified Atomic Save Handler
+  const handleSave = async (e?: React.FormEvent | React.MouseEvent | unknown) => {
     if (e && typeof (e as any).preventDefault === 'function') {
       (e as any).preventDefault();
     }
-    console.log('[CLIENT] Submitting settings form with values:', {
-      negativeAlertEmail,
-      negativeAlertPhone,
-    });
+    console.log('[CLIENT] Submitting unified settings form with values:', settingsState);
     setIsSaving(true);
     setIsSavingNotifications(true);
+    setIsSavingAiPersona(true);
 
     try {
-      await executeSave();
-      setIsSaved(true);
-      setIsNotificationsSaved(true);
-      toast.success('Settings Saved Successfully!', {
-        description: 'Your business profile, channels, and delivery preferences have been synced to the database.',
+      const targetBusinessId = activeBusiness?.id || initialBusiness?.id;
+      const res = await saveAllSettingsAction({
+        businessId: targetBusinessId,
+        ...settingsState,
+        googleReviewUrl: activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review',
+        customKeywords: keywords.join(','),
+        smsTemplate,
+        negativeAlertsEnabled,
+        negativeEmailAlertEnabled,
+        negativeSmsAlertEnabled,
+        positiveAlertsEnabled,
+        positiveEmailAlertEnabled,
+        positiveSmsAlertEnabled,
       });
-      setTimeout(() => {
-        setIsSaved(false);
-        setIsNotificationsSaved(false);
-      }, 2500);
-    } catch (err: any) {
-      console.error('[Settings Save Error]:', err);
-      toast.error('Failed to save settings', {
-        description: err?.message || 'Please check your connection and try again.',
-      });
+
+      if (res?.success) {
+        setIsSaved(true);
+        setIsNotificationsSaved(true);
+        setIsAiPersonaSaved(true);
+
+        if (res.business) {
+          setActiveBusiness((prev: any) => ({
+            ...(prev || {}),
+            ...res.business,
+            isGoogleConnected: true,
+            google_connected: true,
+            isConnected: true,
+          }));
+        }
+
+        router.refresh();
+        toast.success('All settings saved successfully');
+
+        setTimeout(() => {
+          setIsSaved(false);
+          setIsNotificationsSaved(false);
+          setIsAiPersonaSaved(false);
+        }, 2500);
+      }
+    } catch (err) {
+      console.error('Save failed', err);
+      toast.error('Failed to save settings');
     } finally {
       setIsSaving(false);
       setIsSavingNotifications(false);
+      setIsSavingAiPersona(false);
     }
   };
+
+  const handleSaveSettings = handleSave;
+  const handleSaveAiPersona = handleSave;
+  const handleSaveNotificationPreferences = handleSave;
 
   return (
     <div className="space-y-6 max-w-5xl pb-16">

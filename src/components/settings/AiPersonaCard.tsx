@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateAiPersonaAction } from '@/app/dashboard/settings/actions';
+import { saveAllSettingsAction } from '@/app/dashboard/settings/actions';
 import {
   Sparkles,
   Plus,
@@ -287,7 +287,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         await onSaveAiPersona(e);
       } else {
         const bId = initialBiz?.id || business?.id;
-        await updateAiPersonaAction({
+        await saveAllSettingsAction({
           businessId: bId,
           aiTone: localTone,
           brandVoice: localTone,
