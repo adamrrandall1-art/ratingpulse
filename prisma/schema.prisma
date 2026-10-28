@@ -43,6 +43,7 @@ model Business {
   autoReplyEnabled          Boolean? @default(false)
   autoPublish5Star          Boolean? @default(false)
   customKeywords            String?
+  selectedModel             String?  @default("gemini-3.8-flash")
   smsTemplate               String?
 
   createdAt                 DateTime @default(now())

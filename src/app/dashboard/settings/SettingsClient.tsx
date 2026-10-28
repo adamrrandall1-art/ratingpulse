@@ -25,7 +25,7 @@ import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
 import { useAuth } from '@/lib/auth-context';
 import { useUser } from '@clerk/nextjs';
 import { toast } from 'sonner';
-import { saveSettingsAction } from './actions';
+import { saveSettingsAction, updateAiPersonaAction } from './actions';
 
 import GbpIntegrationCard from '@/components/settings/GbpIntegrationCard';
 import AiPersonaCard, { BrandVoiceType } from '@/components/settings/AiPersonaCard';
@@ -215,6 +215,9 @@ export default function SettingsClient({
     settings.sms_template ||
     'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
   );
+  const [selectedModel, setSelectedModel] = useState<string>(
+    initialBusiness?.selectedModel || 'gemini-3.8-flash'
+  );
   const [keywords, setKeywords] = useState<string[]>(
     initialBusiness?.customKeywords
       ? initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
@@ -368,6 +371,9 @@ export default function SettingsClient({
       if (initialBusiness.customKeywords) {
         setKeywords(initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean));
       }
+      if (initialBusiness.selectedModel) {
+        setSelectedModel(initialBusiness.selectedModel);
+      }
       if (initialBusiness.smsTemplate) {
         setSmsTemplate(initialBusiness.smsTemplate);
       }
@@ -435,6 +441,8 @@ export default function SettingsClient({
     formData.append('autoPublish5Star', String(effectiveAutoReply));
     formData.append('autoReplyEnabled', String(effectiveAutoReply));
 
+    const effectiveModel = overrides?.selectedModel || selectedModel || 'gemini-3.8-flash';
+    formData.append('selectedModel', effectiveModel);
     formData.append('smsTemplate', smsTemplate);
     const effectiveKeywords = overrides?.keywords || keywords;
     formData.append('customKeywords', Array.isArray(effectiveKeywords) ? effectiveKeywords.join(',') : String(effectiveKeywords || ''));
@@ -505,8 +513,29 @@ export default function SettingsClient({
     }
     setIsSavingAiPersona(true);
     try {
-      await executeSave();
+      const targetBusinessId = activeBusiness?.id || initialBusiness?.id;
+      const res = await updateAiPersonaAction({
+        businessId: targetBusinessId,
+        aiTone: brandVoice || aiTone,
+        brandVoice: brandVoice || aiTone,
+        aiInstructions,
+        aiSignature,
+        autoReplyEnabled,
+        autoPublish5Star: autoReplyEnabled,
+        selectedModel,
+        keywords,
+      });
+      if (res?.business) {
+        setActiveBusiness((prev: any) => ({
+          ...(prev || {}),
+          ...res.business,
+          isGoogleConnected: true,
+          google_connected: true,
+          isConnected: true,
+        }));
+      }
       setIsAiPersonaSaved(true);
+      router.refresh();
       toast.success('AI Reply Persona preferences saved successfully.');
       setTimeout(() => setIsAiPersonaSaved(false), 2500);
     } catch (err: any) {
@@ -650,11 +679,7 @@ export default function SettingsClient({
   };
 
   return (
-    <form
-      onSubmit={handleSaveSettings}
-      action={handleSaveSettings}
-      className="space-y-6 max-w-5xl pb-16"
-    >
+    <div className="space-y-6 max-w-5xl pb-16">
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 gap-4">
         <div>
@@ -669,7 +694,7 @@ export default function SettingsClient({
 
         <div className="flex items-center gap-3">
           <button
-            type="submit"
+            type="button"
             onClick={handleSaveSettings}
             disabled={isSaving}
             className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
@@ -770,6 +795,8 @@ export default function SettingsClient({
               setAutoPublish5Star={setAutoPublish5Star}
               autoReplyEnabled={autoReplyEnabled}
               setAutoReplyEnabled={setAutoReplyEnabled}
+              selectedModel={selectedModel}
+              setSelectedModel={setSelectedModel}
               businessName={profile.business_name}
               onSaveAiPersona={handleSaveAiPersona}
               isSavingAiPersona={isSavingAiPersona || isSaving}
@@ -933,7 +960,7 @@ export default function SettingsClient({
           Changes will apply across all review reply generators and invite channels immediately.
         </div>
         <button
-          type="submit"
+          type="button"
           onClick={handleSaveSettings}
           disabled={isSaving}
           className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
@@ -951,6 +978,6 @@ export default function SettingsClient({
           )}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

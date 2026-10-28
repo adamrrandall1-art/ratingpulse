@@ -111,6 +111,7 @@ export interface BusinessRecord {
   autoReplyEnabled?: boolean | null;
   autoPublish5Star?: boolean | null;
   customKeywords?: string | null;
+  selectedModel?: string | null;
   smsTemplate?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -548,6 +549,10 @@ export const db = {
         partialUpdate.custom_keywords = normalizedData.customKeywords;
         partialUpdate.customKeywords = normalizedData.customKeywords;
       }
+      if (normalizedData.selectedModel !== undefined) {
+        partialUpdate.selected_model = normalizedData.selectedModel;
+        partialUpdate.selectedModel = normalizedData.selectedModel;
+      }
       if (normalizedData.smsTemplate !== undefined) {
         partialUpdate.sms_template = normalizedData.smsTemplate;
         partialUpdate.smsTemplate = normalizedData.smsTemplate;
@@ -736,6 +741,7 @@ function normalizeBusiness(raw: any): BusinessRecord {
     autoReplyEnabled: Boolean(raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false),
     autoPublish5Star: Boolean(raw.autoPublish5Star ?? raw.auto_publish_5_star ?? raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? false),
     customKeywords: raw.customKeywords ?? raw.custom_keywords ?? null,
+    selectedModel: raw.selectedModel ?? raw.selected_model ?? 'gemini-3.8-flash',
     smsTemplate: raw.smsTemplate ?? raw.sms_template ?? null,
     createdAt: raw.createdAt || raw.created_at || new Date(),
     updatedAt: raw.updatedAt || raw.updated_at || new Date(),

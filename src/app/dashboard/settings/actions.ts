@@ -135,6 +135,9 @@ export async function saveSettingsAction(formData: FormData) {
   const customKeywords = body.customKeywords || (Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords);
   if (customKeywords !== undefined) payload.customKeywords = customKeywords;
 
+  const selectedModel = body.selectedModel;
+  if (selectedModel) payload.selectedModel = selectedModel;
+
   const smsTemplate = body.smsTemplate;
   if (smsTemplate) payload.smsTemplate = smsTemplate;
 
@@ -222,6 +225,137 @@ export async function saveSettingsAction(formData: FormData) {
   revalidatePath('/dashboard/businesses');
   revalidatePath('/dashboard/invites');
   revalidatePath('/', 'layout');
+
+  return { success: true, business: savedBusiness };
+}
+
+export async function updateAiPersonaAction(data: {
+  businessId?: string;
+  aiTone?: string;
+  brandVoice?: string;
+  aiInstructions?: string;
+  aiSignature?: string;
+  autoReplyEnabled?: boolean;
+  autoPublish5Star?: boolean;
+  selectedModel?: string;
+  customKeywords?: string | string[];
+  keywords?: string[];
+}) {
+  const clerkAuth = await auth().catch(() => null);
+  const userId = clerkAuth?.userId;
+
+  if (!userId) {
+    throw new Error('Unauthorized');
+  }
+
+  // Locate businesses owned by this user
+  const businesses = await db.business.findMany({
+    where: {
+      OR: [
+        { userId },
+        { clerkUserId: userId },
+        { id: userId },
+      ],
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+
+  const incomingBizId = data.businessId;
+  let targetBusiness = (incomingBizId && incomingBizId !== 'undefined' && incomingBizId !== 'null' && !incomingBizId.startsWith('user_'))
+    ? businesses.find(b => b.id === incomingBizId)
+    : null;
+
+  if (!targetBusiness) {
+    targetBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone || b.brandVoice || b.aiTone) || businesses[0] || null;
+  }
+
+  if (!targetBusiness) {
+    try {
+      const cookieStore = await cookies();
+      const activeId =
+        cookieStore.get('activeBusinessId')?.value ||
+        cookieStore.get('rp_active_business_id')?.value;
+      if (activeId) {
+        targetBusiness = await db.business.findFirst({
+          where: { id: activeId },
+          orderBy: { updatedAt: 'desc' },
+        });
+      }
+    } catch {}
+  }
+
+  const targetBusinessId = targetBusiness?.id || incomingBizId || userId;
+
+  const personaFields: Record<string, any> = {
+    updatedAt: new Date(),
+  };
+
+  const tone = data.aiTone || data.brandVoice;
+  if (tone) {
+    personaFields.aiTone = tone;
+    personaFields.brandVoice = tone;
+  }
+
+  if (data.aiInstructions !== undefined) {
+    personaFields.aiInstructions = data.aiInstructions;
+  }
+
+  if (data.aiSignature !== undefined) {
+    personaFields.aiSignature = data.aiSignature;
+  }
+
+  if (data.autoReplyEnabled !== undefined || data.autoPublish5Star !== undefined) {
+    const auto = Boolean(data.autoReplyEnabled ?? data.autoPublish5Star);
+    personaFields.autoReplyEnabled = auto;
+    personaFields.autoPublish5Star = auto;
+  }
+
+  if (data.selectedModel !== undefined) {
+    personaFields.selectedModel = data.selectedModel;
+  }
+
+  const rawKw = data.customKeywords ?? data.keywords;
+  if (rawKw !== undefined) {
+    personaFields.customKeywords = Array.isArray(rawKw) ? rawKw.join(',') : rawKw;
+  }
+
+  console.log('[SERVER ACTION] updateAiPersonaAction called for business:', targetBusinessId, personaFields);
+
+  let savedBusiness;
+  if (targetBusiness) {
+    savedBusiness = await db.business.update({
+      where: { id: targetBusiness.id },
+      data: personaFields,
+    });
+  } else {
+    savedBusiness = await db.business.upsert({
+      where: { id: targetBusinessId },
+      update: personaFields,
+      create: {
+        id: targetBusinessId,
+        userId: userId,
+        clerkUserId: userId,
+        name: 'RatingPulse Business',
+        isGoogleConnected: true,
+        ...personaFields,
+      },
+    });
+  }
+
+  // Synchronize persona fields across duplicate user rows without touching their alert settings
+  if (businesses.length > 1) {
+    for (const dup of businesses) {
+      if (dup.id !== savedBusiness.id) {
+        await db.business.update({
+          where: { id: dup.id },
+          data: personaFields,
+        }).catch(() => null);
+      }
+    }
+  }
+
+  revalidatePath('/dashboard', 'layout');
+  revalidatePath('/dashboard/settings');
 
   return { success: true, business: savedBusiness };
 }

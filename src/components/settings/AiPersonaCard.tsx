@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { updateAiPersonaAction } from '@/app/dashboard/settings/actions';
 import {
   Sparkles,
   Plus,
@@ -40,6 +42,8 @@ export interface AiPersonaCardProps {
   setAutoPublish5Star?: (val: boolean) => void;
   autoReplyEnabled?: boolean;
   setAutoReplyEnabled?: (val: boolean) => void;
+  selectedModel?: string;
+  setSelectedModel?: (model: string) => void;
   businessName?: string;
   onSaveAiPersona?: (e?: React.MouseEvent | React.FormEvent) => Promise<void>;
   isSavingAiPersona?: boolean;
@@ -115,13 +119,23 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     setAutoPublish5Star,
     autoReplyEnabled = false,
     setAutoReplyEnabled,
+    selectedModel: propSelectedModel = 'gemini-3.8-flash',
+    setSelectedModel: propSetSelectedModel,
     businessName = 'our team',
     onSaveAiPersona,
     isSavingAiPersona = false,
     isAiPersonaSaved = false,
   } = props;
 
+  const router = useRouter();
   const initialBiz = initialBusiness || business;
+
+  const [internalSaving, setInternalSaving] = useState(false);
+  const [internalSaved, setInternalSaved] = useState(false);
+
+  const [selectedModel, setSelectedModel] = useState<string>(
+    initialBiz?.selectedModel || propSelectedModel || 'gemini-3.8-flash'
+  );
 
   // Initialize state directly from initialBusiness props avoiding empty overrides
   const [localTone, setLocalTone] = useState<BrandVoiceType>(
@@ -190,6 +204,10 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         setLocalKeywords(kwList);
         setKeywords?.(kwList);
       }
+      if (biz.selectedModel) {
+        setSelectedModel(biz.selectedModel);
+        propSetSelectedModel?.(biz.selectedModel);
+      }
     }
   }, [initialBusiness, business]);
 
@@ -211,6 +229,12 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       setLocalSignature(props.aiSignature);
     }
   }, [props.aiSignature]);
+
+  useEffect(() => {
+    if (propSelectedModel && propSelectedModel !== selectedModel) {
+      setSelectedModel(propSelectedModel);
+    }
+  }, [propSelectedModel]);
 
   const handleToneSelect = (tone: BrandVoiceType) => {
     setLocalTone(tone);
@@ -250,6 +274,45 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     setKeywords?.(updated);
   };
 
+  const isSaving = isSavingAiPersona || internalSaving;
+  const isSaved = isAiPersonaSaved || internalSaved;
+
+  const handleSavePersona = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && typeof (e as any).preventDefault === 'function') {
+      (e as any).preventDefault();
+    }
+    setInternalSaving(true);
+    try {
+      if (onSaveAiPersona) {
+        await onSaveAiPersona(e);
+      } else {
+        const bId = initialBiz?.id || business?.id;
+        await updateAiPersonaAction({
+          businessId: bId,
+          aiTone: localTone,
+          brandVoice: localTone,
+          aiInstructions: localInstructions,
+          aiSignature: localSignature,
+          autoReplyEnabled: localAutoReply,
+          autoPublish5Star: localAutoReply,
+          selectedModel,
+          keywords: localKeywords,
+        });
+        setInternalSaved(true);
+        router.refresh();
+        toast.success('AI Persona saved successfully');
+        setTimeout(() => setInternalSaved(false), 2500);
+      }
+    } catch (err: any) {
+      console.error('[AiPersonaCard save error]:', err);
+      toast.error('Failed to save AI persona', {
+        description: err?.message || 'Please check your connection and try again.',
+      });
+    } finally {
+      setInternalSaving(false);
+    }
+  };
+
   // Generate dynamic live preview text
   const currentPersona = PERSONA_OPTIONS.find((p) => p.key === localTone) || PERSONA_OPTIONS[0];
   const keywordHighlights = localKeywords.length > 0 ? ` Mentioning our commitment to ${localKeywords.slice(0, 2).join(' and ')}.` : '';
@@ -273,35 +336,44 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-            <Bot className="w-3.5 h-3.5" />
-            Gemini 3.8 Flash Engine
-          </span>
-          {onSaveAiPersona && (
-            <button
-              type="button"
-              onClick={onSaveAiPersona}
-              disabled={isSavingAiPersona}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
+            <Bot className="w-3.5 h-3.5 shrink-0" />
+            <select
+              value={selectedModel}
+              onChange={(e) => {
+                const val = e.target.value;
+                setSelectedModel(val);
+                propSetSelectedModel?.(val);
+              }}
+              className="bg-transparent text-xs font-bold text-purple-700 border-none focus:outline-none cursor-pointer pr-1"
             >
-              {isSavingAiPersona ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                  <span>Saving...</span>
-                </>
-              ) : isAiPersonaSaved ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-white" />
-                  <span>Saved!</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5 text-white" />
-                  <span>Save</span>
-                </>
-              )}
-            </button>
-          )}
+              <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
+              <option value="gemini-3.8-pro">Gemini 3.8 Pro</option>
+            </select>
+          </div>
+          <button
+            type="button"
+            onClick={handleSavePersona}
+            disabled={isSaving}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+          >
+            {isSaving ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                <span>Saving...</span>
+              </>
+            ) : isSaved ? (
+              <>
+                <Check className="w-3.5 h-3.5 text-white" />
+                <span>Saved!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-3.5 h-3.5 text-white" />
+                <span>Save</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
 
@@ -567,36 +639,34 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       </div>
 
       {/* 7. Dedicated Persona Tab Save Footer Button */}
-      {onSaveAiPersona && (
-        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-          <div className="text-xs text-slate-500">
-            Saved persona settings will be applied immediately to all generated review replies.
-          </div>
-          <button
-            type="button"
-            onClick={onSaveAiPersona}
-            disabled={isSavingAiPersona}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
-          >
-            {isSavingAiPersona ? (
-              <>
-                <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                <span>Saving Persona...</span>
-              </>
-            ) : isAiPersonaSaved ? (
-              <>
-                <Check className="w-4 h-4 text-white" />
-                <span>Persona Preferences Saved!</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 text-white" />
-                <span>Save AI Persona Preferences</span>
-              </>
-            )}
-          </button>
+      <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+        <div className="text-xs text-slate-500">
+          Saved persona settings will be applied immediately to all generated review replies.
         </div>
-      )}
+        <button
+          type="button"
+          onClick={handleSavePersona}
+          disabled={isSaving}
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
+        >
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin text-white" />
+              <span>Saving Persona...</span>
+            </>
+          ) : isSaved ? (
+            <>
+              <Check className="w-4 h-4 text-white" />
+              <span>Persona Preferences Saved!</span>
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 text-white" />
+              <span>Save AI Persona Preferences</span>
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
 }
