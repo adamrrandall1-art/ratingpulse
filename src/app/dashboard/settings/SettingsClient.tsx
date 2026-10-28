@@ -104,19 +104,19 @@ export default function SettingsClient({
     setSettingsState((prev) => ({ ...prev, [field]: value }));
   };
 
-  // Synchronize unified state on initialBusiness change
+  // Synchronize unified state on initialBusiness change without wiping entered state
   useEffect(() => {
     if (initialBusiness) {
-      setSettingsState({
-        negativeAlertEmail: initialBusiness.negativeAlertEmail || '',
-        negativeAlertPhone: initialBusiness.negativeAlertPhone || '',
-        positiveAlertEmail: initialBusiness.positiveAlertEmail || '',
-        positiveAlertPhone: initialBusiness.positiveAlertPhone || '',
-        aiTone: initialBusiness.aiTone || initialBusiness.brandVoice || 'friendly_professional',
-        aiInstructions: initialBusiness.aiInstructions || '',
-        autoReplyEnabled: initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star ?? false,
-        selectedModel: initialBusiness.selectedModel || 'gemini-3.8-flash',
-      });
+      setSettingsState((prev) => ({
+        negativeAlertEmail: prev.negativeAlertEmail || initialBusiness.negativeAlertEmail || '',
+        negativeAlertPhone: prev.negativeAlertPhone || initialBusiness.negativeAlertPhone || '',
+        positiveAlertEmail: prev.positiveAlertEmail || initialBusiness.positiveAlertEmail || '',
+        positiveAlertPhone: prev.positiveAlertPhone || initialBusiness.positiveAlertPhone || '',
+        aiTone: prev.aiTone || initialBusiness.aiTone || initialBusiness.brandVoice || 'friendly_professional',
+        aiInstructions: prev.aiInstructions || initialBusiness.aiInstructions || '',
+        autoReplyEnabled: prev.autoReplyEnabled ?? initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star ?? false,
+        selectedModel: prev.selectedModel || initialBusiness.selectedModel || 'gemini-3.8-flash',
+      }));
     }
   }, [initialBusiness]);
 
@@ -470,18 +470,24 @@ export default function SettingsClient({
     }
   };
 
-  // Single Unified Atomic Save Handler
-  const handleSave = async (e?: React.FormEvent | React.MouseEvent | unknown) => {
+  // Single Unified Atomic Save Handler - No form submit page refresh, no .reset(), no state wiping
+  const handleSave = async (e?: React.MouseEvent | React.FormEvent | unknown) => {
     if (e && typeof (e as any).preventDefault === 'function') {
       (e as any).preventDefault();
     }
-    console.log('[CLIENT] Submitting unified settings form with values:', settingsState);
+    if (e && typeof (e as any).stopPropagation === 'function') {
+      (e as any).stopPropagation();
+    }
+
+    if (isSaving) return;
     setIsSaving(true);
     setIsSavingNotifications(true);
     setIsSavingAiPersona(true);
 
     try {
-      const targetBusinessId = activeBusiness?.id || initialBusiness?.id;
+      console.log('[SAVE_PAYLOAD] Submitting current settings:', settingsState);
+
+      const targetBusinessId = initialBusiness?.id || activeBusiness?.id;
       const res = await saveAllSettingsAction({
         businessId: targetBusinessId,
         ...settingsState,
@@ -501,7 +507,21 @@ export default function SettingsClient({
         setIsNotificationsSaved(true);
         setIsAiPersonaSaved(true);
 
+        // DO NOT reset settingsState to empty values.
+        // Keep the user's entered state intact or update with the returned record:
         if (res.business) {
+          setSettingsState((prev) => ({
+            ...prev,
+            negativeAlertEmail: res.business.negativeAlertEmail ?? prev.negativeAlertEmail,
+            negativeAlertPhone: res.business.negativeAlertPhone ?? prev.negativeAlertPhone,
+            positiveAlertEmail: res.business.positiveAlertEmail ?? prev.positiveAlertEmail,
+            positiveAlertPhone: res.business.positiveAlertPhone ?? prev.positiveAlertPhone,
+            aiTone: res.business.aiTone ?? prev.aiTone,
+            aiInstructions: res.business.aiInstructions ?? prev.aiInstructions,
+            autoReplyEnabled: res.business.autoReplyEnabled ?? prev.autoReplyEnabled,
+            selectedModel: res.business.selectedModel ?? prev.selectedModel,
+          }));
+
           setActiveBusiness((prev: any) => ({
             ...(prev || {}),
             ...res.business,
@@ -511,8 +531,7 @@ export default function SettingsClient({
           }));
         }
 
-        router.refresh();
-        toast.success('All settings saved successfully');
+        toast.success('Settings saved successfully');
 
         setTimeout(() => {
           setIsSaved(false);
@@ -520,8 +539,8 @@ export default function SettingsClient({
           setIsAiPersonaSaved(false);
         }, 2500);
       }
-    } catch (err) {
-      console.error('Save failed', err);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
       toast.error('Failed to save settings');
     } finally {
       setIsSaving(false);
@@ -551,7 +570,7 @@ export default function SettingsClient({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={handleSaveSettings}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSaveSettings(e); }}
             disabled={isSaving}
             className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50"
           >
@@ -817,7 +836,7 @@ export default function SettingsClient({
         </div>
         <button
           type="button"
-          onClick={handleSaveSettings}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSaveSettings(e); }}
           disabled={isSaving}
           className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 flex items-center gap-2 transition-all transform active:scale-95 cursor-pointer disabled:opacity-50"
         >

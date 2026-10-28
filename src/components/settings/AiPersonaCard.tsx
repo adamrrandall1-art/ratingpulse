@@ -281,6 +281,9 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     if (e && typeof (e as any).preventDefault === 'function') {
       (e as any).preventDefault();
     }
+    if (e && typeof (e as any).stopPropagation === 'function') {
+      (e as any).stopPropagation();
+    }
     setInternalSaving(true);
     try {
       if (onSaveAiPersona) {
@@ -299,7 +302,6 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           keywords: localKeywords,
         });
         setInternalSaved(true);
-        router.refresh();
         toast.success('AI Persona saved successfully');
         setTimeout(() => setInternalSaved(false), 2500);
       }
@@ -339,7 +341,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-purple-50 text-purple-700 border border-purple-200">
             <Bot className="w-3.5 h-3.5 shrink-0" />
             <select
-              value={selectedModel}
+              value={props.selectedModel || selectedModel}
               onChange={(e) => {
                 const val = e.target.value;
                 setSelectedModel(val);
@@ -353,7 +355,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           </div>
           <button
             type="button"
-            onClick={handleSavePersona}
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSavePersona(e); }}
             disabled={isSaving}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
           >
@@ -439,7 +441,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
         <textarea
           rows={3}
-          value={localInstructions}
+          value={props.aiInstructions !== undefined ? props.aiInstructions : localInstructions}
           onChange={(e) => handleInstructionsChange(e.target.value)}
           placeholder="E.g. Always mention that parking is validated in the rear lot. Never offer refunds or discounts in public review replies. Encourage reviewers to ask for Chef Marco next time."
           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 leading-relaxed"
@@ -645,7 +647,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
         <button
           type="button"
-          onClick={handleSavePersona}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleSavePersona(e); }}
           disabled={isSaving}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
         >

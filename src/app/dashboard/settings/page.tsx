@@ -53,7 +53,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient 
-      key={activeBusiness?.id || 'settings-active'}
+      key="settings-page"
       initialBusiness={activeBusiness ? JSON.parse(JSON.stringify(activeBusiness)) : null} 
     />
   );

@@ -174,25 +174,25 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
 
   // Sync if parent updates props directly
   useEffect(() => {
-    if (props.negativeAlertEmail && props.negativeAlertEmail !== negativeAlertEmail) {
+    if (props.negativeAlertEmail !== undefined && props.negativeAlertEmail !== negativeAlertEmail) {
       setNegativeAlertEmail(props.negativeAlertEmail);
     }
   }, [props.negativeAlertEmail]);
 
   useEffect(() => {
-    if (props.negativeAlertPhone && props.negativeAlertPhone !== negativeAlertPhone) {
+    if (props.negativeAlertPhone !== undefined && props.negativeAlertPhone !== negativeAlertPhone) {
       setNegativeAlertPhone(props.negativeAlertPhone);
     }
   }, [props.negativeAlertPhone]);
 
   useEffect(() => {
-    if (props.positiveAlertEmail && props.positiveAlertEmail !== positiveAlertEmail) {
+    if (props.positiveAlertEmail !== undefined && props.positiveAlertEmail !== positiveAlertEmail) {
       setPositiveAlertEmail(props.positiveAlertEmail);
     }
   }, [props.positiveAlertEmail]);
 
   useEffect(() => {
-    if (props.positiveAlertPhone && props.positiveAlertPhone !== positiveAlertPhone) {
+    if (props.positiveAlertPhone !== undefined && props.positiveAlertPhone !== positiveAlertPhone) {
       setPositiveAlertPhone(props.positiveAlertPhone);
     }
   }, [props.positiveAlertPhone]);
@@ -423,7 +423,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="email"
                     name="negativeAlertEmail"
-                    value={negativeAlertEmail}
+                    value={props.negativeAlertEmail !== undefined ? props.negativeAlertEmail : negativeAlertEmail}
                     onChange={(e) => handleNegEmailChange(e.target.value)}
                     disabled={!effectiveNegativeEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -438,7 +438,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="tel"
                     name="negativeAlertPhone"
-                    value={negativeAlertPhone}
+                    value={props.negativeAlertPhone !== undefined ? props.negativeAlertPhone : negativeAlertPhone}
                     onChange={(e) => handleNegPhoneChange(e.target.value)}
                     disabled={!effectiveNegativeSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -530,7 +530,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="email"
                     name="positiveAlertEmail"
-                    value={positiveAlertEmail}
+                    value={props.positiveAlertEmail !== undefined ? props.positiveAlertEmail : positiveAlertEmail}
                     onChange={(e) => handlePosEmailChange(e.target.value)}
                     disabled={!effectivePositiveEmailAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -545,7 +545,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="tel"
                     name="positiveAlertPhone"
-                    value={positiveAlertPhone}
+                    value={props.positiveAlertPhone !== undefined ? props.positiveAlertPhone : positiveAlertPhone}
                     onChange={(e) => handlePosPhoneChange(e.target.value)}
                     disabled={!effectivePositiveSmsAlertEnabled}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 disabled:bg-slate-100 disabled:text-slate-400"
@@ -571,7 +571,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
             </div>
             <button
               type="button"
-              onClick={onSaveNotificationPreferences}
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); onSaveNotificationPreferences?.(); }}
               disabled={isSavingNotifications}
               className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
             >
