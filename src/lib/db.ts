@@ -104,6 +104,14 @@ export interface BusinessRecord {
   positiveAlertsEnabled: boolean;
   positiveEmailAlertEnabled: boolean;
   positiveSmsAlertEnabled: boolean;
+  brandVoice?: string | null;
+  aiTone?: string | null;
+  aiInstructions?: string | null;
+  aiSignature?: string | null;
+  autoReplyEnabled?: boolean | null;
+  autoPublish5Star?: boolean | null;
+  customKeywords?: string | null;
+  smsTemplate?: string | null;
   createdAt?: string | Date;
   updatedAt?: string | Date;
   [key: string]: any;
@@ -508,6 +516,42 @@ export const db = {
         partialUpdate.is_google_connected = normalizedData.isGoogleConnected;
         partialUpdate.google_connected = normalizedData.isGoogleConnected;
       }
+      if (normalizedData.brandVoice !== undefined) {
+        partialUpdate.brand_voice = normalizedData.brandVoice;
+        partialUpdate.brandVoice = normalizedData.brandVoice;
+      }
+      if (normalizedData.aiTone !== undefined) {
+        partialUpdate.ai_tone = normalizedData.aiTone;
+        partialUpdate.aiTone = normalizedData.aiTone;
+        partialUpdate.brand_voice = normalizedData.aiTone;
+        partialUpdate.brandVoice = normalizedData.aiTone;
+      }
+      if (normalizedData.aiInstructions !== undefined) {
+        partialUpdate.ai_instructions = normalizedData.aiInstructions;
+        partialUpdate.aiInstructions = normalizedData.aiInstructions;
+      }
+      if (normalizedData.aiSignature !== undefined) {
+        partialUpdate.ai_signature = normalizedData.aiSignature;
+        partialUpdate.aiSignature = normalizedData.aiSignature;
+      }
+      if (normalizedData.autoReplyEnabled !== undefined) {
+        partialUpdate.auto_reply_enabled = normalizedData.autoReplyEnabled;
+        partialUpdate.autoReplyEnabled = normalizedData.autoReplyEnabled;
+        partialUpdate.auto_publish_5_star = normalizedData.autoReplyEnabled;
+        partialUpdate.autoPublish5Star = normalizedData.autoReplyEnabled;
+      }
+      if (normalizedData.autoPublish5Star !== undefined) {
+        partialUpdate.auto_publish_5_star = normalizedData.autoPublish5Star;
+        partialUpdate.autoPublish5Star = normalizedData.autoPublish5Star;
+      }
+      if (normalizedData.customKeywords !== undefined) {
+        partialUpdate.custom_keywords = normalizedData.customKeywords;
+        partialUpdate.customKeywords = normalizedData.customKeywords;
+      }
+      if (normalizedData.smsTemplate !== undefined) {
+        partialUpdate.sms_template = normalizedData.smsTemplate;
+        partialUpdate.smsTemplate = normalizedData.smsTemplate;
+      }
 
       if (supabase) {
         // Attempt update across matching ID columns
@@ -685,9 +729,14 @@ function normalizeBusiness(raw: any): BusinessRecord {
     positiveAlertsEnabled: raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true,
     positiveEmailAlertEnabled: raw.positiveEmailAlertEnabled ?? raw.positive_email_alert_enabled ?? true,
     positiveSmsAlertEnabled: raw.positiveSmsAlertEnabled ?? raw.positive_sms_alert_enabled ?? false,
-    brandVoice: raw.brandVoice ?? raw.brand_voice ?? 'friendly_professional',
+    brandVoice: raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? 'friendly_professional',
+    aiTone: raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? 'friendly_professional',
+    aiInstructions: raw.aiInstructions ?? raw.ai_instructions ?? null,
+    aiSignature: raw.aiSignature ?? raw.ai_signature ?? null,
+    autoReplyEnabled: Boolean(raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false),
+    autoPublish5Star: Boolean(raw.autoPublish5Star ?? raw.auto_publish_5_star ?? raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? false),
+    customKeywords: raw.customKeywords ?? raw.custom_keywords ?? null,
     smsTemplate: raw.smsTemplate ?? raw.sms_template ?? null,
-    autoPublish5Star: raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false,
     createdAt: raw.createdAt || raw.created_at || new Date(),
     updatedAt: raw.updatedAt || raw.updated_at || new Date(),
   };

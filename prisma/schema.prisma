@@ -35,10 +35,15 @@ model Business {
   positiveEmailAlertEnabled Boolean  @default(true)
   positiveSmsAlertEnabled   Boolean  @default(false)
 
-  // AI & Channels
+  // AI Persona & Replies
   brandVoice                String?  @default("friendly_professional")
-  smsTemplate               String?
+  aiTone                    String?  @default("friendly_professional")
+  aiInstructions            String?
+  aiSignature               String?
+  autoReplyEnabled          Boolean? @default(false)
   autoPublish5Star          Boolean? @default(false)
+  customKeywords            String?
+  smsTemplate               String?
 
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt

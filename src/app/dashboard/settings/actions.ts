@@ -114,14 +114,29 @@ export async function saveSettingsAction(formData: FormData) {
   const posSms = getBool('positiveSmsAlertEnabled');
   if (posSms !== undefined) payload.positiveSmsAlertEnabled = posSms;
 
-  const brandVoice = body.brandVoice;
-  if (brandVoice) payload.brandVoice = brandVoice;
+  const brandVoice = body.brandVoice || body.aiTone;
+  if (brandVoice) {
+    payload.brandVoice = brandVoice;
+    payload.aiTone = brandVoice;
+  }
+
+  const aiInstructions = body.aiInstructions;
+  if (aiInstructions !== undefined) payload.aiInstructions = aiInstructions;
+
+  const aiSignature = body.aiSignature;
+  if (aiSignature !== undefined) payload.aiSignature = aiSignature;
+
+  const autoReplyEnabled = getBool('autoReplyEnabled') ?? getBool('autoPublish5Star');
+  if (autoReplyEnabled !== undefined) {
+    payload.autoReplyEnabled = autoReplyEnabled;
+    payload.autoPublish5Star = autoReplyEnabled;
+  }
+
+  const customKeywords = body.customKeywords || (Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords);
+  if (customKeywords !== undefined) payload.customKeywords = customKeywords;
 
   const smsTemplate = body.smsTemplate;
   if (smsTemplate) payload.smsTemplate = smsTemplate;
-
-  const autoPublish5Star = getBool('autoPublish5Star');
-  if (autoPublish5Star !== undefined) payload.autoPublish5Star = autoPublish5Star;
 
   const targetBusinessId = targetBusiness?.id || incomingBizId || userId;
 
@@ -183,6 +198,7 @@ export async function saveSettingsAction(formData: FormData) {
             positiveAlertPhone: positiveAlertPhone || null,
             isGoogleConnected: true,
             updatedAt: new Date(),
+            ...payload,
           },
         }).catch(() => null);
       }

@@ -32,8 +32,11 @@ export default async function SettingsPage() {
     orderBy: { updatedAt: 'desc' },
   });
 
-  // Pick the record that actually has saved alert settings, or the newest one
-  let activeBusiness: any = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone) || businesses[0] || null;
+  // Pick the record that actually has saved alert settings or AI persona settings, or the newest one
+  let activeBusiness: any =
+    businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone || b.brandVoice || b.aiTone || b.aiInstructions) ||
+    businesses[0] ||
+    null;
 
   if (!activeBusiness) {
     const cookieStore = await cookies().catch(() => null);

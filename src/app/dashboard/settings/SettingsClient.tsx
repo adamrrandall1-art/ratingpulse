@@ -183,14 +183,30 @@ export default function SettingsClient({
   // AI & Automation Preferences
   const [brandVoice, setBrandVoice] = useState<BrandVoiceType>(
     (initialBusiness?.brandVoice as BrandVoiceType) ||
+    (initialBusiness?.aiTone as BrandVoiceType) ||
     (initialSettings?.brand_voice as BrandVoiceType) ||
     (settings.brand_voice as BrandVoiceType) ||
     'friendly_professional'
   );
+  const [aiTone, setAiTone] = useState<string>(
+    initialBusiness?.aiTone || initialBusiness?.brandVoice || 'friendly_professional'
+  );
+  const [aiInstructions, setAiInstructions] = useState<string>(
+    initialBusiness?.aiInstructions || ''
+  );
+  const [aiSignature, setAiSignature] = useState<string>(
+    initialBusiness?.aiSignature || ''
+  );
   const [autoPublish5Star, setAutoPublish5Star] = useState(
     initialBusiness?.autoPublish5Star ??
+    initialBusiness?.autoReplyEnabled ??
     initialSettings?.auto_publish_5_star ??
     settings.auto_publish_5_star ??
+    false
+  );
+  const [autoReplyEnabled, setAutoReplyEnabled] = useState(
+    initialBusiness?.autoReplyEnabled ??
+    initialBusiness?.autoPublish5Star ??
     false
   );
   const [smsTemplate, setSmsTemplate] = useState(
@@ -199,13 +215,19 @@ export default function SettingsClient({
     settings.sms_template ||
     'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}'
   );
-  const [keywords, setKeywords] = useState<string[]>(initialSettings?.custom_keywords || settings.custom_keywords || []);
+  const [keywords, setKeywords] = useState<string[]>(
+    initialBusiness?.customKeywords
+      ? initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+      : (initialSettings?.custom_keywords || settings.custom_keywords || [])
+  );
 
   // Status & Modal States
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
   const [isNotificationsSaved, setIsNotificationsSaved] = useState(false);
+  const [isSavingAiPersona, setIsSavingAiPersona] = useState(false);
+  const [isAiPersonaSaved, setIsAiPersonaSaved] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
   const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
 
@@ -229,6 +251,20 @@ export default function SettingsClient({
       }
       if (!positiveAlertEmail && cachedPosEmail) {
         setPositiveAlertEmail(cachedPosEmail);
+      }
+
+      const cachedTone = localStorage.getItem('rp_ai_tone') as BrandVoiceType | null;
+      if (cachedTone && !initialBusiness?.brandVoice && !initialBusiness?.aiTone) {
+        setBrandVoice(cachedTone);
+        setAiTone(cachedTone);
+      }
+      const cachedInstr = localStorage.getItem('rp_ai_instructions');
+      if (cachedInstr && !aiInstructions) {
+        setAiInstructions(cachedInstr);
+      }
+      const cachedSig = localStorage.getItem('rp_ai_signature');
+      if (cachedSig && !aiSignature) {
+        setAiSignature(cachedSig);
       }
     } catch (e) {
       console.warn('Failed to read settings from localStorage:', e);
@@ -309,14 +345,31 @@ export default function SettingsClient({
       if (initialBusiness.positiveSmsAlertEnabled !== undefined) {
         setPositiveSmsAlertEnabled(Boolean(initialBusiness.positiveSmsAlertEnabled));
       }
-      if (initialBusiness.brandVoice) {
-        setBrandVoice(initialBusiness.brandVoice as BrandVoiceType);
+      if (initialBusiness.brandVoice || initialBusiness.aiTone) {
+        const tone = (initialBusiness.brandVoice || initialBusiness.aiTone) as BrandVoiceType;
+        setBrandVoice(tone);
+        setAiTone(tone);
+        try { localStorage.setItem('rp_ai_tone', tone); } catch {}
+      }
+      if (initialBusiness.aiInstructions !== undefined) {
+        setAiInstructions(initialBusiness.aiInstructions || '');
+        try { localStorage.setItem('rp_ai_instructions', initialBusiness.aiInstructions || ''); } catch {}
+      }
+      if (initialBusiness.aiSignature !== undefined) {
+        setAiSignature(initialBusiness.aiSignature || '');
+        try { localStorage.setItem('rp_ai_signature', initialBusiness.aiSignature || ''); } catch {}
+      }
+      if (initialBusiness.autoReplyEnabled !== undefined || initialBusiness.autoPublish5Star !== undefined) {
+        const auto = Boolean(initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star);
+        setAutoReplyEnabled(auto);
+        setAutoPublish5Star(auto);
+        try { localStorage.setItem('rp_auto_reply', String(auto)); } catch {}
+      }
+      if (initialBusiness.customKeywords) {
+        setKeywords(initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean));
       }
       if (initialBusiness.smsTemplate) {
         setSmsTemplate(initialBusiness.smsTemplate);
-      }
-      if (initialBusiness.autoPublish5Star !== undefined) {
-        setAutoPublish5Star(Boolean(initialBusiness.autoPublish5Star));
       }
     }
   }, [initialBusiness, setActiveBusiness]);
@@ -326,6 +379,8 @@ export default function SettingsClient({
     console.log('[CLIENT] Submitting settings form with values:', {
       negativeAlertEmail,
       negativeAlertPhone,
+      brandVoice,
+      aiInstructions,
     });
 
     const cleanNegEmail = (overrides?.negativeAlertEmail || overrides?.negativeEmailAddress || negativeAlertEmail || initialBusiness?.negativeAlertEmail || '').trim();
@@ -370,9 +425,19 @@ export default function SettingsClient({
     formData.append('positiveEmailAlertEnabled', String(effectivePosEmail));
     formData.append('positiveSmsAlertEnabled', String(effectivePosSms));
 
-    formData.append('brandVoice', brandVoice);
-    formData.append('autoPublish5Star', String(autoPublish5Star));
+    const effectiveVoice = overrides?.brandVoice || overrides?.aiTone || brandVoice || aiTone;
+    formData.append('brandVoice', effectiveVoice);
+    formData.append('aiTone', effectiveVoice);
+    formData.append('aiInstructions', overrides?.aiInstructions ?? aiInstructions);
+    formData.append('aiSignature', overrides?.aiSignature ?? aiSignature);
+
+    const effectiveAutoReply = overrides?.autoReplyEnabled ?? overrides?.autoPublish5Star ?? autoReplyEnabled ?? autoPublish5Star;
+    formData.append('autoPublish5Star', String(effectiveAutoReply));
+    formData.append('autoReplyEnabled', String(effectiveAutoReply));
+
     formData.append('smsTemplate', smsTemplate);
+    const effectiveKeywords = overrides?.keywords || keywords;
+    formData.append('customKeywords', Array.isArray(effectiveKeywords) ? effectiveKeywords.join(',') : String(effectiveKeywords || ''));
 
     const res = await saveSettingsAction(formData);
     const savedBiz = res?.business || {};
@@ -396,6 +461,10 @@ export default function SettingsClient({
           localStorage.setItem('rp_pos_alert_email', cleanPosEmail);
           localStorage.setItem('rp_positive_alert_email', cleanPosEmail);
         }
+        if (effectiveVoice) localStorage.setItem('rp_ai_tone', effectiveVoice);
+        if (aiInstructions) localStorage.setItem('rp_ai_instructions', aiInstructions);
+        if (aiSignature) localStorage.setItem('rp_ai_signature', aiSignature);
+        localStorage.setItem('rp_auto_reply', String(effectiveAutoReply));
       } catch {}
     }
 
@@ -421,7 +490,33 @@ export default function SettingsClient({
       positiveAlertsEnabled: effectivePosAlerts,
       positiveEmailAlertEnabled: effectivePosEmail,
       positiveSmsAlertEnabled: effectivePosSms,
+      brandVoice: effectiveVoice,
+      aiTone: effectiveVoice,
+      aiInstructions: overrides?.aiInstructions ?? aiInstructions,
+      aiSignature: overrides?.aiSignature ?? aiSignature,
+      autoPublish5Star: effectiveAutoReply,
+      autoReplyEnabled: effectiveAutoReply,
     }));
+  };
+
+  const handleSaveAiPersona = async (e?: React.MouseEvent | React.FormEvent) => {
+    if (e && typeof (e as any).preventDefault === 'function') {
+      (e as any).preventDefault();
+    }
+    setIsSavingAiPersona(true);
+    try {
+      await executeSave();
+      setIsAiPersonaSaved(true);
+      toast.success('AI Reply Persona preferences saved successfully.');
+      setTimeout(() => setIsAiPersonaSaved(false), 2500);
+    } catch (err: any) {
+      console.error('[Save AI Persona Error]:', err);
+      toast.error('Failed to save AI persona preferences', {
+        description: err?.message || 'Please check your connection and try again.',
+      });
+    } finally {
+      setIsSavingAiPersona(false);
+    }
   };
 
   const handleSaveNotificationPreferences = async (e?: React.MouseEvent | React.FormEvent) => {
@@ -663,11 +758,22 @@ export default function SettingsClient({
               initialBusiness={initialBusiness}
               brandVoice={brandVoice}
               setBrandVoice={setBrandVoice}
+              aiTone={aiTone}
+              setAiTone={setAiTone}
+              aiInstructions={aiInstructions}
+              setAiInstructions={setAiInstructions}
+              aiSignature={aiSignature}
+              setAiSignature={setAiSignature}
               keywords={keywords}
               setKeywords={setKeywords}
               autoPublish5Star={autoPublish5Star}
               setAutoPublish5Star={setAutoPublish5Star}
+              autoReplyEnabled={autoReplyEnabled}
+              setAutoReplyEnabled={setAutoReplyEnabled}
               businessName={profile.business_name}
+              onSaveAiPersona={handleSaveAiPersona}
+              isSavingAiPersona={isSavingAiPersona || isSaving}
+              isAiPersonaSaved={isAiPersonaSaved || isSaved}
             />
           </div>
         )}

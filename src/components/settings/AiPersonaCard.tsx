@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   Plus,
@@ -15,21 +15,35 @@ import {
   CheckCircle,
   Heart,
   RefreshCw,
+  Save,
+  PenTool,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export type BrandVoiceType = 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic';
 
-interface AiPersonaCardProps {
+export interface AiPersonaCardProps {
   business?: any;
   initialBusiness?: any;
-  brandVoice: BrandVoiceType;
-  setBrandVoice: (voice: BrandVoiceType) => void;
-  keywords: string[];
-  setKeywords: (keywords: string[]) => void;
+  brandVoice?: BrandVoiceType;
+  setBrandVoice?: (voice: BrandVoiceType) => void;
+  aiTone?: string;
+  setAiTone?: (tone: string) => void;
+  aiInstructions?: string;
+  setAiInstructions?: (instructions: string) => void;
+  aiSignature?: string;
+  setAiSignature?: (signature: string) => void;
+  keywords?: string[];
+  setKeywords?: (keywords: string[]) => void;
   autoPublish5Star?: boolean;
   setAutoPublish5Star?: (val: boolean) => void;
+  autoReplyEnabled?: boolean;
+  setAutoReplyEnabled?: (val: boolean) => void;
   businessName?: string;
+  onSaveAiPersona?: (e?: React.MouseEvent | React.FormEvent) => Promise<void>;
+  isSavingAiPersona?: boolean;
+  isAiPersonaSaved?: boolean;
 }
 
 const PERSONA_OPTIONS: {
@@ -83,34 +97,164 @@ const SUGGESTED_KEYWORDS = [
   'transparent pricing',
 ];
 
-export default function AiPersonaCard({
-  brandVoice,
-  setBrandVoice,
-  keywords,
-  setKeywords,
-  autoPublish5Star = false,
-  setAutoPublish5Star,
-  businessName = 'our team',
-}: AiPersonaCardProps) {
+export default function AiPersonaCard(props: AiPersonaCardProps) {
+  const {
+    initialBusiness,
+    business,
+    brandVoice = 'friendly_professional',
+    setBrandVoice,
+    aiTone,
+    setAiTone,
+    aiInstructions = '',
+    setAiInstructions,
+    aiSignature = '',
+    setAiSignature,
+    keywords = [],
+    setKeywords,
+    autoPublish5Star = false,
+    setAutoPublish5Star,
+    autoReplyEnabled = false,
+    setAutoReplyEnabled,
+    businessName = 'our team',
+    onSaveAiPersona,
+    isSavingAiPersona = false,
+    isAiPersonaSaved = false,
+  } = props;
+
+  const initialBiz = initialBusiness || business;
+
+  // Initialize state directly from initialBusiness props avoiding empty overrides
+  const [localTone, setLocalTone] = useState<BrandVoiceType>(
+    (initialBiz?.aiTone as BrandVoiceType) ||
+    (initialBiz?.brandVoice as BrandVoiceType) ||
+    brandVoice ||
+    'friendly_professional'
+  );
+
+  const [localInstructions, setLocalInstructions] = useState<string>(
+    initialBiz?.aiInstructions ||
+    aiInstructions ||
+    ''
+  );
+
+  const [localSignature, setLocalSignature] = useState<string>(
+    initialBiz?.aiSignature ||
+    aiSignature ||
+    ''
+  );
+
+  const [localAutoReply, setLocalAutoReply] = useState<boolean>(
+    initialBiz?.autoReplyEnabled ??
+    initialBiz?.autoPublish5Star ??
+    autoReplyEnabled ??
+    autoPublish5Star ??
+    false
+  );
+
+  const [localKeywords, setLocalKeywords] = useState<string[]>(() => {
+    if (initialBiz?.customKeywords) {
+      return initialBiz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    }
+    return keywords || [];
+  });
+
   const [newKeyword, setNewKeyword] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
 
+  // Sync state if initialBusiness changes
+  useEffect(() => {
+    const biz = initialBusiness || business;
+    if (biz) {
+      if (biz.aiTone || biz.brandVoice) {
+        const tone = (biz.aiTone || biz.brandVoice) as BrandVoiceType;
+        setLocalTone(tone);
+        setBrandVoice?.(tone);
+        setAiTone?.(tone);
+      }
+      if (biz.aiInstructions !== undefined) {
+        setLocalInstructions(biz.aiInstructions || '');
+        setAiInstructions?.(biz.aiInstructions || '');
+      }
+      if (biz.aiSignature !== undefined) {
+        setLocalSignature(biz.aiSignature || '');
+        setAiSignature?.(biz.aiSignature || '');
+      }
+      if (biz.autoReplyEnabled !== undefined || biz.autoPublish5Star !== undefined) {
+        const enabled = Boolean(biz.autoReplyEnabled ?? biz.autoPublish5Star);
+        setLocalAutoReply(enabled);
+        setAutoReplyEnabled?.(enabled);
+        setAutoPublish5Star?.(enabled);
+      }
+      if (biz.customKeywords) {
+        const kwList = biz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+        setLocalKeywords(kwList);
+        setKeywords?.(kwList);
+      }
+    }
+  }, [initialBusiness, business]);
+
+  // Sync from parent props if parent updates
+  useEffect(() => {
+    if (props.brandVoice && props.brandVoice !== localTone) {
+      setLocalTone(props.brandVoice);
+    }
+  }, [props.brandVoice]);
+
+  useEffect(() => {
+    if (props.aiInstructions !== undefined && props.aiInstructions !== localInstructions) {
+      setLocalInstructions(props.aiInstructions);
+    }
+  }, [props.aiInstructions]);
+
+  useEffect(() => {
+    if (props.aiSignature !== undefined && props.aiSignature !== localSignature) {
+      setLocalSignature(props.aiSignature);
+    }
+  }, [props.aiSignature]);
+
+  const handleToneSelect = (tone: BrandVoiceType) => {
+    setLocalTone(tone);
+    setBrandVoice?.(tone);
+    setAiTone?.(tone);
+  };
+
+  const handleInstructionsChange = (val: string) => {
+    setLocalInstructions(val);
+    setAiInstructions?.(val);
+  };
+
+  const handleSignatureChange = (val: string) => {
+    setLocalSignature(val);
+    setAiSignature?.(val);
+  };
+
+  const handleAutoReplyToggle = (checked: boolean) => {
+    setLocalAutoReply(checked);
+    setAutoReplyEnabled?.(checked);
+    setAutoPublish5Star?.(checked);
+  };
+
   const handleAddKeyword = (kwToAdd?: string) => {
     const text = (kwToAdd || newKeyword).trim();
-    if (text && !keywords.includes(text)) {
-      setKeywords([...keywords, text]);
+    if (text && !localKeywords.includes(text)) {
+      const updated = [...localKeywords, text];
+      setLocalKeywords(updated);
+      setKeywords?.(updated);
       if (!kwToAdd) setNewKeyword('');
     }
   };
 
   const handleRemoveKeyword = (kw: string) => {
-    setKeywords(keywords.filter((k) => k !== kw));
+    const updated = localKeywords.filter((k) => k !== kw);
+    setLocalKeywords(updated);
+    setKeywords?.(updated);
   };
 
   // Generate dynamic live preview text
-  const currentPersona = PERSONA_OPTIONS.find((p) => p.key === brandVoice) || PERSONA_OPTIONS[0];
-  const keywordHighlights = keywords.length > 0 ? ` Mentioning our commitment to ${keywords.slice(0, 2).join(' and ')}.` : '';
-  const previewReply = `${currentPersona.samplePrefix}${keywordHighlights}`;
+  const currentPersona = PERSONA_OPTIONS.find((p) => p.key === localTone) || PERSONA_OPTIONS[0];
+  const keywordHighlights = localKeywords.length > 0 ? ` Mentioning our commitment to ${localKeywords.slice(0, 2).join(' and ')}.` : '';
+  const signatureSuffix = localSignature ? ` ${localSignature}` : '';
+  const previewReply = `${currentPersona.samplePrefix}${keywordHighlights}${signatureSuffix}`;
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
@@ -128,10 +272,37 @@ export default function AiPersonaCard({
           </div>
         </div>
 
-        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
-          <Bot className="w-3.5 h-3.5" />
-          Gemini 3.8 Flash Engine
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+            <Bot className="w-3.5 h-3.5" />
+            Gemini 3.8 Flash Engine
+          </span>
+          {onSaveAiPersona && (
+            <button
+              type="button"
+              onClick={onSaveAiPersona}
+              disabled={isSavingAiPersona}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-xs transition cursor-pointer disabled:opacity-50"
+            >
+              {isSavingAiPersona ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
+                  <span>Saving...</span>
+                </>
+              ) : isAiPersonaSaved ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-white" />
+                  <span>Saved!</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5 text-white" />
+                  <span>Save</span>
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 1. Persona Selector Grid */}
@@ -142,13 +313,13 @@ export default function AiPersonaCard({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONA_OPTIONS.map((persona) => {
             const Icon = persona.icon;
-            const isSelected = brandVoice === persona.key;
+            const isSelected = localTone === persona.key;
 
             return (
               <button
                 type="button"
                 key={persona.key}
-                onClick={() => setBrandVoice(persona.key)}
+                onClick={() => handleToneSelect(persona.key)}
                 className={`p-4 rounded-xl border text-left transition-all relative cursor-pointer ${
                   isSelected
                     ? 'border-purple-600 bg-purple-50/60 shadow-xs ring-1 ring-purple-600'
@@ -185,13 +356,55 @@ export default function AiPersonaCard({
         </div>
       </div>
 
-      {/* 2. Custom Local SEO Keywords Tag Manager */}
-      <div className="space-y-3 pt-2">
+      {/* 2. Custom AI Guidance & Reply Instructions */}
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <FileText className="w-3.5 h-3.5 text-purple-600" />
+            Custom AI Reply Instructions &amp; Policies
+          </label>
+          <span className="text-[11px] text-slate-400">Optional</span>
+        </div>
+        <textarea
+          rows={3}
+          value={localInstructions}
+          onChange={(e) => handleInstructionsChange(e.target.value)}
+          placeholder="E.g. Always mention that parking is validated in the rear lot. Never offer refunds or discounts in public review replies. Encourage reviewers to ask for Chef Marco next time."
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 leading-relaxed"
+        />
+        <p className="text-[11px] text-slate-500">
+          Special rules injected into the prompt when Gemini drafts replies to your Google reviews.
+        </p>
+      </div>
+
+      {/* 3. AI Sign-off / Signature */}
+      <div className="space-y-2 pt-1">
+        <div className="flex items-center justify-between">
+          <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <PenTool className="w-3.5 h-3.5 text-purple-600" />
+            AI Reply Sign-off &amp; Signature
+          </label>
+          <span className="text-[11px] text-slate-400">Optional</span>
+        </div>
+        <input
+          type="text"
+          value={localSignature}
+          onChange={(e) => handleSignatureChange(e.target.value)}
+          placeholder="E.g. — The Management Team, RatingPulse"
+          className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600"
+        />
+        <p className="text-[11px] text-slate-500">
+          Automatically appended to the end of every generated public review response.
+        </p>
+      </div>
+
+      {/* 4. Custom Local SEO Keywords Tag Manager */}
+      <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <label className="block text-xs font-bold text-slate-700">
             Local SEO Keywords (Injected into replies to boost Google 3-Pack rankings)
           </label>
-          <span className="text-[11px] text-slate-500">{keywords.length} active keywords</span>
+          <span className="text-[11px] text-slate-500">{localKeywords.length} active keywords</span>
         </div>
 
         <div className="flex gap-2">
@@ -215,7 +428,7 @@ export default function AiPersonaCard({
         {/* Suggested Quick Add Chips */}
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           <span className="text-[10px] font-semibold text-slate-400">Quick Add:</span>
-          {SUGGESTED_KEYWORDS.filter((k) => !keywords.includes(k)).slice(0, 4).map((sug) => (
+          {SUGGESTED_KEYWORDS.filter((k) => !localKeywords.includes(k)).slice(0, 4).map((sug) => (
             <button
               type="button"
               key={sug}
@@ -228,9 +441,9 @@ export default function AiPersonaCard({
         </div>
 
         {/* Active Tags List */}
-        {keywords.length > 0 ? (
+        {localKeywords.length > 0 ? (
           <div className="flex flex-wrap gap-1.5 pt-1">
-            {keywords.map((kw, i) => (
+            {localKeywords.map((kw, i) => (
               <span
                 key={i}
                 className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-50 text-purple-800 border border-purple-200 text-xs font-medium"
@@ -254,40 +467,38 @@ export default function AiPersonaCard({
         )}
       </div>
 
-      {/* 3. Auto-publish 5-Star Reviews Toggle */}
-      {setAutoPublish5Star && (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-purple-50/40 to-blue-50/40 border border-purple-100 flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
-              <Zap className="w-4 h-4 text-purple-600" />
-            </div>
-            <div>
-              <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
-                Auto-Publish 5-Star Reviews
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
-                  Automation
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Automatically generate and publish AI replies to glowing 5-star Google reviews without requiring manual 1-tap approval.
-              </p>
-            </div>
+      {/* 5. Auto-publish 5-Star Reviews Toggle */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-purple-50/40 to-blue-50/40 border border-purple-100 flex items-start justify-between gap-4">
+        <div className="flex items-start gap-3">
+          <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0 mt-0.5">
+            <Zap className="w-4 h-4 text-purple-600" />
           </div>
-
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
-            <input
-              type="checkbox"
-              checked={autoPublish5Star}
-              onChange={(e) => setAutoPublish5Star(e.target.checked)}
-              className="sr-only peer"
-            />
-            <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
-          </label>
+          <div>
+            <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+              Auto-Publish 5-Star Reviews
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 text-purple-700 border border-purple-200">
+                Automation
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Automatically generate and publish AI replies to glowing 5-star Google reviews without requiring manual 1-tap approval.
+            </p>
+          </div>
         </div>
-      )}
 
-      {/* 4. Interactive Live Sample Reply Preview */}
-      <div className="space-y-3 pt-2">
+        <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
+          <input
+            type="checkbox"
+            checked={localAutoReply}
+            onChange={(e) => handleAutoReplyToggle(e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-purple-600"></div>
+        </label>
+      </div>
+
+      {/* 6. Interactive Live Sample Reply Preview */}
+      <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
             <MessageSquare className="w-3.5 h-3.5 text-purple-600" />
@@ -354,6 +565,38 @@ export default function AiPersonaCard({
           </div>
         </div>
       </div>
+
+      {/* 7. Dedicated Persona Tab Save Footer Button */}
+      {onSaveAiPersona && (
+        <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
+          <div className="text-xs text-slate-500">
+            Saved persona settings will be applied immediately to all generated review replies.
+          </div>
+          <button
+            type="button"
+            onClick={onSaveAiPersona}
+            disabled={isSavingAiPersona}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold shadow-sm shadow-purple-600/20 transition-all cursor-pointer disabled:opacity-50"
+          >
+            {isSavingAiPersona ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                <span>Saving Persona...</span>
+              </>
+            ) : isAiPersonaSaved ? (
+              <>
+                <Check className="w-4 h-4 text-white" />
+                <span>Persona Preferences Saved!</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4 text-white" />
+                <span>Save AI Persona Preferences</span>
+              </>
+            )}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
