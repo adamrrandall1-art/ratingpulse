@@ -94,7 +94,8 @@ export default function SettingsClient({
     negativeAlertPhone: initialBusiness?.negativeAlertPhone || '',
     positiveAlertEmail: initialBusiness?.positiveAlertEmail || '',
     positiveAlertPhone: initialBusiness?.positiveAlertPhone || '',
-    negativeAlertSmsEnabled: initialBusiness?.negativeAlertSmsEnabled ?? initialBusiness?.negativeSmsAlertEnabled ?? true,
+    negativeAlertSmsEnabled: initialBusiness?.negativeAlertSmsEnabled ?? initialBusiness?.smsAlertsEnabled ?? initialBusiness?.negativeSmsAlertEnabled ?? false,
+    smsAlertsEnabled: initialBusiness?.negativeAlertSmsEnabled ?? initialBusiness?.smsAlertsEnabled ?? initialBusiness?.negativeSmsAlertEnabled ?? false,
     negativeAlertEmailEnabled: initialBusiness?.negativeAlertEmailEnabled ?? initialBusiness?.negativeEmailAlertEnabled ?? true,
     positiveAlertSmsEnabled: initialBusiness?.positiveAlertSmsEnabled ?? initialBusiness?.positiveSmsAlertEnabled ?? false,
     positiveAlertEmailEnabled: initialBusiness?.positiveAlertEmailEnabled ?? initialBusiness?.positiveEmailAlertEnabled ?? true,
@@ -113,23 +114,27 @@ export default function SettingsClient({
   // Synchronize unified state on initialBusiness change without wiping entered state
   useEffect(() => {
     if (initialBusiness) {
-      setSettingsState((prev) => ({
-        ...prev,
-        negativeAlertEmail: prev.negativeAlertEmail || initialBusiness.negativeAlertEmail || '',
-        negativeAlertPhone: prev.negativeAlertPhone || initialBusiness.negativeAlertPhone || '',
-        positiveAlertEmail: prev.positiveAlertEmail || initialBusiness.positiveAlertEmail || '',
-        positiveAlertPhone: prev.positiveAlertPhone || initialBusiness.positiveAlertPhone || '',
-        negativeAlertSmsEnabled: initialBusiness.negativeAlertSmsEnabled ?? initialBusiness.negativeSmsAlertEnabled ?? prev.negativeAlertSmsEnabled ?? true,
-        negativeAlertEmailEnabled: initialBusiness.negativeAlertEmailEnabled ?? initialBusiness.negativeEmailAlertEnabled ?? prev.negativeAlertEmailEnabled ?? true,
-        positiveAlertSmsEnabled: initialBusiness.positiveAlertSmsEnabled ?? initialBusiness.positiveSmsAlertEnabled ?? prev.positiveAlertSmsEnabled ?? false,
-        positiveAlertEmailEnabled: initialBusiness.positiveAlertEmailEnabled ?? initialBusiness.positiveEmailAlertEnabled ?? prev.positiveAlertEmailEnabled ?? true,
-        negativeAlertsEnabled: initialBusiness.negativeAlertsEnabled ?? prev.negativeAlertsEnabled ?? true,
-        positiveAlertsEnabled: initialBusiness.positiveAlertsEnabled ?? prev.positiveAlertsEnabled ?? true,
-        aiTone: prev.aiTone || initialBusiness.aiTone || initialBusiness.brandVoice || 'friendly_professional',
-        aiInstructions: prev.aiInstructions || initialBusiness.aiInstructions || '',
-        autoReplyEnabled: prev.autoReplyEnabled ?? initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star ?? false,
-        selectedModel: prev.selectedModel || initialBusiness.selectedModel || 'gemini-3.8-flash',
-      }));
+      setSettingsState((prev) => {
+        const isSms = initialBusiness.negativeAlertSmsEnabled ?? initialBusiness.smsAlertsEnabled ?? initialBusiness.negativeSmsAlertEnabled ?? prev.negativeAlertSmsEnabled;
+        return {
+          ...prev,
+          negativeAlertEmail: prev.negativeAlertEmail || initialBusiness.negativeAlertEmail || '',
+          negativeAlertPhone: prev.negativeAlertPhone || initialBusiness.negativeAlertPhone || '',
+          positiveAlertEmail: prev.positiveAlertEmail || initialBusiness.positiveAlertEmail || '',
+          positiveAlertPhone: prev.positiveAlertPhone || initialBusiness.positiveAlertPhone || '',
+          negativeAlertSmsEnabled: isSms,
+          smsAlertsEnabled: isSms,
+          negativeAlertEmailEnabled: initialBusiness.negativeAlertEmailEnabled ?? initialBusiness.negativeEmailAlertEnabled ?? prev.negativeAlertEmailEnabled ?? true,
+          positiveAlertSmsEnabled: initialBusiness.positiveAlertSmsEnabled ?? initialBusiness.positiveSmsAlertEnabled ?? prev.positiveAlertSmsEnabled ?? false,
+          positiveAlertEmailEnabled: initialBusiness.positiveAlertEmailEnabled ?? initialBusiness.positiveEmailAlertEnabled ?? prev.positiveAlertEmailEnabled ?? true,
+          negativeAlertsEnabled: initialBusiness.negativeAlertsEnabled ?? prev.negativeAlertsEnabled ?? true,
+          positiveAlertsEnabled: initialBusiness.positiveAlertsEnabled ?? prev.positiveAlertsEnabled ?? true,
+          aiTone: prev.aiTone || initialBusiness.aiTone || initialBusiness.brandVoice || 'friendly_professional',
+          aiInstructions: prev.aiInstructions || initialBusiness.aiInstructions || '',
+          autoReplyEnabled: prev.autoReplyEnabled ?? initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star ?? false,
+          selectedModel: prev.selectedModel || initialBusiness.selectedModel || 'gemini-3.8-flash',
+        };
+      });
     }
   }, [initialBusiness]);
 
@@ -146,10 +151,14 @@ export default function SettingsClient({
     updateSettingsField('negativeEmailAlertEnabled', val);
   };
 
-  const negativeSmsAlertEnabled = settingsState.negativeAlertSmsEnabled;
+  const negativeSmsAlertEnabled = Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled);
   const setNegativeSmsAlertEnabled = (val: boolean) => {
-    updateSettingsField('negativeAlertSmsEnabled', val);
-    updateSettingsField('negativeSmsAlertEnabled', val);
+    setSettingsState((prev) => ({
+      ...prev,
+      negativeAlertSmsEnabled: val,
+      smsAlertsEnabled: val,
+      negativeSmsAlertEnabled: val,
+    }));
   };
 
   const positiveAlertsEnabled = settingsState.positiveAlertsEnabled;
@@ -481,15 +490,18 @@ export default function SettingsClient({
       console.log('[SAVE_PAYLOAD] Submitting current settings:', settingsState);
 
       const targetBusinessId = initialBusiness?.id || activeBusiness?.id;
+      const isSmsToSend = Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled ?? negativeSmsAlertEnabled);
       const res = await saveAllSettingsAction({
         businessId: targetBusinessId,
         ...settingsState,
+        negativeAlertSmsEnabled: isSmsToSend,
+        smsAlertsEnabled: isSmsToSend,
+        negativeSmsAlertEnabled: isSmsToSend,
         googleReviewUrl: activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review',
         customKeywords: keywords.join(','),
         smsTemplate,
         negativeAlertsEnabled,
         negativeEmailAlertEnabled,
-        negativeSmsAlertEnabled,
         positiveAlertsEnabled,
         positiveEmailAlertEnabled,
         positiveSmsAlertEnabled,
@@ -503,13 +515,15 @@ export default function SettingsClient({
         // DO NOT reset settingsState to empty values.
         // Keep the user's entered state intact or update with the returned record:
         if (res.business) {
+          const returnedSms = res.business.negativeAlertSmsEnabled ?? res.business.smsAlertsEnabled ?? res.business.negativeSmsAlertEnabled;
           setSettingsState((prev) => ({
             ...prev,
             negativeAlertEmail: res.business.negativeAlertEmail ?? prev.negativeAlertEmail,
             negativeAlertPhone: res.business.negativeAlertPhone ?? prev.negativeAlertPhone,
             positiveAlertEmail: res.business.positiveAlertEmail ?? prev.positiveAlertEmail,
             positiveAlertPhone: res.business.positiveAlertPhone ?? prev.positiveAlertPhone,
-            negativeAlertSmsEnabled: res.business.negativeAlertSmsEnabled ?? res.business.negativeSmsAlertEnabled ?? prev.negativeAlertSmsEnabled,
+            negativeAlertSmsEnabled: returnedSms ?? prev.negativeAlertSmsEnabled,
+            smsAlertsEnabled: returnedSms ?? prev.smsAlertsEnabled,
             negativeAlertEmailEnabled: res.business.negativeAlertEmailEnabled ?? res.business.negativeEmailAlertEnabled ?? prev.negativeAlertEmailEnabled,
             positiveAlertSmsEnabled: res.business.positiveAlertSmsEnabled ?? res.business.positiveSmsAlertEnabled ?? prev.positiveAlertSmsEnabled,
             positiveAlertEmailEnabled: res.business.positiveAlertEmailEnabled ?? res.business.positiveEmailAlertEnabled ?? prev.positiveAlertEmailEnabled,
@@ -687,16 +701,41 @@ export default function SettingsClient({
               initialBusiness={initialBusiness}
               smsTemplate={smsTemplate}
               setSmsTemplate={setSmsTemplate}
+              settingsState={settingsState}
+              setSettingsState={setSettingsState}
               negativeAlertsEnabled={settingsState.negativeAlertsEnabled}
               setNegativeAlertsEnabled={(val) => updateSettingsField('negativeAlertsEnabled', val)}
               negativeAlertEmailEnabled={settingsState.negativeAlertEmailEnabled}
               setNegativeAlertEmailEnabled={(val) => updateSettingsField('negativeAlertEmailEnabled', val)}
               negativeEmailAlertEnabled={settingsState.negativeAlertEmailEnabled}
               setNegativeEmailAlertEnabled={(val) => updateSettingsField('negativeAlertEmailEnabled', val)}
-              negativeAlertSmsEnabled={settingsState.negativeAlertSmsEnabled}
-              setNegativeAlertSmsEnabled={(val) => updateSettingsField('negativeAlertSmsEnabled', val)}
-              negativeSmsAlertEnabled={settingsState.negativeAlertSmsEnabled}
-              setNegativeSmsAlertEnabled={(val) => updateSettingsField('negativeAlertSmsEnabled', val)}
+              negativeAlertSmsEnabled={Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled)}
+              smsAlertsEnabled={Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled)}
+              setNegativeAlertSmsEnabled={(val) => {
+                setSettingsState((prev) => ({
+                  ...prev,
+                  negativeAlertSmsEnabled: val,
+                  smsAlertsEnabled: val,
+                  negativeSmsAlertEnabled: val,
+                }));
+              }}
+              setSmsAlertsEnabled={(val) => {
+                setSettingsState((prev) => ({
+                  ...prev,
+                  negativeAlertSmsEnabled: val,
+                  smsAlertsEnabled: val,
+                  negativeSmsAlertEnabled: val,
+                }));
+              }}
+              negativeSmsAlertEnabled={Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled)}
+              setNegativeSmsAlertEnabled={(val) => {
+                setSettingsState((prev) => ({
+                  ...prev,
+                  negativeAlertSmsEnabled: val,
+                  smsAlertsEnabled: val,
+                  negativeSmsAlertEnabled: val,
+                }));
+              }}
               negativeAlertEmail={settingsState.negativeAlertEmail}
               setNegativeAlertEmail={(val) => updateSettingsField('negativeAlertEmail', val)}
               negativeAlertPhone={settingsState.negativeAlertPhone}

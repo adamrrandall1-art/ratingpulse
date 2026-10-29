@@ -24,8 +24,11 @@ export async function saveAllSettingsAction(payload: {
   smsTemplate?: string | null;
   negativeAlertsEnabled?: boolean;
   negativeEmailAlertEnabled?: boolean;
-  negativeSmsAlertEnabled?: boolean;
   negativeAlertSmsEnabled?: boolean;
+  smsAlertsEnabled?: boolean;
+  negativeSmsAlertEnabled?: boolean;
+  notifySms?: boolean;
+  enableSmsAlerts?: boolean;
   negativeAlertEmailEnabled?: boolean;
   positiveAlertsEnabled?: boolean;
   positiveEmailAlertEnabled?: boolean;
@@ -96,12 +99,21 @@ export async function saveAllSettingsAction(payload: {
 
   if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
   
-  const negSms = payload.negativeAlertSmsEnabled !== undefined 
-    ? Boolean(payload.negativeAlertSmsEnabled) 
-    : (payload.negativeSmsAlertEnabled !== undefined ? Boolean(payload.negativeSmsAlertEnabled) : undefined);
-  if (negSms !== undefined) {
-    updateData.negativeAlertSmsEnabled = negSms;
-    updateData.negativeSmsAlertEnabled = negSms;
+  const isSmsActive = 
+    payload.negativeAlertSmsEnabled !== undefined
+      ? payload.negativeAlertSmsEnabled
+      : (payload.smsAlertsEnabled !== undefined
+        ? payload.smsAlertsEnabled
+        : (payload.negativeSmsAlertEnabled !== undefined
+          ? payload.negativeSmsAlertEnabled
+          : (payload.notifySms !== undefined
+            ? payload.notifySms
+            : payload.enableSmsAlerts)));
+  if (isSmsActive !== undefined) {
+    const active = Boolean(isSmsActive);
+    updateData.negativeAlertSmsEnabled = active;
+    updateData.smsAlertsEnabled = active;
+    updateData.negativeSmsAlertEnabled = active;
   }
 
   const negEmail = payload.negativeAlertEmailEnabled !== undefined

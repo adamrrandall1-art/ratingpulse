@@ -35,6 +35,7 @@ model Business {
   positiveEmailAlertEnabled Boolean  @default(true)
   positiveSmsAlertEnabled   Boolean  @default(false)
   negativeAlertSmsEnabled   Boolean  @default(true)
+  smsAlertsEnabled          Boolean  @default(true)
   negativeAlertEmailEnabled Boolean  @default(true)
   positiveAlertSmsEnabled   Boolean  @default(false)
   positiveAlertEmailEnabled Boolean  @default(true)

@@ -30,6 +30,10 @@ interface MessagingChannelsCardProps {
   setNegativeSmsAlertEnabled?: (val: boolean) => void;
   negativeAlertSmsEnabled?: boolean;
   setNegativeAlertSmsEnabled?: (val: boolean) => void;
+  smsAlertsEnabled?: boolean;
+  setSmsAlertsEnabled?: (val: boolean) => void;
+  settingsState?: any;
+  setSettingsState?: React.Dispatch<React.SetStateAction<any>>;
   negativeAlertEmailEnabled?: boolean;
   setNegativeAlertEmailEnabled?: (val: boolean) => void;
   positiveAlertSmsEnabled?: boolean;
@@ -217,12 +221,19 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
         ? props.negativeEmailAlertEnabled
         : (negativeEmailAlertEnabled ?? notifyNegativeEmail ?? initialBiz?.negativeAlertEmailEnabled ?? initialBiz?.negativeEmailAlertEnabled ?? true));
 
-  const effectiveNegativeSmsAlertEnabled =
-    props.negativeAlertSmsEnabled !== undefined
-      ? props.negativeAlertSmsEnabled
-      : (props.negativeSmsAlertEnabled !== undefined
-        ? props.negativeSmsAlertEnabled
-        : (negativeSmsAlertEnabled ?? notifyNegativeSms ?? initialBiz?.negativeAlertSmsEnabled ?? initialBiz?.negativeSmsAlertEnabled ?? true));
+  const effectiveNegativeSmsAlertEnabled = Boolean(
+    props.settingsState?.negativeAlertSmsEnabled ??
+    props.settingsState?.smsAlertsEnabled ??
+    props.negativeAlertSmsEnabled ??
+    props.smsAlertsEnabled ??
+    props.negativeSmsAlertEnabled ??
+    negativeSmsAlertEnabled ??
+    notifyNegativeSms ??
+    initialBiz?.negativeAlertSmsEnabled ??
+    initialBiz?.smsAlertsEnabled ??
+    initialBiz?.negativeSmsAlertEnabled ??
+    false
+  );
 
   const effectivePositiveAlertsEnabled =
     props.positiveAlertsEnabled !== undefined
@@ -441,14 +452,30 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                 <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={effectiveNegativeSmsAlertEnabled}
+                    checked={Boolean(
+                      props.settingsState?.negativeAlertSmsEnabled ??
+                      props.settingsState?.smsAlertsEnabled ??
+                      props.negativeAlertSmsEnabled ??
+                      props.smsAlertsEnabled ??
+                      effectiveNegativeSmsAlertEnabled
+                    )}
                     onChange={(e) => {
-                      const checked = e.target.checked;
-                      if (setNegativeSmsAlertEnabled) setNegativeSmsAlertEnabled(checked);
-                      if (props.setNegativeAlertSmsEnabled) props.setNegativeAlertSmsEnabled(checked);
-                      if (setNotifyNegativeSms) setNotifyNegativeSms(checked);
-                      onToggleChange?.('negativeAlertSmsEnabled', checked);
-                      onToggleChange?.('negativeSmsAlertEnabled', checked);
+                      const isChecked = e.target.checked;
+                      if (props.setSettingsState) {
+                        props.setSettingsState((prev: any) => ({
+                          ...prev,
+                          negativeAlertSmsEnabled: isChecked,
+                          smsAlertsEnabled: isChecked,
+                          negativeSmsAlertEnabled: isChecked,
+                        }));
+                      }
+                      if (props.setNegativeAlertSmsEnabled) props.setNegativeAlertSmsEnabled(isChecked);
+                      if (props.setSmsAlertsEnabled) props.setSmsAlertsEnabled(isChecked);
+                      if (setNegativeSmsAlertEnabled) setNegativeSmsAlertEnabled(isChecked);
+                      if (setNotifyNegativeSms) setNotifyNegativeSms(isChecked);
+                      onToggleChange?.('negativeAlertSmsEnabled', isChecked);
+                      onToggleChange?.('smsAlertsEnabled', isChecked);
+                      onToggleChange?.('negativeSmsAlertEnabled', isChecked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />

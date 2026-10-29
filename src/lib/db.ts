@@ -105,6 +105,7 @@ export interface BusinessRecord {
   positiveEmailAlertEnabled: boolean;
   positiveSmsAlertEnabled: boolean;
   negativeAlertSmsEnabled?: boolean;
+  smsAlertsEnabled?: boolean;
   negativeAlertEmailEnabled?: boolean;
   positiveAlertSmsEnabled?: boolean;
   positiveAlertEmailEnabled?: boolean;
@@ -512,12 +513,25 @@ export const db = {
         partialUpdate.negative_alerts_enabled = normalizedData.negativeAlertsEnabled;
         partialUpdate.negativeAlertsEnabled = normalizedData.negativeAlertsEnabled;
       }
-      if (normalizedData.negativeAlertSmsEnabled !== undefined || normalizedData.negativeSmsAlertEnabled !== undefined) {
-        const val = Boolean(normalizedData.negativeAlertSmsEnabled ?? normalizedData.negativeSmsAlertEnabled);
+      const isSmsActive =
+        normalizedData.negativeAlertSmsEnabled !== undefined
+          ? normalizedData.negativeAlertSmsEnabled
+          : (normalizedData.smsAlertsEnabled !== undefined
+            ? normalizedData.smsAlertsEnabled
+            : (normalizedData.negativeSmsAlertEnabled !== undefined
+              ? normalizedData.negativeSmsAlertEnabled
+              : (normalizedData.notifySms !== undefined
+                ? normalizedData.notifySms
+                : normalizedData.enableSmsAlerts)));
+
+      if (isSmsActive !== undefined) {
+        const val = Boolean(isSmsActive);
         partialUpdate.negative_alert_sms_enabled = val;
         partialUpdate.negative_sms_alert_enabled = val;
         partialUpdate.negativeAlertSmsEnabled = val;
         partialUpdate.negativeSmsAlertEnabled = val;
+        partialUpdate.smsAlertsEnabled = val;
+        partialUpdate.sms_alerts_enabled = val;
       }
       if (normalizedData.negativeAlertEmailEnabled !== undefined || normalizedData.negativeEmailAlertEnabled !== undefined) {
         const val = Boolean(normalizedData.negativeAlertEmailEnabled ?? normalizedData.negativeEmailAlertEnabled);
@@ -750,6 +764,18 @@ function normalizeBusiness(raw: any): BusinessRecord {
     true
   );
 
+  const isSmsActive = Boolean(
+    raw.negativeAlertSmsEnabled ??
+    raw.smsAlertsEnabled ??
+    raw.negativeSmsAlertEnabled ??
+    raw.sms_alerts_enabled ??
+    raw.negative_alert_sms_enabled ??
+    raw.negative_sms_alert_enabled ??
+    raw.notifySms ??
+    raw.enableSmsAlerts ??
+    false
+  );
+
   return {
     id: raw.id || 'default-biz',
     userId: raw.userId || raw.user_id || null,
@@ -770,11 +796,12 @@ function normalizeBusiness(raw: any): BusinessRecord {
     positiveAlertPhone: raw.positiveAlertPhone ?? raw.positive_alert_phone ?? null,
     negativeAlertsEnabled: Boolean(raw.negativeAlertsEnabled ?? raw.negative_alerts_enabled ?? true),
     negativeEmailAlertEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
-    negativeSmsAlertEnabled: Boolean(raw.negativeAlertSmsEnabled ?? raw.negativeSmsAlertEnabled ?? raw.negative_alert_sms_enabled ?? raw.negative_sms_alert_enabled ?? true),
+    negativeSmsAlertEnabled: isSmsActive,
     positiveAlertsEnabled: Boolean(raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true),
     positiveEmailAlertEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
     positiveSmsAlertEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
-    negativeAlertSmsEnabled: Boolean(raw.negativeAlertSmsEnabled ?? raw.negativeSmsAlertEnabled ?? raw.negative_alert_sms_enabled ?? raw.negative_sms_alert_enabled ?? true),
+    negativeAlertSmsEnabled: isSmsActive,
+    smsAlertsEnabled: isSmsActive,
     negativeAlertEmailEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
     positiveAlertSmsEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
     positiveAlertEmailEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
