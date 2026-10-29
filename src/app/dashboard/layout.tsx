@@ -23,8 +23,9 @@ export default async function DashboardLayout({
     const existingBusiness = await db.business.findFirst({
       where: {
         OR: [
-          { userId: clerkUserId },
           { clerkUserId: clerkUserId },
+          { userId: clerkUserId },
+          { id: clerkUserId },
         ],
       },
       orderBy: { updatedAt: 'desc' },
@@ -52,6 +53,7 @@ export default async function DashboardLayout({
         // Only create if NO record exists at all for a brand new user
         business = await db.business.create({
           data: {
+            id: clerkUserId,
             userId: clerkUserId,
             clerkUserId: clerkUserId,
             name: 'RatingPulse Business',

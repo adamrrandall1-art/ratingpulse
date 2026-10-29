@@ -453,29 +453,29 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                   <input
                     type="checkbox"
                     checked={Boolean(
-                      props.settingsState?.negativeAlertSmsEnabled ??
-                      props.settingsState?.smsAlertsEnabled ??
-                      props.negativeAlertSmsEnabled ??
-                      props.smsAlertsEnabled ??
-                      effectiveNegativeSmsAlertEnabled
+                      props.settingsState
+                        ? props.settingsState.negativeAlertSmsEnabled
+                        : (props.negativeAlertSmsEnabled !== undefined
+                          ? props.negativeAlertSmsEnabled
+                          : effectiveNegativeSmsAlertEnabled)
                     )}
                     onChange={(e) => {
-                      const isChecked = e.target.checked;
+                      const val = e.target.checked;
                       if (props.setSettingsState) {
                         props.setSettingsState((prev: any) => ({
                           ...prev,
-                          negativeAlertSmsEnabled: isChecked,
-                          smsAlertsEnabled: isChecked,
-                          negativeSmsAlertEnabled: isChecked,
+                          negativeAlertSmsEnabled: val,
+                          smsAlertsEnabled: val,
                         }));
                       }
-                      if (props.setNegativeAlertSmsEnabled) props.setNegativeAlertSmsEnabled(isChecked);
-                      if (props.setSmsAlertsEnabled) props.setSmsAlertsEnabled(isChecked);
-                      if (setNegativeSmsAlertEnabled) setNegativeSmsAlertEnabled(isChecked);
-                      if (setNotifyNegativeSms) setNotifyNegativeSms(isChecked);
-                      onToggleChange?.('negativeAlertSmsEnabled', isChecked);
-                      onToggleChange?.('smsAlertsEnabled', isChecked);
-                      onToggleChange?.('negativeSmsAlertEnabled', isChecked);
+                      if (props.setNegativeAlertSmsEnabled) {
+                        props.setNegativeAlertSmsEnabled(val);
+                      }
+                      if (setNegativeSmsAlertEnabled) setNegativeSmsAlertEnabled(val);
+                      if (props.setSmsAlertsEnabled) props.setSmsAlertsEnabled(val);
+                      if (setNotifyNegativeSms) setNotifyNegativeSms(val);
+                      onToggleChange?.('negativeAlertSmsEnabled', val);
+                      onToggleChange?.('smsAlertsEnabled', val);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />

@@ -42,35 +42,30 @@ export async function saveAllSettingsAction(payload: {
     throw new Error('Unauthorized');
   }
 
-  // Find the definitive business row
-  let targetBusiness = null;
-  if (payload.businessId && payload.businessId !== 'undefined' && payload.businessId !== 'null' && !payload.businessId.startsWith('user_')) {
-    targetBusiness = await db.business.findUnique({
-      where: { id: payload.businessId },
-    });
-  }
+  // 1. Find the existing business for this user using canonical OR conditions
+  let business = await db.business.findFirst({
+    where: {
+      OR: [
+        { clerkUserId: userId },
+        { userId: userId },
+        { id: userId },
+      ],
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
 
-  if (!targetBusiness) {
-    targetBusiness = await db.business.findFirst({
-      where: {
-        OR: [{ userId }, { clerkUserId: userId }, { id: userId }],
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-  }
-
-  const businessId = targetBusiness?.id || payload.businessId || userId;
-
-  // Construct data payload ONLY with defined keys (never overwrite with undefined)
   const updateData: Record<string, any> = {
     updatedAt: new Date(),
     isGoogleConnected: true,
+    clerkUserId: userId,
+    userId: userId,
   };
 
-  if (payload.negativeAlertEmail !== undefined) updateData.negativeAlertEmail = payload.negativeAlertEmail;
-  if (payload.negativeAlertPhone !== undefined) updateData.negativeAlertPhone = payload.negativeAlertPhone;
-  if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail;
-  if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone;
+  // Text fields
+  if (payload.negativeAlertEmail !== undefined) updateData.negativeAlertEmail = payload.negativeAlertEmail || null;
+  if (payload.negativeAlertPhone !== undefined) updateData.negativeAlertPhone = payload.negativeAlertPhone || null;
+  if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail || null;
+  if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone || null;
   if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
 
   const tone = payload.aiTone !== undefined ? payload.aiTone : payload.brandVoice;
@@ -99,21 +94,18 @@ export async function saveAllSettingsAction(payload: {
 
   if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
   
-  const isSmsActive = 
-    payload.negativeAlertSmsEnabled !== undefined
-      ? payload.negativeAlertSmsEnabled
-      : (payload.smsAlertsEnabled !== undefined
-        ? payload.smsAlertsEnabled
-        : (payload.negativeSmsAlertEnabled !== undefined
-          ? payload.negativeSmsAlertEnabled
-          : (payload.notifySms !== undefined
-            ? payload.notifySms
-            : payload.enableSmsAlerts)));
-  if (isSmsActive !== undefined) {
-    const active = Boolean(isSmsActive);
-    updateData.negativeAlertSmsEnabled = active;
-    updateData.smsAlertsEnabled = active;
-    updateData.negativeSmsAlertEnabled = active;
+  // Boolean checkmark fields (support every possible naming convention)
+  const smsEnabled = 
+    payload.negativeAlertSmsEnabled ?? 
+    payload.smsAlertsEnabled ?? 
+    payload.notifySms ?? 
+    payload.negativeSmsAlertEnabled ?? 
+    payload.enableSmsAlerts;
+  if (smsEnabled !== undefined) {
+    const isSmsActive = Boolean(smsEnabled);
+    updateData.negativeAlertSmsEnabled = isSmsActive;
+    updateData.smsAlertsEnabled = isSmsActive;
+    updateData.negativeSmsAlertEnabled = isSmsActive;
   }
 
   const negEmail = payload.negativeAlertEmailEnabled !== undefined
@@ -142,17 +134,20 @@ export async function saveAllSettingsAction(payload: {
     updateData.positiveEmailAlertEnabled = posEmail;
   }
 
-  console.log('[SERVER ACTION] saveAllSettingsAction payload:', {
-    businessId,
-    updateData,
-  });
+  // Upsert guaranteeing we update the existing row if found
+  const recordId = business?.id || payload.businessId || userId;
+  console.log('[SERVER ACTION] saveAllSettingsAction targeting recordId:', recordId, 'userId:', userId);
 
-  const updated = await db.business.upsert({
-    where: { id: businessId },
-    update: updateData,
+  const saved = await db.business.upsert({
+    where: { id: recordId },
+    update: {
+      ...updateData,
+      clerkUserId: userId,
+      userId: userId,
+    },
     create: {
-      id: businessId,
-      userId,
+      id: recordId,
+      userId: userId,
       clerkUserId: userId,
       ...updateData,
     },
@@ -168,10 +163,14 @@ export async function saveAllSettingsAction(payload: {
     });
     if (businesses.length > 1) {
       for (const dup of businesses) {
-        if (dup.id !== updated.id) {
+        if (dup.id !== saved.id) {
           await db.business.update({
             where: { id: dup.id },
-            data: updateData,
+            data: {
+              ...updateData,
+              clerkUserId: userId,
+              userId: userId,
+            },
           }).catch(() => null);
         }
       }
@@ -181,14 +180,14 @@ export async function saveAllSettingsAction(payload: {
   // Set active business cookies
   try {
     const cookieStore = await cookies();
-    cookieStore.set('activeBusinessId', updated.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
-    cookieStore.set('rp_active_business_id', updated.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    cookieStore.set('activeBusinessId', saved.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    cookieStore.set('rp_active_business_id', saved.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
   } catch {}
 
   revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard/settings');
 
-  return { success: true, business: updated };
+  return { success: true, business: saved };
 }
 
 // Backward-compatible wrappers
