@@ -44,12 +44,18 @@ export interface AiPersonaCardProps {
   setBrandVoice?: (voice: BrandVoiceType) => void;
   aiTone?: string;
   setAiTone?: (tone: string) => void;
+  aiPersonality?: string;
+  setAiPersonality?: (personality: string) => void;
+  settingsState?: any;
+  setSettingsState?: React.Dispatch<React.SetStateAction<any>>;
   aiInstructions?: string;
   setAiInstructions?: (instructions: string) => void;
   aiSignature?: string;
   setAiSignature?: (signature: string) => void;
   keywords?: string[];
   setKeywords?: (keywords: string[]) => void;
+  seoKeywords?: string | string[];
+  setSeoKeywords?: (keywords: string | string[]) => void;
   autoPublish5Star?: boolean;
   setAutoPublish5Star?: (val: boolean) => void;
   autoReplyEnabled?: boolean;
@@ -151,36 +157,50 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
 
   // Initialize state directly from props first, avoiding empty overrides
   const [localTone, setLocalTone] = useState<BrandVoiceType>(
+    (props.settingsState?.aiTone as BrandVoiceType) ||
+    (props.settingsState?.aiPersonality as BrandVoiceType) ||
+    (props.aiPersonality as BrandVoiceType) ||
     (props.aiTone as BrandVoiceType) ||
     (props.brandVoice as BrandVoiceType) ||
     brandVoice ||
+    (initialBiz?.aiPersonality as BrandVoiceType) ||
     (initialBiz?.aiTone as BrandVoiceType) ||
     (initialBiz?.brandVoice as BrandVoiceType) ||
     'Professional & Warm'
   );
 
   const [localInstructions, setLocalInstructions] = useState<string>(
-    props.aiInstructions !== undefined
-      ? props.aiInstructions
-      : (aiInstructions || initialBiz?.aiInstructions || '')
+    props.settingsState?.aiInstructions !== undefined
+      ? props.settingsState.aiInstructions
+      : (props.aiInstructions !== undefined
+        ? props.aiInstructions
+        : (aiInstructions || initialBiz?.aiInstructions || ''))
   );
 
   const [localSignature, setLocalSignature] = useState<string>(
-    props.aiSignature !== undefined
-      ? props.aiSignature
-      : (aiSignature || initialBiz?.aiSignature || '')
+    props.settingsState?.aiSignature !== undefined
+      ? props.settingsState.aiSignature
+      : (props.aiSignature !== undefined
+        ? props.aiSignature
+        : (aiSignature || initialBiz?.aiSignature || ''))
   );
 
   const [localAutoReply, setLocalAutoReply] = useState<boolean>(
-    props.autoReplyEnabled !== undefined
-      ? Boolean(props.autoReplyEnabled)
-      : (props.autoPublish5Star !== undefined
-        ? Boolean(props.autoPublish5Star)
-        : Boolean(initialBiz?.autoReplyEnabled ?? initialBiz?.autoPublish5Star ?? false))
+    props.settingsState?.autoReplyEnabled !== undefined
+      ? Boolean(props.settingsState.autoReplyEnabled)
+      : (props.autoReplyEnabled !== undefined
+        ? Boolean(props.autoReplyEnabled)
+        : (props.autoPublish5Star !== undefined
+          ? Boolean(props.autoPublish5Star)
+          : Boolean(initialBiz?.autoReplyEnabled ?? initialBiz?.autoPublish5Star ?? false)))
   );
 
   const [localKeywords, setLocalKeywords] = useState<string[]>(() => {
+    if (props.settingsState?.keywords && props.settingsState.keywords.length > 0) return props.settingsState.keywords;
     if (props.keywords && props.keywords.length > 0) return props.keywords;
+    if (initialBiz?.seoKeywords) {
+      return initialBiz.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    }
     if (initialBiz?.customKeywords) {
       return initialBiz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
     }
@@ -194,11 +214,12 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   useEffect(() => {
     const biz = initialBusiness || business;
     if (biz) {
-      if ((biz.aiTone || biz.brandVoice) && !props.aiTone && !props.brandVoice) {
-        const tone = (biz.aiTone || biz.brandVoice) as BrandVoiceType;
+      if ((biz.aiPersonality || biz.aiTone || biz.brandVoice) && !props.aiTone && !props.brandVoice && !props.aiPersonality) {
+        const tone = (biz.aiPersonality || biz.aiTone || biz.brandVoice) as BrandVoiceType;
         setLocalTone(tone);
         setBrandVoice?.(tone);
         setAiTone?.(tone);
+        props.setAiPersonality?.(tone);
       }
       if (biz.aiInstructions !== undefined && props.aiInstructions === undefined) {
         setLocalInstructions(biz.aiInstructions || '');
@@ -214,8 +235,9 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         setAutoReplyEnabled?.(enabled);
         setAutoPublish5Star?.(enabled);
       }
-      if (biz.customKeywords && (!props.keywords || props.keywords.length === 0)) {
-        const kwList = biz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+      const bizKw = biz.seoKeywords || biz.customKeywords;
+      if (bizKw && (!props.keywords || props.keywords.length === 0)) {
+        const kwList = bizKw.split(',').map((k: string) => k.trim()).filter(Boolean);
         setLocalKeywords(kwList);
         setKeywords?.(kwList);
       }
@@ -238,6 +260,20 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       setLocalTone(props.aiTone as BrandVoiceType);
     }
   }, [props.aiTone]);
+
+  useEffect(() => {
+    if (props.aiPersonality && props.aiPersonality !== localTone) {
+      setLocalTone(props.aiPersonality as BrandVoiceType);
+    }
+  }, [props.aiPersonality]);
+
+  useEffect(() => {
+    if (props.settingsState?.aiPersonality && props.settingsState.aiPersonality !== localTone) {
+      setLocalTone(props.settingsState.aiPersonality as BrandVoiceType);
+    } else if (props.settingsState?.aiTone && props.settingsState.aiTone !== localTone) {
+      setLocalTone(props.settingsState.aiTone as BrandVoiceType);
+    }
+  }, [props.settingsState?.aiPersonality, props.settingsState?.aiTone]);
 
   useEffect(() => {
     if (props.aiInstructions !== undefined && props.aiInstructions !== localInstructions) {
@@ -273,22 +309,50 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     setLocalTone(tone);
     setBrandVoice?.(tone);
     setAiTone?.(tone);
+    props.setAiPersonality?.(tone);
+    if (props.setSettingsState) {
+      props.setSettingsState((prev: any) => ({
+        ...prev,
+        aiTone: tone,
+        brandVoice: tone,
+        aiPersonality: tone,
+      }));
+    }
   };
 
   const handleInstructionsChange = (val: string) => {
     setLocalInstructions(val);
     setAiInstructions?.(val);
+    if (props.setSettingsState) {
+      props.setSettingsState((prev: any) => ({
+        ...prev,
+        aiInstructions: val,
+      }));
+    }
   };
 
   const handleSignatureChange = (val: string) => {
     setLocalSignature(val);
     setAiSignature?.(val);
+    if (props.setSettingsState) {
+      props.setSettingsState((prev: any) => ({
+        ...prev,
+        aiSignature: val,
+      }));
+    }
   };
 
   const handleAutoReplyToggle = (checked: boolean) => {
     setLocalAutoReply(checked);
     setAutoReplyEnabled?.(checked);
     setAutoPublish5Star?.(checked);
+    if (props.setSettingsState) {
+      props.setSettingsState((prev: any) => ({
+        ...prev,
+        autoReplyEnabled: checked,
+        autoPublish5Star: checked,
+      }));
+    }
   };
 
   const handleAddKeyword = (kwToAdd?: string) => {
@@ -297,6 +361,15 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       const updated = [...localKeywords, text];
       setLocalKeywords(updated);
       setKeywords?.(updated);
+      props.setSeoKeywords?.(updated.join(','));
+      if (props.setSettingsState) {
+        props.setSettingsState((prev: any) => ({
+          ...prev,
+          keywords: updated,
+          seoKeywords: updated.join(','),
+          customKeywords: updated.join(','),
+        }));
+      }
       if (!kwToAdd) setNewKeyword('');
     }
   };
@@ -305,6 +378,15 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     const updated = localKeywords.filter((k) => k !== kw);
     setLocalKeywords(updated);
     setKeywords?.(updated);
+    props.setSeoKeywords?.(updated.join(','));
+    if (props.setSettingsState) {
+      props.setSettingsState((prev: any) => ({
+        ...prev,
+        keywords: updated,
+        seoKeywords: updated.join(','),
+        customKeywords: updated.join(','),
+      }));
+    }
   };
 
   const isSaving = isSavingAiPersona || internalSaving;
@@ -319,6 +401,22 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     }
     setInternalSaving(true);
     try {
+      if (props.setSettingsState) {
+        props.setSettingsState((prev: any) => ({
+          ...prev,
+          aiTone: localTone,
+          brandVoice: localTone,
+          aiPersonality: localTone,
+          aiInstructions: localInstructions,
+          aiSignature: localSignature,
+          autoReplyEnabled: localAutoReply,
+          autoPublish5Star: localAutoReply,
+          keywords: localKeywords,
+          seoKeywords: localKeywords.join(','),
+          customKeywords: localKeywords.join(','),
+          selectedModel,
+        }));
+      }
       if (onSaveAiPersona) {
         await onSaveAiPersona(e);
       } else {
@@ -327,12 +425,15 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           businessId: bId,
           aiTone: localTone,
           brandVoice: localTone,
+          aiPersonality: localTone,
           aiInstructions: localInstructions,
           aiSignature: localSignature,
           autoReplyEnabled: localAutoReply,
           autoPublish5Star: localAutoReply,
           selectedModel,
           keywords: localKeywords,
+          seoKeywords: localKeywords.join(','),
+          customKeywords: localKeywords.join(','),
         });
         setInternalSaved(true);
         toast.success('AI Persona saved successfully');
@@ -422,13 +523,20 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONA_OPTIONS.map((persona) => {
             const Icon = persona.icon;
-            const isSelected = isPersonaSelected(props.aiTone || props.brandVoice || localTone, persona.key);
+            const isSelected = isPersonaSelected(
+              props.settingsState?.aiPersonality || props.settingsState?.aiTone || props.aiPersonality || props.aiTone || props.brandVoice || localTone,
+              persona.key
+            );
 
             return (
               <button
                 type="button"
                 key={persona.key}
-                onClick={() => handleToneSelect(persona.key)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleToneSelect(persona.key);
+                }}
                 className={`p-4 rounded-xl border text-left transition-all relative cursor-pointer ${
                   isSelected
                     ? 'border-purple-600 bg-purple-50/60 shadow-xs ring-1 ring-purple-600'

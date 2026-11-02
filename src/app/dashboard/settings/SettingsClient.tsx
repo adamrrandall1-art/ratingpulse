@@ -33,9 +33,10 @@ import MessagingChannelsCard from '@/components/settings/MessagingChannelsCard';
 import ComplianceSettingsCard from '@/components/settings/ComplianceSettingsCard';
 import BillingSection from '@/components/dashboard/BillingSection';
 
-type TabKey = 'gbp' | 'ai' | 'channels' | 'compliance' | 'billing';
+type TabKey = 'gbp' | 'ai' | 'ai-persona' | 'channels' | 'compliance' | 'billing';
 
 const STORAGE_KEY = 'rp_persisted_settings_v1';
+const TAB_STORAGE_KEY = 'rp_settings_tab';
 
 const SETTINGS_TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'gbp', label: 'Google Business Profile', icon: Store },
@@ -80,7 +81,37 @@ export default function SettingsClient({
   } = useRatingPulseStore();
 
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabKey>('gbp');
+
+  const [activeTab, setActiveTabState] = useState<TabKey>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const queryTab = params.get('tab') || params.get('activeTab');
+        if (queryTab && ['gbp', 'ai', 'ai-persona', 'channels', 'compliance', 'billing'].includes(queryTab)) {
+          return (queryTab === 'ai-persona' ? 'ai' : queryTab) as TabKey;
+        }
+        const savedTab = sessionStorage.getItem(TAB_STORAGE_KEY) || localStorage.getItem(TAB_STORAGE_KEY);
+        if (savedTab && ['gbp', 'ai', 'ai-persona', 'channels', 'compliance', 'billing'].includes(savedTab)) {
+          return (savedTab === 'ai-persona' ? 'ai' : savedTab) as TabKey;
+        }
+      } catch {}
+    }
+    return 'gbp';
+  });
+
+  const setActiveTab = (tab: TabKey) => {
+    const canonicalTab = (tab === 'ai-persona' ? 'ai' : tab) as TabKey;
+    setActiveTabState(canonicalTab);
+    if (typeof window !== 'undefined') {
+      try {
+        sessionStorage.setItem(TAB_STORAGE_KEY, canonicalTab);
+        localStorage.setItem(TAB_STORAGE_KEY, canonicalTab);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', canonicalTab);
+        window.history.replaceState(null, '', url.toString());
+      } catch {}
+    }
+  };
 
   // Admin Account States
   const [fullName, setFullName] = useState(
@@ -103,6 +134,8 @@ export default function SettingsClient({
   // Build default settings from initialBusiness
   const buildInitialSettings = (biz: any) => {
     const isSms = biz?.negativeAlertSmsEnabled ?? biz?.smsAlertsEnabled ?? biz?.negativeSmsAlertEnabled ?? true;
+    const tone = biz?.aiPersonality || biz?.aiTone || biz?.brandVoice || 'Professional & Warm';
+    const bizKw = biz?.seoKeywords || biz?.customKeywords;
     return {
       negativeAlertEmail: biz?.negativeAlertEmail || '',
       negativeAlertPhone: biz?.negativeAlertPhone || '',
@@ -115,15 +148,19 @@ export default function SettingsClient({
       positiveAlertEmailEnabled: biz?.positiveAlertEmailEnabled ?? biz?.positiveEmailAlertEnabled ?? true,
       negativeAlertsEnabled: biz?.negativeAlertsEnabled ?? true,
       positiveAlertsEnabled: biz?.positiveAlertsEnabled ?? true,
-      aiTone: biz?.aiTone || biz?.brandVoice || 'Professional & Warm',
+      aiTone: tone,
+      aiPersonality: tone,
+      brandVoice: tone,
       aiInstructions: biz?.aiInstructions || '',
       aiSignature: biz?.aiSignature || '',
       autoReplyEnabled: Boolean(biz?.autoReplyEnabled ?? biz?.autoPublish5Star ?? false),
       selectedModel: biz?.selectedModel || 'gemini-1.5-flash',
       smsTemplate: biz?.smsTemplate || initialSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
-      keywords: biz?.customKeywords
-        ? biz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+      keywords: bizKw
+        ? bizKw.split(',').map((k: string) => k.trim()).filter(Boolean)
         : (initialSettings?.custom_keywords || settings.custom_keywords || []),
+      seoKeywords: bizKw || '',
+      customKeywords: bizKw || '',
     };
   };
 
@@ -168,16 +205,22 @@ export default function SettingsClient({
       if (field === 'positiveAlertEmailEnabled' || field === 'positiveEmailAlertEnabled') {
         next.positiveAlertEmailEnabled = Boolean(value);
       }
-      if (field === 'aiTone' || field === 'brandVoice') {
+      if (field === 'aiTone' || field === 'brandVoice' || field === 'aiPersonality') {
         next.aiTone = value;
         next.brandVoice = value;
+        next.aiPersonality = value;
       }
       if (field === 'autoReplyEnabled' || field === 'autoPublish5Star') {
         next.autoReplyEnabled = Boolean(value);
         next.autoPublish5Star = Boolean(value);
       }
-      if (field === 'keywords') {
-        next.keywords = Array.isArray(value) ? value : [];
+      if (field === 'keywords' || field === 'seoKeywords' || field === 'customKeywords') {
+        const kwArr = Array.isArray(value)
+          ? value
+          : (typeof value === 'string' ? value.split(',').map((k: string) => k.trim()).filter(Boolean) : []);
+        next.keywords = kwArr;
+        next.seoKeywords = kwArr.join(',');
+        next.customKeywords = kwArr.join(',');
       }
       persistToLocalStorage(next);
       return next;
@@ -188,11 +231,15 @@ export default function SettingsClient({
     setSettingsState((prev: any) => {
       const next = typeof action === 'function' ? action(prev) : action;
       const isSms = next.negativeAlertSmsEnabled ?? next.smsAlertsEnabled ?? prev.negativeAlertSmsEnabled;
+      const tone = next.aiPersonality ?? next.aiTone ?? next.brandVoice ?? prev.aiTone;
       const merged = {
         ...prev,
         ...next,
         negativeAlertSmsEnabled: Boolean(isSms),
         smsAlertsEnabled: Boolean(isSms),
+        aiTone: tone,
+        aiPersonality: tone,
+        brandVoice: tone,
       };
       persistToLocalStorage(merged);
       return merged;
@@ -250,8 +297,11 @@ export default function SettingsClient({
           next.positiveAlertsEnabled = Boolean(initialBusiness.positiveAlertsEnabled);
         }
 
-        if (initialBusiness.aiTone || initialBusiness.brandVoice) {
-          next.aiTone = initialBusiness.aiTone || initialBusiness.brandVoice;
+        if (initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice) {
+          const t = initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice;
+          next.aiTone = t;
+          next.aiPersonality = t;
+          next.brandVoice = t;
         }
         if (initialBusiness.aiInstructions !== undefined && initialBusiness.aiInstructions !== null) {
           next.aiInstructions = initialBusiness.aiInstructions;
@@ -268,8 +318,12 @@ export default function SettingsClient({
         if (initialBusiness.smsTemplate) {
           next.smsTemplate = initialBusiness.smsTemplate;
         }
-        if (initialBusiness.customKeywords) {
-          next.keywords = initialBusiness.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+        const bKw = initialBusiness.seoKeywords || initialBusiness.customKeywords;
+        if (bKw) {
+          const kwArr = bKw.split(',').map((k: string) => k.trim()).filter(Boolean);
+          next.keywords = kwArr;
+          next.seoKeywords = bKw;
+          next.customKeywords = bKw;
         }
       }
 
@@ -483,6 +537,10 @@ export default function SettingsClient({
 
       const targetBusinessId = initialBusiness?.id || activeBusiness?.id;
       const isSmsToSend = Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled);
+      const toneToSave = settingsState.aiPersonality || settingsState.aiTone || 'Professional & Warm';
+      const kwList = settingsState.keywords || [];
+      const kwString = kwList.join(',');
+
       const res = await saveAllSettingsAction({
         businessId: targetBusinessId,
         ...settingsState,
@@ -492,13 +550,15 @@ export default function SettingsClient({
         notifySms: isSmsToSend,
         enableSmsAlerts: isSmsToSend,
         googleReviewUrl: activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review',
-        customKeywords: (settingsState.keywords || []).join(','),
-        keywords: settingsState.keywords || [],
+        customKeywords: kwString,
+        keywords: kwList,
+        seoKeywords: kwString,
         smsTemplate: settingsState.smsTemplate,
         aiSignature: settingsState.aiSignature,
         aiInstructions: settingsState.aiInstructions,
-        aiTone: settingsState.aiTone,
-        brandVoice: settingsState.aiTone,
+        aiTone: toneToSave,
+        aiPersonality: toneToSave,
+        brandVoice: toneToSave,
         selectedModel: settingsState.selectedModel,
         autoReplyEnabled: settingsState.autoReplyEnabled,
         autoPublish5Star: settingsState.autoReplyEnabled,
@@ -513,6 +573,12 @@ export default function SettingsClient({
         // Update both React state and localStorage with the returned record:
         if (res.business) {
           const returnedSms = res.business.negativeAlertSmsEnabled ?? res.business.smsAlertsEnabled ?? res.business.negativeSmsAlertEnabled;
+          const returnedTone = res.business.aiPersonality ?? res.business.aiTone ?? settingsState.aiPersonality ?? settingsState.aiTone ?? 'Professional & Warm';
+          const returnedKw = res.business.seoKeywords || res.business.customKeywords;
+          const returnedKwList = returnedKw
+            ? returnedKw.split(',').map((k: string) => k.trim()).filter(Boolean)
+            : (settingsState.keywords || []);
+
           setSettingsState((prev: any) => {
             const updated = {
               ...prev,
@@ -527,15 +593,17 @@ export default function SettingsClient({
               positiveAlertEmailEnabled: res.business.positiveAlertEmailEnabled ?? prev.positiveAlertEmailEnabled,
               negativeAlertsEnabled: res.business.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
               positiveAlertsEnabled: res.business.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
-              aiTone: res.business.aiTone ?? prev.aiTone,
+              aiTone: returnedTone,
+              aiPersonality: returnedTone,
+              brandVoice: returnedTone,
               aiInstructions: res.business.aiInstructions ?? prev.aiInstructions,
               aiSignature: res.business.aiSignature ?? prev.aiSignature,
               autoReplyEnabled: res.business.autoReplyEnabled ?? prev.autoReplyEnabled,
               selectedModel: res.business.selectedModel ?? prev.selectedModel,
               smsTemplate: res.business.smsTemplate ?? prev.smsTemplate,
-              keywords: res.business.customKeywords
-                ? res.business.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
-                : prev.keywords,
+              keywords: returnedKwList,
+              seoKeywords: returnedKw || prev.seoKeywords || kwString,
+              customKeywords: returnedKw || prev.customKeywords || kwString,
             };
             persistToLocalStorage(updated);
             return updated;
@@ -640,7 +708,7 @@ export default function SettingsClient({
       <div className="flex items-center gap-1.5 p-1.5 bg-slate-100/90 rounded-2xl border border-slate-200/80 overflow-x-auto">
         {SETTINGS_TABS.map((tab) => {
           const Icon = tab.icon;
-          const isActive = activeTab === tab.key;
+          const isActive = activeTab === tab.key || (tab.key === 'ai' && activeTab === 'ai-persona');
 
           return (
             <button
@@ -670,21 +738,27 @@ export default function SettingsClient({
         )}
 
         {/* TAB 2: AI REPLY PERSONA */}
-        {activeTab === 'ai' && (
+        {(activeTab === 'ai' || activeTab === 'ai-persona') && (
           <div className="space-y-6 animate-in fade-in duration-150">
             <AiPersonaCard
               business={initialBusiness}
               initialBusiness={initialBusiness}
+              settingsState={settingsState}
+              setSettingsState={setUnifiedSettingsState}
               brandVoice={brandVoice}
               setBrandVoice={setBrandVoice}
               aiTone={aiTone}
               setAiTone={setAiTone}
+              aiPersonality={settingsState.aiPersonality || settingsState.aiTone}
+              setAiPersonality={(val) => updateSettingsField('aiPersonality', val)}
               aiInstructions={aiInstructions}
               setAiInstructions={setAiInstructions}
               aiSignature={aiSignature}
               setAiSignature={setAiSignature}
               keywords={keywords}
               setKeywords={setKeywords}
+              seoKeywords={(settingsState.keywords || []).join(',')}
+              setSeoKeywords={(val) => updateSettingsField('seoKeywords', val)}
               autoPublish5Star={autoPublish5Star}
               setAutoPublish5Star={setAutoPublish5Star}
               autoReplyEnabled={autoReplyEnabled}

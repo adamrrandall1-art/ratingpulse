@@ -111,11 +111,13 @@ export interface BusinessRecord {
   positiveAlertEmailEnabled?: boolean;
   brandVoice?: string | null;
   aiTone?: string | null;
+  aiPersonality?: string | null;
   aiInstructions?: string | null;
   aiSignature?: string | null;
   autoReplyEnabled?: boolean | null;
   autoPublish5Star?: boolean | null;
   customKeywords?: string | null;
+  seoKeywords?: string | null;
   selectedModel?: string | null;
   smsTemplate?: string | null;
   createdAt?: string | Date;
@@ -580,6 +582,16 @@ export const db = {
         partialUpdate.aiTone = normalizedData.aiTone;
         partialUpdate.brand_voice = normalizedData.aiTone;
         partialUpdate.brandVoice = normalizedData.aiTone;
+        partialUpdate.ai_personality = normalizedData.aiTone;
+        partialUpdate.aiPersonality = normalizedData.aiTone;
+      }
+      if (normalizedData.aiPersonality !== undefined) {
+        partialUpdate.ai_personality = normalizedData.aiPersonality;
+        partialUpdate.aiPersonality = normalizedData.aiPersonality;
+        partialUpdate.ai_tone = normalizedData.aiPersonality;
+        partialUpdate.aiTone = normalizedData.aiPersonality;
+        partialUpdate.brand_voice = normalizedData.aiPersonality;
+        partialUpdate.brandVoice = normalizedData.aiPersonality;
       }
       if (normalizedData.aiInstructions !== undefined) {
         partialUpdate.ai_instructions = normalizedData.aiInstructions;
@@ -602,6 +614,14 @@ export const db = {
       if (normalizedData.customKeywords !== undefined) {
         partialUpdate.custom_keywords = normalizedData.customKeywords;
         partialUpdate.customKeywords = normalizedData.customKeywords;
+        partialUpdate.seo_keywords = normalizedData.customKeywords;
+        partialUpdate.seoKeywords = normalizedData.customKeywords;
+      }
+      if (normalizedData.seoKeywords !== undefined) {
+        partialUpdate.seo_keywords = normalizedData.seoKeywords;
+        partialUpdate.seoKeywords = normalizedData.seoKeywords;
+        partialUpdate.custom_keywords = normalizedData.seoKeywords;
+        partialUpdate.customKeywords = normalizedData.seoKeywords;
       }
       if (normalizedData.selectedModel !== undefined) {
         partialUpdate.selected_model = normalizedData.selectedModel;
@@ -626,13 +646,15 @@ export const db = {
               review_url: normalizedData.googleReviewUrl || null,
               is_google_connected: normalizedData.isGoogleConnected ?? true,
               google_connected: normalizedData.isGoogleConnected ?? true,
-              ai_tone: normalizedData.aiTone || 'Professional & Warm',
-              brand_voice: normalizedData.brandVoice || normalizedData.aiTone || 'Professional & Warm',
+              ai_tone: normalizedData.aiTone || normalizedData.aiPersonality || 'Professional & Warm',
+              ai_personality: normalizedData.aiPersonality || normalizedData.aiTone || 'Professional & Warm',
+              brand_voice: normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone || 'Professional & Warm',
               ai_instructions: normalizedData.aiInstructions ?? null,
               ai_signature: normalizedData.aiSignature ?? null,
               auto_reply_enabled: Boolean(normalizedData.autoReplyEnabled),
               auto_publish_5_star: Boolean(normalizedData.autoReplyEnabled),
-              custom_keywords: normalizedData.customKeywords ?? null,
+              custom_keywords: normalizedData.customKeywords || normalizedData.seoKeywords || null,
+              seo_keywords: normalizedData.seoKeywords || normalizedData.customKeywords || null,
               selected_model: normalizedData.selectedModel || 'gemini-1.5-flash',
               sms_template: normalizedData.smsTemplate ?? null,
               updated_at: new Date().toISOString(),
@@ -661,13 +683,20 @@ export const db = {
           if (normalizedData.googleReviewUrl !== undefined) profileUpdates.review_url = normalizedData.googleReviewUrl;
           if (normalizedData.isGoogleConnected !== undefined) profileUpdates.google_connected = normalizedData.isGoogleConnected;
           if (normalizedData.placeId !== undefined) profileUpdates.google_place_id = normalizedData.placeId;
-          if (normalizedData.aiTone !== undefined) profileUpdates.ai_tone = normalizedData.aiTone;
-          if (normalizedData.brandVoice !== undefined || normalizedData.aiTone !== undefined) {
-            profileUpdates.brand_voice = normalizedData.brandVoice || normalizedData.aiTone;
+          if (normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
+            const t = normalizedData.aiPersonality || normalizedData.aiTone;
+            profileUpdates.ai_tone = t;
+            profileUpdates.ai_personality = t;
+          }
+          if (normalizedData.brandVoice !== undefined || normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
+            profileUpdates.brand_voice = normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone;
           }
           if (normalizedData.aiInstructions !== undefined) profileUpdates.ai_instructions = normalizedData.aiInstructions;
           if (normalizedData.autoReplyEnabled !== undefined) profileUpdates.auto_reply_enabled = normalizedData.autoReplyEnabled;
           if (normalizedData.selectedModel !== undefined) profileUpdates.selected_model = normalizedData.selectedModel;
+          if (normalizedData.customKeywords !== undefined || normalizedData.seoKeywords !== undefined) {
+            profileUpdates.seo_keywords = normalizedData.seoKeywords || normalizedData.customKeywords;
+          }
 
           if (UUID_REGEX.test(targetId)) {
             await supabase.from('profiles').update(profileUpdates).eq('id', targetId);
@@ -687,9 +716,13 @@ export const db = {
           if (normalizedData.googleReviewUrl !== undefined) settingsUpdates.google_review_url = normalizedData.googleReviewUrl;
           if (normalizedData.isGoogleConnected !== undefined) settingsUpdates.google_connected = normalizedData.isGoogleConnected;
           if (normalizedData.placeId !== undefined) settingsUpdates.place_id = normalizedData.placeId;
-          if (normalizedData.aiTone !== undefined) settingsUpdates.ai_tone = normalizedData.aiTone;
-          if (normalizedData.brandVoice !== undefined || normalizedData.aiTone !== undefined) {
-            settingsUpdates.brand_voice = normalizedData.brandVoice || normalizedData.aiTone;
+          if (normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
+            const t = normalizedData.aiPersonality || normalizedData.aiTone;
+            settingsUpdates.ai_tone = t;
+            settingsUpdates.ai_personality = t;
+          }
+          if (normalizedData.brandVoice !== undefined || normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
+            settingsUpdates.brand_voice = normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone;
           }
           if (normalizedData.aiInstructions !== undefined) settingsUpdates.ai_instructions = normalizedData.aiInstructions;
           if (normalizedData.aiSignature !== undefined) settingsUpdates.ai_signature = normalizedData.aiSignature;
@@ -697,7 +730,11 @@ export const db = {
             settingsUpdates.auto_reply_enabled = normalizedData.autoReplyEnabled;
             settingsUpdates.auto_publish_5_star = normalizedData.autoReplyEnabled;
           }
-          if (normalizedData.customKeywords !== undefined) settingsUpdates.custom_keywords = normalizedData.customKeywords;
+          if (normalizedData.customKeywords !== undefined || normalizedData.seoKeywords !== undefined) {
+            const k = normalizedData.seoKeywords || normalizedData.customKeywords;
+            settingsUpdates.custom_keywords = k;
+            settingsUpdates.seo_keywords = k;
+          }
           if (normalizedData.selectedModel !== undefined) settingsUpdates.selected_model = normalizedData.selectedModel;
           if (normalizedData.smsTemplate !== undefined) settingsUpdates.sms_template = normalizedData.smsTemplate;
 
@@ -744,6 +781,8 @@ export const db = {
             positiveAlertPhone: data.positiveAlertPhone || null,
             aiTone: data.aiTone || 'Professional & Warm',
             ai_tone: data.aiTone || 'Professional & Warm',
+            aiPersonality: data.aiPersonality || data.aiTone || 'Professional & Warm',
+            ai_personality: data.aiPersonality || data.aiTone || 'Professional & Warm',
             brandVoice: data.brandVoice || data.aiTone || 'Professional & Warm',
             brand_voice: data.brandVoice || data.aiTone || 'Professional & Warm',
             aiInstructions: data.aiInstructions ?? null,
@@ -754,8 +793,10 @@ export const db = {
             auto_reply_enabled: Boolean(data.autoReplyEnabled ?? data.autoPublish5Star ?? false),
             autoPublish5Star: Boolean(data.autoReplyEnabled ?? data.autoPublish5Star ?? false),
             auto_publish_5_star: Boolean(data.autoReplyEnabled ?? data.autoPublish5Star ?? false),
-            customKeywords: data.customKeywords ?? null,
-            custom_keywords: data.customKeywords ?? null,
+            customKeywords: data.customKeywords || data.seoKeywords || null,
+            custom_keywords: data.customKeywords || data.seoKeywords || null,
+            seoKeywords: data.seoKeywords || data.customKeywords || null,
+            seo_keywords: data.seoKeywords || data.customKeywords || null,
             selectedModel: (data.selectedModel as string) || 'gemini-1.5-flash',
             selected_model: (data.selectedModel as string) || 'gemini-1.5-flash',
             smsTemplate: data.smsTemplate ?? null,
@@ -777,12 +818,14 @@ export const db = {
               positive_alert_email: data.positiveAlertEmail || null,
               positive_alert_phone: data.positiveAlertPhone || null,
               ai_tone: data.aiTone || 'Professional & Warm',
+              ai_personality: data.aiPersonality || data.aiTone || 'Professional & Warm',
               brand_voice: data.brandVoice || data.aiTone || 'Professional & Warm',
               ai_instructions: data.aiInstructions ?? null,
               ai_signature: data.aiSignature ?? null,
               auto_reply_enabled: Boolean(data.autoReplyEnabled ?? data.autoPublish5Star ?? false),
               auto_publish_5_star: Boolean(data.autoReplyEnabled ?? data.autoPublish5Star ?? false),
-              custom_keywords: data.customKeywords ?? null,
+              custom_keywords: data.customKeywords || data.seoKeywords || null,
+              seo_keywords: data.seoKeywords || data.customKeywords || null,
               selected_model: (data.selectedModel as string) || 'gemini-1.5-flash',
               sms_template: data.smsTemplate ?? null,
               created_at: new Date().toISOString(),
@@ -861,13 +904,15 @@ function normalizeBusiness(raw: any): BusinessRecord {
     negativeAlertEmailEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
     positiveAlertSmsEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
     positiveAlertEmailEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
-    brandVoice: raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? 'Professional & Warm',
-    aiTone: raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? 'Professional & Warm',
+    brandVoice: raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? raw.aiPersonality ?? raw.ai_personality ?? 'Professional & Warm',
+    aiTone: raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? raw.aiPersonality ?? raw.ai_personality ?? 'Professional & Warm',
+    aiPersonality: raw.aiPersonality ?? raw.ai_personality ?? raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? 'Professional & Warm',
     aiInstructions: raw.aiInstructions ?? raw.ai_instructions ?? null,
     aiSignature: raw.aiSignature ?? raw.ai_signature ?? null,
     autoReplyEnabled: Boolean(raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false),
     autoPublish5Star: Boolean(raw.autoPublish5Star ?? raw.auto_publish_5_star ?? raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? false),
-    customKeywords: raw.customKeywords ?? raw.custom_keywords ?? null,
+    customKeywords: raw.customKeywords ?? raw.custom_keywords ?? raw.seoKeywords ?? raw.seo_keywords ?? null,
+    seoKeywords: raw.seoKeywords ?? raw.seo_keywords ?? raw.customKeywords ?? raw.custom_keywords ?? null,
     selectedModel: raw.selectedModel ?? raw.selected_model ?? 'gemini-1.5-flash',
     smsTemplate: raw.smsTemplate ?? raw.sms_template ?? null,
     createdAt: raw.createdAt || raw.created_at || new Date(),

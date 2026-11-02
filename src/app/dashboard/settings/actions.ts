@@ -13,6 +13,7 @@ export async function saveAllSettingsAction(payload: {
   positiveAlertPhone?: string | null;
   googleReviewUrl?: string | null;
   aiTone?: string | null;
+  aiPersonality?: string | null;
   brandVoice?: string | null;
   aiInstructions?: string | null;
   aiSignature?: string | null;
@@ -21,6 +22,7 @@ export async function saveAllSettingsAction(payload: {
   selectedModel?: string | null;
   customKeywords?: string | string[] | null;
   keywords?: string[];
+  seoKeywords?: string | string[] | null;
   smsTemplate?: string | null;
   negativeAlertsEnabled?: boolean;
   negativeEmailAlertEnabled?: boolean;
@@ -68,10 +70,14 @@ export async function saveAllSettingsAction(payload: {
   if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone || null;
   if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
 
-  const tone = payload.aiTone !== undefined ? payload.aiTone : payload.brandVoice;
+  const tone = payload.aiTone !== undefined ? payload.aiTone : (payload.aiPersonality !== undefined ? payload.aiPersonality : payload.brandVoice);
   if (tone !== undefined) {
     updateData.aiTone = tone;
     updateData.brandVoice = tone;
+    updateData.aiPersonality = tone;
+  }
+  if (payload.aiPersonality !== undefined) {
+    updateData.aiPersonality = payload.aiPersonality;
   }
 
   if (payload.aiInstructions !== undefined) updateData.aiInstructions = payload.aiInstructions;
@@ -86,9 +92,11 @@ export async function saveAllSettingsAction(payload: {
 
   if (payload.selectedModel !== undefined) updateData.selectedModel = payload.selectedModel || 'gemini-1.5-flash';
 
-  const kw = payload.customKeywords !== undefined ? payload.customKeywords : payload.keywords;
+  const kw = payload.seoKeywords !== undefined ? payload.seoKeywords : (payload.customKeywords !== undefined ? payload.customKeywords : payload.keywords);
   if (kw !== undefined) {
-    updateData.customKeywords = Array.isArray(kw) ? kw.join(',') : kw;
+    const kwStr = Array.isArray(kw) ? kw.join(',') : kw;
+    updateData.customKeywords = kwStr;
+    updateData.seoKeywords = kwStr;
   }
 
   if (payload.smsTemplate !== undefined) updateData.smsTemplate = payload.smsTemplate;
@@ -151,11 +159,14 @@ export async function saveAllSettingsAction(payload: {
       userId: userId,
       clerkUserId: userId,
       aiTone: 'Professional & Warm',
+      aiPersonality: 'Professional & Warm',
       brandVoice: 'Professional & Warm',
       aiInstructions: '',
       autoReplyEnabled: false,
       autoPublish5Star: false,
       selectedModel: 'gemini-1.5-flash',
+      customKeywords: null,
+      seoKeywords: null,
       ...updateData,
     },
   });

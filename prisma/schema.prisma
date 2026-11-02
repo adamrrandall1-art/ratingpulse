@@ -43,11 +43,13 @@ model Business {
   // AI Persona & Replies
   brandVoice                String?  @default("Professional & Warm")
   aiTone                    String?  @default("Professional & Warm")
+  aiPersonality             String?  @default("Professional & Warm")
   aiInstructions            String?  @db.Text
   aiSignature               String?
   autoReplyEnabled          Boolean  @default(false)
   autoPublish5Star          Boolean? @default(false)
   customKeywords            String?
+  seoKeywords               String?
   selectedModel             String?  @default("gemini-1.5-flash")
   smsTemplate               String?
 

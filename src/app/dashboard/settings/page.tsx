@@ -27,7 +27,7 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient 
-      key={business?.updatedAt ? new Date(business.updatedAt).getTime() : 'initial'}
+      key="settings-client"
       initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
     />
   );

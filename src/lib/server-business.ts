@@ -344,6 +344,7 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       notification_email: negativeAlertEmail,
       // AI Persona & Brand Voice Fields
       aiTone,
+      aiPersonality: aiTone,
       brandVoice: aiTone,
       aiInstructions,
       aiSignature,
@@ -351,8 +352,10 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       autoPublish5Star: autoReplyEnabled,
       selectedModel,
       customKeywords,
+      seoKeywords: customKeywords,
       smsTemplate,
       ai_tone: aiTone,
+      ai_personality: aiTone,
       brand_voice: aiTone,
       ai_instructions: aiInstructions,
       ai_signature: aiSignature,
@@ -360,6 +363,7 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       auto_publish_5_star: autoReplyEnabled,
       selected_model: selectedModel,
       custom_keywords: customKeywords,
+      seo_keywords: customKeywords,
       sms_template: smsTemplate,
       updatedAt: profile?.updated_at || settings?.updated_at || new Date().toISOString(),
     };
