@@ -34,7 +34,7 @@ function getSupabaseAdmin() {
 
 async function resolveBusinessStatus(userId: string) {
   // 1. Try finding business record in Prisma first
-  const prismaBiz: any = await db.business.findFirst({
+  const prismaBusinesses = await db.business.findMany({
     where: {
       OR: [
         { userId },
@@ -43,7 +43,8 @@ async function resolveBusinessStatus(userId: string) {
       ],
     },
     orderBy: { updatedAt: 'desc' },
-  }).catch(() => null);
+  }).catch(() => []);
+  const prismaBiz: any = prismaBusinesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || prismaBusinesses[0] || null;
 
   const supabase = getSupabaseAdmin();
   let profile: any = null;

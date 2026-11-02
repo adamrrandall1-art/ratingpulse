@@ -20,7 +20,7 @@ export default async function DashboardLayout({
   let business = null;
 
   if (clerkUserId) {
-    const existingBusiness = await db.business.findFirst({
+    const businesses = await db.business.findMany({
       where: {
         OR: [
           { clerkUserId: clerkUserId },
@@ -31,8 +31,10 @@ export default async function DashboardLayout({
       orderBy: { updatedAt: 'desc' },
     });
 
-    if (existingBusiness) {
-      business = existingBusiness;
+    const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0];
+
+    if (activeBusiness) {
+      business = activeBusiness;
     } else {
       // Check active business cookie fallback before creating
       const cookieStore = await cookies().catch(() => null);

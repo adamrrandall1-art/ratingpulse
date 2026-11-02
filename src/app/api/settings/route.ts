@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       : null;
 
     if (!targetBusiness) {
-      targetBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone) || businesses[0] || null;
+      targetBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
     }
 
     const targetBusinessId = targetBusiness?.id || incomingBizId || effectiveUserId;
@@ -218,7 +218,7 @@ export async function GET(req: NextRequest) {
       orderBy: { updatedAt: 'desc' },
     });
 
-    const activeBusiness = businesses.find(b => b.negativeAlertEmail || b.negativeAlertPhone) || businesses[0] || null;
+    const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
 
     return NextResponse.json({ success: true, business: activeBusiness });
   } catch (error: any) {

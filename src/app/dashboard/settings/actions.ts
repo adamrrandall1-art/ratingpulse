@@ -44,8 +44,8 @@ export async function saveAllSettingsAction(payload: {
     throw new Error('Unauthorized');
   }
 
-  // 1. Find the existing business for this user using canonical OR conditions
-  let business = await db.business.findFirst({
+  // 1. Find all businesses for this user and resolve active business with saved settings
+  const businesses = await db.business.findMany({
     where: {
       OR: [
         { clerkUserId: userId },
@@ -55,6 +55,8 @@ export async function saveAllSettingsAction(payload: {
     },
     orderBy: { updatedAt: 'desc' },
   });
+
+  const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0];
 
   const updateData: Record<string, any> = {
     updatedAt: new Date(),
@@ -143,44 +145,49 @@ export async function saveAllSettingsAction(payload: {
     updateData.positiveEmailAlertEnabled = posEmail;
   }
 
-  // Upsert guaranteeing we update the existing row if found
-  const recordId = business?.id || payload.businessId || userId;
-  console.log('[SERVER ACTION] saveAllSettingsAction targeting recordId:', recordId, 'userId:', userId);
-
-  const saved = await db.business.upsert({
-    where: { id: recordId },
-    update: {
-      ...updateData,
-      clerkUserId: userId,
-      userId: userId,
-    },
-    create: {
-      id: recordId,
-      userId: userId,
-      clerkUserId: userId,
-      aiTone: 'Professional & Warm',
-      aiPersonality: 'Professional & Warm',
-      brandVoice: 'Professional & Warm',
-      aiInstructions: '',
-      autoReplyEnabled: false,
-      autoPublish5Star: false,
-      selectedModel: 'gemini-1.5-flash',
-      customKeywords: null,
-      seoKeywords: null,
-      ...updateData,
-    },
-  });
+  let saved;
+  if (activeBusiness) {
+    saved = await db.business.update({
+      where: { id: activeBusiness.id },
+      data: {
+        ...updateData,
+        clerkUserId: userId,
+        userId: userId,
+        updatedAt: new Date(),
+      },
+    });
+  } else {
+    const recordId = payload.businessId || userId;
+    saved = await db.business.create({
+      data: {
+        id: recordId,
+        userId: userId,
+        clerkUserId: userId,
+        name: 'RatingPulse Business',
+        aiTone: 'Professional & Warm',
+        aiPersonality: 'Professional & Warm',
+        brandVoice: 'Professional & Warm',
+        aiInstructions: '',
+        autoReplyEnabled: false,
+        autoPublish5Star: false,
+        selectedModel: 'gemini-1.5-flash',
+        customKeywords: null,
+        seoKeywords: null,
+        ...updateData,
+      },
+    });
+  }
 
   // Synchronize duplicate rows for this user without clearing columns
   try {
-    const businesses = await db.business.findMany({
+    const allUserBusinesses = await db.business.findMany({
       where: {
         OR: [{ userId }, { clerkUserId: userId }, { id: userId }],
       },
       orderBy: { updatedAt: 'desc' },
     });
-    if (businesses.length > 1) {
-      for (const dup of businesses) {
+    if (allUserBusinesses.length > 1) {
+      for (const dup of allUserBusinesses) {
         if (dup.id !== saved.id) {
           await db.business.update({
             where: { id: dup.id },

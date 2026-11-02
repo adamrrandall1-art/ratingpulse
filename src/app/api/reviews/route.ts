@@ -35,8 +35,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, reviews: [] });
     }
 
-    // Resolve Clerk user via Prisma db.business.findFirst
-    const business = await db.business.findFirst({
+    // Resolve Clerk user via Prisma db.business.findMany
+    const businesses = await db.business.findMany({
       where: {
         OR: [
           { userId },
@@ -44,7 +44,9 @@ export async function GET(req: NextRequest) {
           { id: userId },
         ],
       },
-    }).catch(() => null);
+      orderBy: { updatedAt: 'desc' },
+    }).catch(() => []);
+    const business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
 
     const supabase = getSupabaseAdmin();
     let reviews: any[] = [];

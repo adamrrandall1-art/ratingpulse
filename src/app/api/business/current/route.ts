@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
     let business = null;
     if (userId) {
-      business = await db.business.findFirst({
+      const businesses = await db.business.findMany({
         where: {
           OR: [
             { userId },
@@ -31,6 +31,7 @@ export async function GET(req: NextRequest) {
         },
         orderBy: { updatedAt: 'desc' },
       });
+      business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
     }
 
     if (!business) {

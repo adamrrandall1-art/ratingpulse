@@ -12,18 +12,20 @@ export default async function SettingsPage() {
   const clerkAuth = await auth().catch(() => null);
   const userId = clerkAuth?.userId;
 
-  const business = userId
-    ? await db.business.findFirst({
-        where: {
-          OR: [
-            { clerkUserId: userId },
-            { userId: userId },
-            { id: userId },
-          ],
-        },
-        orderBy: { updatedAt: 'desc' },
-      })
-    : null;
+  let business = null;
+  if (userId) {
+    const businesses = await db.business.findMany({
+      where: {
+        OR: [
+          { clerkUserId: userId },
+          { userId: userId },
+          { id: userId },
+        ],
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+    business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
+  }
 
   return (
     <SettingsClient 
