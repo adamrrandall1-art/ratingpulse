@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
           ...(body.autoPublish5Star !== undefined && { autoPublish5Star: Boolean(body.autoPublish5Star), autoReplyEnabled: Boolean(body.autoPublish5Star) }),
           ...(body.customKeywords !== undefined && { customKeywords: body.customKeywords }),
           ...(body.keywords && { customKeywords: Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords }),
+          ...(body.selectedModel && { selectedModel: body.selectedModel }),
           ...(body.smsTemplate !== undefined && { smsTemplate: body.smsTemplate }),
         },
       });
@@ -122,6 +123,7 @@ export async function POST(req: NextRequest) {
           ...(body.autoPublish5Star !== undefined && { autoPublish5Star: Boolean(body.autoPublish5Star), autoReplyEnabled: Boolean(body.autoPublish5Star) }),
           ...(body.customKeywords !== undefined && { customKeywords: body.customKeywords }),
           ...(body.keywords && { customKeywords: Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords }),
+          ...(body.selectedModel && { selectedModel: body.selectedModel }),
           ...(body.smsTemplate !== undefined && { smsTemplate: body.smsTemplate }),
         },
         create: {
@@ -144,6 +146,7 @@ export async function POST(req: NextRequest) {
           ...(body.autoPublish5Star !== undefined && { autoPublish5Star: Boolean(body.autoPublish5Star), autoReplyEnabled: Boolean(body.autoPublish5Star) }),
           ...(body.customKeywords !== undefined && { customKeywords: body.customKeywords }),
           ...(body.keywords && { customKeywords: Array.isArray(body.keywords) ? body.keywords.join(',') : body.keywords }),
+          selectedModel: body.selectedModel || 'gemini-1.5-flash',
           ...(body.smsTemplate !== undefined && { smsTemplate: body.smsTemplate }),
         },
       });
@@ -169,6 +172,7 @@ export async function POST(req: NextRequest) {
               ...(body.autoReplyEnabled !== undefined && { autoReplyEnabled: Boolean(body.autoReplyEnabled), autoPublish5Star: Boolean(body.autoReplyEnabled) }),
               ...(body.autoPublish5Star !== undefined && { autoPublish5Star: Boolean(body.autoPublish5Star), autoReplyEnabled: Boolean(body.autoPublish5Star) }),
               ...(body.customKeywords !== undefined && { customKeywords: body.customKeywords }),
+              ...(body.selectedModel && { selectedModel: body.selectedModel }),
               ...(body.smsTemplate !== undefined && { smsTemplate: body.smsTemplate }),
             },
           }).catch(() => null);

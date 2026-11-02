@@ -115,11 +115,11 @@ export default function SettingsClient({
       positiveAlertEmailEnabled: biz?.positiveAlertEmailEnabled ?? biz?.positiveEmailAlertEnabled ?? true,
       negativeAlertsEnabled: biz?.negativeAlertsEnabled ?? true,
       positiveAlertsEnabled: biz?.positiveAlertsEnabled ?? true,
-      aiTone: biz?.aiTone || biz?.brandVoice || 'friendly_professional',
+      aiTone: biz?.aiTone || biz?.brandVoice || 'Professional & Warm',
       aiInstructions: biz?.aiInstructions || '',
       aiSignature: biz?.aiSignature || '',
       autoReplyEnabled: Boolean(biz?.autoReplyEnabled ?? biz?.autoPublish5Star ?? false),
-      selectedModel: biz?.selectedModel || 'gemini-3.8-flash',
+      selectedModel: biz?.selectedModel || 'gemini-1.5-flash',
       smsTemplate: biz?.smsTemplate || initialSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
       keywords: biz?.customKeywords
         ? biz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
@@ -351,7 +351,7 @@ export default function SettingsClient({
   const setPositiveEmailAddress = setPositiveAlertEmail;
 
   // AI & Automation Preferences wired to unified settingsState
-  const brandVoice = (settingsState.aiTone as BrandVoiceType) || 'friendly_professional';
+  const brandVoice = (settingsState.aiTone as BrandVoiceType) || 'Professional & Warm';
   const setBrandVoice = (val: BrandVoiceType) => updateSettingsField('aiTone', val);
 
   const aiTone = settingsState.aiTone;

@@ -477,3 +477,22 @@ alter table public.business_settings add column if not exists positive_email_ale
 alter table public.business_settings add column if not exists positive_sms_alert_enabled boolean default false;
 alter table public.business_settings add column if not exists notify_positive_phone text;
 
+-- AI Persona and Model columns for profiles and business_settings tables
+alter table public.profiles add column if not exists brand_voice text default 'Professional & Warm';
+alter table public.profiles add column if not exists ai_tone text default 'Professional & Warm';
+alter table public.profiles add column if not exists ai_instructions text;
+alter table public.profiles add column if not exists ai_signature text;
+alter table public.profiles add column if not exists auto_reply_enabled boolean default false;
+alter table public.profiles add column if not exists auto_publish_5_star boolean default false;
+alter table public.profiles add column if not exists selected_model text default 'gemini-1.5-flash';
+alter table public.profiles add column if not exists custom_keywords text;
+
+alter table public.business_settings add column if not exists brand_voice text default 'Professional & Warm';
+alter table public.business_settings add column if not exists ai_tone text default 'Professional & Warm';
+alter table public.business_settings add column if not exists ai_instructions text;
+alter table public.business_settings add column if not exists ai_signature text;
+alter table public.business_settings add column if not exists auto_reply_enabled boolean default false;
+alter table public.business_settings add column if not exists auto_publish_5_star boolean default false;
+alter table public.business_settings add column if not exists selected_model text default 'gemini-1.5-flash';
+
+

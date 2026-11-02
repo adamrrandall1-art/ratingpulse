@@ -41,14 +41,14 @@ model Business {
   positiveAlertEmailEnabled Boolean  @default(true)
 
   // AI Persona & Replies
-  brandVoice                String?  @default("friendly_professional")
-  aiTone                    String?  @default("friendly_professional")
-  aiInstructions            String?
+  brandVoice                String?  @default("Professional & Warm")
+  aiTone                    String?  @default("Professional & Warm")
+  aiInstructions            String?  @db.Text
   aiSignature               String?
-  autoReplyEnabled          Boolean? @default(false)
+  autoReplyEnabled          Boolean  @default(false)
   autoPublish5Star          Boolean? @default(false)
   customKeywords            String?
-  selectedModel             String?  @default("gemini-3.8-flash")
+  selectedModel             String?  @default("gemini-1.5-flash")
   smsTemplate               String?
 
   createdAt                 DateTime @default(now())

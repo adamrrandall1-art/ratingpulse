@@ -79,11 +79,12 @@ export async function saveAllSettingsAction(payload: {
 
   const autoReply = payload.autoReplyEnabled !== undefined ? payload.autoReplyEnabled : payload.autoPublish5Star;
   if (autoReply !== undefined) {
-    updateData.autoReplyEnabled = autoReply;
-    updateData.autoPublish5Star = autoReply;
+    const isAutoReply = Boolean(autoReply);
+    updateData.autoReplyEnabled = isAutoReply;
+    updateData.autoPublish5Star = isAutoReply;
   }
 
-  if (payload.selectedModel !== undefined) updateData.selectedModel = payload.selectedModel;
+  if (payload.selectedModel !== undefined) updateData.selectedModel = payload.selectedModel || 'gemini-1.5-flash';
 
   const kw = payload.customKeywords !== undefined ? payload.customKeywords : payload.keywords;
   if (kw !== undefined) {
@@ -149,6 +150,12 @@ export async function saveAllSettingsAction(payload: {
       id: recordId,
       userId: userId,
       clerkUserId: userId,
+      aiTone: 'Professional & Warm',
+      brandVoice: 'Professional & Warm',
+      aiInstructions: '',
+      autoReplyEnabled: false,
+      autoPublish5Star: false,
+      selectedModel: 'gemini-1.5-flash',
       ...updateData,
     },
   });

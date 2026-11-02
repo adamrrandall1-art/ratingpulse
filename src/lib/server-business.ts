@@ -223,6 +223,82 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       profile?.notify_positive_sms ??
       false;
 
+    const aiTone =
+      (typeof businessRecord?.aiTone === 'string' && businessRecord.aiTone) ||
+      (typeof businessRecord?.ai_tone === 'string' && businessRecord.ai_tone) ||
+      (typeof businessRecord?.brandVoice === 'string' && businessRecord.brandVoice) ||
+      (typeof businessRecord?.brand_voice === 'string' && businessRecord.brand_voice) ||
+      (typeof settings?.aiTone === 'string' && settings.aiTone) ||
+      (typeof settings?.ai_tone === 'string' && settings.ai_tone) ||
+      (typeof settings?.brandVoice === 'string' && settings.brandVoice) ||
+      (typeof settings?.brand_voice === 'string' && settings.brand_voice) ||
+      (typeof profile?.aiTone === 'string' && profile.aiTone) ||
+      (typeof profile?.ai_tone === 'string' && profile.ai_tone) ||
+      (typeof profile?.brandVoice === 'string' && profile.brandVoice) ||
+      (typeof profile?.brand_voice === 'string' && profile.brand_voice) ||
+      'Professional & Warm';
+
+    const aiInstructions =
+      businessRecord?.aiInstructions ??
+      businessRecord?.ai_instructions ??
+      settings?.aiInstructions ??
+      settings?.ai_instructions ??
+      profile?.aiInstructions ??
+      profile?.ai_instructions ??
+      '';
+
+    const aiSignature =
+      businessRecord?.aiSignature ??
+      businessRecord?.ai_signature ??
+      settings?.aiSignature ??
+      settings?.ai_signature ??
+      profile?.aiSignature ??
+      profile?.ai_signature ??
+      '';
+
+    const autoReplyEnabled = Boolean(
+      businessRecord?.autoReplyEnabled ??
+      businessRecord?.auto_reply_enabled ??
+      businessRecord?.autoPublish5Star ??
+      businessRecord?.auto_publish_5_star ??
+      settings?.autoReplyEnabled ??
+      settings?.auto_reply_enabled ??
+      settings?.autoPublish5Star ??
+      settings?.auto_publish_5_star ??
+      profile?.autoReplyEnabled ??
+      profile?.auto_reply_enabled ??
+      false
+    );
+
+    const selectedModel =
+      businessRecord?.selectedModel ??
+      businessRecord?.selected_model ??
+      settings?.selectedModel ??
+      settings?.selected_model ??
+      profile?.selectedModel ??
+      profile?.selected_model ??
+      'gemini-1.5-flash';
+
+    const customKeywords =
+      businessRecord?.customKeywords ??
+      businessRecord?.custom_keywords ??
+      settings?.customKeywords ??
+      settings?.custom_keywords ??
+      (Array.isArray(settings?.custom_keywords) ? settings.custom_keywords.join(',') : null) ??
+      (Array.isArray(settings?.keywords) ? settings.keywords.join(',') : null) ??
+      profile?.customKeywords ??
+      profile?.custom_keywords ??
+      '';
+
+    const smsTemplate =
+      businessRecord?.smsTemplate ??
+      businessRecord?.sms_template ??
+      settings?.smsTemplate ??
+      settings?.sms_template ??
+      profile?.smsTemplate ??
+      profile?.sms_template ??
+      '';
+
     const business = {
       id: businessRecord?.id || profile?.id || userId,
       userId: businessRecord?.userId || businessRecord?.user_id || profile?.clerk_user_id || profile?.id || userId,
@@ -266,6 +342,25 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       notify_positive_enabled: positiveAlertsEnabled,
       notification_phone: negativeAlertPhone,
       notification_email: negativeAlertEmail,
+      // AI Persona & Brand Voice Fields
+      aiTone,
+      brandVoice: aiTone,
+      aiInstructions,
+      aiSignature,
+      autoReplyEnabled,
+      autoPublish5Star: autoReplyEnabled,
+      selectedModel,
+      customKeywords,
+      smsTemplate,
+      ai_tone: aiTone,
+      brand_voice: aiTone,
+      ai_instructions: aiInstructions,
+      ai_signature: aiSignature,
+      auto_reply_enabled: autoReplyEnabled,
+      auto_publish_5_star: autoReplyEnabled,
+      selected_model: selectedModel,
+      custom_keywords: customKeywords,
+      sms_template: smsTemplate,
       updatedAt: profile?.updated_at || settings?.updated_at || new Date().toISOString(),
     };
 
@@ -444,10 +539,47 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       notification_email: negativeAlertEmail,
     };
 
+    const aiTone =
+      (typeof businessRecord?.aiTone === 'string' && businessRecord.aiTone) ||
+      (typeof businessRecord?.ai_tone === 'string' && businessRecord.ai_tone) ||
+      (typeof settings?.brand_voice === 'string' && settings.brand_voice) ||
+      (typeof profile?.brand_voice === 'string' && profile.brand_voice) ||
+      'Professional & Warm';
+
+    const aiInstructions =
+      businessRecord?.aiInstructions ??
+      businessRecord?.ai_instructions ??
+      settings?.aiInstructions ??
+      settings?.ai_instructions ??
+      '';
+
+    const autoReplyEnabled = Boolean(
+      businessRecord?.autoReplyEnabled ??
+      businessRecord?.auto_reply_enabled ??
+      businessRecord?.autoPublish5Star ??
+      settings?.auto_publish_5_star ??
+      false
+    );
+
+    const selectedModel =
+      businessRecord?.selectedModel ??
+      businessRecord?.selected_model ??
+      'gemini-1.5-flash';
+
+    const aiPersonaSettings = {
+      aiTone,
+      brandVoice: aiTone,
+      aiInstructions,
+      autoReplyEnabled,
+      selectedModel,
+    };
+
     return {
       profile,
       settings,
       notificationSettings,
+      aiPersonaSettings,
+      business: businessRecord,
     };
   } catch (err) {
     console.error('[getInitialServerSettings Error]:', err);

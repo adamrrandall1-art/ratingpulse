@@ -23,7 +23,19 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export type BrandVoiceType = 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic';
+export type BrandVoiceType = 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic' | 'Professional & Warm';
+
+export function isPersonaSelected(currentTone: string | undefined, personaKey: string): boolean {
+  if (!currentTone) return personaKey === 'friendly_professional' || personaKey === 'Professional & Warm';
+  if (currentTone === personaKey) return true;
+  if (
+    (currentTone === 'Professional & Warm' || currentTone === 'Friendly & Professional' || currentTone === 'friendly_professional') &&
+    (personaKey === 'friendly_professional' || personaKey === 'Professional & Warm')
+  ) {
+    return true;
+  }
+  return currentTone.toLowerCase().replace(/[^a-z]/g, '') === personaKey.toLowerCase().replace(/[^a-z]/g, '');
+}
 
 export interface AiPersonaCardProps {
   business?: any;
@@ -59,8 +71,8 @@ const PERSONA_OPTIONS: {
   samplePrefix: string;
 }[] = [
   {
-    key: 'friendly_professional',
-    title: 'Friendly & Professional',
+    key: 'Professional & Warm',
+    title: 'Professional & Warm',
     tagline: 'Warm, polished, and courteous. Ideal for clinics, law, real estate, and professional services.',
     badge: 'Recommended',
     icon: Smile,
@@ -105,7 +117,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const {
     initialBusiness,
     business,
-    brandVoice = 'friendly_professional',
+    brandVoice = 'Professional & Warm',
     setBrandVoice,
     aiTone,
     setAiTone,
@@ -119,7 +131,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     setAutoPublish5Star,
     autoReplyEnabled = false,
     setAutoReplyEnabled,
-    selectedModel: propSelectedModel = 'gemini-3.8-flash',
+    selectedModel: propSelectedModel = 'gemini-1.5-flash',
     setSelectedModel: propSetSelectedModel,
     businessName = 'our team',
     onSaveAiPersona,
@@ -134,7 +146,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const [internalSaved, setInternalSaved] = useState(false);
 
   const [selectedModel, setSelectedModel] = useState<string>(
-    initialBiz?.selectedModel || propSelectedModel || 'gemini-3.8-flash'
+    initialBiz?.selectedModel || propSelectedModel || 'gemini-1.5-flash'
   );
 
   // Initialize state directly from props first, avoiding empty overrides
@@ -144,7 +156,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     brandVoice ||
     (initialBiz?.aiTone as BrandVoiceType) ||
     (initialBiz?.brandVoice as BrandVoiceType) ||
-    'friendly_professional'
+    'Professional & Warm'
   );
 
   const [localInstructions, setLocalInstructions] = useState<string>(
@@ -337,7 +349,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   };
 
   // Generate dynamic live preview text
-  const currentPersona = PERSONA_OPTIONS.find((p) => p.key === localTone) || PERSONA_OPTIONS[0];
+  const currentPersona = PERSONA_OPTIONS.find((p) => isPersonaSelected(localTone, p.key)) || PERSONA_OPTIONS[0];
   const keywordHighlights = localKeywords.length > 0 ? ` Mentioning our commitment to ${localKeywords.slice(0, 2).join(' and ')}.` : '';
   const signatureSuffix = localSignature ? ` ${localSignature}` : '';
   const previewReply = `${currentPersona.samplePrefix}${keywordHighlights}${signatureSuffix}`;
@@ -370,6 +382,8 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
               }}
               className="bg-transparent text-xs font-bold text-purple-700 border-none focus:outline-none cursor-pointer pr-1"
             >
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recommended)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
               <option value="gemini-3.8-flash">Gemini 3.8 Flash</option>
               <option value="gemini-3.8-pro">Gemini 3.8 Pro</option>
             </select>
@@ -408,7 +422,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONA_OPTIONS.map((persona) => {
             const Icon = persona.icon;
-            const isSelected = (props.aiTone || props.brandVoice || localTone) === persona.key;
+            const isSelected = isPersonaSelected(props.aiTone || props.brandVoice || localTone, persona.key);
 
             return (
               <button
