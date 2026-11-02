@@ -125,6 +125,38 @@ export interface BusinessRecord {
   [key: string]: any;
 }
 
+function mapBusinessSettingsData(input: any) {
+  if (!input || typeof input !== 'object') return input;
+  const mapped: Record<string, any> = {};
+  for (const [key, val] of Object.entries(input)) {
+    if (key === 'brandVoice') mapped.brand_voice = val;
+    else if (key === 'notifyNegativePhone') mapped.notify_negative_phone = val;
+    else if (key === 'notifyNegativeEmail') mapped.notify_negative_email = val;
+    else if (key === 'notifyNegativeEnabled') mapped.notify_negative_enabled = val;
+    else if (key === 'emailAlertsEnabled') mapped.email_alerts_enabled = val;
+    else if (key === 'userId') mapped.user_id = val;
+    else if (key === 'updatedAt') mapped.updated_at = val;
+    else if (key === 'createdAt') mapped.created_at = val;
+    else mapped[key] = val;
+  }
+  return mapped;
+}
+
+function normalizeBusinessSettingsRow(row: any) {
+  if (!row || typeof row !== 'object') return row;
+  return {
+    ...row,
+    brandVoice: row.brand_voice ?? row.brandVoice,
+    notifyNegativePhone: row.notify_negative_phone ?? row.notifyNegativePhone,
+    notifyNegativeEmail: row.notify_negative_email ?? row.notifyNegativeEmail,
+    notifyNegativeEnabled: row.notify_negative_enabled ?? row.notifyNegativeEnabled,
+    emailAlertsEnabled: row.email_alerts_enabled ?? row.emailAlertsEnabled,
+    userId: row.user_id ?? row.userId,
+    createdAt: row.created_at ?? row.createdAt,
+    updatedAt: row.updated_at ?? row.updatedAt,
+  };
+}
+
 export const db = {
   $disconnect: async () => {},
   business: {
@@ -891,7 +923,7 @@ export const db = {
       if (!supabase) return [];
       try {
         const { data } = await supabase.from('business_settings').select('*');
-        return data || [];
+        return (data || []).map(normalizeBusinessSettingsRow);
       } catch {
         return [];
       }
@@ -913,7 +945,7 @@ export const db = {
           q = q.eq('id', args.where.id);
         }
         const { data } = await q.limit(1);
-        return data?.[0] || null;
+        return normalizeBusinessSettingsRow(data?.[0] || null);
       } catch {
         return null;
       }
@@ -935,14 +967,14 @@ export const db = {
           q = q.eq('id', args.where.id);
         }
         const { data } = await q.maybeSingle();
-        return data || null;
+        return normalizeBusinessSettingsRow(data || null);
       } catch {
         return null;
       }
     },
     update: async (args: { where: any; data: any }) => {
       const supabase = getAdminClient();
-      if (!supabase) return args.data;
+      if (!supabase) return normalizeBusinessSettingsRow(args.data);
       const targetId = args.where.id || args.where.userId || args.where.user_id;
       let filterCol = args.where.id ? 'id' : 'user_id';
       let resolvedId = targetId;
@@ -950,12 +982,13 @@ export const db = {
         const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
         if (prof?.id) resolvedId = prof.id;
       }
-      const { data } = await supabase.from('business_settings').update(args.data).eq(filterCol, resolvedId).select().maybeSingle();
-      return data || args.data;
+      const payload = mapBusinessSettingsData(args.data);
+      const { data } = await supabase.from('business_settings').update(payload).eq(filterCol, resolvedId).select().maybeSingle();
+      return normalizeBusinessSettingsRow(data || args.data);
     },
     upsert: async (args: { where: any; update: any; create: any }) => {
       const supabase = getAdminClient();
-      if (!supabase) return args.update;
+      if (!supabase) return normalizeBusinessSettingsRow(args.update);
       const targetId = args.where.id || args.where.userId || args.where.user_id;
       let filterCol = args.where.id ? 'id' : 'user_id';
       let resolvedId = targetId;
@@ -965,12 +998,13 @@ export const db = {
       }
       const { data: existing } = await supabase.from('business_settings').select('id').eq(filterCol, resolvedId).maybeSingle();
       if (existing) {
-        const { data } = await supabase.from('business_settings').update(args.update).eq('id', existing.id).select().maybeSingle();
-        return data || args.update;
+        const updatePayload = mapBusinessSettingsData(args.update);
+        const { data } = await supabase.from('business_settings').update(updatePayload).eq('id', existing.id).select().maybeSingle();
+        return normalizeBusinessSettingsRow(data || args.update);
       } else {
-        const createPayload = { ...args.create, [filterCol]: resolvedId };
+        const createPayload = mapBusinessSettingsData({ ...args.create, [filterCol]: resolvedId });
         const { data } = await supabase.from('business_settings').insert(createPayload).select().maybeSingle();
-        return data || args.create;
+        return normalizeBusinessSettingsRow(data || args.create);
       }
     },
     create: async (args: { data: any }) => {
@@ -1004,13 +1038,7 @@ export function toSnakeBrandVoice(val?: string | null): string {
 }
 
 export function toDisplayTone(val?: string | null): string {
-  if (!val) return 'Professional & Warm';
-  const v = val.trim();
-  if (v === 'friendly_professional' || v === 'Friendly & Professional') return 'Professional & Warm';
-  if (v === 'casual_enthusiastic') return 'Casual & Enthusiastic';
-  if (v === 'concise_polite') return 'Concise & Polite';
-  if (v === 'empathetic') return 'Empathetic & Caring';
-  return v;
+  return toSnakeBrandVoice(val);
 }
 
 function normalizeBusiness(raw: any): BusinessRecord {
@@ -1061,7 +1089,7 @@ function normalizeBusiness(raw: any): BusinessRecord {
 
   const rawBrandVoice = raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? raw.aiPersonality ?? raw.ai_personality ?? 'friendly_professional';
   const snakeVoice = toSnakeBrandVoice(rawBrandVoice);
-  const displayTone = toDisplayTone(rawBrandVoice);
+  const displayTone = snakeVoice;
 
   const phone = raw.notifyNegativePhone ?? raw.notify_negative_phone ?? raw.negativeAlertPhone ?? raw.negative_alert_phone ?? null;
   const email = raw.notifyNegativeEmail ?? raw.notify_negative_email ?? raw.negativeAlertEmail ?? raw.negative_alert_email ?? null;
@@ -1105,10 +1133,10 @@ function normalizeBusiness(raw: any): BusinessRecord {
     positiveAlertEmailEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
     brandVoice: snakeVoice,
     brand_voice: snakeVoice,
-    aiTone: displayTone,
-    ai_tone: displayTone,
-    aiPersonality: displayTone,
-    ai_personality: displayTone,
+    aiTone: snakeVoice,
+    ai_tone: snakeVoice,
+    aiPersonality: snakeVoice,
+    ai_personality: snakeVoice,
     aiInstructions: raw.aiInstructions ?? raw.ai_instructions ?? null,
     aiSignature: raw.aiSignature ?? raw.ai_signature ?? null,
     autoReplyEnabled: Boolean(raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false),

@@ -134,7 +134,7 @@ export default function SettingsClient({
   // Build default settings from initialBusiness
   const buildInitialSettings = (biz: any) => {
     const isSms = biz?.negativeAlertSmsEnabled ?? biz?.smsAlertsEnabled ?? biz?.negativeSmsAlertEnabled ?? true;
-    const tone = biz?.aiPersonality || biz?.aiTone || biz?.brandVoice || 'Professional & Warm';
+    const tone = biz?.brandVoice || biz?.brand_voice || biz?.aiPersonality || biz?.aiTone || 'friendly_professional';
     const bizKw = biz?.seoKeywords || biz?.customKeywords;
     return {
       negativeAlertEmail: biz?.negativeAlertEmail || '',
@@ -297,11 +297,12 @@ export default function SettingsClient({
           next.positiveAlertsEnabled = Boolean(initialBusiness.positiveAlertsEnabled);
         }
 
-        if (initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice) {
-          const t = initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice;
+        if (initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice || initialBusiness.brand_voice) {
+          const t = initialBusiness.brandVoice || initialBusiness.brand_voice || initialBusiness.aiPersonality || initialBusiness.aiTone;
           next.aiTone = t;
           next.aiPersonality = t;
           next.brandVoice = t;
+          setBrandVoiceState(t);
         }
         if (initialBusiness.aiInstructions !== undefined && initialBusiness.aiInstructions !== null) {
           next.aiInstructions = initialBusiness.aiInstructions;
@@ -405,11 +406,19 @@ export default function SettingsClient({
   const setPositiveEmailAddress = setPositiveAlertEmail;
 
   // AI & Automation Preferences wired to unified settingsState
-  const brandVoice = (settingsState.aiTone as BrandVoiceType) || 'Professional & Warm';
-  const setBrandVoice = (val: BrandVoiceType) => updateSettingsField('aiTone', val);
+  const [brandVoice, setBrandVoiceState] = useState<string>(
+    initialSettings?.brandVoice || initialBusiness?.brandVoice || initialBusiness?.brand_voice || 'friendly_professional'
+  );
 
-  const aiTone = settingsState.aiTone;
-  const setAiTone = (val: string) => updateSettingsField('aiTone', val);
+  const setBrandVoice = (val: string) => {
+    setBrandVoiceState(val);
+    updateSettingsField('brandVoice', val);
+    updateSettingsField('aiTone', val);
+    updateSettingsField('aiPersonality', val);
+  };
+
+  const aiTone = brandVoice || settingsState.aiTone;
+  const setAiTone = setBrandVoice;
 
   const aiInstructions = settingsState.aiInstructions;
   const setAiInstructions = (val: string) => updateSettingsField('aiInstructions', val);
@@ -537,7 +546,7 @@ export default function SettingsClient({
 
       const targetBusinessId = initialBusiness?.id || activeBusiness?.id;
       const isSmsToSend = Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled);
-      const toneToSave = settingsState.aiPersonality || settingsState.aiTone || 'Professional & Warm';
+      const toneToSave = brandVoice || settingsState.brandVoice || settingsState.aiTone || 'friendly_professional';
       const kwList = settingsState.keywords || [];
       const kwString = kwList.join(',');
 
@@ -556,9 +565,9 @@ export default function SettingsClient({
         smsTemplate: settingsState.smsTemplate,
         aiSignature: settingsState.aiSignature,
         aiInstructions: settingsState.aiInstructions,
+        brandVoice: toneToSave,
         aiTone: toneToSave,
         aiPersonality: toneToSave,
-        brandVoice: toneToSave,
         selectedModel: settingsState.selectedModel,
         autoReplyEnabled: settingsState.autoReplyEnabled,
         autoPublish5Star: settingsState.autoReplyEnabled,
@@ -573,7 +582,8 @@ export default function SettingsClient({
         // Update both React state and localStorage with the returned record:
         if (res.business) {
           const returnedSms = res.business.negativeAlertSmsEnabled ?? res.business.smsAlertsEnabled ?? res.business.negativeSmsAlertEnabled;
-          const returnedTone = res.business.aiPersonality ?? res.business.aiTone ?? settingsState.aiPersonality ?? settingsState.aiTone ?? 'Professional & Warm';
+          const returnedTone = res.business.brandVoice ?? res.business.brand_voice ?? res.business.aiPersonality ?? res.business.aiTone ?? toneToSave;
+          setBrandVoiceState(returnedTone);
           const returnedKw = res.business.seoKeywords || res.business.customKeywords;
           const returnedKwList = returnedKw
             ? returnedKw.split(',').map((k: string) => k.trim()).filter(Boolean)
@@ -747,10 +757,10 @@ export default function SettingsClient({
               setSettingsState={setUnifiedSettingsState}
               brandVoice={brandVoice}
               setBrandVoice={setBrandVoice}
-              aiTone={aiTone}
-              setAiTone={setAiTone}
-              aiPersonality={settingsState.aiPersonality || settingsState.aiTone}
-              setAiPersonality={(val) => updateSettingsField('aiPersonality', val)}
+              aiTone={brandVoice}
+              setAiTone={setBrandVoice}
+              aiPersonality={brandVoice}
+              setAiPersonality={setBrandVoice}
               aiInstructions={aiInstructions}
               setAiInstructions={setAiInstructions}
               aiSignature={aiSignature}

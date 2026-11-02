@@ -32,11 +32,16 @@ export async function saveAllSettingsAction(payload: {
   notifySms?: boolean;
   enableSmsAlerts?: boolean;
   negativeAlertEmailEnabled?: boolean;
+  emailAlertsEnabled?: boolean;
   positiveAlertsEnabled?: boolean;
   positiveEmailAlertEnabled?: boolean;
   positiveSmsAlertEnabled?: boolean;
   positiveAlertSmsEnabled?: boolean;
   positiveAlertEmailEnabled?: boolean;
+  notifyNegativePhone?: string | null;
+  notifyNegativeEmail?: string | null;
+  notifyNegativeEnabled?: boolean;
+  [key: string]: any;
 }) {
   const clerkAuth = await auth().catch(() => null);
   const userId = clerkAuth?.userId;
@@ -58,11 +63,69 @@ export async function saveAllSettingsAction(payload: {
 
   const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0];
 
+  const selectedVoice = payload.brandVoice || payload.aiTone || 'friendly_professional';
+
+  // Persist directly to businessSettings table
+  try {
+    const existing = await db.businessSettings.findFirst({
+      where: {
+        OR: [
+          { userId },
+          { id: userId },
+        ],
+      },
+    }).catch(() => null);
+
+    if (existing) {
+      await db.businessSettings.update({
+        where: { id: existing.id },
+        data: {
+          brandVoice: selectedVoice,
+          notifyNegativePhone: payload.negativeAlertPhone || null,
+          notifyNegativeEmail: payload.negativeAlertEmail || null,
+          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await db.businessSettings.upsert({
+        where: { userId },
+        update: {
+          brandVoice: selectedVoice,
+          notifyNegativePhone: payload.negativeAlertPhone || null,
+          notifyNegativeEmail: payload.negativeAlertEmail || null,
+          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
+          updatedAt: new Date(),
+        },
+        create: {
+          userId,
+          brandVoice: selectedVoice,
+          notifyNegativePhone: payload.negativeAlertPhone || null,
+          notifyNegativeEmail: payload.negativeAlertEmail || null,
+          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      });
+    }
+  } catch (settingsErr) {
+    console.warn('[saveAllSettingsAction] businessSettings update error:', settingsErr);
+  }
+
   const updateData: Record<string, any> = {
     updatedAt: new Date(),
     isGoogleConnected: true,
     clerkUserId: userId,
     userId: userId,
+    brandVoice: selectedVoice,
+    brand_voice: selectedVoice,
+    aiTone: selectedVoice,
+    ai_tone: selectedVoice,
+    aiPersonality: selectedVoice,
+    ai_personality: selectedVoice,
   };
 
   // Text fields
@@ -79,23 +142,6 @@ export async function saveAllSettingsAction(payload: {
   if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail || null;
   if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone || null;
   if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
-
-  const tone = payload.aiTone !== undefined ? payload.aiTone : (payload.aiPersonality !== undefined ? payload.aiPersonality : payload.brandVoice);
-  if (tone !== undefined) {
-    const snakeVoice = toSnakeBrandVoice(tone);
-    updateData.aiTone = tone;
-    updateData.brandVoice = snakeVoice;
-    updateData.brand_voice = snakeVoice;
-    updateData.aiPersonality = tone;
-  }
-  if (payload.aiPersonality !== undefined) {
-    updateData.aiPersonality = payload.aiPersonality;
-  }
-  if (payload.brandVoice !== undefined) {
-    const snakeVoice = toSnakeBrandVoice(payload.brandVoice);
-    updateData.brandVoice = snakeVoice;
-    updateData.brand_voice = snakeVoice;
-  }
 
   if (payload.aiInstructions !== undefined) updateData.aiInstructions = payload.aiInstructions;
   if (payload.aiSignature !== undefined) updateData.aiSignature = payload.aiSignature;

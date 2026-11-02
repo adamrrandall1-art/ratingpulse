@@ -23,14 +23,20 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export type BrandVoiceType = 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic' | 'Professional & Warm';
+export type BrandVoiceType =
+  | 'friendly_professional'
+  | 'casual_enthusiastic'
+  | 'concise_polite'
+  | 'empathetic'
+  | 'Professional & Warm'
+  | string;
 
 export function isPersonaSelected(currentTone: string | undefined, personaKey: string): boolean {
-  if (!currentTone) return personaKey === 'friendly_professional' || personaKey === 'Professional & Warm';
+  if (!currentTone) return personaKey === 'friendly_professional';
   if (currentTone === personaKey) return true;
   if (
     (currentTone === 'Professional & Warm' || currentTone === 'Friendly & Professional' || currentTone === 'friendly_professional') &&
-    (personaKey === 'friendly_professional' || personaKey === 'Professional & Warm')
+    personaKey === 'friendly_professional'
   ) {
     return true;
   }
@@ -40,8 +46,8 @@ export function isPersonaSelected(currentTone: string | undefined, personaKey: s
 export interface AiPersonaCardProps {
   business?: any;
   initialBusiness?: any;
-  brandVoice?: BrandVoiceType;
-  setBrandVoice?: (voice: BrandVoiceType) => void;
+  brandVoice?: BrandVoiceType | string;
+  setBrandVoice?: (voice: BrandVoiceType | string) => void;
   aiTone?: string;
   setAiTone?: (tone: string) => void;
   aiPersonality?: string;
@@ -68,17 +74,21 @@ export interface AiPersonaCardProps {
   isAiPersonaSaved?: boolean;
 }
 
-const PERSONA_OPTIONS: {
-  key: BrandVoiceType;
+export interface PersonaOption {
+  key: string;
+  value: string;
   title: string;
   tagline: string;
   badge: string;
   icon: React.ElementType;
   samplePrefix: string;
-}[] = [
+}
+
+export const PERSONA_OPTIONS: PersonaOption[] = [
   {
-    key: 'Professional & Warm',
-    title: 'Professional & Warm',
+    key: 'friendly_professional',
+    value: 'friendly_professional',
+    title: 'Friendly & Professional',
     tagline: 'Warm, polished, and courteous. Ideal for clinics, law, real estate, and professional services.',
     badge: 'Recommended',
     icon: Smile,
@@ -86,6 +96,7 @@ const PERSONA_OPTIONS: {
   },
   {
     key: 'casual_enthusiastic',
+    value: 'casual_enthusiastic',
     title: 'Casual & Enthusiastic',
     tagline: 'High energy, warm, and upbeat. Perfect for cafes, bakeries, gyms, and retail.',
     badge: 'High Energy',
@@ -94,6 +105,7 @@ const PERSONA_OPTIONS: {
   },
   {
     key: 'concise_polite',
+    value: 'concise_polite',
     title: 'Concise & Polite',
     tagline: 'Direct, respectful, and brief. Great for busy B2B and automotive operations.',
     badge: 'Direct',
@@ -102,6 +114,7 @@ const PERSONA_OPTIONS: {
   },
   {
     key: 'empathetic',
+    value: 'empathetic',
     title: 'Empathetic & Caring',
     tagline: 'Deeply attentive, gentle, and understanding. Excellent for wellness and healthcare.',
     badge: 'Attentive',
@@ -123,7 +136,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const {
     initialBusiness,
     business,
-    brandVoice = 'Professional & Warm',
+    brandVoice = 'friendly_professional',
     setBrandVoice,
     aiTone,
     setAiTone,
@@ -157,16 +170,16 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
 
   // Initialize state directly from props first, avoiding empty overrides
   const [localTone, setLocalTone] = useState<BrandVoiceType>(
+    (props.brandVoice as BrandVoiceType) ||
+    (props.settingsState?.brandVoice as BrandVoiceType) ||
     (props.settingsState?.aiTone as BrandVoiceType) ||
     (props.settingsState?.aiPersonality as BrandVoiceType) ||
     (props.aiPersonality as BrandVoiceType) ||
     (props.aiTone as BrandVoiceType) ||
-    (props.brandVoice as BrandVoiceType) ||
     brandVoice ||
-    (initialBiz?.aiPersonality as BrandVoiceType) ||
-    (initialBiz?.aiTone as BrandVoiceType) ||
     (initialBiz?.brandVoice as BrandVoiceType) ||
-    'Professional & Warm'
+    (initialBiz?.brand_voice as BrandVoiceType) ||
+    'friendly_professional'
   );
 
   const [localInstructions, setLocalInstructions] = useState<string>(
@@ -251,7 +264,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   // Sync from parent props if parent updates
   useEffect(() => {
     if (props.brandVoice && props.brandVoice !== localTone) {
-      setLocalTone(props.brandVoice);
+      setLocalTone(props.brandVoice as BrandVoiceType);
     }
   }, [props.brandVoice]);
 
@@ -521,24 +534,29 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           Select Tone &amp; Personality
         </label>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {PERSONA_OPTIONS.map((persona) => {
-            const Icon = persona.icon;
-            const isSelected = isPersonaSelected(
-              props.settingsState?.aiPersonality || props.settingsState?.aiTone || props.aiPersonality || props.aiTone || props.brandVoice || localTone,
-              persona.key
-            );
+          {PERSONA_OPTIONS.map((option) => {
+            const Icon = option.icon;
+            const currentVoice = props.brandVoice || props.settingsState?.brandVoice || localTone || 'friendly_professional';
+            const isSelected = currentVoice === option.value;
 
             return (
               <button
                 type="button"
-                key={persona.key}
+                key={option.value}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  handleToneSelect(persona.key);
+                  if (setBrandVoice) {
+                    setBrandVoice(option.value);
+                  }
+                  if (props.setBrandVoice) {
+                    props.setBrandVoice(option.value);
+                  }
+                  setLocalTone(option.value as BrandVoiceType);
+                  handleToneSelect(option.value as BrandVoiceType);
                 }}
                 className={`p-4 rounded-xl border text-left transition-all relative cursor-pointer ${
-                  isSelected
+                  currentVoice === option.value
                     ? 'border-purple-600 bg-purple-50/60 shadow-xs ring-1 ring-purple-600'
                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
                 }`}
@@ -547,25 +565,25 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
+                        currentVoice === option.value ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                     </div>
-                    <span className="text-xs font-bold text-slate-900">{persona.title}</span>
+                    <span className="text-xs font-bold text-slate-900">{option.title}</span>
                   </div>
-                  {isSelected ? (
+                  {currentVoice === option.value ? (
                     <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px]">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </span>
                   ) : (
                     <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                      {persona.badge}
+                      {option.badge}
                     </span>
                   )}
                 </div>
                 <p className="text-[11px] text-slate-500 leading-relaxed pl-9">
-                  {persona.tagline}
+                  {option.tagline}
                 </p>
               </button>
             );
