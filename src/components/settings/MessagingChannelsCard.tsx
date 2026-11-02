@@ -129,32 +129,36 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
 
   const initialBiz = initialBusiness || business || props.initialBusiness || props.business;
 
-  // Initialize input state directly from initialBusiness
+  // Initialize input state directly from props first, falling back to initialBusiness
   const [negativeAlertEmail, setNegativeAlertEmail] = useState(
-    initialBiz?.negativeAlertEmail ||
-    initialBiz?.negative_alert_email ||
     props.negativeAlertEmail ||
     props.negativeEmailAddress ||
+    props.settingsState?.negativeAlertEmail ||
+    initialBiz?.negativeAlertEmail ||
+    initialBiz?.negative_alert_email ||
     ''
   );
   const [negativeAlertPhone, setNegativeAlertPhone] = useState(
-    initialBiz?.negativeAlertPhone ||
-    initialBiz?.negative_alert_phone ||
     props.negativeAlertPhone ||
     props.negativePhone ||
+    props.settingsState?.negativeAlertPhone ||
+    initialBiz?.negativeAlertPhone ||
+    initialBiz?.negative_alert_phone ||
     ''
   );
   const [positiveAlertEmail, setPositiveAlertEmail] = useState(
-    initialBiz?.positiveAlertEmail ||
-    initialBiz?.positive_alert_email ||
     props.positiveAlertEmail ||
     props.positiveEmailAddress ||
+    props.settingsState?.positiveAlertEmail ||
+    initialBiz?.positiveAlertEmail ||
+    initialBiz?.positive_alert_email ||
     ''
   );
   const [positiveAlertPhone, setPositiveAlertPhone] = useState(
+    props.positiveAlertPhone ||
+    props.settingsState?.positiveAlertPhone ||
     initialBiz?.positiveAlertPhone ||
     initialBiz?.positive_alert_phone ||
-    props.positiveAlertPhone ||
     ''
   );
 
@@ -162,22 +166,22 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
   useEffect(() => {
     const biz = initialBusiness || business || props.initialBusiness || props.business;
     if (biz) {
-      if (biz.negativeAlertEmail) {
+      if (biz.negativeAlertEmail && !props.negativeAlertEmail) {
         setNegativeAlertEmail(biz.negativeAlertEmail);
         props.setNegativeAlertEmail?.(biz.negativeAlertEmail);
         props.setNegativeEmailAddress?.(biz.negativeAlertEmail);
       }
-      if (biz.negativeAlertPhone) {
+      if (biz.negativeAlertPhone && !props.negativeAlertPhone) {
         setNegativeAlertPhone(biz.negativeAlertPhone);
         props.setNegativeAlertPhone?.(biz.negativeAlertPhone);
         props.setNegativePhone?.(biz.negativeAlertPhone);
       }
-      if (biz.positiveAlertEmail) {
+      if (biz.positiveAlertEmail && !props.positiveAlertEmail) {
         setPositiveAlertEmail(biz.positiveAlertEmail);
         props.setPositiveAlertEmail?.(biz.positiveAlertEmail);
         props.setPositiveEmailAddress?.(biz.positiveAlertEmail);
       }
-      if (biz.positiveAlertPhone) {
+      if (biz.positiveAlertPhone && !props.positiveAlertPhone) {
         setPositiveAlertPhone(biz.positiveAlertPhone);
         props.setPositiveAlertPhone?.(biz.positiveAlertPhone);
       }
@@ -232,7 +236,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
     initialBiz?.negativeAlertSmsEnabled ??
     initialBiz?.smsAlertsEnabled ??
     initialBiz?.negativeSmsAlertEnabled ??
-    false
+    true
   );
 
   const effectivePositiveAlertsEnabled =

@@ -8,6 +8,7 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 export default async function SettingsPage() {
+  await cookies().catch(() => null);
   const clerkAuth = await auth().catch(() => null);
   const userId = clerkAuth?.userId;
 
@@ -26,8 +27,9 @@ export default async function SettingsPage() {
 
   return (
     <SettingsClient 
-      key="settings-page"
+      key={business?.updatedAt ? new Date(business.updatedAt).getTime() : 'initial'}
       initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
     />
   );
 }
+

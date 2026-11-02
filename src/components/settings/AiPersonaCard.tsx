@@ -137,35 +137,38 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     initialBiz?.selectedModel || propSelectedModel || 'gemini-3.8-flash'
   );
 
-  // Initialize state directly from initialBusiness props avoiding empty overrides
+  // Initialize state directly from props first, avoiding empty overrides
   const [localTone, setLocalTone] = useState<BrandVoiceType>(
+    (props.aiTone as BrandVoiceType) ||
+    (props.brandVoice as BrandVoiceType) ||
+    brandVoice ||
     (initialBiz?.aiTone as BrandVoiceType) ||
     (initialBiz?.brandVoice as BrandVoiceType) ||
-    brandVoice ||
     'friendly_professional'
   );
 
   const [localInstructions, setLocalInstructions] = useState<string>(
-    initialBiz?.aiInstructions ||
-    aiInstructions ||
-    ''
+    props.aiInstructions !== undefined
+      ? props.aiInstructions
+      : (aiInstructions || initialBiz?.aiInstructions || '')
   );
 
   const [localSignature, setLocalSignature] = useState<string>(
-    initialBiz?.aiSignature ||
-    aiSignature ||
-    ''
+    props.aiSignature !== undefined
+      ? props.aiSignature
+      : (aiSignature || initialBiz?.aiSignature || '')
   );
 
   const [localAutoReply, setLocalAutoReply] = useState<boolean>(
-    initialBiz?.autoReplyEnabled ??
-    initialBiz?.autoPublish5Star ??
-    autoReplyEnabled ??
-    autoPublish5Star ??
-    false
+    props.autoReplyEnabled !== undefined
+      ? Boolean(props.autoReplyEnabled)
+      : (props.autoPublish5Star !== undefined
+        ? Boolean(props.autoPublish5Star)
+        : Boolean(initialBiz?.autoReplyEnabled ?? initialBiz?.autoPublish5Star ?? false))
   );
 
   const [localKeywords, setLocalKeywords] = useState<string[]>(() => {
+    if (props.keywords && props.keywords.length > 0) return props.keywords;
     if (initialBiz?.customKeywords) {
       return initialBiz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
     }
@@ -179,32 +182,32 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   useEffect(() => {
     const biz = initialBusiness || business;
     if (biz) {
-      if (biz.aiTone || biz.brandVoice) {
+      if ((biz.aiTone || biz.brandVoice) && !props.aiTone && !props.brandVoice) {
         const tone = (biz.aiTone || biz.brandVoice) as BrandVoiceType;
         setLocalTone(tone);
         setBrandVoice?.(tone);
         setAiTone?.(tone);
       }
-      if (biz.aiInstructions !== undefined) {
+      if (biz.aiInstructions !== undefined && props.aiInstructions === undefined) {
         setLocalInstructions(biz.aiInstructions || '');
         setAiInstructions?.(biz.aiInstructions || '');
       }
-      if (biz.aiSignature !== undefined) {
+      if (biz.aiSignature !== undefined && props.aiSignature === undefined) {
         setLocalSignature(biz.aiSignature || '');
         setAiSignature?.(biz.aiSignature || '');
       }
-      if (biz.autoReplyEnabled !== undefined || biz.autoPublish5Star !== undefined) {
+      if ((biz.autoReplyEnabled !== undefined || biz.autoPublish5Star !== undefined) && props.autoReplyEnabled === undefined) {
         const enabled = Boolean(biz.autoReplyEnabled ?? biz.autoPublish5Star);
         setLocalAutoReply(enabled);
         setAutoReplyEnabled?.(enabled);
         setAutoPublish5Star?.(enabled);
       }
-      if (biz.customKeywords) {
+      if (biz.customKeywords && (!props.keywords || props.keywords.length === 0)) {
         const kwList = biz.customKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
         setLocalKeywords(kwList);
         setKeywords?.(kwList);
       }
-      if (biz.selectedModel) {
+      if (biz.selectedModel && !propSelectedModel) {
         setSelectedModel(biz.selectedModel);
         propSetSelectedModel?.(biz.selectedModel);
       }
@@ -219,6 +222,12 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   }, [props.brandVoice]);
 
   useEffect(() => {
+    if (props.aiTone && props.aiTone !== localTone) {
+      setLocalTone(props.aiTone as BrandVoiceType);
+    }
+  }, [props.aiTone]);
+
+  useEffect(() => {
     if (props.aiInstructions !== undefined && props.aiInstructions !== localInstructions) {
       setLocalInstructions(props.aiInstructions);
     }
@@ -229,6 +238,18 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       setLocalSignature(props.aiSignature);
     }
   }, [props.aiSignature]);
+
+  useEffect(() => {
+    if (props.autoReplyEnabled !== undefined && props.autoReplyEnabled !== localAutoReply) {
+      setLocalAutoReply(props.autoReplyEnabled);
+    }
+  }, [props.autoReplyEnabled]);
+
+  useEffect(() => {
+    if (props.keywords && JSON.stringify(props.keywords) !== JSON.stringify(localKeywords)) {
+      setLocalKeywords(props.keywords);
+    }
+  }, [props.keywords]);
 
   useEffect(() => {
     if (propSelectedModel && propSelectedModel !== selectedModel) {
@@ -387,7 +408,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONA_OPTIONS.map((persona) => {
             const Icon = persona.icon;
-            const isSelected = localTone === persona.key;
+            const isSelected = (props.aiTone || props.brandVoice || localTone) === persona.key;
 
             return (
               <button
@@ -462,7 +483,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
         <input
           type="text"
-          value={localSignature}
+          value={props.aiSignature !== undefined ? props.aiSignature : localSignature}
           onChange={(e) => handleSignatureChange(e.target.value)}
           placeholder="E.g. — The Management Team, RatingPulse"
           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600"
@@ -563,7 +584,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         <label className="relative inline-flex items-center cursor-pointer shrink-0 mt-1">
           <input
             type="checkbox"
-            checked={localAutoReply}
+            checked={Boolean(props.autoReplyEnabled !== undefined ? props.autoReplyEnabled : (props.autoPublish5Star !== undefined ? props.autoPublish5Star : localAutoReply))}
             onChange={(e) => handleAutoReplyToggle(e.target.checked)}
             className="sr-only peer"
           />
