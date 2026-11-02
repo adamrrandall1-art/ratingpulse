@@ -5,7 +5,7 @@ export const revalidate = 0;
 import { NextRequest, NextResponse } from 'next/server';
 import { revalidatePath } from 'next/cache';
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/lib/db'; // Prisma client instance
+import { db, toSnakeBrandVoice, toDisplayTone } from '@/lib/db'; // Prisma client instance
 
 function sanitizeReviewUrl(url?: string | null): string {
   if (!url) return 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
@@ -73,6 +73,10 @@ export async function POST(req: NextRequest) {
         data: {
           negativeAlertEmail: negativeAlertEmail || null,
           negativeAlertPhone: negativeAlertPhone || null,
+          notifyNegativePhone: negativeAlertPhone || null,
+          notify_negative_phone: negativeAlertPhone || null,
+          notifyNegativeEmail: negativeAlertEmail || null,
+          notify_negative_email: negativeAlertEmail || null,
           positiveAlertEmail: positiveAlertEmail || null,
           positiveAlertPhone: positiveAlertPhone || null,
           isGoogleConnected: true,
@@ -81,12 +85,12 @@ export async function POST(req: NextRequest) {
           ...(placeId && { placeId }),
           ...(body.negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(body.negativeAlertsEnabled) }),
           ...(body.positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(body.positiveAlertsEnabled) }),
-          ...(body.negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(body.negativeEmailAlertEnabled) }),
-          ...(body.negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(body.negativeSmsAlertEnabled) }),
+          ...(body.negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(body.negativeEmailAlertEnabled), emailAlertsEnabled: Boolean(body.negativeEmailAlertEnabled), email_alerts_enabled: Boolean(body.negativeEmailAlertEnabled) }),
+          ...(body.negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(body.negativeSmsAlertEnabled), negativeAlertSmsEnabled: Boolean(body.negativeSmsAlertEnabled), notifyNegativeEnabled: Boolean(body.negativeSmsAlertEnabled), notify_negative_enabled: Boolean(body.negativeSmsAlertEnabled) }),
           ...(body.positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(body.positiveEmailAlertEnabled) }),
           ...(body.positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(body.positiveSmsAlertEnabled) }),
-          ...(body.brandVoice && { brandVoice: body.brandVoice, aiTone: body.brandVoice }),
-          ...(body.aiTone && { aiTone: body.aiTone, brandVoice: body.aiTone }),
+          ...(body.brandVoice && { brandVoice: toSnakeBrandVoice(body.brandVoice), brand_voice: toSnakeBrandVoice(body.brandVoice), aiTone: toDisplayTone(body.brandVoice), aiPersonality: toDisplayTone(body.brandVoice) }),
+          ...(body.aiTone && { aiTone: toDisplayTone(body.aiTone), brandVoice: toSnakeBrandVoice(body.aiTone), brand_voice: toSnakeBrandVoice(body.aiTone), aiPersonality: toDisplayTone(body.aiTone) }),
           ...(body.aiInstructions !== undefined && { aiInstructions: body.aiInstructions }),
           ...(body.aiSignature !== undefined && { aiSignature: body.aiSignature }),
           ...(body.autoReplyEnabled !== undefined && { autoReplyEnabled: Boolean(body.autoReplyEnabled), autoPublish5Star: Boolean(body.autoReplyEnabled) }),
@@ -103,6 +107,10 @@ export async function POST(req: NextRequest) {
         update: {
           negativeAlertEmail: negativeAlertEmail || null,
           negativeAlertPhone: negativeAlertPhone || null,
+          notifyNegativePhone: negativeAlertPhone || null,
+          notify_negative_phone: negativeAlertPhone || null,
+          notifyNegativeEmail: negativeAlertEmail || null,
+          notify_negative_email: negativeAlertEmail || null,
           positiveAlertEmail: positiveAlertEmail || null,
           positiveAlertPhone: positiveAlertPhone || null,
           isGoogleConnected: true,
@@ -111,12 +119,12 @@ export async function POST(req: NextRequest) {
           ...(placeId && { placeId }),
           ...(body.negativeAlertsEnabled !== undefined && { negativeAlertsEnabled: Boolean(body.negativeAlertsEnabled) }),
           ...(body.positiveAlertsEnabled !== undefined && { positiveAlertsEnabled: Boolean(body.positiveAlertsEnabled) }),
-          ...(body.negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(body.negativeEmailAlertEnabled) }),
-          ...(body.negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(body.negativeSmsAlertEnabled) }),
+          ...(body.negativeEmailAlertEnabled !== undefined && { negativeEmailAlertEnabled: Boolean(body.negativeEmailAlertEnabled), emailAlertsEnabled: Boolean(body.negativeEmailAlertEnabled), email_alerts_enabled: Boolean(body.negativeEmailAlertEnabled) }),
+          ...(body.negativeSmsAlertEnabled !== undefined && { negativeSmsAlertEnabled: Boolean(body.negativeSmsAlertEnabled), negativeAlertSmsEnabled: Boolean(body.negativeSmsAlertEnabled), notifyNegativeEnabled: Boolean(body.negativeSmsAlertEnabled), notify_negative_enabled: Boolean(body.negativeSmsAlertEnabled) }),
           ...(body.positiveEmailAlertEnabled !== undefined && { positiveEmailAlertEnabled: Boolean(body.positiveEmailAlertEnabled) }),
           ...(body.positiveSmsAlertEnabled !== undefined && { positiveSmsAlertEnabled: Boolean(body.positiveSmsAlertEnabled) }),
-          ...(body.brandVoice && { brandVoice: body.brandVoice, aiTone: body.brandVoice }),
-          ...(body.aiTone && { aiTone: body.aiTone, brandVoice: body.aiTone }),
+          ...(body.brandVoice && { brandVoice: toSnakeBrandVoice(body.brandVoice), brand_voice: toSnakeBrandVoice(body.brandVoice), aiTone: toDisplayTone(body.brandVoice), aiPersonality: toDisplayTone(body.brandVoice) }),
+          ...(body.aiTone && { aiTone: toDisplayTone(body.aiTone), brandVoice: toSnakeBrandVoice(body.aiTone), brand_voice: toSnakeBrandVoice(body.aiTone), aiPersonality: toDisplayTone(body.aiTone) }),
           ...(body.aiInstructions !== undefined && { aiInstructions: body.aiInstructions }),
           ...(body.aiSignature !== undefined && { aiSignature: body.aiSignature }),
           ...(body.autoReplyEnabled !== undefined && { autoReplyEnabled: Boolean(body.autoReplyEnabled), autoPublish5Star: Boolean(body.autoReplyEnabled) }),

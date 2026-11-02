@@ -56,3 +56,18 @@ model Business {
   createdAt                 DateTime @default(now())
   updatedAt                 DateTime @updatedAt
 }
+
+model BusinessSettings {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String   @map("user_id") @db.Uuid
+  brandVoice            String?  @default("friendly_professional") @map("brand_voice")
+  notifyNegativePhone   String?  @map("notify_negative_phone")
+  notifyNegativeEmail   String?  @map("notify_negative_email")
+  notifyNegativeEnabled Boolean  @default(true) @map("notify_negative_enabled")
+  emailAlertsEnabled    Boolean  @default(true) @map("email_alerts_enabled")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("business_settings")
+}
+

@@ -1,7 +1,7 @@
 'use server';
 
 import { auth } from '@clerk/nextjs/server';
-import { db } from '@/lib/db';
+import { db, toSnakeBrandVoice } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
 
@@ -66,20 +66,35 @@ export async function saveAllSettingsAction(payload: {
   };
 
   // Text fields
-  if (payload.negativeAlertEmail !== undefined) updateData.negativeAlertEmail = payload.negativeAlertEmail || null;
-  if (payload.negativeAlertPhone !== undefined) updateData.negativeAlertPhone = payload.negativeAlertPhone || null;
+  if (payload.negativeAlertEmail !== undefined) {
+    updateData.negativeAlertEmail = payload.negativeAlertEmail || null;
+    updateData.notifyNegativeEmail = payload.negativeAlertEmail || null;
+    updateData.notify_negative_email = payload.negativeAlertEmail || null;
+  }
+  if (payload.negativeAlertPhone !== undefined) {
+    updateData.negativeAlertPhone = payload.negativeAlertPhone || null;
+    updateData.notifyNegativePhone = payload.negativeAlertPhone || null;
+    updateData.notify_negative_phone = payload.negativeAlertPhone || null;
+  }
   if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail || null;
   if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone || null;
   if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
 
   const tone = payload.aiTone !== undefined ? payload.aiTone : (payload.aiPersonality !== undefined ? payload.aiPersonality : payload.brandVoice);
   if (tone !== undefined) {
+    const snakeVoice = toSnakeBrandVoice(tone);
     updateData.aiTone = tone;
-    updateData.brandVoice = tone;
+    updateData.brandVoice = snakeVoice;
+    updateData.brand_voice = snakeVoice;
     updateData.aiPersonality = tone;
   }
   if (payload.aiPersonality !== undefined) {
     updateData.aiPersonality = payload.aiPersonality;
+  }
+  if (payload.brandVoice !== undefined) {
+    const snakeVoice = toSnakeBrandVoice(payload.brandVoice);
+    updateData.brandVoice = snakeVoice;
+    updateData.brand_voice = snakeVoice;
   }
 
   if (payload.aiInstructions !== undefined) updateData.aiInstructions = payload.aiInstructions;
@@ -117,6 +132,8 @@ export async function saveAllSettingsAction(payload: {
     updateData.negativeAlertSmsEnabled = isSmsActive;
     updateData.smsAlertsEnabled = isSmsActive;
     updateData.negativeSmsAlertEnabled = isSmsActive;
+    updateData.notifyNegativeEnabled = isSmsActive;
+    updateData.notify_negative_enabled = isSmsActive;
   }
 
   const negEmail = payload.negativeAlertEmailEnabled !== undefined
@@ -125,6 +142,8 @@ export async function saveAllSettingsAction(payload: {
   if (negEmail !== undefined) {
     updateData.negativeAlertEmailEnabled = negEmail;
     updateData.negativeEmailAlertEnabled = negEmail;
+    updateData.emailAlertsEnabled = negEmail;
+    updateData.email_alerts_enabled = negEmail;
   }
 
   if (payload.positiveAlertsEnabled !== undefined) updateData.positiveAlertsEnabled = payload.positiveAlertsEnabled;

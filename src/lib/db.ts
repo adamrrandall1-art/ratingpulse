@@ -706,23 +706,53 @@ export const db = {
         } catch {}
 
         try {
+          let profileUuid: string | null = null;
+          if (UUID_REGEX.test(targetId)) {
+            profileUuid = targetId;
+          } else {
+            const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
+            if (prof?.id) profileUuid = prof.id;
+          }
+
           const settingsUpdates: Record<string, unknown> = {
             updated_at: new Date().toISOString(),
           };
-          if (normalizedData.negativeAlertEmail !== undefined) settingsUpdates.negative_alert_email = normalizedData.negativeAlertEmail;
-          if (normalizedData.negativeAlertPhone !== undefined) settingsUpdates.negative_alert_phone = normalizedData.negativeAlertPhone;
+          if (normalizedData.negativeAlertEmail !== undefined || normalizedData.notifyNegativeEmail !== undefined) {
+            const em = normalizedData.notifyNegativeEmail ?? normalizedData.negativeAlertEmail ?? null;
+            settingsUpdates.negative_alert_email = em;
+            settingsUpdates.notify_negative_email = em;
+          }
+          if (normalizedData.negativeAlertPhone !== undefined || normalizedData.notifyNegativePhone !== undefined) {
+            const ph = normalizedData.notifyNegativePhone ?? normalizedData.negativeAlertPhone ?? null;
+            settingsUpdates.negative_alert_phone = ph;
+            settingsUpdates.notify_negative_phone = ph;
+          }
+          if (isSmsActive !== undefined) {
+            const val = Boolean(isSmsActive);
+            settingsUpdates.notify_negative_enabled = val;
+            settingsUpdates.notify_negative_sms = val;
+            settingsUpdates.negative_alert_sms_enabled = val;
+            settingsUpdates.negative_sms_alert_enabled = val;
+            settingsUpdates.sms_alerts_enabled = val;
+          }
+          if (normalizedData.negativeAlertEmailEnabled !== undefined || normalizedData.emailAlertsEnabled !== undefined) {
+            const val = Boolean(normalizedData.emailAlertsEnabled ?? normalizedData.negativeAlertEmailEnabled);
+            settingsUpdates.email_alerts_enabled = val;
+            settingsUpdates.negative_alert_email_enabled = val;
+          }
           if (normalizedData.positiveAlertEmail !== undefined) settingsUpdates.positive_alert_email = normalizedData.positiveAlertEmail;
           if (normalizedData.positiveAlertPhone !== undefined) settingsUpdates.positive_alert_phone = normalizedData.positiveAlertPhone;
           if (normalizedData.googleReviewUrl !== undefined) settingsUpdates.google_review_url = normalizedData.googleReviewUrl;
           if (normalizedData.isGoogleConnected !== undefined) settingsUpdates.google_connected = normalizedData.isGoogleConnected;
           if (normalizedData.placeId !== undefined) settingsUpdates.place_id = normalizedData.placeId;
-          if (normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
-            const t = normalizedData.aiPersonality || normalizedData.aiTone;
-            settingsUpdates.ai_tone = t;
-            settingsUpdates.ai_personality = t;
-          }
-          if (normalizedData.brandVoice !== undefined || normalizedData.aiTone !== undefined || normalizedData.aiPersonality !== undefined) {
-            settingsUpdates.brand_voice = normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone;
+
+          const rawV = (normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone) as string | null | undefined;
+          if (rawV !== undefined) {
+            const snakeV = toSnakeBrandVoice(typeof rawV === 'string' ? rawV : null);
+            const dispV = toDisplayTone(typeof rawV === 'string' ? rawV : null);
+            settingsUpdates.brand_voice = snakeV;
+            settingsUpdates.ai_tone = dispV;
+            settingsUpdates.ai_personality = dispV;
           }
           if (normalizedData.aiInstructions !== undefined) settingsUpdates.ai_instructions = normalizedData.aiInstructions;
           if (normalizedData.aiSignature !== undefined) settingsUpdates.ai_signature = normalizedData.aiSignature;
@@ -738,8 +768,25 @@ export const db = {
           if (normalizedData.selectedModel !== undefined) settingsUpdates.selected_model = normalizedData.selectedModel;
           if (normalizedData.smsTemplate !== undefined) settingsUpdates.sms_template = normalizedData.smsTemplate;
 
-          await supabase.from('business_settings').update(settingsUpdates).eq('user_id', targetId);
-        } catch {}
+          if (profileUuid) {
+            const { data: existingSettings } = await supabase
+              .from('business_settings')
+              .select('id')
+              .eq('user_id', profileUuid)
+              .maybeSingle();
+
+            if (existingSettings?.id) {
+              await supabase.from('business_settings').update(settingsUpdates).eq('id', existingSettings.id);
+            } else {
+              await supabase.from('business_settings').insert({
+                user_id: profileUuid,
+                ...settingsUpdates,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('[DB_BUSINESS_SETTINGS_UPDATE_ERROR]', err);
+        }
       }
 
       return merged;
@@ -838,10 +885,133 @@ export const db = {
       return payload;
     },
   },
+  businessSettings: {
+    findMany: async (args?: any) => {
+      const supabase = getAdminClient();
+      if (!supabase) return [];
+      try {
+        const { data } = await supabase.from('business_settings').select('*');
+        return data || [];
+      } catch {
+        return [];
+      }
+    },
+    findFirst: async (args?: any) => {
+      const supabase = getAdminClient();
+      if (!supabase) return null;
+      try {
+        let q = supabase.from('business_settings').select('*');
+        const uId = args?.where?.userId || args?.where?.user_id;
+        if (uId) {
+          let pId = uId;
+          if (!UUID_REGEX.test(uId)) {
+            const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', uId).maybeSingle();
+            if (prof?.id) pId = prof.id;
+          }
+          q = q.eq('user_id', pId);
+        } else if (args?.where?.id) {
+          q = q.eq('id', args.where.id);
+        }
+        const { data } = await q.limit(1);
+        return data?.[0] || null;
+      } catch {
+        return null;
+      }
+    },
+    findUnique: async (args?: any) => {
+      const supabase = getAdminClient();
+      if (!supabase) return null;
+      try {
+        let q = supabase.from('business_settings').select('*');
+        const uId = args?.where?.userId || args?.where?.user_id;
+        if (uId) {
+          let pId = uId;
+          if (!UUID_REGEX.test(uId)) {
+            const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', uId).maybeSingle();
+            if (prof?.id) pId = prof.id;
+          }
+          q = q.eq('user_id', pId);
+        } else if (args?.where?.id) {
+          q = q.eq('id', args.where.id);
+        }
+        const { data } = await q.maybeSingle();
+        return data || null;
+      } catch {
+        return null;
+      }
+    },
+    update: async (args: { where: any; data: any }) => {
+      const supabase = getAdminClient();
+      if (!supabase) return args.data;
+      const targetId = args.where.id || args.where.userId || args.where.user_id;
+      let filterCol = args.where.id ? 'id' : 'user_id';
+      let resolvedId = targetId;
+      if (filterCol === 'user_id' && !UUID_REGEX.test(targetId)) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
+        if (prof?.id) resolvedId = prof.id;
+      }
+      const { data } = await supabase.from('business_settings').update(args.data).eq(filterCol, resolvedId).select().maybeSingle();
+      return data || args.data;
+    },
+    upsert: async (args: { where: any; update: any; create: any }) => {
+      const supabase = getAdminClient();
+      if (!supabase) return args.update;
+      const targetId = args.where.id || args.where.userId || args.where.user_id;
+      let filterCol = args.where.id ? 'id' : 'user_id';
+      let resolvedId = targetId;
+      if (filterCol === 'user_id' && !UUID_REGEX.test(targetId)) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
+        if (prof?.id) resolvedId = prof.id;
+      }
+      const { data: existing } = await supabase.from('business_settings').select('id').eq(filterCol, resolvedId).maybeSingle();
+      if (existing) {
+        const { data } = await supabase.from('business_settings').update(args.update).eq('id', existing.id).select().maybeSingle();
+        return data || args.update;
+      } else {
+        const createPayload = { ...args.create, [filterCol]: resolvedId };
+        const { data } = await supabase.from('business_settings').insert(createPayload).select().maybeSingle();
+        return data || args.create;
+      }
+    },
+    create: async (args: { data: any }) => {
+      const supabase = getAdminClient();
+      if (!supabase) return args.data;
+      const { data } = await supabase.from('business_settings').insert(args.data).select().maybeSingle();
+      return data || args.data;
+    },
+  },
 };
 
 export const prisma = db;
 export default db;
+
+export function toSnakeBrandVoice(val?: string | null): string {
+  if (!val) return 'friendly_professional';
+  const v = val.trim();
+  if (v === 'Professional & Warm' || v === 'Friendly & Professional' || v === 'friendly_professional') {
+    return 'friendly_professional';
+  }
+  if (v === 'Casual & Enthusiastic' || v === 'casual_enthusiastic') {
+    return 'casual_enthusiastic';
+  }
+  if (v === 'Concise & Polite' || v === 'concise_polite') {
+    return 'concise_polite';
+  }
+  if (v === 'Empathetic & Caring' || v === 'empathetic') {
+    return 'empathetic';
+  }
+  return v;
+}
+
+export function toDisplayTone(val?: string | null): string {
+  if (!val) return 'Professional & Warm';
+  const v = val.trim();
+  if (v === 'friendly_professional' || v === 'Friendly & Professional') return 'Professional & Warm';
+  if (v === 'casual_enthusiastic') return 'Casual & Enthusiastic';
+  if (v === 'concise_polite') return 'Concise & Polite';
+  if (v === 'empathetic') return 'Empathetic & Caring';
+  return v;
+}
 
 function normalizeBusiness(raw: any): BusinessRecord {
   const directReviewUrl =
@@ -864,16 +1034,37 @@ function normalizeBusiness(raw: any): BusinessRecord {
   );
 
   const isSmsActive = Boolean(
+    raw.notifyNegativeEnabled ??
+    raw.notify_negative_enabled ??
     raw.negativeAlertSmsEnabled ??
     raw.smsAlertsEnabled ??
     raw.negativeSmsAlertEnabled ??
     raw.sms_alerts_enabled ??
     raw.negative_alert_sms_enabled ??
     raw.negative_sms_alert_enabled ??
+    raw.notify_negative_sms ??
     raw.notifySms ??
     raw.enableSmsAlerts ??
     false
   );
+
+  const isEmailActive = Boolean(
+    raw.emailAlertsEnabled ??
+    raw.email_alerts_enabled ??
+    raw.negativeAlertEmailEnabled ??
+    raw.negativeEmailAlertEnabled ??
+    raw.negative_alert_email_enabled ??
+    raw.negative_email_alert_enabled ??
+    raw.notify_negative_email ??
+    true
+  );
+
+  const rawBrandVoice = raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? raw.aiPersonality ?? raw.ai_personality ?? 'friendly_professional';
+  const snakeVoice = toSnakeBrandVoice(rawBrandVoice);
+  const displayTone = toDisplayTone(rawBrandVoice);
+
+  const phone = raw.notifyNegativePhone ?? raw.notify_negative_phone ?? raw.negativeAlertPhone ?? raw.negative_alert_phone ?? null;
+  const email = raw.notifyNegativeEmail ?? raw.notify_negative_email ?? raw.negativeAlertEmail ?? raw.negative_alert_email ?? null;
 
   return {
     id: raw.id || 'default-biz',
@@ -889,24 +1080,35 @@ function normalizeBusiness(raw: any): BusinessRecord {
     rating: Number(raw.rating) || 5.0,
     reviewCount: Number(raw.reviewCount) || 0,
     isGoogleConnected,
-    negativeAlertEmail: raw.negativeAlertEmail ?? raw.negative_alert_email ?? null,
-    negativeAlertPhone: raw.negativeAlertPhone ?? raw.negative_alert_phone ?? null,
+    negativeAlertEmail: email,
+    negativeAlertPhone: phone,
+    notifyNegativeEmail: email,
+    notifyNegativePhone: phone,
+    notify_negative_email: email,
+    notify_negative_phone: phone,
     positiveAlertEmail: raw.positiveAlertEmail ?? raw.positive_alert_email ?? null,
     positiveAlertPhone: raw.positiveAlertPhone ?? raw.positive_alert_phone ?? null,
     negativeAlertsEnabled: Boolean(raw.negativeAlertsEnabled ?? raw.negative_alerts_enabled ?? true),
-    negativeEmailAlertEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
+    negativeEmailAlertEnabled: isEmailActive,
+    emailAlertsEnabled: isEmailActive,
+    email_alerts_enabled: isEmailActive,
     negativeSmsAlertEnabled: isSmsActive,
     positiveAlertsEnabled: Boolean(raw.positiveAlertsEnabled ?? raw.positive_alerts_enabled ?? true),
     positiveEmailAlertEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
     positiveSmsAlertEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
     negativeAlertSmsEnabled: isSmsActive,
     smsAlertsEnabled: isSmsActive,
-    negativeAlertEmailEnabled: Boolean(raw.negativeAlertEmailEnabled ?? raw.negativeEmailAlertEnabled ?? raw.negative_alert_email_enabled ?? raw.negative_email_alert_enabled ?? true),
+    notifyNegativeEnabled: isSmsActive,
+    notify_negative_enabled: isSmsActive,
+    negativeAlertEmailEnabled: isEmailActive,
     positiveAlertSmsEnabled: Boolean(raw.positiveAlertSmsEnabled ?? raw.positiveSmsAlertEnabled ?? raw.positive_alert_sms_enabled ?? raw.positive_sms_alert_enabled ?? false),
     positiveAlertEmailEnabled: Boolean(raw.positiveAlertEmailEnabled ?? raw.positiveEmailAlertEnabled ?? raw.positive_alert_email_enabled ?? raw.positive_email_alert_enabled ?? true),
-    brandVoice: raw.brandVoice ?? raw.brand_voice ?? raw.aiTone ?? raw.ai_tone ?? raw.aiPersonality ?? raw.ai_personality ?? 'Professional & Warm',
-    aiTone: raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? raw.aiPersonality ?? raw.ai_personality ?? 'Professional & Warm',
-    aiPersonality: raw.aiPersonality ?? raw.ai_personality ?? raw.aiTone ?? raw.ai_tone ?? raw.brandVoice ?? raw.brand_voice ?? 'Professional & Warm',
+    brandVoice: snakeVoice,
+    brand_voice: snakeVoice,
+    aiTone: displayTone,
+    ai_tone: displayTone,
+    aiPersonality: displayTone,
+    ai_personality: displayTone,
     aiInstructions: raw.aiInstructions ?? raw.ai_instructions ?? null,
     aiSignature: raw.aiSignature ?? raw.ai_signature ?? null,
     autoReplyEnabled: Boolean(raw.autoReplyEnabled ?? raw.auto_reply_enabled ?? raw.autoPublish5Star ?? raw.auto_publish_5_star ?? false),
