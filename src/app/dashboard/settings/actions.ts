@@ -48,278 +48,186 @@ export async function saveAllSettingsAction(payload: {
     throw new Error('Unauthorized');
   }
 
-  const profile = await (db as any).profile.findFirst({
-    where: { clerkUserId: userId },
-  });
-  const targetUserId = profile?.id || userId;
-
-  console.log('Incoming saveAllSettingsAction payload:', payload);
-
-  const incomingTone =
-    payload.brandVoice ??
-    payload.brand_voice ??
-    payload.aiTone ??
-    payload.ai_tone ??
-    payload.tone ??
-    payload.selectedTone ??
-    payload.aiPersonality ??
-    payload.ai_personality;
-
-  const resolvedBrandVoice =
-    incomingTone !== undefined && incomingTone !== null && String(incomingTone).trim() !== ''
-      ? String(incomingTone)
-      : undefined;
-
-  // Robust boolean extraction for negative email alert
-  let emailEnabled: boolean | undefined = undefined;
-  const rawEmailInput =
-    payload.emailAlertsEnabled ??
-    payload.email_alerts_enabled ??
-    payload.negativeAlertEmailEnabled ??
-    payload.negativeEmailAlertEnabled ??
-    payload.negative_alert_email_enabled ??
-    payload.negative_email_alert_enabled;
-
-  if (typeof rawEmailInput === 'boolean') {
-    emailEnabled = rawEmailInput;
-  } else if (typeof rawEmailInput === 'string') {
-    emailEnabled = rawEmailInput === 'true' || rawEmailInput === 'on' || rawEmailInput === '1';
-  }
-
-  // Robust boolean extraction for negative SMS alert
-  let smsEnabledVal: boolean | undefined = undefined;
-  const rawSmsInput =
-    payload.negativeAlertSmsEnabled ??
-    payload.smsAlertsEnabled ??
-    payload.notifySms ??
-    payload.negativeSmsAlertEnabled ??
-    payload.enableSmsAlerts ??
-    payload.notifyNegativeEnabled ??
-    payload.notify_negative_enabled;
-
-  if (typeof rawSmsInput === 'boolean') {
-    smsEnabledVal = rawSmsInput;
-  } else if (typeof rawSmsInput === 'string') {
-    smsEnabledVal = rawSmsInput === 'true' || rawSmsInput === 'on' || rawSmsInput === '1';
-  }
-
-  // Persist directly to businessSettings table strictly scoped to targetUserId
-  const settingsUpdateData: Record<string, any> = {
-    notifyNegativePhone: payload.negativeAlertPhone || null,
-    notifyNegativeEmail: payload.negativeAlertEmail || null,
-    googleReviewUrl: payload.googleReviewUrl || null,
-    updatedAt: new Date(),
-  };
-  if (resolvedBrandVoice !== undefined) {
-    settingsUpdateData.brandVoice = resolvedBrandVoice;
-  }
-  if (smsEnabledVal !== undefined) {
-    settingsUpdateData.notifyNegativeEnabled = smsEnabledVal;
-  }
-  if (emailEnabled !== undefined) {
-    settingsUpdateData.emailAlertsEnabled = emailEnabled;
-  }
-
-  const settingsCreateData: Record<string, any> = {
-    userId: targetUserId,
-    brandVoice: resolvedBrandVoice || 'friendly_professional',
-    notifyNegativePhone: payload.negativeAlertPhone || null,
-    notifyNegativeEmail: payload.negativeAlertEmail || null,
-    notifyNegativeEnabled: smsEnabledVal !== undefined ? smsEnabledVal : true,
-    emailAlertsEnabled: emailEnabled !== undefined ? emailEnabled : true,
-    googleReviewUrl: payload.googleReviewUrl || null,
-  };
+  console.log('--- SAVE SETTINGS ACTION TRIGGERED ---');
+  console.log('User auth ID:', userId);
+  console.log('Received Payload:', JSON.stringify(payload, null, 2));
 
   try {
-    await db.businessSettings.upsert({
-      where: { userId: targetUserId },
-      update: settingsUpdateData,
-      create: settingsCreateData,
+    const profile = await (db as any).profile.findFirst({
+      where: { clerkUserId: userId },
     });
-  } catch (settingsErr) {
-    console.warn('[saveAllSettingsAction] businessSettings update error:', settingsErr);
-  }
+    const targetUserId = profile?.id || userId;
 
-  // 1. Find all businesses for this user and resolve active business with saved settings
-  const businesses = await db.business.findMany({
-    where: {
-      OR: [
-        { clerkUserId: userId },
-        { userId: targetUserId },
-        { userId: userId },
-        { id: targetUserId },
-        { id: userId },
-      ],
-    },
-    orderBy: { updatedAt: 'desc' },
-  });
-
-  const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0];
-
-  const updateData: Record<string, any> = {
-    updatedAt: new Date(),
-    isGoogleConnected: true,
-    clerkUserId: userId,
-    userId: userId,
-  };
-
-  if (resolvedBrandVoice !== undefined) {
-    updateData.brandVoice = resolvedBrandVoice;
-    updateData.brand_voice = resolvedBrandVoice;
-    updateData.aiTone = resolvedBrandVoice;
-    updateData.ai_tone = resolvedBrandVoice;
-    updateData.aiPersonality = resolvedBrandVoice;
-    updateData.ai_personality = resolvedBrandVoice;
-  }
-
-  // Text fields
-  if (payload.negativeAlertEmail !== undefined) {
-    updateData.negativeAlertEmail = payload.negativeAlertEmail || null;
-    updateData.notifyNegativeEmail = payload.negativeAlertEmail || null;
-    updateData.notify_negative_email = payload.negativeAlertEmail || null;
-  }
-  if (payload.negativeAlertPhone !== undefined) {
-    updateData.negativeAlertPhone = payload.negativeAlertPhone || null;
-    updateData.notifyNegativePhone = payload.negativeAlertPhone || null;
-    updateData.notify_negative_phone = payload.negativeAlertPhone || null;
-  }
-  if (payload.positiveAlertEmail !== undefined) updateData.positiveAlertEmail = payload.positiveAlertEmail || null;
-  if (payload.positiveAlertPhone !== undefined) updateData.positiveAlertPhone = payload.positiveAlertPhone || null;
-  if (payload.googleReviewUrl !== undefined) updateData.googleReviewUrl = payload.googleReviewUrl;
-
-  if (payload.aiInstructions !== undefined) updateData.aiInstructions = payload.aiInstructions;
-  if (payload.aiSignature !== undefined) updateData.aiSignature = payload.aiSignature;
-
-  const autoReply = payload.autoReplyEnabled !== undefined ? payload.autoReplyEnabled : payload.autoPublish5Star;
-  if (autoReply !== undefined) {
-    const isAutoReply = Boolean(autoReply);
-    updateData.autoReplyEnabled = isAutoReply;
-    updateData.autoPublish5Star = isAutoReply;
-  }
-
-  if (payload.selectedModel !== undefined) updateData.selectedModel = payload.selectedModel || 'gemini-1.5-flash';
-
-  const kw = payload.seoKeywords !== undefined ? payload.seoKeywords : (payload.customKeywords !== undefined ? payload.customKeywords : payload.keywords);
-  if (kw !== undefined) {
-    const kwStr = Array.isArray(kw) ? kw.join(',') : kw;
-    updateData.customKeywords = kwStr;
-    updateData.seoKeywords = kwStr;
-  }
-
-  if (payload.smsTemplate !== undefined) updateData.smsTemplate = payload.smsTemplate;
-
-  if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
-  
-  // Boolean checkmark fields (support every possible naming convention)
-  if (smsEnabledVal !== undefined) {
-    updateData.negativeAlertSmsEnabled = smsEnabledVal;
-    updateData.smsAlertsEnabled = smsEnabledVal;
-    updateData.negativeSmsAlertEnabled = smsEnabledVal;
-    updateData.notifyNegativeEnabled = smsEnabledVal;
-    updateData.notify_negative_enabled = smsEnabledVal;
-  }
-
-  if (emailEnabled !== undefined) {
-    updateData.negativeAlertEmailEnabled = emailEnabled;
-    updateData.negativeEmailAlertEnabled = emailEnabled;
-    updateData.emailAlertsEnabled = emailEnabled;
-    updateData.email_alerts_enabled = emailEnabled;
-    updateData.negative_alert_email_enabled = emailEnabled;
-    updateData.negative_email_alert_enabled = emailEnabled;
-  }
-
-  if (payload.positiveAlertsEnabled !== undefined) updateData.positiveAlertsEnabled = payload.positiveAlertsEnabled;
-
-  const posSms = payload.positiveAlertSmsEnabled !== undefined
-    ? Boolean(payload.positiveAlertSmsEnabled)
-    : (payload.positiveSmsAlertEnabled !== undefined ? Boolean(payload.positiveSmsAlertEnabled) : undefined);
-  if (posSms !== undefined) {
-    updateData.positiveAlertSmsEnabled = posSms;
-    updateData.positiveSmsAlertEnabled = posSms;
-  }
-
-  const posEmail = payload.positiveAlertEmailEnabled !== undefined
-    ? Boolean(payload.positiveAlertEmailEnabled)
-    : (payload.positiveEmailAlertEnabled !== undefined ? Boolean(payload.positiveEmailAlertEnabled) : undefined);
-  if (posEmail !== undefined) {
-    updateData.positiveAlertEmailEnabled = posEmail;
-    updateData.positiveEmailAlertEnabled = posEmail;
-  }
-
-  let saved;
-  if (activeBusiness) {
-    saved = await db.business.update({
-      where: { id: activeBusiness.id },
-      data: {
-        ...updateData,
-        clerkUserId: userId,
-        userId: targetUserId,
-        updatedAt: new Date(),
-      },
-    });
-  } else {
-    const recordId = payload.businessId || targetUserId || userId;
-    saved = await db.business.create({
-      data: {
-        id: recordId,
-        userId: targetUserId,
-        clerkUserId: userId,
-        name: 'RatingPulse Business',
-        aiTone: resolvedBrandVoice || 'Professional & Warm',
-        aiPersonality: resolvedBrandVoice || 'Professional & Warm',
-        brandVoice: resolvedBrandVoice || 'Professional & Warm',
-        aiInstructions: '',
-        autoReplyEnabled: false,
-        autoPublish5Star: false,
-        selectedModel: 'gemini-1.5-flash',
-        customKeywords: null,
-        seoKeywords: null,
-        ...updateData,
-      },
-    });
-  }
-
-  // Synchronize duplicate rows for this user without clearing columns
-  try {
-    const allUserBusinesses = await db.business.findMany({
+    // Find the existing settings row first by targetUserId or userId
+    let existingSettings = await db.businessSettings.findFirst({
       where: {
         OR: [
           { userId: targetUserId },
-          { userId },
-          { clerkUserId: userId },
-          { id: targetUserId },
-          { id: userId },
-        ],
-      },
-      orderBy: { updatedAt: 'desc' },
+          { userId: userId }
+        ]
+      }
     });
-    if (allUserBusinesses.length > 1) {
-      for (const dup of allUserBusinesses) {
-        if (dup.id !== saved.id) {
-          await db.business.update({
-            where: { id: dup.id },
-            data: {
-              ...updateData,
-              clerkUserId: userId,
-              userId: targetUserId,
-            },
-          }).catch(() => null);
-        }
+
+    if (!existingSettings) {
+      try {
+        existingSettings = await db.businessSettings.create({
+          data: {
+            userId: targetUserId,
+            brandVoice: payload.brandVoice || payload.aiTone || 'friendly_professional',
+            notifyNegativeEmail: payload.negativeAlertEmail || null,
+            notifyNegativePhone: payload.negativeAlertPhone || null,
+            emailAlertsEnabled: typeof payload.emailAlertsEnabled === 'boolean' ? payload.emailAlertsEnabled : true,
+            notifyNegativeEnabled: typeof payload.negativeAlertSmsEnabled === 'boolean' ? payload.negativeAlertSmsEnabled : true,
+            googleReviewUrl: payload.googleReviewUrl || null,
+          },
+        });
+      } catch (createErr) {
+        console.warn('Could not auto-create businessSettings:', createErr);
       }
     }
-  } catch {}
 
-  // Set active business cookies
-  try {
-    const cookieStore = await cookies();
-    cookieStore.set('activeBusinessId', saved.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
-    cookieStore.set('rp_active_business_id', saved.id, { path: '/', maxAge: 60 * 60 * 24 * 365 });
-  } catch {}
+    if (!existingSettings) {
+      throw new Error(`No business_settings record found for user: ${userId}`);
+    }
 
-  revalidatePath('/dashboard', 'layout');
-  revalidatePath('/dashboard/settings');
+    // Resolve brand voice / tone
+    const incomingTone =
+      payload.brandVoice ??
+      payload.brand_voice ??
+      payload.aiTone ??
+      payload.ai_tone ??
+      payload.tone ??
+      payload.selectedTone ??
+      payload.aiPersonality ??
+      payload.ai_personality;
 
-  return { success: true, business: saved };
+    const resolvedTone = (incomingTone !== undefined && incomingTone !== null && String(incomingTone).trim() !== '')
+      ? String(incomingTone)
+      : (payload.brandVoice || payload.aiTone || existingSettings.brandVoice || 'friendly_professional');
+
+    // Robust boolean extraction for negative email alert
+    let emailAlertsVal: boolean | undefined = undefined;
+    const rawEmailInput =
+      payload.emailAlertsEnabled ??
+      payload.email_alerts_enabled ??
+      payload.negativeAlertEmailEnabled ??
+      payload.negativeEmailAlertEnabled;
+
+    if (typeof rawEmailInput === 'boolean') {
+      emailAlertsVal = rawEmailInput;
+    } else if (typeof rawEmailInput === 'string') {
+      emailAlertsVal = rawEmailInput === 'true' || rawEmailInput === 'on' || rawEmailInput === '1';
+    }
+
+    // Robust boolean extraction for negative SMS alert
+    let smsAlertsVal: boolean | undefined = undefined;
+    const rawSmsInput =
+      payload.negativeAlertSmsEnabled ??
+      payload.notifyNegativeEnabled ??
+      payload.smsAlertsEnabled ??
+      payload.negativeSmsAlertEnabled ??
+      payload.notifySms ??
+      payload.enableSmsAlerts;
+
+    if (typeof rawSmsInput === 'boolean') {
+      smsAlertsVal = rawSmsInput;
+    } else if (typeof rawSmsInput === 'string') {
+      smsAlertsVal = rawSmsInput === 'true' || rawSmsInput === 'on' || rawSmsInput === '1';
+    }
+
+    const finalNegativeEmail = payload.negativeAlertEmail !== undefined
+      ? (payload.negativeAlertEmail || null)
+      : (payload.notifyNegativeEmail !== undefined ? (payload.notifyNegativeEmail || null) : existingSettings.notifyNegativeEmail);
+
+    const finalNegativePhone = payload.negativeAlertPhone !== undefined
+      ? (payload.negativeAlertPhone || null)
+      : (payload.notifyNegativePhone !== undefined ? (payload.notifyNegativePhone || null) : existingSettings.notifyNegativePhone);
+
+    const finalGoogleReviewUrl = payload.googleReviewUrl !== undefined
+      ? (payload.googleReviewUrl || null)
+      : existingSettings.googleReviewUrl;
+
+    const updated = await db.businessSettings.update({
+      where: { id: existingSettings.id },
+      data: {
+        brandVoice: resolvedTone,
+        notifyNegativeEmail: finalNegativeEmail,
+        notifyNegativePhone: finalNegativePhone,
+        emailAlertsEnabled: emailAlertsVal !== undefined ? emailAlertsVal : existingSettings.emailAlertsEnabled,
+        notifyNegativeEnabled: smsAlertsVal !== undefined ? smsAlertsVal : existingSettings.notifyNegativeEnabled,
+        googleReviewUrl: finalGoogleReviewUrl,
+        updatedAt: new Date(),
+      },
+    });
+
+    console.log('Successfully updated settings in DB:', updated);
+
+    // Also update businesses table to maintain consistency
+    let savedBusiness = null;
+    try {
+      const businesses = await db.business.findMany({
+        where: {
+          OR: [
+            { clerkUserId: userId },
+            { userId: targetUserId },
+            { userId: userId },
+            { id: targetUserId },
+            { id: userId },
+          ],
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+      const activeBusiness = businesses[0];
+      if (activeBusiness) {
+        savedBusiness = await db.business.update({
+          where: { id: activeBusiness.id },
+          data: {
+            brandVoice: resolvedTone,
+            aiTone: resolvedTone,
+            aiPersonality: resolvedTone,
+            negativeAlertEmail: finalNegativeEmail,
+            notifyNegativeEmail: finalNegativeEmail,
+            negativeAlertPhone: finalNegativePhone,
+            notifyNegativePhone: finalNegativePhone,
+            emailAlertsEnabled: emailAlertsVal !== undefined ? emailAlertsVal : existingSettings.emailAlertsEnabled,
+            negativeAlertEmailEnabled: emailAlertsVal !== undefined ? emailAlertsVal : existingSettings.emailAlertsEnabled,
+            negativeEmailAlertEnabled: emailAlertsVal !== undefined ? emailAlertsVal : existingSettings.emailAlertsEnabled,
+            negativeAlertSmsEnabled: smsAlertsVal !== undefined ? smsAlertsVal : existingSettings.notifyNegativeEnabled,
+            smsAlertsEnabled: smsAlertsVal !== undefined ? smsAlertsVal : existingSettings.notifyNegativeEnabled,
+            notifyNegativeEnabled: smsAlertsVal !== undefined ? smsAlertsVal : existingSettings.notifyNegativeEnabled,
+            googleReviewUrl: finalGoogleReviewUrl,
+            reviewUrl: finalGoogleReviewUrl,
+            aiInstructions: payload.aiInstructions !== undefined ? payload.aiInstructions : activeBusiness.aiInstructions,
+            aiSignature: payload.aiSignature !== undefined ? payload.aiSignature : activeBusiness.aiSignature,
+            autoReplyEnabled: payload.autoReplyEnabled !== undefined ? Boolean(payload.autoReplyEnabled) : activeBusiness.autoReplyEnabled,
+            selectedModel: payload.selectedModel !== undefined ? payload.selectedModel : activeBusiness.selectedModel,
+            smsTemplate: payload.smsTemplate !== undefined ? payload.smsTemplate : activeBusiness.smsTemplate,
+            updatedAt: new Date(),
+          },
+        });
+      }
+    } catch (bizErr) {
+      console.warn('Could not sync businesses table:', bizErr);
+    }
+
+    // Set active business cookies
+    try {
+      const cookieStore = await cookies();
+      const cookieBizId = savedBusiness?.id || existingSettings.id;
+      cookieStore.set('activeBusinessId', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+      cookieStore.set('rp_active_business_id', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
+    } catch {}
+
+    // Revalidate paths to bust Next.js server cache
+    revalidatePath('/dashboard/settings');
+    revalidatePath('/dashboard');
+    revalidatePath('/dashboard', 'layout');
+
+    return { success: true, settings: updated, business: savedBusiness || updated };
+  } catch (error: any) {
+    console.error('DATABASE UPDATE FAILED:', error);
+    throw new Error(`Failed to save settings: ${error.message}`);
+  }
 }
 
 // Backward-compatible wrappers

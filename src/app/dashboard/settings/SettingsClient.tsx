@@ -707,80 +707,90 @@ export default function SettingsClient({
         autoPublish5Star: mergedState.autoReplyEnabled,
       });
 
-      if (res?.success) {
-        setIsSaved(true);
-        setIsNotificationsSaved(true);
-        setIsAiPersonaSaved(true);
-
-        // DO NOT reset settingsState to empty values.
-        // Update both React state and localStorage with the returned record:
-        if (res.business) {
-          const returnedSms = res.business.negativeAlertSmsEnabled ?? res.business.smsAlertsEnabled ?? res.business.negativeSmsAlertEnabled;
-          const returnedEmail =
-            res.business.emailAlertsEnabled ??
-            res.business.negativeAlertEmailEnabled ??
-            res.business.negativeEmailAlertEnabled ??
-            emailAlertsToSend;
-          const returnedEmailBool = typeof returnedEmail === 'boolean' ? returnedEmail : (returnedEmail === 'true' || returnedEmail === 'on');
-          const returnedTone = res.business.brandVoice ?? res.business.brand_voice ?? res.business.aiPersonality ?? res.business.aiTone ?? toneToSave;
-          setBrandVoiceState(returnedTone);
-          const returnedKw = res.business.seoKeywords || res.business.customKeywords;
-          const returnedKwList = returnedKw
-            ? returnedKw.split(',').map((k: string) => k.trim()).filter(Boolean)
-            : (settingsState.keywords || []);
-
-          setSettingsState((prev: any) => {
-            const updated = {
-              ...prev,
-              negativeAlertEmail: res.business.negativeAlertEmail ?? prev.negativeAlertEmail,
-              negativeAlertPhone: res.business.negativeAlertPhone ?? prev.negativeAlertPhone,
-              positiveAlertEmail: res.business.positiveAlertEmail ?? prev.positiveAlertEmail,
-              positiveAlertPhone: res.business.positiveAlertPhone ?? prev.positiveAlertPhone,
-              negativeAlertSmsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.negativeAlertSmsEnabled,
-              smsAlertsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.smsAlertsEnabled,
-              negativeAlertEmailEnabled: returnedEmailBool,
-              negativeEmailAlertEnabled: returnedEmailBool,
-              emailAlertsEnabled: returnedEmailBool,
-              positiveAlertSmsEnabled: res.business.positiveAlertSmsEnabled ?? prev.positiveAlertSmsEnabled,
-              positiveAlertEmailEnabled: res.business.positiveAlertEmailEnabled ?? prev.positiveAlertEmailEnabled,
-              negativeAlertsEnabled: res.business.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
-              positiveAlertsEnabled: res.business.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
-              aiTone: returnedTone,
-              aiPersonality: returnedTone,
-              brandVoice: returnedTone,
-              aiInstructions: res.business.aiInstructions ?? prev.aiInstructions,
-              aiSignature: res.business.aiSignature ?? prev.aiSignature,
-              autoReplyEnabled: res.business.autoReplyEnabled ?? prev.autoReplyEnabled,
-              selectedModel: res.business.selectedModel ?? prev.selectedModel,
-              smsTemplate: res.business.smsTemplate ?? prev.smsTemplate,
-              keywords: returnedKwList,
-              seoKeywords: returnedKw || prev.seoKeywords || kwString,
-              customKeywords: returnedKw || prev.customKeywords || kwString,
-            };
-            persistToLocalStorage(updated);
-            return updated;
-          });
-
-          setActiveBusiness((prev: any) => ({
-            ...(prev || {}),
-            ...res.business,
-            isGoogleConnected: true,
-            google_connected: true,
-            isConnected: true,
-          }));
-        }
-
-        toast.success('Settings saved successfully');
-
-        setTimeout(() => {
-          setIsSaved(false);
-          setIsNotificationsSaved(false);
-          setIsAiPersonaSaved(false);
-        }, 2500);
+      if (!res || !res.success) {
+        throw new Error((res as any)?.error || 'Failed to save settings to the database.');
       }
-    } catch (error) {
+
+      setIsSaved(true);
+      setIsNotificationsSaved(true);
+      setIsAiPersonaSaved(true);
+
+      const returnedRecord = res.settings || res.business;
+      if (returnedRecord) {
+        const returnedSms =
+          returnedRecord.negativeAlertSmsEnabled ??
+          returnedRecord.smsAlertsEnabled ??
+          returnedRecord.negativeSmsAlertEnabled ??
+          returnedRecord.notifyNegativeEnabled;
+
+        const returnedEmail =
+          returnedRecord.emailAlertsEnabled ??
+          returnedRecord.negativeAlertEmailEnabled ??
+          returnedRecord.negativeEmailAlertEnabled ??
+          emailAlertsToSend;
+        const returnedEmailBool = typeof returnedEmail === 'boolean' ? returnedEmail : (returnedEmail === 'true' || returnedEmail === 'on');
+        const returnedTone = returnedRecord.brandVoice ?? returnedRecord.brand_voice ?? returnedRecord.aiPersonality ?? returnedRecord.aiTone ?? toneToSave;
+        setBrandVoiceState(returnedTone);
+        const returnedKw = returnedRecord.seoKeywords || returnedRecord.customKeywords;
+        const returnedKwList = returnedKw
+          ? returnedKw.split(',').map((k: string) => k.trim()).filter(Boolean)
+          : (settingsState.keywords || []);
+
+        setSettingsState((prev: any) => {
+          const updated = {
+            ...prev,
+            negativeAlertEmail: returnedRecord.negativeAlertEmail ?? returnedRecord.notifyNegativeEmail ?? prev.negativeAlertEmail,
+            negativeAlertPhone: returnedRecord.negativeAlertPhone ?? returnedRecord.notifyNegativePhone ?? prev.negativeAlertPhone,
+            positiveAlertEmail: returnedRecord.positiveAlertEmail ?? prev.positiveAlertEmail,
+            positiveAlertPhone: returnedRecord.positiveAlertPhone ?? prev.positiveAlertPhone,
+            negativeAlertSmsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.negativeAlertSmsEnabled,
+            smsAlertsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.smsAlertsEnabled,
+            negativeAlertEmailEnabled: returnedEmailBool,
+            negativeEmailAlertEnabled: returnedEmailBool,
+            emailAlertsEnabled: returnedEmailBool,
+            positiveAlertSmsEnabled: returnedRecord.positiveAlertSmsEnabled ?? prev.positiveAlertSmsEnabled,
+            positiveAlertEmailEnabled: returnedRecord.positiveAlertEmailEnabled ?? prev.positiveAlertEmailEnabled,
+            negativeAlertsEnabled: returnedRecord.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
+            positiveAlertsEnabled: returnedRecord.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
+            aiTone: returnedTone,
+            aiPersonality: returnedTone,
+            brandVoice: returnedTone,
+            aiInstructions: returnedRecord.aiInstructions ?? prev.aiInstructions,
+            aiSignature: returnedRecord.aiSignature ?? prev.aiSignature,
+            autoReplyEnabled: returnedRecord.autoReplyEnabled ?? prev.autoReplyEnabled,
+            selectedModel: returnedRecord.selectedModel ?? prev.selectedModel,
+            smsTemplate: returnedRecord.smsTemplate ?? prev.smsTemplate,
+            keywords: returnedKwList,
+            seoKeywords: returnedKw || prev.seoKeywords || kwString,
+            customKeywords: returnedKw || prev.customKeywords || kwString,
+          };
+          persistToLocalStorage(updated);
+          return updated;
+        });
+
+        setActiveBusiness((prev: any) => ({
+          ...(prev || {}),
+          ...returnedRecord,
+          isGoogleConnected: true,
+          google_connected: true,
+          isConnected: true,
+        }));
+      }
+
+      toast.success('Settings saved successfully');
+
+      setTimeout(() => {
+        setIsSaved(false);
+        setIsNotificationsSaved(false);
+        setIsAiPersonaSaved(false);
+      }, 2500);
+    } catch (error: any) {
       console.error('Failed to save settings:', error);
-      toast.error('Failed to save settings');
+      const errorMessage = error?.message || (typeof error === 'string' ? error : 'Failed to save settings');
+      toast.error('Failed to save settings', {
+        description: errorMessage,
+        duration: 8000,
+      });
     } finally {
       setIsSaving(false);
       setIsSavingNotifications(false);

@@ -21,7 +21,12 @@ export default async function SettingsPage() {
   const targetUserId = profile?.id || userId;
 
   let settings = await db.businessSettings.findFirst({
-    where: { userId: targetUserId },
+    where: {
+      OR: [
+        { userId: targetUserId },
+        { userId: userId }
+      ]
+    },
   });
 
   // If a brand new user doesn't have a settings record yet, create their default row:

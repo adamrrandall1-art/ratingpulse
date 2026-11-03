@@ -6,9 +6,77 @@ import path from 'path';
 // Server-side persistent business store for robust navigation and resilience
 const globalStore = globalThis as unknown as {
   __rp_businesses?: Map<string, BusinessRecord>;
+  __rp_business_settings?: Map<string, any>;
 };
 if (!globalStore.__rp_businesses) {
   globalStore.__rp_businesses = new Map<string, BusinessRecord>();
+}
+if (!globalStore.__rp_business_settings) {
+  globalStore.__rp_business_settings = new Map<string, any>();
+}
+
+function getSettingsCacheFilePath(): string | null {
+  try {
+    const dir = path.join(process.cwd(), 'node_modules', '.cache');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return path.join(dir, 'rp_business_settings.json');
+  } catch {
+    return null;
+  }
+}
+
+function saveSettingsToDisk(record: any) {
+  try {
+    const filePath = getSettingsCacheFilePath();
+    if (!filePath) return;
+    let data: Record<string, any> = {};
+    if (fs.existsSync(filePath)) {
+      try {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {}
+    }
+    if (record.id) data[record.id] = record;
+    if (record.userId) data[record.userId] = record;
+    if (record.user_id) data[record.user_id] = record;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch {}
+}
+
+function loadSettingsFromDisk(targetId: string): any | null {
+  try {
+    const filePath = getSettingsCacheFilePath();
+    if (!filePath || !fs.existsSync(filePath)) return null;
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    return data[targetId] || null;
+  } catch {
+    return null;
+  }
+}
+
+function cacheBusinessSettings(record: any) {
+  if (!record) return;
+  if (!globalStore.__rp_business_settings) globalStore.__rp_business_settings = new Map<string, any>();
+  if (record.id) globalStore.__rp_business_settings.set(record.id, record);
+  if (record.userId) globalStore.__rp_business_settings.set(record.userId, record);
+  if (record.user_id) globalStore.__rp_business_settings.set(record.user_id, record);
+  saveSettingsToDisk(record);
+}
+
+function findCachedBusinessSettings(candidateIds: string[]): any | null {
+  for (const cid of candidateIds) {
+    if (!cid) continue;
+    if (globalStore.__rp_business_settings?.has(cid)) {
+      return globalStore.__rp_business_settings.get(cid);
+    }
+    const fromDisk = loadSettingsFromDisk(cid);
+    if (fromDisk) {
+      cacheBusinessSettings(fromDisk);
+      return fromDisk;
+    }
+  }
+  return null;
 }
 
 function getCacheFilePath(): string | null {
@@ -956,93 +1024,178 @@ export const db = {
     },
     findFirst: async (args?: any) => {
       const supabase = getAdminClient();
-      if (!supabase) return null;
-      try {
-        let q = supabase.from('business_settings').select('*');
-        const uId = args?.where?.userId || args?.where?.user_id;
-        if (uId) {
-          let pId = uId;
-          if (!UUID_REGEX.test(uId)) {
-            const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', uId).maybeSingle();
-            if (prof?.id) pId = prof.id;
-          }
-          q = q.eq('user_id', pId);
-        } else if (args?.where?.id) {
-          q = q.eq('id', args.where.id);
+      let candidateUserIds: string[] = [];
+      let candidateIds: string[] = [];
+
+      if (args?.where?.id) candidateIds.push(String(args.where.id));
+      if (args?.where?.userId) candidateUserIds.push(String(args.where.userId));
+      if (args?.where?.user_id) candidateUserIds.push(String(args.where.user_id));
+
+      if (Array.isArray(args?.where?.OR)) {
+        for (const item of args.where.OR) {
+          if (item?.id) candidateIds.push(String(item.id));
+          if (item?.userId) candidateUserIds.push(String(item.userId));
+          if (item?.user_id) candidateUserIds.push(String(item.user_id));
         }
-        const { data } = await q.limit(1);
-        return normalizeBusinessSettingsRow(data?.[0] || null);
-      } catch {
-        return null;
       }
+
+      candidateUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
+      candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
+
+      if (supabase) {
+        try {
+          if (candidateIds.length > 0) {
+            const { data, error } = await supabase
+              .from('business_settings')
+              .select('*')
+              .in('id', candidateIds)
+              .limit(1);
+            if (!error && data && data[0]) {
+              const row = normalizeBusinessSettingsRow(data[0]);
+              cacheBusinessSettings(row);
+              return row;
+            }
+          }
+
+          const resolvedUserUuids: string[] = [];
+          for (const uId of candidateUserIds) {
+            if (UUID_REGEX.test(uId)) {
+              resolvedUserUuids.push(uId);
+            } else {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('clerk_user_id', uId)
+                .maybeSingle();
+              if (prof?.id) resolvedUserUuids.push(prof.id);
+            }
+          }
+
+          if (resolvedUserUuids.length > 0) {
+            const { data, error } = await supabase
+              .from('business_settings')
+              .select('*')
+              .in('user_id', resolvedUserUuids)
+              .order('updated_at', { ascending: false })
+              .limit(1);
+            if (!error && data && data[0]) {
+              const row = normalizeBusinessSettingsRow(data[0]);
+              cacheBusinessSettings(row);
+              return row;
+            }
+          }
+        } catch (err) {
+          console.error('[db.businessSettings.findFirst] error:', err);
+        }
+      }
+
+      // Memory and disk cache fallback
+      const cached = findCachedBusinessSettings([...candidateIds, ...candidateUserIds]);
+      if (cached) return normalizeBusinessSettingsRow(cached);
+
+      return null;
     },
     findUnique: async (args?: any) => {
-      const supabase = getAdminClient();
-      if (!supabase) return null;
-      try {
-        let q = supabase.from('business_settings').select('*');
-        const uId = args?.where?.userId || args?.where?.user_id;
-        if (uId) {
-          let pId = uId;
-          if (!UUID_REGEX.test(uId)) {
-            const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', uId).maybeSingle();
-            if (prof?.id) pId = prof.id;
-          }
-          q = q.eq('user_id', pId);
-        } else if (args?.where?.id) {
-          q = q.eq('id', args.where.id);
-        }
-        const { data } = await q.maybeSingle();
-        return normalizeBusinessSettingsRow(data || null);
-      } catch {
-        return null;
-      }
+      return db.businessSettings.findFirst(args);
     },
     update: async (args: { where: any; data: any }) => {
       const supabase = getAdminClient();
-      if (!supabase) return normalizeBusinessSettingsRow(args.data);
       const targetId = args.where.id || args.where.userId || args.where.user_id;
       let filterCol = args.where.id ? 'id' : 'user_id';
       let resolvedId = targetId;
-      if (filterCol === 'user_id' && !UUID_REGEX.test(targetId)) {
+      if (filterCol === 'user_id' && !UUID_REGEX.test(targetId) && supabase) {
         const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
         if (prof?.id) resolvedId = prof.id;
       }
       const payload = mapBusinessSettingsData(args.data);
-      const { data } = await supabase.from('business_settings').update(payload).eq(filterCol, resolvedId).select().maybeSingle();
-      return normalizeBusinessSettingsRow(data || args.data);
+      if (payload.updated_at === undefined) {
+        payload.updated_at = new Date().toISOString();
+      }
+
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('business_settings')
+          .update(payload)
+          .eq(filterCol, resolvedId)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('[db.businessSettings.update] Supabase error:', error);
+          throw new Error(error.message || 'Database update failed');
+        }
+        if (data) {
+          const row = normalizeBusinessSettingsRow(data);
+          cacheBusinessSettings(row);
+          return row;
+        }
+      }
+
+      const row = normalizeBusinessSettingsRow({
+        id: args.where.id || resolvedId,
+        user_id: resolvedId,
+        ...args.data,
+        updated_at: new Date().toISOString(),
+      });
+      cacheBusinessSettings(row);
+      return row;
     },
     upsert: async (args: { where: any; update: any; create: any }) => {
-      const supabase = getAdminClient();
-      if (!supabase) return normalizeBusinessSettingsRow(args.update);
-      const targetId = args.where.id || args.where.userId || args.where.user_id;
-      let filterCol = args.where.id ? 'id' : 'user_id';
-      let resolvedId = targetId;
-      if (filterCol === 'user_id' && !UUID_REGEX.test(targetId)) {
-        const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', targetId).maybeSingle();
-        if (prof?.id) resolvedId = prof.id;
-      }
-      const { data: existing } = await supabase.from('business_settings').select('id').eq(filterCol, resolvedId).maybeSingle();
+      const existing = await db.businessSettings.findFirst({ where: args.where });
       if (existing) {
-        const updatePayload = mapBusinessSettingsData(args.update);
-        const { data } = await supabase.from('business_settings').update(updatePayload).eq('id', existing.id).select().maybeSingle();
-        return normalizeBusinessSettingsRow(data || args.update);
+        return db.businessSettings.update({
+          where: { id: existing.id },
+          data: args.update,
+        });
       } else {
-        const createPayload = mapBusinessSettingsData({ ...args.create, [filterCol]: resolvedId });
-        const { data } = await supabase.from('business_settings').insert(createPayload).select().maybeSingle();
-        return normalizeBusinessSettingsRow(data || args.create);
+        return db.businessSettings.create({
+          data: {
+            ...args.create,
+            ...(args.where.userId ? { userId: args.where.userId } : {}),
+            ...(args.where.user_id ? { user_id: args.where.user_id } : {}),
+            ...(args.where.id ? { id: args.where.id } : {}),
+          },
+        });
       }
     },
     create: async (args: { data: any }) => {
       const supabase = getAdminClient();
-      if (!supabase) return normalizeBusinessSettingsRow(args.data);
       const payload = mapBusinessSettingsData(args.data);
-      if (payload.user_id && !UUID_REGEX.test(payload.user_id)) {
+      if (payload.user_id && !UUID_REGEX.test(payload.user_id) && supabase) {
         const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', payload.user_id).maybeSingle();
         if (prof?.id) payload.user_id = prof.id;
       }
-      const { data } = await supabase.from('business_settings').insert(payload).select().maybeSingle();
-      return normalizeBusinessSettingsRow(data || args.data);
+      if (!payload.id) {
+        payload.id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `settings_${Date.now()}`;
+      }
+      if (payload.created_at === undefined) {
+        payload.created_at = new Date().toISOString();
+      }
+      if (payload.updated_at === undefined) {
+        payload.updated_at = new Date().toISOString();
+      }
+
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('business_settings')
+          .insert(payload)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          console.error('[db.businessSettings.create] Supabase error:', error);
+          throw new Error(error.message || 'Database insert failed');
+        }
+        if (data) {
+          const row = normalizeBusinessSettingsRow(data);
+          cacheBusinessSettings(row);
+          return row;
+        }
+      }
+
+      const row = normalizeBusinessSettingsRow(payload);
+      cacheBusinessSettings(row);
+      return row;
     },
   },
   profile: {
