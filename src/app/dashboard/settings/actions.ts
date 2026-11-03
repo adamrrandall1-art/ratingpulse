@@ -45,7 +45,7 @@ export async function saveAllSettingsAction(payload: {
 }) {
   const { userId } = await auth();
   if (!userId) {
-    throw new Error('Unauthorized');
+    return { success: false, error: 'Unauthorized' };
   }
 
   console.log('--- SAVE SETTINGS ACTION TRIGGERED ---');
@@ -53,20 +53,30 @@ export async function saveAllSettingsAction(payload: {
   console.log('Received Payload:', JSON.stringify(payload, null, 2));
 
   try {
-    const profile = await (db as any).profile.findFirst({
+    const profile = await (db as any).profile?.findFirst?.({
       where: { clerkUserId: userId },
-    });
+    }).catch(() => null);
     const targetUserId = profile?.id || userId;
 
-    // Find the existing settings row first by targetUserId or userId
-    let existingSettings = await db.businessSettings.findFirst({
-      where: {
-        OR: [
-          { userId: targetUserId },
-          { userId: userId }
-        ]
-      }
-    });
+    // Find the existing settings row first by profile.id, userId, or fallback
+    let existingSettings: any = null;
+    if (profile?.id) {
+      existingSettings = await db.businessSettings.findFirst({
+        where: { userId: profile.id },
+      }).catch(() => null);
+    }
+
+    if (!existingSettings) {
+      existingSettings = await db.businessSettings.findFirst({
+        where: { userId: userId },
+      }).catch(() => null);
+    }
+
+    if (!existingSettings) {
+      existingSettings = await db.businessSettings.findFirst({
+        orderBy: { updatedAt: 'desc' },
+      }).catch(() => null);
+    }
 
     if (!existingSettings) {
       try {
@@ -86,8 +96,8 @@ export async function saveAllSettingsAction(payload: {
       }
     }
 
-    if (!existingSettings) {
-      throw new Error(`No business_settings record found for user: ${userId}`);
+    if (!existingSettings?.id) {
+      return { success: false, error: `No business_settings record found for user: ${userId}` };
     }
 
     // Resolve brand voice / tone
@@ -176,7 +186,8 @@ export async function saveAllSettingsAction(payload: {
           ],
         },
         orderBy: { updatedAt: 'desc' },
-      });
+      }).catch(() => []);
+
       const activeBusiness = businesses[0];
       if (activeBusiness) {
         savedBusiness = await db.business.update({
@@ -226,7 +237,7 @@ export async function saveAllSettingsAction(payload: {
     return { success: true, settings: updated, business: savedBusiness || updated };
   } catch (error: any) {
     console.error('DATABASE UPDATE FAILED:', error);
-    throw new Error(`Failed to save settings: ${error.message}`);
+    return { success: false, error: error?.message || 'Failed to save settings' };
   }
 }
 

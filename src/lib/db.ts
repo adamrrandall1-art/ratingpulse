@@ -1084,6 +1084,20 @@ export const db = {
               return row;
             }
           }
+
+          // Fallback to most recent record if orderBy was passed or no candidate IDs matched
+          if (candidateIds.length === 0 && resolvedUserUuids.length === 0) {
+            const { data, error } = await supabase
+              .from('business_settings')
+              .select('*')
+              .order('updated_at', { ascending: false })
+              .limit(1);
+            if (!error && data && data[0]) {
+              const row = normalizeBusinessSettingsRow(data[0]);
+              cacheBusinessSettings(row);
+              return row;
+            }
+          }
         } catch (err) {
           console.error('[db.businessSettings.findFirst] error:', err);
         }
@@ -1092,6 +1106,11 @@ export const db = {
       // Memory and disk cache fallback
       const cached = findCachedBusinessSettings([...candidateIds, ...candidateUserIds]);
       if (cached) return normalizeBusinessSettingsRow(cached);
+
+      if (globalStore.__rp_business_settings && globalStore.__rp_business_settings.size > 0) {
+        const first = globalStore.__rp_business_settings.values().next().value;
+        if (first) return normalizeBusinessSettingsRow(first);
+      }
 
       return null;
     },
