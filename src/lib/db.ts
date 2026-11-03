@@ -1231,17 +1231,81 @@ export const db = {
       const supabase = getAdminClient();
       if (!supabase) return null;
       try {
-        let q = supabase.from('profiles').select('*');
-        const cId = args?.where?.clerkUserId || args?.where?.clerk_user_id;
-        if (cId) {
-          q = q.eq('clerk_user_id', cId);
-        } else if (args?.where?.id) {
-          q = q.eq('id', args.where.id);
-        } else if (args?.where?.email) {
-          q = q.eq('email', args.where.email);
+        let candidateClerkIds: string[] = [];
+        let candidateEmails: string[] = [];
+        let candidateIds: string[] = [];
+
+        if (args?.where?.clerkUserId) candidateClerkIds.push(String(args.where.clerkUserId));
+        if (args?.where?.clerk_user_id) candidateClerkIds.push(String(args.where.clerk_user_id));
+        if (args?.where?.email) candidateEmails.push(String(args.where.email));
+        if (args?.where?.id) candidateIds.push(String(args.where.id));
+
+        if (Array.isArray(args?.where?.OR)) {
+          for (const item of args.where.OR) {
+            if (item?.clerkUserId) candidateClerkIds.push(String(item.clerkUserId));
+            if (item?.clerk_user_id) candidateClerkIds.push(String(item.clerk_user_id));
+            if (item?.email) candidateEmails.push(String(item.email));
+            if (item?.id) candidateIds.push(String(item.id));
+          }
         }
-        const { data } = await q.maybeSingle();
-        return data || null;
+
+        candidateClerkIds = Array.from(new Set(candidateClerkIds.filter(Boolean)));
+        candidateEmails = Array.from(new Set(candidateEmails.filter(Boolean)));
+        candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
+
+        // 1. Try finding by clerk_user_id
+        if (candidateClerkIds.length > 0) {
+          const { data: byClerk } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('clerk_user_id', candidateClerkIds)
+            .limit(1);
+          if (byClerk && byClerk[0]) return byClerk[0];
+        }
+
+        // 2. Try finding by email
+        if (candidateEmails.length > 0) {
+          const { data: byEmail } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('email', candidateEmails)
+            .limit(1);
+          if (byEmail && byEmail[0]) {
+            // Auto-link clerk_user_id if available
+            if (candidateClerkIds[0] && !byEmail[0].clerk_user_id) {
+              try {
+                await supabase
+                  .from('profiles')
+                  .update({ clerk_user_id: candidateClerkIds[0] })
+                  .eq('id', byEmail[0].id);
+              } catch {}
+              byEmail[0].clerk_user_id = candidateClerkIds[0];
+            }
+            return byEmail[0];
+          }
+        }
+
+        // 3. Try finding by profile id
+        if (candidateIds.length > 0) {
+          const { data: byId } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', candidateIds)
+            .limit(1);
+          if (byId && byId[0]) return byId[0];
+        }
+
+        // 4. Fallback: if no criteria specified or fallback requested
+        if (candidateClerkIds.length === 0 && candidateEmails.length === 0 && candidateIds.length === 0) {
+          const { data: fallback } = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (fallback && fallback[0]) return fallback[0];
+        }
+
+        return null;
       } catch {
         return null;
       }

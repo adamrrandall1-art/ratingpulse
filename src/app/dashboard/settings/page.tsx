@@ -1,4 +1,4 @@
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import db from '@/lib/db';
 import SettingsClient from './SettingsClient';
@@ -8,8 +8,8 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 export default async function SettingsPage() {
-  const { userId } = await auth();
-  if (!userId) {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) {
     redirect('/sign-in');
   }
 
@@ -17,25 +17,35 @@ export default async function SettingsPage() {
   let business: any = null;
 
   try {
-    // 1. Try finding profile by clerkUserId
+    const user = await currentUser().catch(() => null);
+    const userEmail = user?.emailAddresses?.[0]?.emailAddress;
+
+    // 1. Look up internal Profile by Clerk ID or email
     const profile = await (db as any).profile?.findFirst?.({
-      where: { clerkUserId: userId },
+      where: {
+        OR: [
+          { clerkUserId: clerkUserId },
+          ...(userEmail ? [{ email: userEmail }] : []),
+        ],
+      },
     }).catch(() => null);
 
+    const internalUserId = profile?.id;
+
     // 2. Fetch business_settings using profile ID, or clerk ID, or most recent record fallback
-    if (profile?.id) {
+    if (internalUserId) {
       settings = await db.businessSettings.findFirst({
-        where: { userId: profile.id },
+        where: { userId: internalUserId },
       }).catch(() => null);
     }
 
     if (!settings) {
       settings = await db.businessSettings.findFirst({
-        where: { userId: userId },
+        where: { userId: clerkUserId },
       }).catch(() => null);
     }
 
-    // 3. Fallback to first available record if still testing single user
+    // 3. Fallback for primary dev user if profile mapping isn't fully linked
     if (!settings) {
       settings = await db.businessSettings.findFirst({
         orderBy: { updatedAt: 'desc' },
@@ -43,15 +53,15 @@ export default async function SettingsPage() {
     }
 
     // Safely resolve user's businesses
-    const targetUserId = profile?.id || userId;
+    const targetUserId = internalUserId || clerkUserId;
     const businesses = await db.business.findMany({
       where: {
         OR: [
-          { clerkUserId: userId },
+          { clerkUserId: clerkUserId },
           { userId: targetUserId },
-          { userId: userId },
+          { userId: clerkUserId },
           { id: targetUserId },
-          { id: userId },
+          { id: clerkUserId },
         ],
       },
       orderBy: { updatedAt: 'desc' },
@@ -105,7 +115,7 @@ export default async function SettingsPage() {
     console.error('Error fetching settings on server:', error);
   }
 
-  // Provide clean default values if settings is still null to prevent UI render crashes:
+  // Pass settings ID explicitly so actions can update the EXACT primary key row
   const safeSettings = {
     id: settings?.id || '',
     brandVoice: settings?.brandVoice || settings?.brand_voice || 'friendly_professional',
@@ -123,6 +133,7 @@ export default async function SettingsPage() {
       key="settings-client"
       initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
       initialSettings={safeSettings}
+      settingsId={settings?.id}
     />
   );
 }

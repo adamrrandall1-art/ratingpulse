@@ -51,6 +51,7 @@ interface SettingsClientProps {
   initialNotificationSettings?: any;
   initialSettings?: any;
   initialProfile?: any;
+  settingsId?: string;
 }
 
 export default function SettingsClient({
@@ -58,6 +59,7 @@ export default function SettingsClient({
   initialNotificationSettings,
   initialSettings,
   initialProfile,
+  settingsId,
 }: SettingsClientProps) {
   const { user: clerkUser } = useUser();
   const { user: supabaseUser } = useAuth();
@@ -681,7 +683,11 @@ export default function SettingsClient({
             ? (rawEmailSetting === 'true' || rawEmailSetting === 'on' || rawEmailSetting === '1')
             : (rawEmailSetting !== undefined && rawEmailSetting !== null ? Boolean(rawEmailSetting) : false));
 
+      const targetSettingsId = settingsId || initialSettings?.id || initialSettings?.settingsId || settingsState?.id;
+
       const res = await saveAllSettingsAction({
+        settingsId: targetSettingsId,
+        id: targetSettingsId,
         businessId: targetBusinessId,
         ...mergedState,
         negativeAlertEmailEnabled: emailAlertsToSend,
