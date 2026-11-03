@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { resolveReviewUrl } from '@/lib/google-places';
+import { resolveReviewUrl, getReviewUrl } from '@/lib/google';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -55,7 +55,7 @@ export async function GET(
     if (id === 'demo' || id === 'demo_ratingpulse_001') {
       business.name = 'RatingPulse';
       business.placeId = 'ChIJawEUC_oN04kRB70LP1wHuPg';
-      business.googleReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+      business.googleReviewUrl = 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
     } else if (id) {
       const supabase = getSupabaseAdmin();
       if (supabase) {
@@ -120,9 +120,7 @@ export async function GET(
       }
     }
 
-    const destinationUrl = 
-      resolveReviewUrl(business.googleReviewUrl) || 
-      resolveReviewUrl(business.placeId);
+    const destinationUrl = getReviewUrl(business);
     const targetUrl = destinationUrl;
 
     if (resolvedInvite) {

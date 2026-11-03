@@ -47,7 +47,7 @@ export default function GooglePlacesAutocomplete({
       autocomplete.addListener('place_changed', () => {
         const place = autocomplete.getPlace();
         if (!place.place_id) return;
-        const reviewUrl = resolveReviewUrl(place.place_id) || `https://search.google.com/local/writereview?placeid=${place.place_id}`;
+        const reviewUrl = resolveReviewUrl(place.place_id) || `https://www.google.com/maps/place/?q=place_id:${place.place_id}`;
         if (onPlaceSelect) {
           onPlaceSelect({
             name: place.name || '',

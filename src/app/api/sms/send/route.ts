@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
   const businessName = isDemoMode
     ? "RatingPulse"
     : ((body.businessName as string) || ((body.business as any)?.name as string) || 'our business');
-  const demoReviewUrl = 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+  const demoReviewUrl = 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
   const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
   const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
   const activeGoogleReviewUrl = isDemoMode

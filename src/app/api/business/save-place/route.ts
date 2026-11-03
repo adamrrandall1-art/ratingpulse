@@ -63,7 +63,7 @@ export async function handleSavePlace(req: NextRequest) {
       placeId = '';
     } else if (rawInput) {
       placeId = rawInput;
-      googleReviewUrl = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}`;
+      googleReviewUrl = resolveReviewUrl(placeId) || `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}`;
 
       const apiKey =
         process.env.GOOGLE_PLACES_API_KEY ||

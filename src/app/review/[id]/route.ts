@@ -7,6 +7,7 @@ import {
   resolveReviewUrl,
   extractPlaceId,
   constructGoogleReviewUrl,
+  getReviewUrl,
 } from '@/lib/google';
 
 function getSupabaseAdmin() {
@@ -62,7 +63,7 @@ export async function GET(
     if (id === 'demo' || id === 'demo_ratingpulse_001') {
       business.name = business.name || 'RatingPulse';
       business.placeId = business.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg';
-      business.googleReviewUrl = business.googleReviewUrl || 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg';
+      business.googleReviewUrl = business.googleReviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
     } else if (id) {
       // 1. Try finding in DB business table first
       try {
@@ -134,15 +135,12 @@ export async function GET(
       }
     }
 
-    // Ensure canonical placeId and reviewUrl formats
+    // Ensure canonical placeId and reviewUrl formats using getReviewUrl
     const cleanPlaceId = extractPlaceId(business.placeId);
     if (cleanPlaceId) {
       business.placeId = cleanPlaceId;
     }
-    business.googleReviewUrl = constructGoogleReviewUrl({
-      placeId: business.placeId,
-      customReviewUrl: business.googleReviewUrl,
-    });
+    business.googleReviewUrl = getReviewUrl(business);
 
     // Route visitor to the RatingPulse 5-star review funnel page
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';

@@ -17,6 +17,7 @@ export {
   constructGoogleReviewUrl,
   resolveReviewUrl,
   generateGoogleReviewUrl,
+  getReviewUrl,
 } from './google';
 
 export interface SelectedPlaceData {

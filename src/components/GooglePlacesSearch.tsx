@@ -15,7 +15,7 @@ import {
   Building,
   ShieldCheck
 } from 'lucide-react';
-import { resolveReviewUrl } from '@/lib/google-places';
+import { resolveReviewUrl, getCanonicalGoogleReviewUrl } from '@/lib/google-places';
 
 export interface SelectedPlaceData {
   placeId: string;
@@ -113,7 +113,7 @@ export default function GooglePlacesSearch({
           const place = autocomplete.getPlace();
           if (!place || !place.place_id) return;
 
-          const directReviewUrl = `https://search.google.com/local/writereview?placeid=${place.place_id}`;
+          const directReviewUrl = getCanonicalGoogleReviewUrl(place.place_id);
           const placeData: SelectedPlaceData = {
             placeId: place.place_id,
             businessName: place.name || searchQuery,
@@ -271,7 +271,7 @@ export default function GooglePlacesSearch({
                 type="url"
                 value={customReviewUrl}
                 onChange={(e) => handleCustomUrlChange(e.target.value)}
-                placeholder="https://search.google.com/local/writereview?placeid=..."
+                placeholder="https://g.page/r/... or https://www.google.com/maps/place/?q=place_id:..."
                 className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-xs text-emerald-300 font-mono focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 focus:outline-none"
               />
             ) : (

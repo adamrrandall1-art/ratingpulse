@@ -22,6 +22,7 @@ import {
   getMapsPlaceFallbackUrl,
   constructGoogleReviewUrl,
   resolveReviewUrl,
+  getReviewUrl,
 } from '@/lib/google';
 import type { FunnelBusiness, FunnelInvite } from './types';
 
@@ -56,14 +57,14 @@ export default function FunnelClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive active review link: normalize destination resolution to prevent malformed URL concatenation
-  const rawPlaceId = business?.placeId || invite?.business?.placeId;
-  const cleanPlaceId = extractPlaceId(rawPlaceId);
-  const customReviewUrl = business?.googleReviewUrl || invite?.business?.googleReviewUrl;
-
-  const targetUrl = constructGoogleReviewUrl({
-    placeId: cleanPlaceId,
-    customReviewUrl: customReviewUrl || destinationUrl,
+  // Derive active review link: prioritize direct custom review link, then canonical Google Maps place URL
+  const targetUrl = getReviewUrl({
+    ...business,
+    googleReviewUrl: business?.googleReviewUrl || invite?.business?.googleReviewUrl || destinationUrl,
+    reviewLink: (business as any)?.reviewLink || invite?.review_link,
+    placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
+    name: business?.name || invite?.business_name,
+    address: business?.address,
   });
 
   const effectiveDestinationUrl = targetUrl;
@@ -117,36 +118,22 @@ export default function FunnelClient({
         }
       }
 
-      // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect
-      const canonicalUrl = cleanPlaceId
-        ? getCanonicalGoogleReviewUrl(cleanPlaceId)
-        : null;
+      // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect using getReviewUrl
+      const targetUrl = getReviewUrl({
+        ...business,
+        googleReviewUrl: business?.googleReviewUrl || invite?.business?.googleReviewUrl || destinationUrl,
+        reviewLink: (business as any)?.reviewLink || invite?.review_link,
+        placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
+        name: business?.name || invite?.business_name,
+        address: business?.address,
+      });
 
-      let destination =
-        (business?.googleReviewUrl && resolveReviewUrl(business.googleReviewUrl)) ||
-        (invite?.business?.googleReviewUrl && resolveReviewUrl(invite.business.googleReviewUrl)) ||
-        canonicalUrl ||
-        targetUrl ||
-        (cleanPlaceId ? getMapsPlaceFallbackUrl(cleanPlaceId) : null) ||
-        'https://ratingpulse.co';
-
-      // Ensure destination ALWAYS starts with https://
-      if (destination.startsWith('//')) {
-        destination = 'https:' + destination;
-      } else if (!destination.startsWith('http://') && !destination.startsWith('https://')) {
-        destination = 'https://' + destination;
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
       }
-
-      if (destination) {
-        if (redirectTimerRef.current) {
-          clearTimeout(redirectTimerRef.current);
-        }
-        redirectTimerRef.current = setTimeout(() => {
-          window.location.href = destination;
-        }, 1200);
-      } else {
-        console.error("Missing Google review URL destination for invite:", token);
-      }
+      redirectTimerRef.current = setTimeout(() => {
+        window.location.href = targetUrl;
+      }, 1200);
     }
   };
 

@@ -248,7 +248,7 @@ export default function Hero() {
                     <div className="bg-slate-900/80 border border-slate-700/30 p-3 rounded-lg text-xs leading-relaxed text-slate-300">
                       <p>
                         &quot;Hi Sarah! Thank you for visiting RatingPulse today. Could you take 30 seconds to share your experience on Google? It means the world to our team:{' '}
-                        <span className="text-emerald-400 underline">https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg</span>&quot;
+                        <span className="text-emerald-400 underline">https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg</span>&quot;
                       </p>
                     </div>
                     <div className="flex items-center justify-between text-[11px] text-slate-500">

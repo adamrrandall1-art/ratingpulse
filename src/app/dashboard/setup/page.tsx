@@ -383,7 +383,7 @@ function BusinessSetupContent() {
       } else {
         extractedPlaceId = rawInput;
       }
-      targetReviewUrl = resolveReviewUrl(extractedPlaceId) || `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extractedPlaceId)}`;
+      targetReviewUrl = resolveReviewUrl(extractedPlaceId) || `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(extractedPlaceId)}`;
     }
 
     setIsAttachingManualPlace(true);
@@ -476,7 +476,7 @@ function BusinessSetupContent() {
             ...activeBusiness,
             name: data.businessName || activeBusiness.name,
             placeId: data.placeId,
-            reviewUrl: data.reviewUrl || `https://search.google.com/local/writereview?placeid=${data.placeId}`,
+            reviewUrl: data.reviewUrl || `https://www.google.com/maps/place/?q=place_id:${data.placeId}`,
             isConnected: true,
             isPendingPlaceId: false,
           });
@@ -1178,7 +1178,7 @@ function BusinessSetupContent() {
             </label>
             <input
               type="url"
-              placeholder="https://search.google.com/local/writereview?placeid=..."
+              placeholder="https://g.page/r/... or https://www.google.com/maps/place/?q=place_id:..."
               value={reviewUrl}
               onChange={(e) => setReviewUrl(e.target.value)}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono text-[11px]"

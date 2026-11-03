@@ -182,7 +182,7 @@ export async function GET(req: NextRequest) {
       if (locationTitle) profileUpdates.business_name = locationTitle;
       if (placeId) {
         profileUpdates.google_place_id = placeId;
-        profileUpdates.review_url = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`;
+        profileUpdates.review_url = resolveReviewUrl(placeId) || `https://www.google.com/maps/place/?q=place_id:${placeId}`;
       }
       if (formattedAddress) profileUpdates.formatted_address = formattedAddress;
 
@@ -219,7 +219,7 @@ export async function GET(req: NextRequest) {
         };
         if (placeId) {
           settingsUpdates.place_id = placeId;
-          settingsUpdates.google_review_url = resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`;
+          settingsUpdates.google_review_url = resolveReviewUrl(placeId) || `https://www.google.com/maps/place/?q=place_id:${placeId}`;
         }
 
         await supabase

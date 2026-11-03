@@ -38,7 +38,7 @@ export const demoProfile: Profile = {
   business_category: 'Software & Reputation Management',
   google_place_id: 'demo_ratingpulse_place_id',
   formatted_address: 'Rochester, NY',
-  review_url: 'https://search.google.com/local/writereview?placeid=demo_ratingpulse_place_id',
+  review_url: 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg',
   google_rating: 5.0,
   google_review_count: 48,
   google_connected: true,

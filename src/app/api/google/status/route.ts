@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (foundPlaceId) {
-      const reviewUrl = resolveReviewUrl(foundPlaceId) || `https://search.google.com/local/writereview?placeid=${foundPlaceId}`;
+      const reviewUrl = resolveReviewUrl(foundPlaceId) || `https://www.google.com/maps/place/?q=place_id:${foundPlaceId}`;
       await supabase.from('profiles').update({
         google_place_id: foundPlaceId,
         business_name: foundTitle || profile.business_name,

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { resolveReviewUrl } from '@/lib/google-places';
+import { resolveReviewUrl, getReviewUrl } from '@/lib/google';
 
 function ReviewGateContent() {
   const params = useParams();
@@ -123,10 +123,13 @@ function ReviewGateContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive final 5-star Google review URL using direct googleReviewUrl or placeId
-  const resolvedGoogleUrl =
-    googleReviewUrl ||
-    (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '/');
+  // Derive final 5-star Google review URL using getReviewUrl
+  const resolvedGoogleUrl = getReviewUrl({
+    googleReviewUrl,
+    placeId,
+    name: businessName,
+    address,
+  });
 
   const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);
@@ -157,6 +160,20 @@ function ReviewGateContent() {
         } catch (dbErr) {
           console.warn('DB update on 5-star rating warning:', dbErr);
         }
+      }
+
+      // Automatic client redirect
+      const targetUrl = getReviewUrl({
+        googleReviewUrl,
+        placeId,
+        name: businessName,
+        address,
+      });
+
+      if (targetUrl) {
+        setTimeout(() => {
+          window.location.href = targetUrl;
+        }, 500);
       }
     }
   };

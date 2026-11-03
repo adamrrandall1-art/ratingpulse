@@ -21,6 +21,7 @@ import {
   constructGoogleReviewUrl,
   getCanonicalGoogleReviewUrl,
   getMapsPlaceFallbackUrl,
+  getReviewUrl,
 } from '@/lib/google';
 
 function ReviewGateContent() {
@@ -40,7 +41,7 @@ function ReviewGateContent() {
     placeIdParam || (idParam === 'demo' ? 'ChIJawEUC_oN04kRB70LP1wHuPg' : '')
   );
   const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(
-    resolveReviewUrl(reviewUrlParam) || resolveReviewUrl(placeIdParam) || (idParam === 'demo' ? 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg' : '') || ''
+    resolveReviewUrl(reviewUrlParam) || resolveReviewUrl(placeIdParam) || (idParam === 'demo' ? 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg' : '') || ''
   );
   const [ownerEmail, setOwnerEmail] = useState<string>(
     ownerEmailParam || 'notifications@ratingpulse.co'
@@ -133,11 +134,13 @@ function ReviewGateContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive final 5-star Google review URL using canonical constructor
+  // Derive final 5-star Google review URL using getReviewUrl
   const cleanPlaceId = extractPlaceId(placeId);
-  const resolvedGoogleUrl = constructGoogleReviewUrl({
-    placeId: cleanPlaceId,
-    customReviewUrl: googleReviewUrl,
+  const resolvedGoogleUrl = getReviewUrl({
+    googleReviewUrl,
+    placeId: cleanPlaceId || placeId,
+    name: businessName,
+    address,
   });
 
   const handleRatingClick = async (rating: number) => {
@@ -171,21 +174,17 @@ function ReviewGateContent() {
         }
       }
 
-      // Immediate redirect to active business Google review URL
-      let destination = constructGoogleReviewUrl({
-        placeId: cleanPlaceId,
-        customReviewUrl: googleReviewUrl,
+      // Clean client redirect using getReviewUrl
+      const targetUrl = getReviewUrl({
+        googleReviewUrl,
+        placeId: cleanPlaceId || placeId,
+        name: businessName,
+        address,
       });
 
-      if (destination.startsWith('//')) {
-        destination = 'https:' + destination;
-      } else if (!destination.startsWith('http://') && !destination.startsWith('https://')) {
-        destination = 'https://' + destination;
-      }
-
-      if (destination) {
+      if (targetUrl) {
         setTimeout(() => {
-          window.location.href = destination;
+          window.location.href = targetUrl;
         }, 350);
       } else {
         console.error("Missing Google review URL destination for invite:", idParam);

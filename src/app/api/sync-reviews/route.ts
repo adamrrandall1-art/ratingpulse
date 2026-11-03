@@ -475,7 +475,7 @@ async function handleSync(req: NextRequest) {
             updated_at: new Date().toISOString(),
           }).eq('id', resolvedUserId),
           supabaseAdmin.from('business_settings').update({
-            google_review_url: resolveReviewUrl(placeId) || `https://search.google.com/local/writereview?placeid=${placeId}`,
+            google_review_url: resolveReviewUrl(placeId) || `https://www.google.com/maps/place/?q=place_id:${placeId}`,
             place_id: placeId,
             updated_at: new Date().toISOString(),
           }).eq('user_id', resolvedUserId),

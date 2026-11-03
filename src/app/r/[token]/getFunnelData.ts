@@ -4,9 +4,10 @@ import {
   constructGoogleReviewUrl,
   resolveReviewUrl,
   getCanonicalGoogleReviewUrl,
+  getReviewUrl,
 } from '@/lib/google';
 import type { FunnelBusiness, FunnelInvite, FunnelData } from './types';
-export { resolveReviewUrl, extractPlaceId, constructGoogleReviewUrl };
+export { resolveReviewUrl, extractPlaceId, constructGoogleReviewUrl, getReviewUrl };
 export type { FunnelBusiness, FunnelInvite, FunnelData };
 
 function getSupabaseAdmin() {
@@ -43,7 +44,7 @@ export async function getFunnelData(
       id: 'demo',
       name: 'RatingPulse',
       placeId: 'ChIJawEUC_oN04kRB70LP1wHuPg',
-      googleReviewUrl: 'https://search.google.com/local/writereview?placeid=ChIJawEUC_oN04kRB70LP1wHuPg',
+      googleReviewUrl: 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg',
       address: null,
       ownerEmail: null,
       ownerPhone: null,
@@ -251,14 +252,15 @@ export async function getFunnelData(
     };
   }
 
-  // Resolve the destination URL using live business fields with canonical constructor:
-  const destinationUrl = constructGoogleReviewUrl({
+  // Resolve the destination URL using live business fields with getReviewUrl:
+  const destinationUrl = getReviewUrl({
+    ...liveBusiness,
     placeId: liveBusiness.placeId || extractPlaceId(invite?.business?.placeId) || extractPlaceId(invite?.place_id),
-    customReviewUrl:
+    googleReviewUrl:
       invite?.business?.googleReviewUrl ||
       liveBusiness.googleReviewUrl ||
-      invite?.destinationUrl ||
-      invite?.review_link,
+      invite?.destinationUrl,
+    reviewLink: invite?.review_link || (invite?.business as any)?.reviewLink,
   });
 
   return {
