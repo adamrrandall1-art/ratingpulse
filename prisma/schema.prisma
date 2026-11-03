@@ -60,6 +60,9 @@ model Business {
 model BusinessSettings {
   id                    String   @id @default(uuid()) @db.Uuid
   userId                String   @map("user_id") @db.Uuid
+  googleReviewUrl       String?  @map("google_review_url")
+  placeId               String?  @map("place_id")
+  businessName          String?  @map("business_name")
   brandVoice            String?  @default("friendly_professional") @map("brand_voice")
   notifyNegativePhone   String?  @map("notify_negative_phone")
   notifyNegativeEmail   String?  @map("notify_negative_email")

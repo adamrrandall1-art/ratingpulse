@@ -84,6 +84,37 @@ function ReviewGateContent() {
 
         if (resolvedUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resolvedUserId)) {
           setTargetUserId(resolvedUserId);
+
+          let customReviewUrlFromSettings: string | null = null;
+          try {
+            const { data: settingsData } = await supabase
+              .from('business_settings')
+              .select('business_name, place_id, google_review_url, notification_email, notification_phone')
+              .or(`user_id.eq.${resolvedUserId},id.eq.${resolvedUserId}`)
+              .maybeSingle();
+
+            if (settingsData) {
+              if (settingsData.business_name && !businessParam && !inviteData?.business_name) {
+                setBusinessName(settingsData.business_name);
+              }
+              if (settingsData.place_id && !placeIdParam) {
+                setPlaceId(settingsData.place_id);
+              }
+              if (settingsData.google_review_url) {
+                customReviewUrlFromSettings = settingsData.google_review_url;
+                setGoogleReviewUrl(resolveReviewUrl(settingsData.google_review_url) || settingsData.google_review_url);
+              }
+              if (settingsData.notification_email && !ownerEmailParam) {
+                setOwnerEmail(settingsData.notification_email);
+              }
+              if (settingsData.notification_phone) {
+                setOwnerPhone(settingsData.notification_phone);
+              }
+            }
+          } catch (settingsErr) {
+            console.warn('Error reading business_settings in review gate:', settingsErr);
+          }
+
           const { data: profileData } = await supabase
             .from('profiles')
             .select('business_name, google_place_id, review_url, email, notification_email, notification_phone, phone, formatted_address')
@@ -97,10 +128,12 @@ function ReviewGateContent() {
             if (profileData.google_place_id && !placeIdParam) {
               setPlaceId(profileData.google_place_id);
             }
-            if (profileData.review_url && !reviewUrlParam) {
-              setGoogleReviewUrl(resolveReviewUrl(profileData.review_url) || '');
-            } else if (profileData.google_place_id && !reviewUrlParam) {
-              setGoogleReviewUrl(resolveReviewUrl(profileData.google_place_id) || '');
+            if (!customReviewUrlFromSettings) {
+              if (profileData.review_url && !reviewUrlParam) {
+                setGoogleReviewUrl(resolveReviewUrl(profileData.review_url) || profileData.review_url);
+              } else if (profileData.google_place_id && !reviewUrlParam) {
+                setGoogleReviewUrl(resolveReviewUrl(profileData.google_place_id) || '');
+              }
             }
             if ((profileData.notification_email || profileData.email) && !ownerEmailParam) {
               setOwnerEmail(profileData.notification_email || profileData.email);

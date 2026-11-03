@@ -58,9 +58,18 @@ export default function FunnelClient({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Derive active review link: prioritize direct custom review link, then canonical Google Maps place URL
+  const activeReviewLink =
+    business?.googleReviewUrl ||
+    (business as any)?.google_review_url ||
+    invite?.business?.googleReviewUrl ||
+    (invite?.business as any)?.google_review_url ||
+    destinationUrl ||
+    (business as any)?.reviewLink ||
+    invite?.review_link;
+
   const targetUrl = getReviewUrl({
     ...business,
-    googleReviewUrl: business?.googleReviewUrl || invite?.business?.googleReviewUrl || destinationUrl,
+    googleReviewUrl: activeReviewLink,
     reviewLink: (business as any)?.reviewLink || invite?.review_link,
     placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
     name: business?.name || invite?.business_name,
@@ -119,9 +128,18 @@ export default function FunnelClient({
       }
 
       // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect using getReviewUrl
+      const redirectLink =
+        business?.googleReviewUrl ||
+        (business as any)?.google_review_url ||
+        invite?.business?.googleReviewUrl ||
+        (invite?.business as any)?.google_review_url ||
+        destinationUrl ||
+        (business as any)?.reviewLink ||
+        invite?.review_link;
+
       const targetUrl = getReviewUrl({
         ...business,
-        googleReviewUrl: business?.googleReviewUrl || invite?.business?.googleReviewUrl || destinationUrl,
+        googleReviewUrl: redirectLink,
         reviewLink: (business as any)?.reviewLink || invite?.review_link,
         placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
         name: business?.name || invite?.business_name,

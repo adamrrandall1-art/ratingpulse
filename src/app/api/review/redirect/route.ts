@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
@@ -45,23 +45,63 @@ export async function GET(req: NextRequest) {
       address: queryAddress || null,
     };
 
-    if (id && (!business.googleReviewUrl || !business.placeId)) {
+    if (id) {
+      // 0. Check business_settings first (canonical store for google_review_url and place_id)
       try {
-        const dbBiz = await db.business.findFirst({
+        const settings = await (db.businessSettings as any)?.findFirst({
           where: {
-            OR: [{ id }, { userId: id }, { clerkUserId: id }],
+            OR: [{ id }, { userId: id }],
           },
         });
-        if (dbBiz) {
-          if (dbBiz.name && !business.name) business.name = dbBiz.name;
-          if (dbBiz.placeId && !business.placeId) business.placeId = dbBiz.placeId;
-          if ((dbBiz.googleReviewUrl || dbBiz.reviewUrl) && !business.googleReviewUrl) {
-            business.googleReviewUrl = dbBiz.googleReviewUrl || dbBiz.reviewUrl;
+        if (settings) {
+          if (settings.businessName && !business.name) business.name = settings.businessName;
+          if (settings.placeId && !business.placeId) business.placeId = settings.placeId;
+          if (settings.googleReviewUrl) {
+            business.googleReviewUrl = settings.googleReviewUrl;
+            business.reviewLink = settings.googleReviewUrl;
           }
-          if (dbBiz.address && !business.address) business.address = dbBiz.address;
         }
-      } catch (err) {
-        console.warn('[review/redirect] db lookup warning:', err);
+      } catch (settErr) {
+        console.warn('[review/redirect] businessSettings db lookup warning:', settErr);
+      }
+
+      if (!business.googleReviewUrl || business.googleReviewUrl.includes('/maps/place')) {
+        const supabase = getSupabaseAdmin();
+        if (supabase) {
+          const { data: bSettings } = await supabase
+            .from('business_settings')
+            .select('business_name, place_id, google_review_url')
+            .or(`id.eq.${id},user_id.eq.${id}`)
+            .maybeSingle();
+          if (bSettings) {
+            if (bSettings.business_name && !business.name) business.name = bSettings.business_name;
+            if (bSettings.place_id && !business.placeId) business.placeId = bSettings.place_id;
+            if (bSettings.google_review_url) {
+              business.googleReviewUrl = bSettings.google_review_url;
+              business.reviewLink = bSettings.google_review_url;
+            }
+          }
+        }
+      }
+
+      if (!business.googleReviewUrl || !business.placeId) {
+        try {
+          const dbBiz = await db.business.findFirst({
+            where: {
+              OR: [{ id }, { userId: id }, { clerkUserId: id }],
+            },
+          });
+          if (dbBiz) {
+            if (dbBiz.name && !business.name) business.name = dbBiz.name;
+            if (dbBiz.placeId && !business.placeId) business.placeId = dbBiz.placeId;
+            if ((dbBiz.googleReviewUrl || dbBiz.reviewUrl) && !business.googleReviewUrl) {
+              business.googleReviewUrl = dbBiz.googleReviewUrl || dbBiz.reviewUrl;
+            }
+            if (dbBiz.address && !business.address) business.address = dbBiz.address;
+          }
+        } catch (err) {
+          console.warn('[review/redirect] db lookup warning:', err);
+        }
       }
 
       if (!business.googleReviewUrl || !business.placeId) {

@@ -5,9 +5,10 @@ import {
   resolveReviewUrl,
   getCanonicalGoogleReviewUrl,
   getReviewUrl,
+  isInternalFunnelUrl,
 } from '@/lib/google';
 import type { FunnelBusiness, FunnelInvite, FunnelData } from './types';
-export { resolveReviewUrl, extractPlaceId, constructGoogleReviewUrl, getReviewUrl };
+export { resolveReviewUrl, extractPlaceId, constructGoogleReviewUrl, getReviewUrl, isInternalFunnelUrl };
 export type { FunnelBusiness, FunnelInvite, FunnelData };
 
 function getSupabaseAdmin() {
@@ -141,9 +142,33 @@ export async function getFunnelData(
               email: bData.email,
               phone: bData.phone,
             };
+            const bUserId = bData.userId || bData.user_id || bData.id;
+            if (!settings && bUserId) {
+              const { data: bSett } = await supabase
+                .from('business_settings')
+                .select('*')
+                .or(`user_id.eq.${bUserId},id.eq.${bUserId}`)
+                .maybeSingle();
+              if (bSett) settings = bSett;
+            }
           }
         } catch (dbErr) {
           console.warn('[getFunnelData] businesses lookup warning:', dbErr);
+        }
+      }
+
+      // Check if token directly matches business_settings id or user_id
+      if (!settings) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+        if (isUuid) {
+          const { data: directSettings } = await supabase
+            .from('business_settings')
+            .select('*')
+            .or(`id.eq.${token},user_id.eq.${token}`)
+            .maybeSingle();
+          if (directSettings) {
+            settings = directSettings;
+          }
         }
       }
 
@@ -157,24 +182,58 @@ export async function getFunnelData(
           .maybeSingle();
         if (activeProfile) {
           profile = activeProfile;
-          const { data: activeSettings } = await supabase
-            .from('business_settings')
-            .select('*')
-            .eq('user_id', activeProfile.id)
-            .maybeSingle();
-          settings = activeSettings;
+          if (!settings) {
+            const { data: activeSettings } = await supabase
+              .from('business_settings')
+              .select('*')
+              .eq('user_id', activeProfile.id)
+              .maybeSingle();
+            settings = activeSettings;
+          }
         }
       }
 
-      // Resolve live business fields - dynamically prioritizing live manual review URL overrides
-      const liveGoogleReviewUrl =
-        (queryReviewUrl && !queryReviewUrl.includes('/r/'))
-          ? resolveReviewUrl(queryReviewUrl)
-          : (profile?.review_url && !profile.review_url.includes('/r/'))
-            ? resolveReviewUrl(profile.review_url)
-            : (settings?.google_review_url && !settings.google_review_url.includes('/r/'))
-              ? resolveReviewUrl(settings.google_review_url)
-              : null;
+      // If settings still null, query by profile.id or profile.user_id
+      if (!settings && (profile?.id || (profile as any)?.user_id)) {
+        const uid = profile.id || (profile as any).user_id;
+        const { data: sByUid } = await supabase
+          .from('business_settings')
+          .select('*')
+          .or(`user_id.eq.${uid},id.eq.${uid}`)
+          .maybeSingle();
+        if (sByUid) settings = sByUid;
+      }
+
+      // Resolve live business review link:
+      // A direct custom review URL from business_settings (e.g. https://g.page/r/CcSqbA6YaZ6-EBM/review)
+      // is the business owner's explicit configuration and takes TOP PRIORITY over generic map coordinate URLs!
+      const rawSettingsUrl = settings?.google_review_url || settings?.googleReviewUrl;
+      const settingsReviewUrl =
+        (rawSettingsUrl && !isInternalFunnelUrl(rawSettingsUrl))
+          ? resolveReviewUrl(rawSettingsUrl) || rawSettingsUrl
+          : null;
+
+      const cleanQueryReviewUrl =
+        (queryReviewUrl && !isInternalFunnelUrl(queryReviewUrl))
+          ? resolveReviewUrl(queryReviewUrl) || queryReviewUrl
+          : null;
+
+      const profileReviewUrl =
+        (profile?.review_url && !isInternalFunnelUrl(profile.review_url))
+          ? resolveReviewUrl(profile.review_url) || profile.review_url
+          : null;
+
+      let liveGoogleReviewUrl: string | null = null;
+      if (settingsReviewUrl && !settingsReviewUrl.includes('/maps/place')) {
+        // Direct custom review URL (e.g. g.page/r/...) is top priority
+        liveGoogleReviewUrl = settingsReviewUrl;
+      } else if (cleanQueryReviewUrl && !cleanQueryReviewUrl.includes('/maps/place')) {
+        liveGoogleReviewUrl = cleanQueryReviewUrl;
+      } else if (profileReviewUrl && !profileReviewUrl.includes('/maps/place')) {
+        liveGoogleReviewUrl = profileReviewUrl;
+      } else {
+        liveGoogleReviewUrl = settingsReviewUrl || cleanQueryReviewUrl || profileReviewUrl;
+      }
 
       const rawPlaceCandidate =
         queryPlaceId ||
@@ -213,8 +272,8 @@ export async function getFunnelData(
       };
 
       const inviteDestUrl =
-        (inviteData?.review_link && !inviteData.review_link.includes('/r/'))
-          ? resolveReviewUrl(inviteData.review_link)
+        (inviteData?.review_link && !isInternalFunnelUrl(inviteData.review_link))
+          ? resolveReviewUrl(inviteData.review_link) || inviteData.review_link
           : (inviteData?.place_id ? constructGoogleReviewUrl({ placeId: extractPlaceId(inviteData.place_id) }) : null);
 
       invite = {
@@ -257,8 +316,8 @@ export async function getFunnelData(
     ...liveBusiness,
     placeId: liveBusiness.placeId || extractPlaceId(invite?.business?.placeId) || extractPlaceId(invite?.place_id),
     googleReviewUrl:
-      invite?.business?.googleReviewUrl ||
       liveBusiness.googleReviewUrl ||
+      invite?.business?.googleReviewUrl ||
       invite?.destinationUrl,
     reviewLink: invite?.review_link || (invite?.business as any)?.reviewLink,
   });

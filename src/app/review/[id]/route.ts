@@ -8,6 +8,7 @@ import {
   extractPlaceId,
   constructGoogleReviewUrl,
   getReviewUrl,
+  isInternalFunnelUrl,
 } from '@/lib/google';
 
 function getSupabaseAdmin() {
@@ -50,8 +51,8 @@ export async function GET(
     const queryPlaceId = url.searchParams.get('placeId');
     const queryBusiness = url.searchParams.get('business') || url.searchParams.get('name');
 
-    if (queryReviewUrl) {
-      business.googleReviewUrl = resolveReviewUrl(queryReviewUrl);
+    if (queryReviewUrl && !isInternalFunnelUrl(queryReviewUrl)) {
+      business.googleReviewUrl = resolveReviewUrl(queryReviewUrl) || queryReviewUrl;
     }
     if (queryPlaceId) {
       business.placeId = extractPlaceId(queryPlaceId) || queryPlaceId;
@@ -65,7 +66,36 @@ export async function GET(
       business.placeId = business.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg';
       business.googleReviewUrl = business.googleReviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
     } else if (id) {
-      // 1. Try finding in DB business table first
+      const supabase = getSupabaseAdmin();
+      let settingsData: any = null;
+
+      // 0. Check business_settings table first (source of truth for configured google_review_url)
+      if (supabase) {
+        try {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+          let sQuery = supabase.from('business_settings').select('*');
+          if (isUuid) {
+            sQuery = sQuery.or(`id.eq.${id},user_id.eq.${id}`);
+          }
+          const { data: directSettings } = await sQuery.limit(1).maybeSingle();
+          if (directSettings) {
+            settingsData = directSettings;
+            if (directSettings.google_review_url) {
+              business.googleReviewUrl = directSettings.google_review_url;
+            }
+            if (directSettings.place_id) {
+              business.placeId = directSettings.place_id;
+            }
+            if (directSettings.business_name) {
+              business.name = directSettings.business_name;
+            }
+          }
+        } catch (settErr) {
+          console.warn('[review/id] initial business_settings lookup warning:', settErr);
+        }
+      }
+
+      // 1. Try finding in DB business table
       try {
         const dbBiz = await db.business.findFirst({
           where: {
@@ -79,6 +109,15 @@ export async function GET(
           if ((dbBiz.googleReviewUrl || dbBiz.reviewUrl) && !business.googleReviewUrl) {
             business.googleReviewUrl = dbBiz.googleReviewUrl || dbBiz.reviewUrl;
           }
+          if (!settingsData && supabase && dbBiz.userId) {
+            const { data: sByBizUser } = await supabase.from('business_settings').select('*').eq('user_id', dbBiz.userId).maybeSingle();
+            if (sByBizUser) {
+              settingsData = sByBizUser;
+              if (sByBizUser.google_review_url) {
+                business.googleReviewUrl = sByBizUser.google_review_url;
+              }
+            }
+          }
         }
       } catch (dbErr) {
         console.warn('[review/id] db.business lookup warning:', dbErr);
@@ -86,7 +125,6 @@ export async function GET(
 
       // 2. Try Supabase lookup if details still missing
       if (!business.googleReviewUrl || !business.placeId || !business.name) {
-        const supabase = getSupabaseAdmin();
         if (supabase) {
           // 2a. Try finding in review_invites
           const { data: invite } = await supabase
@@ -99,17 +137,22 @@ export async function GET(
             business.id = invite.user_id || invite.id;
             if (invite.business_name && !business.name) business.name = invite.business_name;
             if (invite.place_id && !business.placeId) business.placeId = invite.place_id;
-            if (invite.review_link && invite.review_link.startsWith('http') && !invite.review_link.includes('/r/') && !business.googleReviewUrl) {
+            if (invite.review_link && invite.review_link.startsWith('http') && !isInternalFunnelUrl(invite.review_link) && !business.googleReviewUrl) {
               business.googleReviewUrl = invite.review_link;
             }
 
             if (invite.user_id) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('id, google_place_id, review_url, business_name')
-                .eq('id', invite.user_id)
-                .maybeSingle();
+              const [pRes, sRes] = await Promise.allSettled([
+                supabase.from('profiles').select('id, google_place_id, review_url, business_name').eq('id', invite.user_id).maybeSingle(),
+                supabase.from('business_settings').select('*').eq('user_id', invite.user_id).maybeSingle(),
+              ]);
 
+              const profile = pRes.status === 'fulfilled' ? pRes.value.data : null;
+              const sByInvite = sRes.status === 'fulfilled' ? sRes.value.data : null;
+
+              if (sByInvite?.google_review_url) {
+                business.googleReviewUrl = sByInvite.google_review_url;
+              }
               if (profile) {
                 if (profile.review_url && !business.googleReviewUrl) business.googleReviewUrl = profile.review_url;
                 if (profile.google_place_id && !business.placeId) business.placeId = profile.google_place_id;
@@ -127,8 +170,14 @@ export async function GET(
             if (profile) {
               business.id = profile.id;
               if (profile.business_name && !business.name) business.name = profile.business_name;
-              if (profile.review_url && !business.googleReviewUrl) business.googleReviewUrl = profile.review_url;
               if (profile.google_place_id && !business.placeId) business.placeId = profile.google_place_id;
+
+              const { data: sByProf } = await supabase.from('business_settings').select('*').eq('user_id', profile.id).maybeSingle();
+              if (sByProf?.google_review_url) {
+                business.googleReviewUrl = sByProf.google_review_url;
+              } else if (profile.review_url && !business.googleReviewUrl) {
+                business.googleReviewUrl = profile.review_url;
+              }
             }
           }
         }
@@ -151,8 +200,11 @@ export async function GET(
       redirectUrl.searchParams.set(key, val);
     });
 
-    if (business.googleReviewUrl && !redirectUrl.searchParams.has('reviewUrl')) {
-      redirectUrl.searchParams.set('reviewUrl', business.googleReviewUrl);
+    if (business.googleReviewUrl) {
+      const currentReviewUrl = redirectUrl.searchParams.get('reviewUrl');
+      if (!currentReviewUrl || currentReviewUrl.includes('/maps/place') || business.googleReviewUrl.includes('g.page')) {
+        redirectUrl.searchParams.set('reviewUrl', business.googleReviewUrl);
+      }
     }
     if (business.placeId && !redirectUrl.searchParams.has('placeId')) {
       redirectUrl.searchParams.set('placeId', business.placeId);

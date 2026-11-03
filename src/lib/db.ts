@@ -134,6 +134,9 @@ function mapBusinessSettingsData(input: any) {
     else if (key === 'notifyNegativeEmail') mapped.notify_negative_email = val;
     else if (key === 'notifyNegativeEnabled') mapped.notify_negative_enabled = val;
     else if (key === 'emailAlertsEnabled') mapped.email_alerts_enabled = val;
+    else if (key === 'googleReviewUrl') mapped.google_review_url = val;
+    else if (key === 'placeId') mapped.place_id = val;
+    else if (key === 'businessName') mapped.business_name = val;
     else if (key === 'userId') mapped.user_id = val;
     else if (key === 'updatedAt') mapped.updated_at = val;
     else if (key === 'createdAt') mapped.created_at = val;
@@ -151,6 +154,9 @@ function normalizeBusinessSettingsRow(row: any) {
     notifyNegativeEmail: row.notify_negative_email ?? row.notifyNegativeEmail,
     notifyNegativeEnabled: row.notify_negative_enabled ?? row.notifyNegativeEnabled,
     emailAlertsEnabled: row.email_alerts_enabled ?? row.emailAlertsEnabled,
+    googleReviewUrl: row.google_review_url ?? row.googleReviewUrl,
+    placeId: row.place_id ?? row.placeId,
+    businessName: row.business_name ?? row.businessName,
     userId: row.user_id ?? row.userId,
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,

@@ -37,6 +37,31 @@ export function extractPlaceId(str: string | null | undefined): string | null {
 }
 
 /**
+ * Checks if a URL is an internal RatingPulse funnel URL (e.g. /r/[token] or /rate/[id])
+ * rather than an external Google review URL (e.g. https://g.page/r/... or google.com).
+ */
+export function isInternalFunnelUrl(url: string | null | undefined): boolean {
+  if (!url || typeof url !== 'string') return false;
+  const trimmed = url.trim().toLowerCase();
+  // Any Google-hosted URLs (e.g. g.page/r/..., maps.google.com, goo.gl) are external review destinations
+  if (
+    trimmed.includes('g.page') ||
+    trimmed.includes('google.com') ||
+    trimmed.includes('goo.gl')
+  ) {
+    return false;
+  }
+  return (
+    trimmed.includes('ratingpulse.co/r/') ||
+    trimmed.includes('ratingpulse.co/rate/') ||
+    trimmed.includes('ratingpulse.co/review/') ||
+    trimmed.startsWith('/r/') ||
+    trimmed.startsWith('/rate/') ||
+    trimmed.startsWith('/review/')
+  );
+}
+
+/**
  * Prioritizes direct review link (g.page format or GBP direct URL) over raw place ID.
  * If only placeId is available, uses the canonical Google Maps place URL:
  * https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(business.placeId)}
@@ -59,13 +84,16 @@ export const getReviewUrl = (business: {
   if (!business) return 'https://ratingpulse.co';
 
   // 1. Direct custom review link (g.page format, GBP custom link, etc.)
+  // Explicitly prioritize g.page or direct google review links over generic maps place coordinate links
   const candidateUrl =
+    [business.googleReviewUrl, business.google_review_url, business.reviewLink, business.reviewUrl]
+      .find((u) => typeof u === 'string' && (u.includes('g.page') || (u.includes('google.com') && !u.includes('/maps/place')))) ||
     business.googleReviewUrl ||
+    business.google_review_url ||
     business.reviewLink ||
-    business.reviewUrl ||
-    business.google_review_url;
+    business.reviewUrl;
 
-  if (candidateUrl && typeof candidateUrl === 'string' && candidateUrl.trim() && !candidateUrl.includes('/r/')) {
+  if (candidateUrl && typeof candidateUrl === 'string' && candidateUrl.trim() && !isInternalFunnelUrl(candidateUrl.trim())) {
     let clean = candidateUrl.trim();
 
     // If candidate is the deprecated search.google.com/local/writereview (which fails with 404 on Google),
