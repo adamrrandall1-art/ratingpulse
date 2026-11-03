@@ -15,7 +15,13 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { resolveReviewUrl } from '@/lib/google-places';
+import {
+  resolveReviewUrl,
+  extractPlaceId,
+  constructGoogleReviewUrl,
+  getCanonicalGoogleReviewUrl,
+  getMapsPlaceFallbackUrl,
+} from '@/lib/google';
 
 function ReviewGateContent() {
   const params = useParams();
@@ -127,10 +133,12 @@ function ReviewGateContent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive final 5-star Google review URL using direct googleReviewUrl or placeId
-  const resolvedGoogleUrl =
-    googleReviewUrl ||
-    (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : '/');
+  // Derive final 5-star Google review URL using canonical constructor
+  const cleanPlaceId = extractPlaceId(placeId);
+  const resolvedGoogleUrl = constructGoogleReviewUrl({
+    placeId: cleanPlaceId,
+    customReviewUrl: googleReviewUrl,
+  });
 
   const handleRatingClick = async (rating: number) => {
     setSelectedRating(rating);
@@ -164,10 +172,16 @@ function ReviewGateContent() {
       }
 
       // Immediate redirect to active business Google review URL
-      const destination =
-        (googleReviewUrl && googleReviewUrl.startsWith('http') && !googleReviewUrl.includes('/r/'))
-          ? googleReviewUrl
-          : (placeId ? `https://search.google.com/local/writereview?placeid=${placeId}` : null);
+      let destination = constructGoogleReviewUrl({
+        placeId: cleanPlaceId,
+        customReviewUrl: googleReviewUrl,
+      });
+
+      if (destination.startsWith('//')) {
+        destination = 'https:' + destination;
+      } else if (!destination.startsWith('http://') && !destination.startsWith('https://')) {
+        destination = 'https://' + destination;
+      }
 
       if (destination) {
         setTimeout(() => {

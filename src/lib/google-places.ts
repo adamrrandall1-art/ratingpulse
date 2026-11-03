@@ -10,34 +10,14 @@ export const getGooglePlacesApiKey = (): string => {
   );
 };
 
-export function resolveReviewUrl(target: string | null | undefined): string | null {
-  if (!target) return null;
-  let trimmed = target.trim();
-  if (!trimmed) return null;
-
-  // Unwrap any accidentally malformed nested redirect URLs (e.g. placeid=https://...)
-  if (trimmed.includes('search.google.com/local/writereview?placeid=')) {
-    const parts = trimmed.split('search.google.com/local/writereview?placeid=');
-    const candidate = parts[1];
-    if (candidate) {
-      const decoded = decodeURIComponent(candidate).trim();
-      if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
-        trimmed = decoded;
-      }
-    }
-  }
-
-  // If it is already a full URL (e.g. https://g.page/r/... or https://maps.google.com/...)
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  // If it is a raw Place ID (e.g. ChIJ...)
-  return `https://search.google.com/local/writereview?placeid=${trimmed}`;
-}
-
-export const generateGoogleReviewUrl = (placeId: string): string => {
-  return resolveReviewUrl(placeId) || '';
-};
+export {
+  extractPlaceId,
+  getCanonicalGoogleReviewUrl,
+  getMapsPlaceFallbackUrl,
+  constructGoogleReviewUrl,
+  resolveReviewUrl,
+  generateGoogleReviewUrl,
+} from './google';
 
 export interface SelectedPlaceData {
   placeId: string;

@@ -16,7 +16,13 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { resolveReviewUrl } from '@/lib/google-places';
+import {
+  extractPlaceId,
+  getCanonicalGoogleReviewUrl,
+  getMapsPlaceFallbackUrl,
+  constructGoogleReviewUrl,
+  resolveReviewUrl,
+} from '@/lib/google';
 import type { FunnelBusiness, FunnelInvite } from './types';
 
 interface FunnelClientProps {
@@ -51,16 +57,16 @@ export default function FunnelClient({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Derive active review link: normalize destination resolution to prevent malformed URL concatenation
-  const effectiveDestinationUrl =
-    resolveReviewUrl(destinationUrl) ||
-    resolveReviewUrl(invite?.business?.googleReviewUrl) ||
-    resolveReviewUrl(invite?.business?.placeId) ||
-    resolveReviewUrl(invite?.destinationUrl) ||
-    resolveReviewUrl(business?.googleReviewUrl) ||
-    resolveReviewUrl(business?.placeId);
+  const rawPlaceId = business?.placeId || invite?.business?.placeId;
+  const cleanPlaceId = extractPlaceId(rawPlaceId);
+  const customReviewUrl = business?.googleReviewUrl || invite?.business?.googleReviewUrl;
 
-  // Target review URL resolved via resolveReviewUrl(destinationUrl)
-  const targetUrl = resolveReviewUrl(destinationUrl) || effectiveDestinationUrl || '';
+  const targetUrl = constructGoogleReviewUrl({
+    placeId: cleanPlaceId,
+    customReviewUrl: customReviewUrl || destinationUrl,
+  });
+
+  const effectiveDestinationUrl = targetUrl;
 
   useEffect(() => {
     return () => {
@@ -112,12 +118,31 @@ export default function FunnelClient({
       }
 
       // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect
-      if (targetUrl) {
+      const canonicalUrl = cleanPlaceId
+        ? getCanonicalGoogleReviewUrl(cleanPlaceId)
+        : null;
+
+      let destination =
+        (business?.googleReviewUrl && resolveReviewUrl(business.googleReviewUrl)) ||
+        (invite?.business?.googleReviewUrl && resolveReviewUrl(invite.business.googleReviewUrl)) ||
+        canonicalUrl ||
+        targetUrl ||
+        (cleanPlaceId ? getMapsPlaceFallbackUrl(cleanPlaceId) : null) ||
+        'https://ratingpulse.co';
+
+      // Ensure destination ALWAYS starts with https://
+      if (destination.startsWith('//')) {
+        destination = 'https:' + destination;
+      } else if (!destination.startsWith('http://') && !destination.startsWith('https://')) {
+        destination = 'https://' + destination;
+      }
+
+      if (destination) {
         if (redirectTimerRef.current) {
           clearTimeout(redirectTimerRef.current);
         }
         redirectTimerRef.current = setTimeout(() => {
-          window.location.href = targetUrl;
+          window.location.href = destination;
         }, 1200);
       } else {
         console.error("Missing Google review URL destination for invite:", token);

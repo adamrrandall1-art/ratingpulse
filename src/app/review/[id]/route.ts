@@ -3,6 +3,11 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { db } from '@/lib/db';
+import {
+  resolveReviewUrl,
+  extractPlaceId,
+  constructGoogleReviewUrl,
+} from '@/lib/google';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -44,11 +49,11 @@ export async function GET(
     const queryPlaceId = url.searchParams.get('placeId');
     const queryBusiness = url.searchParams.get('business') || url.searchParams.get('name');
 
-    if (queryReviewUrl && queryReviewUrl.startsWith('http')) {
-      business.googleReviewUrl = queryReviewUrl;
+    if (queryReviewUrl) {
+      business.googleReviewUrl = resolveReviewUrl(queryReviewUrl);
     }
     if (queryPlaceId) {
-      business.placeId = queryPlaceId;
+      business.placeId = extractPlaceId(queryPlaceId) || queryPlaceId;
     }
     if (queryBusiness) {
       business.name = queryBusiness;
@@ -128,6 +133,16 @@ export async function GET(
         }
       }
     }
+
+    // Ensure canonical placeId and reviewUrl formats
+    const cleanPlaceId = extractPlaceId(business.placeId);
+    if (cleanPlaceId) {
+      business.placeId = cleanPlaceId;
+    }
+    business.googleReviewUrl = constructGoogleReviewUrl({
+      placeId: business.placeId,
+      customReviewUrl: business.googleReviewUrl,
+    });
 
     // Route visitor to the RatingPulse 5-star review funnel page
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';

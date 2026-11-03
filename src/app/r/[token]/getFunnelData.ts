@@ -1,7 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
-import { resolveReviewUrl } from '@/lib/google-places';
+import {
+  extractPlaceId,
+  constructGoogleReviewUrl,
+  resolveReviewUrl,
+  getCanonicalGoogleReviewUrl,
+} from '@/lib/google';
 import type { FunnelBusiness, FunnelInvite, FunnelData } from './types';
-export { resolveReviewUrl };
+export { resolveReviewUrl, extractPlaceId, constructGoogleReviewUrl };
 export type { FunnelBusiness, FunnelInvite, FunnelData };
 
 function getSupabaseAdmin() {
@@ -177,12 +182,17 @@ export async function getFunnelData(
         inviteData?.place_id?.trim() ||
         null;
 
-      // If the candidate string starts with http, it is a review URL, not a Place ID
-      const livePlaceId = (rawPlaceCandidate && !rawPlaceCandidate.startsWith('http'))
-        ? rawPlaceCandidate
-        : null;
+      // Cleanly extract Google place ID
+      const livePlaceId = extractPlaceId(rawPlaceCandidate);
 
-      const liveBusinessReviewUrl = liveGoogleReviewUrl || resolveReviewUrl(rawPlaceCandidate);
+      const liveCustomReviewUrl =
+        liveGoogleReviewUrl ||
+        (rawPlaceCandidate && (rawPlaceCandidate.includes('http') || rawPlaceCandidate.includes('google.com')) ? rawPlaceCandidate : null);
+
+      const liveBusinessReviewUrl = constructGoogleReviewUrl({
+        placeId: livePlaceId,
+        customReviewUrl: liveCustomReviewUrl,
+      });
 
       const liveBusinessName =
         queryBusiness ||
@@ -204,7 +214,7 @@ export async function getFunnelData(
       const inviteDestUrl =
         (inviteData?.review_link && !inviteData.review_link.includes('/r/'))
           ? resolveReviewUrl(inviteData.review_link)
-          : resolveReviewUrl(inviteData?.place_id);
+          : (inviteData?.place_id ? constructGoogleReviewUrl({ placeId: extractPlaceId(inviteData.place_id) }) : null);
 
       invite = {
         ...(inviteData || {}),
@@ -217,11 +227,15 @@ export async function getFunnelData(
   }
 
   if (!liveBusiness) {
+    const fallbackPlaceId = extractPlaceId(queryPlaceId);
     liveBusiness = {
       id: token || 'unknown',
       name: queryBusiness || 'RatingPulse',
-      placeId: queryPlaceId || null,
-      googleReviewUrl: resolveReviewUrl(queryReviewUrl) || resolveReviewUrl(queryPlaceId) || null,
+      placeId: fallbackPlaceId,
+      googleReviewUrl: constructGoogleReviewUrl({
+        placeId: fallbackPlaceId,
+        customReviewUrl: queryReviewUrl,
+      }),
       address: null,
       ownerEmail: null,
       ownerPhone: null,
@@ -237,13 +251,15 @@ export async function getFunnelData(
     };
   }
 
-  // Resolve the destination URL using live business fields with normalized resolver:
-  const destinationUrl = 
-    resolveReviewUrl(invite?.business?.googleReviewUrl) || 
-    resolveReviewUrl(invite?.business?.placeId) || 
-    resolveReviewUrl(invite?.destinationUrl) ||
-    resolveReviewUrl(liveBusiness.googleReviewUrl) ||
-    resolveReviewUrl(liveBusiness.placeId);
+  // Resolve the destination URL using live business fields with canonical constructor:
+  const destinationUrl = constructGoogleReviewUrl({
+    placeId: liveBusiness.placeId || extractPlaceId(invite?.business?.placeId) || extractPlaceId(invite?.place_id),
+    customReviewUrl:
+      invite?.business?.googleReviewUrl ||
+      liveBusiness.googleReviewUrl ||
+      invite?.destinationUrl ||
+      invite?.review_link,
+  });
 
   return {
     destinationUrl,
