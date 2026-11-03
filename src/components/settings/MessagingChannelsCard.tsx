@@ -229,12 +229,23 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
       ? props.negativeAlertsEnabled
       : (negativeAlertsEnabled ?? notifyNegativeEnabled ?? initialBiz?.negativeAlertsEnabled ?? true);
 
+  const rawNegEmailAlert =
+    props.settingsState?.negativeAlertEmailEnabled ??
+    props.settingsState?.emailAlertsEnabled ??
+    props.settingsState?.negativeEmailAlertEnabled ??
+    props.negativeAlertEmailEnabled ??
+    props.negativeEmailAlertEnabled ??
+    negativeEmailAlertEnabled ??
+    initialBiz?.negativeAlertEmailEnabled ??
+    initialBiz?.emailAlertsEnabled ??
+    initialBiz?.negativeEmailAlertEnabled;
+
   const effectiveNegativeEmailAlertEnabled =
-    props.negativeAlertEmailEnabled !== undefined
-      ? props.negativeAlertEmailEnabled
-      : (props.negativeEmailAlertEnabled !== undefined
-        ? props.negativeEmailAlertEnabled
-        : (negativeEmailAlertEnabled ?? notifyNegativeEmail ?? initialBiz?.negativeAlertEmailEnabled ?? initialBiz?.negativeEmailAlertEnabled ?? true));
+    typeof rawNegEmailAlert === 'boolean'
+      ? rawNegEmailAlert
+      : (typeof rawNegEmailAlert === 'string'
+        ? (rawNegEmailAlert === 'true' || rawNegEmailAlert === 'on' || rawNegEmailAlert === '1')
+        : (rawNegEmailAlert !== undefined && rawNegEmailAlert !== null ? Boolean(rawNegEmailAlert) : true));
 
   const effectiveNegativeSmsAlertEnabled = Boolean(
     props.settingsState?.negativeAlertSmsEnabled ??
@@ -452,11 +463,21 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
                     checked={effectiveNegativeEmailAlertEnabled}
                     onChange={(e) => {
                       const checked = e.target.checked;
+                      if (props.setSettingsState) {
+                        props.setSettingsState((prev: any) => ({
+                          ...prev,
+                          negativeAlertEmailEnabled: checked,
+                          negativeEmailAlertEnabled: checked,
+                          emailAlertsEnabled: checked,
+                        }));
+                      }
                       if (setNegativeEmailAlertEnabled) setNegativeEmailAlertEnabled(checked);
                       if (props.setNegativeAlertEmailEnabled) props.setNegativeAlertEmailEnabled(checked);
+                      if (props.setNegativeEmailAlertEnabled) props.setNegativeEmailAlertEnabled(checked);
                       if (setNotifyNegativeEmail) setNotifyNegativeEmail(checked);
                       onToggleChange?.('negativeAlertEmailEnabled', checked);
                       onToggleChange?.('negativeEmailAlertEnabled', checked);
+                      onToggleChange?.('emailAlertsEnabled', checked);
                     }}
                     className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
                   />

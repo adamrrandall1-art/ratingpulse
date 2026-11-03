@@ -107,12 +107,27 @@ export async function handleSaveNotifications(req: NextRequest) {
         ? body.negative_alerts_enabled
         : body.notify_negative_enabled;
 
+    const rawNegEmailAlert =
+      body.emailAlertsEnabled !== undefined
+        ? body.emailAlertsEnabled
+        : (body.email_alerts_enabled !== undefined
+          ? body.email_alerts_enabled
+          : (body.negativeAlertEmailEnabled !== undefined
+            ? body.negativeAlertEmailEnabled
+            : (body.negativeEmailAlertEnabled !== undefined
+              ? body.negativeEmailAlertEnabled
+              : (body.negative_alert_email_enabled !== undefined
+                ? body.negative_alert_email_enabled
+                : (body.negative_email_alert_enabled !== undefined
+                  ? body.negative_email_alert_enabled
+                  : undefined)))));
+
     const negativeEmailAlertEnabled =
-      body.negativeEmailAlertEnabled !== undefined
-        ? body.negativeEmailAlertEnabled
-        : body.negative_email_alert_enabled !== undefined
-        ? body.negative_email_alert_enabled
-        : body.notify_negative_email;
+      typeof rawNegEmailAlert === 'boolean'
+        ? rawNegEmailAlert
+        : (typeof rawNegEmailAlert === 'string'
+          ? (rawNegEmailAlert === 'true' || rawNegEmailAlert === 'on' || rawNegEmailAlert === '1')
+          : (rawNegEmailAlert !== undefined && rawNegEmailAlert !== null ? Boolean(rawNegEmailAlert) : undefined));
 
     const negativeSmsAlertEnabled =
       body.negativeSmsAlertEnabled !== undefined
@@ -229,8 +244,8 @@ export async function handleSaveNotifications(req: NextRequest) {
       settingsUpdates.negative_alerts_enabled = Boolean(negativeAlertsEnabled);
     }
     if (negativeEmailAlertEnabled !== undefined) {
-      settingsUpdates.notify_negative_email = Boolean(negativeEmailAlertEnabled);
-      settingsUpdates.negative_email_alert_enabled = Boolean(negativeEmailAlertEnabled);
+      settingsUpdates.email_alerts_enabled = Boolean(negativeEmailAlertEnabled);
+      settingsUpdates.negative_alert_email_enabled = Boolean(negativeEmailAlertEnabled);
     }
     if (negativeSmsAlertEnabled !== undefined) {
       settingsUpdates.notify_negative_sms = Boolean(negativeSmsAlertEnabled);

@@ -70,17 +70,54 @@ export async function saveAllSettingsAction(payload: {
       ? String(incomingTone)
       : undefined;
 
+  // Robust boolean extraction for negative email alert
+  let emailEnabled: boolean | undefined = undefined;
+  const rawEmailInput =
+    payload.emailAlertsEnabled ??
+    payload.email_alerts_enabled ??
+    payload.negativeAlertEmailEnabled ??
+    payload.negativeEmailAlertEnabled ??
+    payload.negative_alert_email_enabled ??
+    payload.negative_email_alert_enabled;
+
+  if (typeof rawEmailInput === 'boolean') {
+    emailEnabled = rawEmailInput;
+  } else if (typeof rawEmailInput === 'string') {
+    emailEnabled = rawEmailInput === 'true' || rawEmailInput === 'on' || rawEmailInput === '1';
+  }
+
+  // Robust boolean extraction for negative SMS alert
+  let smsEnabledVal: boolean | undefined = undefined;
+  const rawSmsInput =
+    payload.negativeAlertSmsEnabled ??
+    payload.smsAlertsEnabled ??
+    payload.notifySms ??
+    payload.negativeSmsAlertEnabled ??
+    payload.enableSmsAlerts ??
+    payload.notifyNegativeEnabled ??
+    payload.notify_negative_enabled;
+
+  if (typeof rawSmsInput === 'boolean') {
+    smsEnabledVal = rawSmsInput;
+  } else if (typeof rawSmsInput === 'string') {
+    smsEnabledVal = rawSmsInput === 'true' || rawSmsInput === 'on' || rawSmsInput === '1';
+  }
+
   // Persist directly to businessSettings table strictly scoped to targetUserId
   const settingsUpdateData: Record<string, any> = {
     notifyNegativePhone: payload.negativeAlertPhone || null,
     notifyNegativeEmail: payload.negativeAlertEmail || null,
-    notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-    emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
     googleReviewUrl: payload.googleReviewUrl || null,
     updatedAt: new Date(),
   };
   if (resolvedBrandVoice !== undefined) {
     settingsUpdateData.brandVoice = resolvedBrandVoice;
+  }
+  if (smsEnabledVal !== undefined) {
+    settingsUpdateData.notifyNegativeEnabled = smsEnabledVal;
+  }
+  if (emailEnabled !== undefined) {
+    settingsUpdateData.emailAlertsEnabled = emailEnabled;
   }
 
   const settingsCreateData: Record<string, any> = {
@@ -88,8 +125,8 @@ export async function saveAllSettingsAction(payload: {
     brandVoice: resolvedBrandVoice || 'friendly_professional',
     notifyNegativePhone: payload.negativeAlertPhone || null,
     notifyNegativeEmail: payload.negativeAlertEmail || null,
-    notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-    emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+    notifyNegativeEnabled: smsEnabledVal !== undefined ? smsEnabledVal : true,
+    emailAlertsEnabled: emailEnabled !== undefined ? emailEnabled : true,
     googleReviewUrl: payload.googleReviewUrl || null,
   };
 
@@ -174,29 +211,21 @@ export async function saveAllSettingsAction(payload: {
   if (payload.negativeAlertsEnabled !== undefined) updateData.negativeAlertsEnabled = payload.negativeAlertsEnabled;
   
   // Boolean checkmark fields (support every possible naming convention)
-  const smsEnabled = 
-    payload.negativeAlertSmsEnabled ?? 
-    payload.smsAlertsEnabled ?? 
-    payload.notifySms ?? 
-    payload.negativeSmsAlertEnabled ?? 
-    payload.enableSmsAlerts;
-  if (smsEnabled !== undefined) {
-    const isSmsActive = Boolean(smsEnabled);
-    updateData.negativeAlertSmsEnabled = isSmsActive;
-    updateData.smsAlertsEnabled = isSmsActive;
-    updateData.negativeSmsAlertEnabled = isSmsActive;
-    updateData.notifyNegativeEnabled = isSmsActive;
-    updateData.notify_negative_enabled = isSmsActive;
+  if (smsEnabledVal !== undefined) {
+    updateData.negativeAlertSmsEnabled = smsEnabledVal;
+    updateData.smsAlertsEnabled = smsEnabledVal;
+    updateData.negativeSmsAlertEnabled = smsEnabledVal;
+    updateData.notifyNegativeEnabled = smsEnabledVal;
+    updateData.notify_negative_enabled = smsEnabledVal;
   }
 
-  const negEmail = payload.negativeAlertEmailEnabled !== undefined
-    ? Boolean(payload.negativeAlertEmailEnabled)
-    : (payload.negativeEmailAlertEnabled !== undefined ? Boolean(payload.negativeEmailAlertEnabled) : undefined);
-  if (negEmail !== undefined) {
-    updateData.negativeAlertEmailEnabled = negEmail;
-    updateData.negativeEmailAlertEnabled = negEmail;
-    updateData.emailAlertsEnabled = negEmail;
-    updateData.email_alerts_enabled = negEmail;
+  if (emailEnabled !== undefined) {
+    updateData.negativeAlertEmailEnabled = emailEnabled;
+    updateData.negativeEmailAlertEnabled = emailEnabled;
+    updateData.emailAlertsEnabled = emailEnabled;
+    updateData.email_alerts_enabled = emailEnabled;
+    updateData.negative_alert_email_enabled = emailEnabled;
+    updateData.negative_email_alert_enabled = emailEnabled;
   }
 
   if (payload.positiveAlertsEnabled !== undefined) updateData.positiveAlertsEnabled = payload.positiveAlertsEnabled;
@@ -299,6 +328,18 @@ export async function saveSettingsAction(formData: FormData | Record<string, any
   if (formData instanceof FormData) {
     for (const [key, val] of formData.entries()) {
       body[key] = typeof val === 'string' ? val.trim() : val;
+    }
+    // HTML form checkboxes are omitted from FormData when unchecked:
+    if (formData.has('negativeAlertEmail') || formData.has('negativeAlertPhone') || formData.has('isNotificationForm')) {
+      if (!formData.has('emailAlertsEnabled') && !formData.has('negativeAlertEmailEnabled') && !formData.has('negativeEmailAlertEnabled')) {
+        body.emailAlertsEnabled = false;
+        body.negativeAlertEmailEnabled = false;
+        body.negativeEmailAlertEnabled = false;
+      }
+      if (!formData.has('negativeAlertSmsEnabled') && !formData.has('smsAlertsEnabled') && !formData.has('notifyNegativeEnabled')) {
+        body.negativeAlertSmsEnabled = false;
+        body.smsAlertsEnabled = false;
+      }
     }
   } else if (formData && typeof formData === 'object') {
     for (const [key, val] of Object.entries(formData)) {

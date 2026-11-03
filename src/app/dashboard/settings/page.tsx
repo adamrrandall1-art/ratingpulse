@@ -71,13 +71,28 @@ export default async function SettingsPage() {
       business.negativeAlertEmail = settings.notifyNegativeEmail;
       business.notifyNegativeEmail = settings.notifyNegativeEmail;
     }
-    if (settings.notifyNegativeEnabled !== undefined) {
-      business.negativeAlertSmsEnabled = settings.notifyNegativeEnabled;
-      business.smsAlertsEnabled = settings.notifyNegativeEnabled;
+    if (settings.notifyNegativeEnabled !== undefined && settings.notifyNegativeEnabled !== null) {
+      const smsVal = typeof settings.notifyNegativeEnabled === 'boolean'
+        ? settings.notifyNegativeEnabled
+        : (settings.notifyNegativeEnabled === 'true' || settings.notifyNegativeEnabled === 'on');
+      business.negativeAlertSmsEnabled = smsVal;
+      business.smsAlertsEnabled = smsVal;
     }
-    if (settings.emailAlertsEnabled !== undefined) {
-      business.negativeAlertEmailEnabled = settings.emailAlertsEnabled;
-      business.emailAlertsEnabled = settings.emailAlertsEnabled;
+    if (settings.emailAlertsEnabled !== undefined && settings.emailAlertsEnabled !== null) {
+      const emailVal = typeof settings.emailAlertsEnabled === 'boolean'
+        ? settings.emailAlertsEnabled
+        : (settings.emailAlertsEnabled === 'true' || settings.emailAlertsEnabled === 'on');
+      business.negativeAlertEmailEnabled = emailVal;
+      business.negativeEmailAlertEnabled = emailVal;
+      business.emailAlertsEnabled = emailVal;
+    } else if (business.negativeAlertEmailEnabled !== undefined && business.negativeAlertEmailEnabled !== null) {
+      const emailVal = typeof business.negativeAlertEmailEnabled === 'boolean'
+        ? business.negativeAlertEmailEnabled
+        : (business.negativeAlertEmailEnabled === 'true' || business.negativeAlertEmailEnabled === 'on');
+      settings.emailAlertsEnabled = emailVal;
+      (settings as any).email_alerts_enabled = emailVal;
+      business.negativeEmailAlertEnabled = emailVal;
+      business.emailAlertsEnabled = emailVal;
     }
     if (settings.googleReviewUrl) {
       business.googleReviewUrl = settings.googleReviewUrl;
