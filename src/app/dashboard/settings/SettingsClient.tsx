@@ -449,7 +449,9 @@ export default function SettingsClient({
   const [isSavingAiPersona, setIsSavingAiPersona] = useState(false);
   const [isAiPersonaSaved, setIsAiPersonaSaved] = useState(false);
   const [isSendingPasswordReset, setIsSendingPasswordReset] = useState(false);
-  const [sendingTestWelcome, setSendingTestWelcome] = useState(false);
+  const [sendingTestInvite, setSendingTestInvite] = useState(false);
+  const sendingTestWelcome = sendingTestInvite;
+  const setSendingTestWelcome = setSendingTestInvite;
 
   const handleToggleNotification = (field: string, value: boolean) => {
     if (field === 'negativeAlertsEnabled' || field === 'notifyNegativeEnabled') setNegativeAlertsEnabled(value);
@@ -462,39 +464,58 @@ export default function SettingsClient({
     if (field === 'positiveSmsAlertEnabled' || field === 'notifyPositiveSms') setPositiveSmsAlertEnabled(value);
   };
 
-  const handleSendTestWelcome = async () => {
-    const targetEmail = settingsState.negativeAlertEmail || settingsState.positiveAlertEmail || profile.email || user?.email || 'admin@business.com';
-    setSendingTestWelcome(true);
+  const handleSendTestReviewInvite = async () => {
+    const targetEmail =
+      settingsState.negativeAlertEmail ||
+      settingsState.positiveAlertEmail ||
+      profile.email ||
+      user?.email ||
+      'admin@business.com';
+    const bizName =
+      activeBusiness?.name ||
+      initialBusiness?.name ||
+      profile.business_name ||
+      'Our Business';
+    const reviewUrl =
+      activeBusiness?.googleReviewUrl ||
+      initialBusiness?.googleReviewUrl ||
+      'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+
+    setSendingTestInvite(true);
 
     try {
-      const res = await fetch('/api/test-welcome-email', {
+      const res = await fetch('/api/email/test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: targetEmail,
-          name: fullName || 'Valued Business Owner',
-          userId: user?.id || profile.id,
+          name: fullName || 'Valued Customer',
+          businessName: bizName,
+          reviewUrl,
+          googleReviewUrl: reviewUrl,
         }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || 'Failed to dispatch test welcome email');
+        throw new Error(data.error || 'Failed to dispatch sample review invite email');
       }
 
-      toast.success('Welcome Email Dispatched! 🚀', {
-        description: `A test onboarding welcome email has been delivered to ${targetEmail}.`,
+      toast.success('Sample Review Invite Sent! 📨', {
+        description: `A sample customer review request email has been delivered to ${targetEmail}.`,
         duration: 5000,
       });
     } catch (err: any) {
-      console.error('Test welcome email error:', err);
-      toast.error('Could not send test email', {
+      console.error('Test review invite error:', err);
+      toast.error('Could not send sample review invite', {
         description: err.message || 'Please check your connection and Resend configuration.',
       });
     } finally {
-      setSendingTestWelcome(false);
+      setSendingTestInvite(false);
     }
   };
+
+  const handleSendTestWelcome = handleSendTestReviewInvite;
 
   const handlePasswordReset = async () => {
     const emailToReset = adminEmail || user?.email;
@@ -841,7 +862,11 @@ export default function SettingsClient({
               setNotifyPositiveSms={setNotifyPositiveSms}
               positiveEmailAddress={positiveEmailAddress || initialBusiness?.positiveAlertEmail || ''}
               setPositiveEmailAddress={setPositiveEmailAddress}
+              onSendTestReviewInvite={handleSendTestReviewInvite}
+              onSendTestInvite={handleSendTestReviewInvite}
               onSendTestWelcome={handleSendTestWelcome}
+              sendingTestReviewInvite={sendingTestInvite}
+              sendingTestInvite={sendingTestInvite}
               sendingTestWelcome={sendingTestWelcome}
               onSaveNotificationPreferences={handleSaveNotificationPreferences}
               isSavingNotifications={isSavingNotifications || isSaving}

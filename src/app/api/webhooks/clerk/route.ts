@@ -30,10 +30,27 @@ export async function POST(req: NextRequest) {
               userId: clerkId,
               name: evt.data.first_name ? `${evt.data.first_name}'s Business` : 'RatingPulse Business',
               negativeAlertSmsEnabled: true,
-              aiTone: 'Professional & Warm',
+              brandVoice: 'friendly_professional',
+              aiTone: 'friendly_professional',
               isGoogleConnected: true,
             },
           });
+        }
+
+        // Send platform onboarding welcome email only upon new user account creation
+        if (evt.type === 'user.created') {
+          const userEmail = evt.data.email_addresses?.[0]?.email_address;
+          const userName = evt.data.first_name
+            ? `${evt.data.first_name} ${evt.data.last_name || ''}`.trim()
+            : undefined;
+          if (userEmail) {
+            try {
+              const { sendWelcomeEmail } = await import('@/lib/email/templates/welcome');
+              await sendWelcomeEmail({ to: userEmail, name: userName, userId: clerkId });
+            } catch (wErr) {
+              console.warn('[Clerk Webhook Welcome Email error]:', wErr);
+            }
+          }
         }
       }
     }

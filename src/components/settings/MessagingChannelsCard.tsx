@@ -79,6 +79,10 @@ interface MessagingChannelsCardProps {
 
   // Actions & Persistence
   initialBusiness?: any;
+  onSendTestReviewInvite?: () => Promise<void>;
+  onSendTestInvite?: () => Promise<void>;
+  sendingTestReviewInvite?: boolean;
+  sendingTestInvite?: boolean;
   onSendTestWelcome?: () => Promise<void>;
   sendingTestWelcome?: boolean;
   onSaveNotificationPreferences?: () => Promise<void>;
@@ -118,6 +122,10 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
     setNotifyPositiveSms,
     initialBusiness,
     business,
+    onSendTestReviewInvite,
+    onSendTestInvite,
+    sendingTestReviewInvite,
+    sendingTestInvite,
     onSendTestWelcome,
     sendingTestWelcome = false,
     onSaveNotificationPreferences,
@@ -126,6 +134,9 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
     onAutoSaveNotifications,
     onToggleChange,
   } = props;
+
+  const testInviteHandler = onSendTestReviewInvite || onSendTestInvite || onSendTestWelcome;
+  const isSendingTestInvite = Boolean(sendingTestReviewInvite ?? sendingTestInvite ?? sendingTestWelcome);
 
   const initialBiz = initialBusiness || business || props.initialBusiness || props.business;
 
@@ -672,33 +683,34 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
           </div>
         )}
 
-        {/* Onboarding Welcome Email Test Card */}
-        {onSendTestWelcome && (
+        {/* Customer Review Request Preview Test Card */}
+        {testInviteHandler && (
           <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50/60 to-indigo-50/50 border border-blue-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-                Automated Onboarding Welcome Email
+                Customer Review Request Preview
               </div>
               <div className="text-[11px] text-slate-500 mt-0.5">
-                Test the 3-step quick start onboarding email sent to new users upon account registration.
+                Send a sample review request email to your inbox to see what your customers will receive.
               </div>
             </div>
             <button
               type="button"
-              onClick={onSendTestWelcome}
-              disabled={sendingTestWelcome}
+              onClick={testInviteHandler}
+              disabled={isSendingTestInvite}
+              title="Send a sample review request email to your inbox to see what your customers will receive."
               className="inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all shrink-0 cursor-pointer disabled:opacity-50"
             >
-              {sendingTestWelcome ? (
+              {isSendingTestInvite ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-white" />
-                  <span>Sending Test Email...</span>
+                  <span>Sending Test Invite...</span>
                 </>
               ) : (
                 <>
                   <Mail className="w-3.5 h-3.5" />
-                  <span>Send Test Welcome Email</span>
+                  <span>Send Test Review Invite</span>
                 </>
               )}
             </button>
