@@ -4,8 +4,10 @@ export interface ReviewInviteEmailParams {
   to: string;
   customerName?: string;
   businessName?: string;
+  businessId?: string;
   reviewUrl?: string;
   googleReviewUrl?: string;
+  reviewGateUrl?: string;
   isTestPreview?: boolean;
 }
 
@@ -75,7 +77,7 @@ export function generateReviewInviteHtml({
               </p>
               
               <p style="margin: 0 0 28px 0; font-size: 15px; line-height: 1.6; color: #475569;">
-                Your feedback means the world to our team. Could you please take 30 seconds to share your thoughts and rate your experience on Google? It helps our local team continue to improve and helps others in our community discover our business.
+                Your feedback means the world to our team. Could you please take 30 seconds to share your thoughts and rate your experience? It helps our local team continue to improve and helps others in our community discover our business.
               </p>
 
               <!-- Star Rating Indicator -->
@@ -91,7 +93,7 @@ export function generateReviewInviteHtml({
               <!-- High-Contrast CTA Button -->
               <div style="text-align: center; margin: 0 0 28px 0;">
                 <a href="${targetUrl}" target="_blank" rel="noopener noreferrer" style="display: inline-block; background-color: #2563eb; color: #ffffff; padding: 15px 36px; border-radius: 12px; font-size: 15px; font-weight: 700; text-decoration: none; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35); text-align: center;">
-                  Share Your Experience on Google →
+                  Leave a Review →
                 </a>
               </div>
 
@@ -147,7 +149,7 @@ export function generateReviewInvitePlainText({
 
 Thank you for choosing ${businessName}! We truly appreciate your support and hope you had a wonderful experience with us.
 
-Your feedback means the world to our team. Could you please take 30 seconds to share your thoughts and rate your experience on Google? It helps our local team continue to improve and helps others in our community discover our business:
+Your feedback means the world to our team. Could you please take 30 seconds to share your thoughts and rate your experience? It helps our local team continue to improve and helps others in our community discover our business:
 
 ${targetUrl}
 
@@ -162,13 +164,31 @@ export async function sendReviewInviteEmail({
   to,
   customerName,
   businessName = 'Our Business',
+  businessId,
   reviewUrl,
   googleReviewUrl,
+  reviewGateUrl,
   isTestPreview = false,
 }: ReviewInviteEmailParams) {
   const resendApiKey = process.env.RESEND_API_KEY;
   const configuredFrom = process.env.RESEND_FROM_EMAIL || 'notifications@ratingpulse.co';
-  const targetUrl = reviewUrl || googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+
+  // Determine canonical gating funnel URL:
+  // 1. If explicit reviewGateUrl provided, use it.
+  // 2. If reviewUrl contains an internal gating path (/review/, /r/, /rate/), use it.
+  // 3. If businessId provided, construct canonical gating URL: ${baseUrl}/review/${businessId}.
+  // 4. Fallback to ${baseUrl}/review/demo or reviewUrl.
+  let targetUrl = reviewGateUrl;
+  if (!targetUrl) {
+    if (reviewUrl && (reviewUrl.includes('/review/') || reviewUrl.includes('/r/') || reviewUrl.includes('/rate/'))) {
+      targetUrl = reviewUrl;
+    } else if (businessId) {
+      targetUrl = `${baseUrl}/review/${businessId}`;
+    } else {
+      targetUrl = `${baseUrl}/review/demo`;
+    }
+  }
 
   if (!to || !to.includes('@')) {
     return { success: false, error: 'Invalid recipient email address' };

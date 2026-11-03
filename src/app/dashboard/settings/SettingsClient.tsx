@@ -476,7 +476,15 @@ export default function SettingsClient({
       initialBusiness?.name ||
       profile.business_name ||
       'Our Business';
-    const reviewUrl =
+    const targetBusinessId =
+      activeBusiness?.id ||
+      initialBusiness?.id ||
+      profile?.id ||
+      user?.id ||
+      'demo';
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co');
+    const gatingUrl = `${baseUrl}/review/${targetBusinessId}`;
+    const rawGoogleReviewUrl =
       activeBusiness?.googleReviewUrl ||
       initialBusiness?.googleReviewUrl ||
       'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
@@ -491,8 +499,10 @@ export default function SettingsClient({
           email: targetEmail,
           name: fullName || 'Valued Customer',
           businessName: bizName,
-          reviewUrl,
-          googleReviewUrl: reviewUrl,
+          businessId: targetBusinessId,
+          reviewUrl: gatingUrl,
+          reviewGateUrl: gatingUrl,
+          googleReviewUrl: rawGoogleReviewUrl,
         }),
       });
 

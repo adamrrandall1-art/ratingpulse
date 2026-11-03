@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
+import { resolveReviewUrl } from '@/lib/google-places';
+import type { FunnelBusiness, FunnelInvite, FunnelData } from './types';
+export { resolveReviewUrl };
+export type { FunnelBusiness, FunnelInvite, FunnelData };
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -15,59 +19,6 @@ function getSupabaseAdmin() {
   return createClient(supabaseUrl, supabaseKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
-}
-
-export function resolveReviewUrl(target: string | null | undefined): string | null {
-  if (!target) return null;
-  let trimmed = target.trim();
-  if (!trimmed) return null;
-
-  // Unwrap any accidentally malformed nested redirect URLs (e.g. placeid=https://...)
-  if (trimmed.includes('search.google.com/local/writereview?placeid=')) {
-    const parts = trimmed.split('search.google.com/local/writereview?placeid=');
-    const candidate = parts[1];
-    if (candidate) {
-      const decoded = decodeURIComponent(candidate).trim();
-      if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
-        trimmed = decoded;
-      }
-    }
-  }
-
-  // If it is already a full URL (e.g. https://g.page/r/... or https://maps.google.com/...)
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
-    return trimmed;
-  }
-  // If it is a raw Place ID (e.g. ChIJ...)
-  return `https://search.google.com/local/writereview?placeid=${trimmed}`;
-}
-
-export interface FunnelBusiness {
-  id: string;
-  name: string;
-  placeId: string | null;
-  googleReviewUrl: string | null;
-  address: string | null;
-  ownerEmail: string | null;
-  ownerPhone: string | null;
-}
-
-export interface FunnelInvite {
-  id?: string;
-  token?: string;
-  customer_name?: string | null;
-  customer_phone?: string | null;
-  customer_email?: string | null;
-  service_type?: string | null;
-  business?: FunnelBusiness;
-  destinationUrl?: string | null;
-  [key: string]: any;
-}
-
-export interface FunnelData {
-  destinationUrl: string | null;
-  business: FunnelBusiness;
-  invite: FunnelInvite | null;
 }
 
 export async function getFunnelData(
@@ -158,6 +109,35 @@ export async function getFunnelData(
             .eq('user_id', profByToken.id)
             .maybeSingle();
           settings = settByToken;
+        }
+      }
+
+      // If still no profile found, try Supabase businesses table
+      if (!profile) {
+        try {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+          let bizQuery = supabase.from('businesses').select('*');
+          if (isUuid) {
+            bizQuery = bizQuery.or(`id.eq.${token},userId.eq.${token},user_id.eq.${token}`);
+          } else {
+            bizQuery = bizQuery.or(`clerkUserId.eq.${token},clerk_user_id.eq.${token}`);
+          }
+          const { data: bData } = await bizQuery.maybeSingle();
+          if (bData) {
+            profile = {
+              id: bData.id,
+              business_name: bData.name,
+              review_url: bData.googleReviewUrl || bData.google_review_url || bData.reviewUrl || bData.review_url,
+              google_place_id: bData.placeId || bData.place_id,
+              formatted_address: bData.address,
+              notification_email: bData.negativeAlertEmail || bData.negative_alert_email || bData.email,
+              notification_phone: bData.negativeAlertPhone || bData.negative_alert_phone || bData.phone,
+              email: bData.email,
+              phone: bData.phone,
+            };
+          }
+        } catch (dbErr) {
+          console.warn('[getFunnelData] businesses lookup warning:', dbErr);
         }
       }
 

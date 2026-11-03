@@ -9,13 +9,17 @@ export async function GET(req: NextRequest) {
     const email = searchParams.get('email') || process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
     const name = searchParams.get('name') || 'Valued Customer';
     const businessName = searchParams.get('businessName') || searchParams.get('business') || 'RatingPulse Business';
-    const reviewUrl = searchParams.get('reviewUrl') || searchParams.get('googleReviewUrl') || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const businessId = searchParams.get('businessId') || searchParams.get('id') || 'demo';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const canonicalGatingUrl = `${baseUrl}/review/${businessId}`;
 
     const result = await sendReviewInviteEmail({
       to: email,
       customerName: name,
       businessName,
-      reviewUrl,
+      businessId,
+      reviewUrl: canonicalGatingUrl,
+      reviewGateUrl: canonicalGatingUrl,
       isTestPreview: true,
     });
 
@@ -46,13 +50,18 @@ export async function POST(req: NextRequest) {
     const email = body.email || body.to || process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
     const name = body.name || body.customerName || body.fullName || 'Valued Customer';
     const businessName = body.businessName || body.business_name || 'RatingPulse Business';
-    const reviewUrl = body.reviewUrl || body.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const businessId = body.businessId || body.business_id || 'demo';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const canonicalGatingUrl = `${baseUrl}/review/${businessId}`;
 
     const result = await sendReviewInviteEmail({
       to: email,
       customerName: name,
       businessName,
-      reviewUrl,
+      businessId,
+      reviewUrl: canonicalGatingUrl,
+      reviewGateUrl: canonicalGatingUrl,
+      googleReviewUrl: body.googleReviewUrl || body.reviewUrl || undefined,
       isTestPreview: true,
     });
 

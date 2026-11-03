@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       if (placeId) qParams.set('placeId', placeId);
       if (body.ownerEmail) qParams.set('ownerEmail', body.ownerEmail);
       const queryStr = qParams.toString() ? `?${qParams.toString()}` : '';
-      reviewGateUrl = `${appUrl}/rate/${businessId}${queryStr}`;
+      reviewGateUrl = `${appUrl}/review/${businessId}${queryStr}`;
     }
 
     // 1. Send Clean Plain-Text Style Email via Resend (Optimized for Primary Inbox Deliverability)
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
 
 Thank you for choosing ${businessName}! We hope everything went well during your recent visit.
 
-If you have 30 seconds, could you please leave us a quick review on Google? Your feedback helps our local team and helps others in our community:
+If you have 30 seconds, could you please leave us a review? Your feedback helps our local team and helps others in our community:
 
 ${reviewGateUrl}
 
@@ -71,9 +71,9 @@ ${businessName}`;
 <body style="margin: 0; padding: 24px 16px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; line-height: 1.5; color: #222222; background-color: #ffffff;">
   <p style="margin: 0 0 16px 0;">Hi ${greetingName},</p>
   <p style="margin: 0 0 16px 0;">Thank you for choosing <strong>${businessName}</strong>! We hope everything went well during your recent visit.</p>
-  <p style="margin: 0 0 16px 0;">If you have 30 seconds, could you please leave us a quick review on Google? Your honest feedback helps our team improve and helps others find us:</p>
+  <p style="margin: 0 0 16px 0;">If you have 30 seconds, could you please leave us a review? Your honest feedback helps our team improve and helps others find us:</p>
   <p style="margin: 0 0 16px 0;">
-    <a href="${reviewGateUrl}" style="color: #1a73e8; text-decoration: underline; font-weight: 600;">Leave a quick Google review &rarr;</a>
+    <a href="${reviewGateUrl}" style="color: #1a73e8; text-decoration: underline; font-weight: 600;">Leave a review &rarr;</a>
   </p>
   <p style="margin: 0 0 16px 0; font-size: 13px; color: #555555;">
     Or click here: <a href="${reviewGateUrl}" style="color: #1a73e8; word-break: break-all;">${reviewGateUrl}</a>

@@ -16,7 +16,8 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase/client';
-import { FunnelBusiness, FunnelInvite, resolveReviewUrl } from './getFunnelData';
+import { resolveReviewUrl } from '@/lib/google-places';
+import type { FunnelBusiness, FunnelInvite } from './types';
 
 interface FunnelClientProps {
   token: string;

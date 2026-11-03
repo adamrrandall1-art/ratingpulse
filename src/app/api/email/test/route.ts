@@ -11,13 +11,17 @@ export async function GET(req: NextRequest) {
     const email = searchParams.get('email') || process.env.ADMIN_ALERT_EMAIL || 'arandall79@gmail.com';
     const name = searchParams.get('name') || 'Valued Customer';
     const businessName = searchParams.get('businessName') || searchParams.get('business') || 'RatingPulse Business';
-    const reviewUrl = searchParams.get('reviewUrl') || searchParams.get('googleReviewUrl') || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    const businessId = searchParams.get('businessId') || searchParams.get('id') || 'demo';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    const canonicalGatingUrl = `${baseUrl}/review/${businessId}`;
 
     const result = await sendReviewInviteEmail({
       to: email,
       customerName: name,
       businessName,
-      reviewUrl,
+      businessId,
+      reviewUrl: canonicalGatingUrl,
+      reviewGateUrl: canonicalGatingUrl,
       isTestPreview: true,
     });
 
@@ -51,22 +55,34 @@ export async function POST(req: NextRequest) {
     let targetEmail = body.email || body.to;
     let targetName = body.name || body.customerName || body.fullName || 'Valued Customer';
     let targetBusinessName = body.businessName || body.business_name;
-    let targetReviewUrl = body.reviewUrl || body.googleReviewUrl || body.reviewGateUrl;
+    const rawBusinessId = body.businessId || body.business_id;
 
-    // Look up business context if user is signed in
-    if (userId) {
-      const biz = await db.business.findFirst({
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+    let biz: any = null;
+
+    // Look up business context if user is signed in or businessId provided
+    if (userId || rawBusinessId) {
+      const orConditions: any[] = [];
+      if (rawBusinessId) {
+        orConditions.push({ id: rawBusinessId }, { clerkUserId: rawBusinessId }, { userId: rawBusinessId });
+      }
+      if (userId) {
+        orConditions.push({ clerkUserId: userId }, { userId }, { id: userId });
+      }
+      biz = await db.business.findFirst({
         where: {
-          OR: [{ clerkUserId: userId }, { userId }, { id: userId }],
+          OR: orConditions,
         },
       });
 
       if (biz) {
         if (!targetBusinessName) targetBusinessName = biz.name;
-        if (!targetReviewUrl) targetReviewUrl = biz.googleReviewUrl || biz.reviewUrl;
         if (!targetEmail) targetEmail = biz.negativeAlertEmail || biz.positiveAlertEmail;
       }
     }
+
+    const effectiveBusinessId = biz?.id || rawBusinessId || userId || 'demo';
+    const canonicalGatingUrl = `${baseUrl}/review/${effectiveBusinessId}`;
 
     if (!targetEmail) {
       targetEmail = process.env.ADMIN_ALERT_EMAIL || 'admin@business.com';
@@ -74,15 +90,15 @@ export async function POST(req: NextRequest) {
     if (!targetBusinessName) {
       targetBusinessName = 'RatingPulse Business';
     }
-    if (!targetReviewUrl) {
-      targetReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-    }
 
     const result = await sendReviewInviteEmail({
       to: targetEmail,
       customerName: targetName,
       businessName: targetBusinessName,
-      reviewUrl: targetReviewUrl,
+      businessId: effectiveBusinessId,
+      reviewUrl: canonicalGatingUrl,
+      reviewGateUrl: canonicalGatingUrl,
+      googleReviewUrl: biz?.googleReviewUrl || biz?.reviewUrl || body.googleReviewUrl || undefined,
       isTestPreview: true,
     });
 

@@ -436,11 +436,13 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
 
         if (!state.isDemoMode) {
           try {
-            const destReviewUrl =
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+            const gatingUrl = `${baseUrl}/review/${activeBiz?.id || 'demo'}`;
+            const targetGoogleUrl =
               resolveReviewUrl(activeBiz?.googleReviewUrl) ||
               resolveReviewUrl(activeBiz?.reviewUrl) ||
               resolveReviewUrl(activeBiz?.placeId) ||
-              'https://ratingpulse.co/rate';
+              null;
             await fetch('/api/invites/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -451,9 +453,10 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 channel: 'sms',
                 businessName: activeBiz?.name,
                 placeId: activeBiz?.placeId,
-                googleReviewUrl: destReviewUrl,
-                reviewUrl: destReviewUrl,
-                reviewLink: destReviewUrl,
+                googleReviewUrl: targetGoogleUrl,
+                reviewUrl: gatingUrl,
+                reviewLink: gatingUrl,
+                reviewGateUrl: gatingUrl,
               }),
             });
           } catch (err) {
@@ -487,6 +490,30 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
         set({
           invites: [newInvite, ...state.invites],
         });
+
+        if (!state.isDemoMode) {
+          try {
+            const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
+            const gatingUrl = `${baseUrl}/review/${activeBiz?.id || 'demo'}`;
+            await fetch('/api/send-email-invite', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                customer_email: customerEmail,
+                customer_name: customerName,
+                business_name: activeBiz?.name,
+                business_id: activeBiz?.id,
+                user_id: state.profile?.id,
+                place_id: activeBiz?.placeId,
+                reviewGateUrl: gatingUrl,
+                reviewUrl: gatingUrl,
+                service_type: serviceType,
+              }),
+            });
+          } catch (err) {
+            console.error('Failed to send email invite API:', err);
+          }
+        }
 
         return newInvite;
       },
