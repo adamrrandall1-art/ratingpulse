@@ -43,10 +43,43 @@ export async function saveAllSettingsAction(payload: {
   notifyNegativeEnabled?: boolean;
   [key: string]: any;
 }) {
-  const clerkAuth = await auth().catch(() => null);
-  const userId = clerkAuth?.userId;
+  const { userId } = await auth();
   if (!userId) {
     throw new Error('Unauthorized');
+  }
+
+  const profile = await (db as any).profile.findFirst({
+    where: { clerkUserId: userId },
+  });
+  const targetUserId = profile?.id || userId;
+
+  const selectedVoice = payload.brandVoice || payload.aiTone || 'friendly_professional';
+
+  // Persist directly to businessSettings table strictly scoped to targetUserId
+  try {
+    await db.businessSettings.upsert({
+      where: { userId: targetUserId },
+      update: {
+        brandVoice: payload.brandVoice || payload.aiTone,
+        notifyNegativePhone: payload.negativeAlertPhone || null,
+        notifyNegativeEmail: payload.negativeAlertEmail || null,
+        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+        googleReviewUrl: payload.googleReviewUrl || null,
+        updatedAt: new Date(),
+      },
+      create: {
+        userId: targetUserId,
+        brandVoice: payload.brandVoice || payload.aiTone || 'friendly_professional',
+        notifyNegativePhone: payload.negativeAlertPhone || null,
+        notifyNegativeEmail: payload.negativeAlertEmail || null,
+        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+        googleReviewUrl: payload.googleReviewUrl || null,
+      },
+    });
+  } catch (settingsErr) {
+    console.warn('[saveAllSettingsAction] businessSettings update error:', settingsErr);
   }
 
   // 1. Find all businesses for this user and resolve active business with saved settings
@@ -54,7 +87,9 @@ export async function saveAllSettingsAction(payload: {
     where: {
       OR: [
         { clerkUserId: userId },
+        { userId: targetUserId },
         { userId: userId },
+        { id: targetUserId },
         { id: userId },
       ],
     },
@@ -62,58 +97,6 @@ export async function saveAllSettingsAction(payload: {
   });
 
   const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0];
-
-  const selectedVoice = payload.brandVoice || payload.aiTone || 'friendly_professional';
-
-  // Persist directly to businessSettings table
-  try {
-    const existing = await db.businessSettings.findFirst({
-      where: {
-        OR: [
-          { userId },
-          { id: userId },
-        ],
-      },
-    }).catch(() => null);
-
-    if (existing) {
-      await db.businessSettings.update({
-        where: { id: existing.id },
-        data: {
-          brandVoice: selectedVoice,
-          notifyNegativePhone: payload.negativeAlertPhone || null,
-          notifyNegativeEmail: payload.negativeAlertEmail || null,
-          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
-          updatedAt: new Date(),
-        },
-      });
-    } else {
-      await db.businessSettings.upsert({
-        where: { userId },
-        update: {
-          brandVoice: selectedVoice,
-          notifyNegativePhone: payload.negativeAlertPhone || null,
-          notifyNegativeEmail: payload.negativeAlertEmail || null,
-          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
-          updatedAt: new Date(),
-        },
-        create: {
-          userId,
-          brandVoice: selectedVoice,
-          notifyNegativePhone: payload.negativeAlertPhone || null,
-          notifyNegativeEmail: payload.negativeAlertEmail || null,
-          notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-          emailAlertsEnabled: Boolean(payload.negativeAlertEmailEnabled ?? payload.emailAlertsEnabled ?? true),
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        },
-      });
-    }
-  } catch (settingsErr) {
-    console.warn('[saveAllSettingsAction] businessSettings update error:', settingsErr);
-  }
 
   const updateData: Record<string, any> = {
     updatedAt: new Date(),
@@ -217,16 +200,16 @@ export async function saveAllSettingsAction(payload: {
       data: {
         ...updateData,
         clerkUserId: userId,
-        userId: userId,
+        userId: targetUserId,
         updatedAt: new Date(),
       },
     });
   } else {
-    const recordId = payload.businessId || userId;
+    const recordId = payload.businessId || targetUserId || userId;
     saved = await db.business.create({
       data: {
         id: recordId,
-        userId: userId,
+        userId: targetUserId,
         clerkUserId: userId,
         name: 'RatingPulse Business',
         aiTone: 'Professional & Warm',
@@ -247,7 +230,13 @@ export async function saveAllSettingsAction(payload: {
   try {
     const allUserBusinesses = await db.business.findMany({
       where: {
-        OR: [{ userId }, { clerkUserId: userId }, { id: userId }],
+        OR: [
+          { userId: targetUserId },
+          { userId },
+          { clerkUserId: userId },
+          { id: targetUserId },
+          { id: userId },
+        ],
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -259,7 +248,7 @@ export async function saveAllSettingsAction(payload: {
             data: {
               ...updateData,
               clerkUserId: userId,
-              userId: userId,
+              userId: targetUserId,
             },
           }).catch(() => null);
         }

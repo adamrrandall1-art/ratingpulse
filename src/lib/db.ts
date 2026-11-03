@@ -1015,9 +1015,57 @@ export const db = {
     },
     create: async (args: { data: any }) => {
       const supabase = getAdminClient();
-      if (!supabase) return args.data;
-      const { data } = await supabase.from('business_settings').insert(args.data).select().maybeSingle();
-      return data || args.data;
+      if (!supabase) return normalizeBusinessSettingsRow(args.data);
+      const payload = mapBusinessSettingsData(args.data);
+      if (payload.user_id && !UUID_REGEX.test(payload.user_id)) {
+        const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', payload.user_id).maybeSingle();
+        if (prof?.id) payload.user_id = prof.id;
+      }
+      const { data } = await supabase.from('business_settings').insert(payload).select().maybeSingle();
+      return normalizeBusinessSettingsRow(data || args.data);
+    },
+  },
+  profile: {
+    findFirst: async (args?: {
+      where?: {
+        clerkUserId?: string | null;
+        clerk_user_id?: string | null;
+        id?: string | null;
+        email?: string | null;
+        [key: string]: any;
+      };
+      [key: string]: any;
+    }) => {
+      const supabase = getAdminClient();
+      if (!supabase) return null;
+      try {
+        let q = supabase.from('profiles').select('*');
+        const cId = args?.where?.clerkUserId || args?.where?.clerk_user_id;
+        if (cId) {
+          q = q.eq('clerk_user_id', cId);
+        } else if (args?.where?.id) {
+          q = q.eq('id', args.where.id);
+        } else if (args?.where?.email) {
+          q = q.eq('email', args.where.email);
+        }
+        const { data } = await q.maybeSingle();
+        return data || null;
+      } catch {
+        return null;
+      }
+    },
+    findUnique: async (args?: any) => {
+      return (db as any).profile.findFirst(args);
+    },
+    findMany: async (args?: any) => {
+      const supabase = getAdminClient();
+      if (!supabase) return [];
+      try {
+        const { data } = await supabase.from('profiles').select('*');
+        return data || [];
+      } catch {
+        return [];
+      }
     },
   },
 };

@@ -1,4 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
 import SettingsClient from './SettingsClient';
@@ -9,56 +10,76 @@ export const fetchCache = 'force-no-store';
 
 export default async function SettingsPage() {
   await cookies().catch(() => null);
-  const clerkAuth = await auth().catch(() => null);
-  const userId = clerkAuth?.userId;
+  const { userId } = await auth();
+  if (!userId) {
+    redirect('/sign-in');
+  }
 
-  let business = null;
-  let businessSettings = null;
-  if (userId) {
-    const businesses = await db.business.findMany({
-      where: {
-        OR: [
-          { clerkUserId: userId },
-          { userId: userId },
-          { id: userId },
-        ],
+  const profile = await (db as any).profile.findFirst({
+    where: { clerkUserId: userId },
+  });
+  const targetUserId = profile?.id || userId;
+
+  let settings = await db.businessSettings.findFirst({
+    where: { userId: targetUserId },
+  });
+
+  // If a brand new user doesn't have a settings record yet, create their default row:
+  if (!settings) {
+    settings = await db.businessSettings.create({
+      data: {
+        userId: targetUserId,
+        brandVoice: 'friendly_professional',
+        notifyNegativeEnabled: true,
+        emailAlertsEnabled: true,
       },
-      orderBy: { updatedAt: 'desc' },
     });
-    business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0] || null;
+  }
 
-    try {
-      businessSettings = await db.businessSettings.findFirst({
-        where: {
-          OR: [
-            { userId },
-            { id: userId },
-          ],
-        },
-      });
-    } catch {}
+  const businesses = await db.business.findMany({
+    where: {
+      OR: [
+        { clerkUserId: userId },
+        { userId: targetUserId },
+        { userId: userId },
+        { id: targetUserId },
+        { id: userId },
+      ],
+    },
+    orderBy: { updatedAt: 'desc' },
+  });
+  const business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0] || null;
 
-    if (business && businessSettings) {
-      if (businessSettings.brandVoice) {
-        business.brandVoice = businessSettings.brandVoice;
-        business.brand_voice = businessSettings.brandVoice;
-      }
-      if (businessSettings.notifyNegativePhone) {
-        business.negativeAlertPhone = businessSettings.notifyNegativePhone;
-        business.notifyNegativePhone = businessSettings.notifyNegativePhone;
-      }
-      if (businessSettings.notifyNegativeEmail) {
-        business.negativeAlertEmail = businessSettings.notifyNegativeEmail;
-        business.notifyNegativeEmail = businessSettings.notifyNegativeEmail;
-      }
-      if (businessSettings.notifyNegativeEnabled !== undefined) {
-        business.negativeAlertSmsEnabled = businessSettings.notifyNegativeEnabled;
-        business.smsAlertsEnabled = businessSettings.notifyNegativeEnabled;
-      }
-      if (businessSettings.emailAlertsEnabled !== undefined) {
-        business.negativeAlertEmailEnabled = businessSettings.emailAlertsEnabled;
-        business.emailAlertsEnabled = businessSettings.emailAlertsEnabled;
-      }
+  if (business && settings) {
+    if (settings.brandVoice) {
+      business.brandVoice = settings.brandVoice;
+      business.brand_voice = settings.brandVoice;
+    }
+    if (settings.notifyNegativePhone) {
+      business.negativeAlertPhone = settings.notifyNegativePhone;
+      business.notifyNegativePhone = settings.notifyNegativePhone;
+    }
+    if (settings.notifyNegativeEmail) {
+      business.negativeAlertEmail = settings.notifyNegativeEmail;
+      business.notifyNegativeEmail = settings.notifyNegativeEmail;
+    }
+    if (settings.notifyNegativeEnabled !== undefined) {
+      business.negativeAlertSmsEnabled = settings.notifyNegativeEnabled;
+      business.smsAlertsEnabled = settings.notifyNegativeEnabled;
+    }
+    if (settings.emailAlertsEnabled !== undefined) {
+      business.negativeAlertEmailEnabled = settings.emailAlertsEnabled;
+      business.emailAlertsEnabled = settings.emailAlertsEnabled;
+    }
+    if (settings.googleReviewUrl) {
+      business.googleReviewUrl = settings.googleReviewUrl;
+      business.reviewUrl = settings.googleReviewUrl;
+    }
+    if (settings.placeId) {
+      business.placeId = settings.placeId;
+    }
+    if (settings.businessName) {
+      business.name = settings.businessName;
     }
   }
 
@@ -66,7 +87,7 @@ export default async function SettingsPage() {
     <SettingsClient 
       key="settings-client"
       initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
-      initialSettings={businessSettings ? JSON.parse(JSON.stringify(businessSettings)) : null}
+      initialSettings={settings ? JSON.parse(JSON.stringify(settings)) : null}
     />
   );
 }
