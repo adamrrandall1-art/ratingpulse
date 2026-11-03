@@ -556,12 +556,25 @@ export default function SettingsClient({
   };
 
   // Single Unified Atomic Save Handler - No form submit page refresh, no .reset(), no state wiping
-  const handleSave = async (e?: React.MouseEvent | React.FormEvent | unknown) => {
-    if (e && typeof (e as any).preventDefault === 'function') {
-      (e as any).preventDefault();
+  const handleSave = async (
+    eOrOverrides?: React.MouseEvent | React.FormEvent | unknown,
+    maybeEvent?: React.MouseEvent | React.FormEvent
+  ) => {
+    let customOverrides: Record<string, any> | undefined = undefined;
+    let eventObj: any = undefined;
+
+    if (eOrOverrides && typeof (eOrOverrides as any).preventDefault === 'function') {
+      eventObj = eOrOverrides;
+    } else if (eOrOverrides && typeof eOrOverrides === 'object') {
+      customOverrides = eOrOverrides as Record<string, any>;
+      if (maybeEvent && typeof (maybeEvent as any).preventDefault === 'function') {
+        eventObj = maybeEvent;
+      }
     }
-    if (e && typeof (e as any).stopPropagation === 'function') {
-      (e as any).stopPropagation();
+
+    if (eventObj) {
+      if (typeof eventObj.preventDefault === 'function') eventObj.preventDefault();
+      if (typeof eventObj.stopPropagation === 'function') eventObj.stopPropagation();
     }
 
     if (isSaving) return;
@@ -570,20 +583,44 @@ export default function SettingsClient({
     setIsSavingAiPersona(true);
 
     try {
-      // 1. Immediately persist current state to localStorage before network dispatch
-      persistToLocalStorage(settingsState);
+      const mergedState = {
+        ...settingsState,
+        ...(customOverrides || {}),
+      };
 
-      console.log('[SAVE_PAYLOAD] Submitting current settings:', settingsState);
+      if (customOverrides?.brandVoice || customOverrides?.aiTone || customOverrides?.tone) {
+        const toneVal = customOverrides.brandVoice || customOverrides.aiTone || customOverrides.tone;
+        setBrandVoiceState(toneVal);
+        mergedState.brandVoice = toneVal;
+        mergedState.aiTone = toneVal;
+        mergedState.aiPersonality = toneVal;
+      }
+
+      // 1. Immediately persist current state to localStorage before network dispatch
+      persistToLocalStorage(mergedState);
+      setSettingsState((prev: any) => ({
+        ...prev,
+        ...mergedState,
+      }));
+
+      console.log('[SAVE_PAYLOAD] Submitting current settings:', mergedState);
 
       const targetBusinessId = initialBusiness?.id || activeBusiness?.id;
-      const isSmsToSend = Boolean(settingsState.negativeAlertSmsEnabled ?? settingsState.smsAlertsEnabled);
-      const toneToSave = brandVoice || settingsState.brandVoice || settingsState.aiTone || 'friendly_professional';
-      const kwList = settingsState.keywords || [];
-      const kwString = kwList.join(',');
+      const isSmsToSend = Boolean(mergedState.negativeAlertSmsEnabled ?? mergedState.smsAlertsEnabled);
+      const toneToSave =
+        mergedState.brandVoice ||
+        mergedState.aiTone ||
+        mergedState.aiPersonality ||
+        brandVoice ||
+        settingsState.brandVoice ||
+        settingsState.aiTone ||
+        'friendly_professional';
+      const kwList = mergedState.keywords || [];
+      const kwString = Array.isArray(kwList) ? kwList.join(',') : (mergedState.seoKeywords || '');
 
       const res = await saveAllSettingsAction({
         businessId: targetBusinessId,
-        ...settingsState,
+        ...mergedState,
         negativeAlertSmsEnabled: isSmsToSend,
         smsAlertsEnabled: isSmsToSend,
         negativeSmsAlertEnabled: isSmsToSend,
@@ -593,15 +630,15 @@ export default function SettingsClient({
         customKeywords: kwString,
         keywords: kwList,
         seoKeywords: kwString,
-        smsTemplate: settingsState.smsTemplate,
-        aiSignature: settingsState.aiSignature,
-        aiInstructions: settingsState.aiInstructions,
+        smsTemplate: mergedState.smsTemplate,
+        aiSignature: mergedState.aiSignature,
+        aiInstructions: mergedState.aiInstructions,
         brandVoice: toneToSave,
         aiTone: toneToSave,
         aiPersonality: toneToSave,
-        selectedModel: settingsState.selectedModel,
-        autoReplyEnabled: settingsState.autoReplyEnabled,
-        autoPublish5Star: settingsState.autoReplyEnabled,
+        selectedModel: mergedState.selectedModel,
+        autoReplyEnabled: mergedState.autoReplyEnabled,
+        autoPublish5Star: mergedState.autoReplyEnabled,
       });
 
       if (res?.success) {

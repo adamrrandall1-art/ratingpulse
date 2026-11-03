@@ -34,13 +34,41 @@ export type BrandVoiceType =
 export function isPersonaSelected(currentTone: string | undefined, personaKey: string): boolean {
   if (!currentTone) return personaKey === 'friendly_professional';
   if (currentTone === personaKey) return true;
+
+  const normCurrent = currentTone.toLowerCase().replace(/[^a-z]/g, '');
+  const normKey = personaKey.toLowerCase().replace(/[^a-z]/g, '');
+
+  if (normCurrent === normKey) return true;
+
   if (
-    (currentTone === 'Professional & Warm' || currentTone === 'Friendly & Professional' || currentTone === 'friendly_professional') &&
-    personaKey === 'friendly_professional'
+    (normCurrent === 'professionalwarm' || normCurrent === 'friendlyprofessional' || normCurrent === 'friendlyandprofessional') &&
+    (normKey === 'friendlyprofessional' || normKey === 'friendlyandprofessional')
   ) {
     return true;
   }
-  return currentTone.toLowerCase().replace(/[^a-z]/g, '') === personaKey.toLowerCase().replace(/[^a-z]/g, '');
+
+  if (
+    (normCurrent === 'casualenthusiastic' || normCurrent === 'casualandenthusiastic') &&
+    (normKey === 'casualenthusiastic' || normKey === 'casualandenthusiastic')
+  ) {
+    return true;
+  }
+
+  if (
+    (normCurrent === 'concisepolite' || normCurrent === 'conciseandpolite') &&
+    (normKey === 'concisepolite' || normKey === 'conciseandpolite')
+  ) {
+    return true;
+  }
+
+  if (
+    (normCurrent === 'empathetic' || normCurrent === 'empatheticcaring' || normCurrent === 'empatheticandcaring') &&
+    (normKey === 'empathetic' || normKey === 'empatheticcaring' || normKey === 'empatheticandcaring')
+  ) {
+    return true;
+  }
+
+  return normCurrent.startsWith(normKey) || normKey.startsWith(normCurrent);
 }
 
 export interface AiPersonaCardProps {
@@ -414,39 +442,37 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     }
     setInternalSaving(true);
     try {
+      const personaPayload = {
+        aiTone: localTone,
+        brandVoice: localTone,
+        brand_voice: localTone,
+        tone: localTone,
+        selectedTone: localTone,
+        aiPersonality: localTone,
+        ai_personality: localTone,
+        aiInstructions: localInstructions,
+        aiSignature: localSignature,
+        autoReplyEnabled: localAutoReply,
+        autoPublish5Star: localAutoReply,
+        keywords: localKeywords,
+        seoKeywords: localKeywords.join(','),
+        customKeywords: localKeywords.join(','),
+        selectedModel,
+      };
+
       if (props.setSettingsState) {
         props.setSettingsState((prev: any) => ({
           ...prev,
-          aiTone: localTone,
-          brandVoice: localTone,
-          aiPersonality: localTone,
-          aiInstructions: localInstructions,
-          aiSignature: localSignature,
-          autoReplyEnabled: localAutoReply,
-          autoPublish5Star: localAutoReply,
-          keywords: localKeywords,
-          seoKeywords: localKeywords.join(','),
-          customKeywords: localKeywords.join(','),
-          selectedModel,
+          ...personaPayload,
         }));
       }
       if (onSaveAiPersona) {
-        await onSaveAiPersona(e);
+        await (onSaveAiPersona as any)(personaPayload, e);
       } else {
         const bId = initialBiz?.id || business?.id;
         await saveAllSettingsAction({
           businessId: bId,
-          aiTone: localTone,
-          brandVoice: localTone,
-          aiPersonality: localTone,
-          aiInstructions: localInstructions,
-          aiSignature: localSignature,
-          autoReplyEnabled: localAutoReply,
-          autoPublish5Star: localAutoReply,
-          selectedModel,
-          keywords: localKeywords,
-          seoKeywords: localKeywords.join(','),
-          customKeywords: localKeywords.join(','),
+          ...personaPayload,
         });
         setInternalSaved(true);
         toast.success('AI Persona saved successfully');
@@ -536,8 +562,8 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONA_OPTIONS.map((option) => {
             const Icon = option.icon;
-            const currentVoice = props.brandVoice || props.settingsState?.brandVoice || localTone || 'friendly_professional';
-            const isSelected = currentVoice === option.value;
+            const currentVoice = localTone || props.brandVoice || props.settingsState?.brandVoice || 'friendly_professional';
+            const isSelected = isPersonaSelected(currentVoice, option.value);
 
             return (
               <button
@@ -556,7 +582,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
                   handleToneSelect(option.value as BrandVoiceType);
                 }}
                 className={`p-4 rounded-xl border text-left transition-all relative cursor-pointer ${
-                  currentVoice === option.value
+                  isSelected
                     ? 'border-purple-600 bg-purple-50/60 shadow-xs ring-1 ring-purple-600'
                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/70'
                 }`}
@@ -565,14 +591,14 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
                   <div className="flex items-center gap-2">
                     <div
                       className={`w-7 h-7 rounded-lg flex items-center justify-center ${
-                        currentVoice === option.value ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
+                        isSelected ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-600'
                       }`}
                     >
                       <Icon className="w-4 h-4" />
                     </div>
                     <span className="text-xs font-bold text-slate-900">{option.title}</span>
                   </div>
-                  {currentVoice === option.value ? (
+                  {isSelected ? (
                     <span className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center text-[10px]">
                       <Check className="w-3 h-3 stroke-[3]" />
                     </span>

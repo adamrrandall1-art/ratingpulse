@@ -51,9 +51,17 @@ export default async function SettingsPage() {
   const business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0] || null;
 
   if (business && settings) {
-    if (settings.brandVoice) {
-      business.brandVoice = settings.brandVoice;
-      business.brand_voice = settings.brandVoice;
+    let effectiveTone = settings.brandVoice || (settings as any).brand_voice;
+    if (!effectiveTone || (effectiveTone === 'friendly_professional' && (business.brandVoice || business.aiTone || business.aiPersonality) && (business.brandVoice || business.aiTone || business.aiPersonality) !== 'friendly_professional')) {
+      effectiveTone = business.brandVoice || business.brand_voice || business.aiPersonality || business.aiTone || effectiveTone;
+    }
+    if (effectiveTone) {
+      business.brandVoice = effectiveTone;
+      business.brand_voice = effectiveTone;
+      business.aiTone = effectiveTone;
+      business.aiPersonality = effectiveTone;
+      settings.brandVoice = effectiveTone;
+      (settings as any).brand_voice = effectiveTone;
     }
     if (settings.notifyNegativePhone) {
       business.negativeAlertPhone = settings.notifyNegativePhone;

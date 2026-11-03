@@ -53,30 +53,51 @@ export async function saveAllSettingsAction(payload: {
   });
   const targetUserId = profile?.id || userId;
 
-  const selectedVoice = payload.brandVoice || payload.aiTone || 'friendly_professional';
+  console.log('Incoming saveAllSettingsAction payload:', payload);
+
+  const incomingTone =
+    payload.brandVoice ??
+    payload.brand_voice ??
+    payload.aiTone ??
+    payload.ai_tone ??
+    payload.tone ??
+    payload.selectedTone ??
+    payload.aiPersonality ??
+    payload.ai_personality;
+
+  const resolvedBrandVoice =
+    incomingTone !== undefined && incomingTone !== null && String(incomingTone).trim() !== ''
+      ? String(incomingTone)
+      : undefined;
 
   // Persist directly to businessSettings table strictly scoped to targetUserId
+  const settingsUpdateData: Record<string, any> = {
+    notifyNegativePhone: payload.negativeAlertPhone || null,
+    notifyNegativeEmail: payload.negativeAlertEmail || null,
+    notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+    emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+    googleReviewUrl: payload.googleReviewUrl || null,
+    updatedAt: new Date(),
+  };
+  if (resolvedBrandVoice !== undefined) {
+    settingsUpdateData.brandVoice = resolvedBrandVoice;
+  }
+
+  const settingsCreateData: Record<string, any> = {
+    userId: targetUserId,
+    brandVoice: resolvedBrandVoice || 'friendly_professional',
+    notifyNegativePhone: payload.negativeAlertPhone || null,
+    notifyNegativeEmail: payload.negativeAlertEmail || null,
+    notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+    emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+    googleReviewUrl: payload.googleReviewUrl || null,
+  };
+
   try {
     await db.businessSettings.upsert({
       where: { userId: targetUserId },
-      update: {
-        brandVoice: payload.brandVoice || payload.aiTone,
-        notifyNegativePhone: payload.negativeAlertPhone || null,
-        notifyNegativeEmail: payload.negativeAlertEmail || null,
-        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
-        googleReviewUrl: payload.googleReviewUrl || null,
-        updatedAt: new Date(),
-      },
-      create: {
-        userId: targetUserId,
-        brandVoice: payload.brandVoice || payload.aiTone || 'friendly_professional',
-        notifyNegativePhone: payload.negativeAlertPhone || null,
-        notifyNegativeEmail: payload.negativeAlertEmail || null,
-        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
-        googleReviewUrl: payload.googleReviewUrl || null,
-      },
+      update: settingsUpdateData,
+      create: settingsCreateData,
     });
   } catch (settingsErr) {
     console.warn('[saveAllSettingsAction] businessSettings update error:', settingsErr);
@@ -96,20 +117,23 @@ export async function saveAllSettingsAction(payload: {
     orderBy: { updatedAt: 'desc' },
   });
 
-  const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0];
+  const activeBusiness = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0];
 
   const updateData: Record<string, any> = {
     updatedAt: new Date(),
     isGoogleConnected: true,
     clerkUserId: userId,
     userId: userId,
-    brandVoice: selectedVoice,
-    brand_voice: selectedVoice,
-    aiTone: selectedVoice,
-    ai_tone: selectedVoice,
-    aiPersonality: selectedVoice,
-    ai_personality: selectedVoice,
   };
+
+  if (resolvedBrandVoice !== undefined) {
+    updateData.brandVoice = resolvedBrandVoice;
+    updateData.brand_voice = resolvedBrandVoice;
+    updateData.aiTone = resolvedBrandVoice;
+    updateData.ai_tone = resolvedBrandVoice;
+    updateData.aiPersonality = resolvedBrandVoice;
+    updateData.ai_personality = resolvedBrandVoice;
+  }
 
   // Text fields
   if (payload.negativeAlertEmail !== undefined) {
@@ -212,9 +236,9 @@ export async function saveAllSettingsAction(payload: {
         userId: targetUserId,
         clerkUserId: userId,
         name: 'RatingPulse Business',
-        aiTone: 'Professional & Warm',
-        aiPersonality: 'Professional & Warm',
-        brandVoice: 'Professional & Warm',
+        aiTone: resolvedBrandVoice || 'Professional & Warm',
+        aiPersonality: resolvedBrandVoice || 'Professional & Warm',
+        brandVoice: resolvedBrandVoice || 'Professional & Warm',
         aiInstructions: '',
         autoReplyEnabled: false,
         autoPublish5Star: false,
