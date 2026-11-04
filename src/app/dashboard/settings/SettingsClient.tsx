@@ -1207,3 +1207,5 @@ export default function SettingsClient({
     </div>
   );
 }
+
+export const SettingsClientView = SettingsClient;

@@ -1,136 +1,119 @@
-import { getOrCreateUserSession } from '@/lib/auth-sync';
+import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import db from '@/lib/db';
-import SettingsClient from './SettingsClient';
+import SettingsClient, { SettingsClientView } from './SettingsClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 export default async function SettingsPage() {
-  const session = await getOrCreateUserSession();
-  if (!session) redirect('/sign-in');
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) redirect('/sign-in');
 
-  const { settings, profile, clerkUserId } = session;
-
-  let business: any = null;
+  let profile: any = null;
+  let settings: any = null;
 
   try {
-    const targetUserId = profile?.id || clerkUserId;
+    profile = await db.profile.findFirst({
+      where: { clerkUserId: clerkUserId },
+    });
+  } catch (err) {
+    console.error('Error fetching profile:', err);
+  }
+
+  if (!profile) {
+    try {
+      profile = await db.profile.findFirst({
+        orderBy: { id: 'desc' },
+      });
+    } catch (err) {
+      console.error('Fallback profile lookup error:', err);
+    }
+  }
+
+  if (profile?.id) {
+    try {
+      settings = await db.businessSettings.findFirst({
+        where: { userId: profile.id },
+      });
+    } catch (err) {
+      console.error('Error fetching business_settings by userId:', err);
+    }
+  }
+
+  if (!settings) {
+    try {
+      settings = await db.businessSettings.findFirst({
+        orderBy: { updatedAt: 'desc' },
+      });
+    } catch (err) {
+      console.error('Fallback business_settings lookup error:', err);
+    }
+  }
+
+  const rawPositiveEmail = profile?.notifyPositiveEmail || profile?.notify_positive_email || '';
+  const safePositiveEmail =
+    typeof rawPositiveEmail === 'string' && rawPositiveEmail !== 'true' && rawPositiveEmail !== 'false'
+      ? rawPositiveEmail
+      : '';
+
+  const rawPositiveEmailEnabled = profile?.notifyPositiveEnabled ?? profile?.notify_positive_enabled;
+  const safePositiveEmailEnabled =
+    rawPositiveEmailEnabled !== undefined && rawPositiveEmailEnabled !== null
+      ? Boolean(rawPositiveEmailEnabled)
+      : true;
+
+  const rawKeywords = settings?.seoKeywords || settings?.seo_keywords || '';
+  const safeKeywords = typeof rawKeywords === 'string' ? rawKeywords : '';
+
+  const safeSettings = {
+    id: settings?.id || '',
+    userId: profile?.id || settings?.userId || '',
+    brandVoice: settings?.brandVoice || 'friendly_professional',
+    googleReviewUrl: settings?.googleReviewUrl || '',
+    placeId: settings?.placeId || '',
+    businessName: settings?.businessName || profile?.businessName || profile?.business_name || '',
+    // Negative alerts
+    notifyNegativePhone: settings?.notifyNegativePhone || '',
+    notifyNegativeEmail: settings?.notifyNegativeEmail || '',
+    emailAlertsEnabled: settings?.emailAlertsEnabled ?? true,
+    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? true,
+    // Positive alerts
+    notifyPositivePhone: profile?.notifyPositivePhone || profile?.notify_positive_phone || '',
+    notifyPositiveSms: Boolean(profile?.notifyPositiveSms ?? profile?.notify_positive_sms),
+    positiveAlertPhone: profile?.notifyPositivePhone || profile?.notify_positive_phone || '',
+    positiveAlertSmsEnabled: Boolean(profile?.notifyPositiveSms ?? profile?.notify_positive_sms),
+    notifyPositiveEmail: safePositiveEmail,
+    positiveAlertEmail: safePositiveEmail,
+    notifyPositiveEmailEnabled: safePositiveEmailEnabled,
+    notifyPositiveEnabled: safePositiveEmailEnabled,
+    positiveAlertEmailEnabled: safePositiveEmailEnabled,
+    positiveEmailAlertEnabled: safePositiveEmailEnabled,
+    // SEO Keywords
+    seoKeywords: safeKeywords,
+    customKeywords: safeKeywords,
+    keywords: safeKeywords
+      ? safeKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+      : [],
+  };
+
+  // Safe fallback for business object required by settings tabs (GBP, Billing, etc.)
+  let business: any = null;
+  try {
     const businesses = await db.business.findMany({
       where: {
         OR: [
           { clerkUserId: clerkUserId },
-          { userId: targetUserId },
-          { userId: clerkUserId },
-          { id: targetUserId },
+          { userId: profile?.id || clerkUserId },
           { id: clerkUserId },
         ],
       },
       orderBy: { updatedAt: 'desc' },
     }).catch(() => []);
-
-    business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail || b.brandVoice) || businesses[0] || null;
-
-    if (business && settings) {
-      const effectiveTone = settings.brandVoice || settings.brand_voice || business.brandVoice || business.brand_voice || business.aiPersonality || business.aiTone;
-      if (effectiveTone) {
-        business.brandVoice = effectiveTone;
-        business.brand_voice = effectiveTone;
-        business.aiTone = effectiveTone;
-        business.aiPersonality = effectiveTone;
-      }
-      if (settings.notifyNegativePhone) {
-        business.negativeAlertPhone = settings.notifyNegativePhone;
-        business.notifyNegativePhone = settings.notifyNegativePhone;
-      }
-      if (settings.notifyNegativeEmail) {
-        business.negativeAlertEmail = settings.notifyNegativeEmail;
-        business.notifyNegativeEmail = settings.notifyNegativeEmail;
-      }
-      if (settings.notifyNegativeEnabled !== undefined && settings.notifyNegativeEnabled !== null) {
-        const smsVal = typeof settings.notifyNegativeEnabled === 'boolean'
-          ? settings.notifyNegativeEnabled
-          : (settings.notifyNegativeEnabled === 'true' || settings.notifyNegativeEnabled === 'on');
-        business.negativeAlertSmsEnabled = smsVal;
-        business.smsAlertsEnabled = smsVal;
-      }
-      if (settings.emailAlertsEnabled !== undefined && settings.emailAlertsEnabled !== null) {
-        const emailVal = typeof settings.emailAlertsEnabled === 'boolean'
-          ? settings.emailAlertsEnabled
-          : (settings.emailAlertsEnabled === 'true' || settings.emailAlertsEnabled === 'on');
-        business.negativeAlertEmailEnabled = emailVal;
-        business.negativeEmailAlertEnabled = emailVal;
-        business.emailAlertsEnabled = emailVal;
-      }
-      if (settings.googleReviewUrl) {
-        business.googleReviewUrl = settings.googleReviewUrl;
-        business.reviewUrl = settings.googleReviewUrl;
-      }
-      if (settings.placeId) {
-        business.placeId = settings.placeId;
-      }
-      if (settings.businessName) {
-        business.name = settings.businessName;
-      }
-      if (settings.seoKeywords || settings.seo_keywords) {
-        const kw = settings.seoKeywords || settings.seo_keywords;
-        business.seoKeywords = kw;
-        business.customKeywords = kw;
-      }
-    }
-  } catch (error) {
-    console.error('Error fetching settings on server:', error);
-  }
-
-  const posPhone = profile?.notifyPositivePhone || profile?.notify_positive_phone || business?.positiveAlertPhone || '';
-  const posSms = Boolean(profile?.notifyPositiveSms ?? profile?.notify_positive_sms ?? business?.positiveAlertSmsEnabled);
-
-  const rawEmail = profile?.notifyPositiveEmail || profile?.notify_positive_email || business?.positiveAlertEmail || business?.notifyPositiveEmail || '';
-  const safePositiveEmail = (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail;
-  const rawEmailEnabled = profile?.notifyPositiveEnabled ?? profile?.notify_positive_enabled ?? business?.positiveAlertEmailEnabled ?? business?.positiveEmailAlertEnabled ?? business?.notifyPositiveEmailEnabled;
-  const safePositiveEmailEnabled = rawEmailEnabled !== undefined && rawEmailEnabled !== null ? Boolean(rawEmailEnabled) : true;
-
-  const safeKeywords = settings?.seoKeywords || settings?.seo_keywords || business?.seoKeywords || business?.customKeywords || '';
-
-  const safeSettings = {
-    id: settings?.id || '',
-    userId: profile?.id || settings?.userId || '',
-    brandVoice: settings?.brandVoice || business?.brandVoice || business?.aiTone || 'friendly_professional',
-    googleReviewUrl: settings?.googleReviewUrl || business?.googleReviewUrl || '',
-    placeId: settings?.placeId || business?.placeId || '',
-    businessName: settings?.businessName || business?.name || '',
-    seoKeywords: safeKeywords,
-    customKeywords: safeKeywords,
-    keywords: safeKeywords ? (typeof safeKeywords === 'string' ? safeKeywords.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(safeKeywords) ? safeKeywords : [])) : [],
-    // Negative Review Alerts (business_settings)
-    notifyNegativePhone: settings?.notifyNegativePhone || business?.negativeAlertPhone || '',
-    notifyNegativeEmail: settings?.notifyNegativeEmail || business?.negativeAlertEmail || '',
-    emailAlertsEnabled: settings?.emailAlertsEnabled ?? business?.emailAlertsEnabled ?? true,
-    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? business?.negativeAlertSmsEnabled ?? true,
-    // Positive Review Alerts (profiles)
-    notifyPositivePhone: posPhone,
-    notifyPositiveSms: posSms,
-    positiveAlertPhone: posPhone,
-    positiveAlertSmsEnabled: posSms,
-    notifyPositiveEmail: safePositiveEmail,
-    positiveAlertEmail: safePositiveEmail,
-    notifyPositiveEnabled: safePositiveEmailEnabled,
-    notifyPositiveEmailEnabled: safePositiveEmailEnabled,
-    positiveAlertEmailEnabled: safePositiveEmailEnabled,
-    positiveEmailAlertEnabled: safePositiveEmailEnabled,
-  };
-
-  if (business) {
-    business.positiveAlertPhone = safeSettings.notifyPositivePhone;
-    business.positiveAlertSmsEnabled = safeSettings.notifyPositiveSms;
-    business.positiveAlertEmail = safePositiveEmail;
-    business.notifyPositiveEmail = safePositiveEmail;
-    business.positiveAlertEmailEnabled = safePositiveEmailEnabled;
-    business.positiveEmailAlertEnabled = safePositiveEmailEnabled;
-    business.notifyPositiveEmailEnabled = safePositiveEmailEnabled;
-    business.seoKeywords = safeKeywords;
-    business.customKeywords = safeKeywords;
+    business = businesses[0] || null;
+  } catch (err) {
+    console.error('Error fetching business:', err);
   }
 
   if (!business) {
@@ -138,7 +121,7 @@ export default async function SettingsPage() {
       id: settings?.id || profile?.id || clerkUserId,
       userId: profile?.id || clerkUserId,
       clerkUserId: clerkUserId,
-      name: settings?.businessName || profile?.business_name || 'My Business',
+      name: settings?.businessName || profile?.businessName || profile?.business_name || 'My Business',
       brandVoice: safeSettings.brandVoice,
       aiTone: safeSettings.brandVoice,
       aiPersonality: safeSettings.brandVoice,
@@ -163,16 +146,28 @@ export default async function SettingsPage() {
       seoKeywords: safeKeywords,
       customKeywords: safeKeywords,
     };
+  } else {
+    business.positiveAlertPhone = safeSettings.notifyPositivePhone;
+    business.positiveAlertSmsEnabled = safeSettings.notifyPositiveSms;
+    business.positiveAlertEmail = safePositiveEmail;
+    business.notifyPositiveEmail = safePositiveEmail;
+    business.positiveAlertEmailEnabled = safePositiveEmailEnabled;
+    business.positiveEmailAlertEnabled = safePositiveEmailEnabled;
+    business.notifyPositiveEmailEnabled = safePositiveEmailEnabled;
+    business.seoKeywords = safeKeywords;
+    business.customKeywords = safeKeywords;
   }
 
   return (
-    <SettingsClient 
+    <SettingsClient
       key="settings-client"
-      initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
       initialSettings={safeSettings}
+      initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null}
       initialProfile={profile ? JSON.parse(JSON.stringify(profile)) : null}
       settingsId={settings?.id}
     />
   );
 }
+
+export { SettingsClientView };
 

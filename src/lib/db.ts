@@ -1158,6 +1158,22 @@ export const db = {
 
         if (error) {
           console.error('[db.businessSettings.update] Supabase error:', error);
+          if (payload.seo_keywords !== undefined && (error.message?.includes('seo_keywords') || error.code === '42703' || error.message?.includes('column'))) {
+            console.warn('[db.businessSettings.update] Retrying without seo_keywords column...');
+            const retryPayload = { ...payload };
+            delete retryPayload.seo_keywords;
+            const { data: retryData, error: retryError } = await supabase
+              .from('business_settings')
+              .update(retryPayload)
+              .eq(filterCol, resolvedId)
+              .select()
+              .maybeSingle();
+            if (!retryError && retryData) {
+              const row = normalizeBusinessSettingsRow(retryData);
+              cacheBusinessSettings(row);
+              return row;
+            }
+          }
           throw new Error(error.message || 'Database update failed');
         }
         if (data) {
@@ -1220,6 +1236,21 @@ export const db = {
 
         if (error) {
           console.error('[db.businessSettings.create] Supabase error:', error);
+          if (payload.seo_keywords !== undefined && (error.message?.includes('seo_keywords') || error.code === '42703' || error.message?.includes('column'))) {
+            console.warn('[db.businessSettings.create] Retrying without seo_keywords column...');
+            const retryPayload = { ...payload };
+            delete retryPayload.seo_keywords;
+            const { data: retryData, error: retryError } = await supabase
+              .from('business_settings')
+              .insert(retryPayload)
+              .select()
+              .maybeSingle();
+            if (!retryError && retryData) {
+              const row = normalizeBusinessSettingsRow(retryData);
+              cacheBusinessSettings(row);
+              return row;
+            }
+          }
           throw new Error(error.message || 'Database insert failed');
         }
         if (data) {

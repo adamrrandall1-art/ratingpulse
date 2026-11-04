@@ -119,41 +119,75 @@ export async function saveAllSettingsAction(payload: {
           ? payload.notifyNegativeEnabled
           : (typeof payload.smsAlertsEnabled === 'boolean' ? payload.smsAlertsEnabled : true));
 
-    let rawKeywords = payload.seoKeywords ?? payload.keywords ?? payload.customKeywords ?? '';
-    if (Array.isArray(rawKeywords)) {
-      rawKeywords = rawKeywords.join(', ');
+    let formattedKeywords = '';
+    const raw = payload.seoKeywords ?? payload.keywords ?? payload.customKeywords;
+    if (Array.isArray(raw)) {
+      formattedKeywords = raw.map((k: any) => typeof k === 'string' ? k.trim() : k.text || '').filter(Boolean).join(', ');
+    } else if (typeof raw === 'string') {
+      formattedKeywords = raw.trim();
     }
-    const cleanKeywords = typeof rawKeywords === 'string' ? rawKeywords : '';
+
+    const updatePayload: any = {
+      userId: profile?.id || record?.userId,
+      brandVoice: payload.brandVoice || payload.aiTone || payload.aiPersonality || 'friendly_professional',
+      notifyNegativePhone: payload.notifyNegativePhone ?? payload.negativeAlertPhone ?? '',
+      notifyNegativeEmail: payload.notifyNegativeEmail ?? payload.negativeAlertEmail ?? '',
+      emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
+      notifyNegativeEnabled: Boolean(payload.notifyNegativeEnabled ?? payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
+      googleReviewUrl: payload.googleReviewUrl || undefined,
+      seoKeywords: formattedKeywords,
+      updatedAt: new Date(),
+    };
 
     let updated: any = null;
     if (record) {
-      updated = await db.businessSettings.update({
-        where: { id: record.id },
-        data: {
-          userId: profile?.id || record.userId,
-          brandVoice: brandVoiceVal,
-          notifyNegativePhone: negPhoneVal,
-          notifyNegativeEmail: negEmailVal,
-          emailAlertsEnabled: emailAlertsVal,
-          notifyNegativeEnabled: smsAlertsVal,
-          googleReviewUrl: payload.googleReviewUrl || undefined,
-          seoKeywords: cleanKeywords,
-          updatedAt: new Date(),
-        },
-      });
+      try {
+        updated = await db.businessSettings.update({
+          where: { id: record.id },
+          data: updatePayload,
+        });
+      } catch (updateErr: any) {
+        console.warn('Failed to update businessSettings with seoKeywords, retrying without seoKeywords:', updateErr?.message);
+        const { seoKeywords, ...fallbackPayload } = updatePayload;
+        try {
+          updated = await db.businessSettings.update({
+            where: { id: record.id },
+            data: fallbackPayload,
+          });
+        } catch (fatalErr) {
+          console.error('Fatal error updating businessSettings:', fatalErr);
+        }
+      }
     } else {
-      updated = await db.businessSettings.create({
-        data: {
-          userId: profile?.id || clerkUserId,
-          brandVoice: brandVoiceVal,
-          notifyNegativePhone: negPhoneVal,
-          notifyNegativeEmail: negEmailVal,
-          emailAlertsEnabled: emailAlertsVal,
-          notifyNegativeEnabled: smsAlertsVal,
-          googleReviewUrl: payload.googleReviewUrl || undefined,
-          seoKeywords: cleanKeywords,
-        },
-      });
+      try {
+        updated = await db.businessSettings.create({
+          data: {
+            ...updatePayload,
+            userId: profile?.id || clerkUserId,
+          },
+        });
+      } catch (createErr: any) {
+        console.warn('Failed to create businessSettings with seoKeywords, retrying without seoKeywords:', createErr?.message);
+        const { seoKeywords, ...fallbackPayload } = updatePayload;
+        try {
+          updated = await db.businessSettings.create({
+            data: {
+              ...fallbackPayload,
+              userId: profile?.id || clerkUserId,
+            },
+          });
+        } catch (fatalErr) {
+          console.error('Fatal error creating businessSettings:', fatalErr);
+        }
+      }
+    }
+
+    if (!updated) {
+      updated = {
+        id: record?.id || `settings_${Date.now()}`,
+        userId: profile?.id || clerkUserId,
+        ...updatePayload,
+      };
     }
 
     console.log('[ACTION] Successfully updated business_settings:', updated);
@@ -207,8 +241,8 @@ export async function saveAllSettingsAction(payload: {
             positiveAlertEmailEnabled: posEmailEnabled,
             positiveEmailAlertEnabled: posEmailEnabled,
             notifyPositiveEmailEnabled: posEmailEnabled,
-            seoKeywords: cleanKeywords,
-            customKeywords: cleanKeywords,
+            seoKeywords: formattedKeywords,
+            customKeywords: formattedKeywords,
             updatedAt: new Date(),
           },
         }).catch(() => null);
