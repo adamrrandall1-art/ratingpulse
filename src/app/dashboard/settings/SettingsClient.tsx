@@ -248,8 +248,10 @@ export default function SettingsClient({
       aiTone: tone,
       aiPersonality: tone,
       brandVoice: tone,
-      aiInstructions: biz?.aiInstructions || initSettings?.aiInstructions || '',
-      aiSignature: biz?.aiSignature || initSettings?.aiSignature || '',
+      customInstructions: initSettings?.customInstructions || initSettings?.custom_instructions || biz?.aiInstructions || initSettings?.aiInstructions || '',
+      aiInstructions: initSettings?.customInstructions || initSettings?.custom_instructions || biz?.aiInstructions || initSettings?.aiInstructions || '',
+      replySignature: initSettings?.replySignature || initSettings?.reply_signature || biz?.aiSignature || initSettings?.aiSignature || '',
+      aiSignature: initSettings?.replySignature || initSettings?.reply_signature || biz?.aiSignature || initSettings?.aiSignature || '',
       autoReplyEnabled: Boolean(biz?.autoReplyEnabled ?? biz?.autoPublish5Star ?? initSettings?.autoReplyEnabled ?? false),
       selectedModel: biz?.selectedModel || initSettings?.selectedModel || 'gemini-1.5-flash',
       smsTemplate: biz?.smsTemplate || initSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
@@ -320,6 +322,14 @@ export default function SettingsClient({
         next.seoKeywords = kwArr.join(',');
         next.customKeywords = kwArr.join(',');
       }
+      if (field === 'aiInstructions' || field === 'customInstructions') {
+        next.aiInstructions = value;
+        next.customInstructions = value;
+      }
+      if (field === 'aiSignature' || field === 'replySignature' || field === 'signature') {
+        next.aiSignature = value;
+        next.replySignature = value;
+      }
       persistToLocalStorage(next);
       return next;
     });
@@ -344,6 +354,8 @@ export default function SettingsClient({
         ? rawKw
         : (typeof rawKw === 'string' ? rawKw.split(',').map((k: string) => k.trim()).filter(Boolean) : []);
       const kwString = next.seoKeywords ?? next.customKeywords ?? (kwList.length > 0 ? kwList.join(', ') : prev.seoKeywords);
+      const customInst = next.customInstructions ?? next.aiInstructions ?? prev.customInstructions ?? prev.aiInstructions ?? '';
+      const replySig = next.replySignature ?? next.aiSignature ?? next.signature ?? prev.replySignature ?? prev.aiSignature ?? '';
       const merged = {
         ...prev,
         ...next,
@@ -365,6 +377,10 @@ export default function SettingsClient({
         keywords: kwList,
         seoKeywords: kwString,
         customKeywords: kwString,
+        customInstructions: customInst,
+        aiInstructions: customInst,
+        replySignature: replySig,
+        aiSignature: replySig,
         aiTone: tone,
         aiPersonality: tone,
         brandVoice: tone,
@@ -486,11 +502,17 @@ export default function SettingsClient({
   const aiTone = brandVoice || settingsState.aiTone;
   const setAiTone = setBrandVoice;
 
-  const aiInstructions = settingsState.aiInstructions;
-  const setAiInstructions = (val: string) => updateSettingsField('aiInstructions', val);
+  const aiInstructions = settingsState.customInstructions || settingsState.aiInstructions || '';
+  const setAiInstructions = (val: string) => {
+    updateSettingsField('aiInstructions', val);
+    updateSettingsField('customInstructions', val);
+  };
 
-  const aiSignature = settingsState.aiSignature;
-  const setAiSignature = (val: string) => updateSettingsField('aiSignature', val);
+  const aiSignature = settingsState.replySignature || settingsState.aiSignature || '';
+  const setAiSignature = (val: string) => {
+    updateSettingsField('aiSignature', val);
+    updateSettingsField('replySignature', val);
+  };
 
   const autoPublish5Star = settingsState.autoReplyEnabled;
   const setAutoPublish5Star = (val: boolean) => updateSettingsField('autoReplyEnabled', val);
@@ -749,8 +771,10 @@ export default function SettingsClient({
         keywords: kwList,
         seoKeywords: kwString,
         smsTemplate: mergedState.smsTemplate,
-        aiSignature: mergedState.aiSignature,
-        aiInstructions: mergedState.aiInstructions,
+        aiSignature: mergedState.replySignature || mergedState.aiSignature || '',
+        replySignature: mergedState.replySignature || mergedState.aiSignature || '',
+        aiInstructions: mergedState.customInstructions || mergedState.aiInstructions || '',
+        customInstructions: mergedState.customInstructions || mergedState.aiInstructions || '',
         brandVoice: toneToSave,
         aiTone: toneToSave,
         aiPersonality: toneToSave,
@@ -986,8 +1010,12 @@ export default function SettingsClient({
               setAiTone={setBrandVoice}
               aiPersonality={brandVoice}
               setAiPersonality={setBrandVoice}
+              customInstructions={aiInstructions}
+              setCustomInstructions={setAiInstructions}
               aiInstructions={aiInstructions}
               setAiInstructions={setAiInstructions}
+              replySignature={aiSignature}
+              setReplySignature={setAiSignature}
               aiSignature={aiSignature}
               setAiSignature={setAiSignature}
               keywords={settingsState.keywords || []}

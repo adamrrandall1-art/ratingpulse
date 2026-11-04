@@ -208,6 +208,8 @@ function mapBusinessSettingsData(input: any) {
     else if (key === 'userId') mapped.user_id = val;
     else if (key === 'seoKeywords') mapped.seo_keywords = val;
     else if (key === 'customKeywords') mapped.seo_keywords = val;
+    else if (key === 'customInstructions' || key === 'aiInstructions') mapped.custom_instructions = val;
+    else if (key === 'replySignature' || key === 'aiSignature' || key === 'signature') mapped.reply_signature = val;
     else if (key === 'updatedAt') mapped.updated_at = val;
     else if (key === 'createdAt') mapped.created_at = val;
     else mapped[key] = val;
@@ -229,6 +231,8 @@ function normalizeBusinessSettingsRow(row: any) {
     businessName: row.business_name ?? row.businessName,
     userId: row.user_id ?? row.userId,
     seoKeywords: row.seo_keywords ?? row.seoKeywords ?? row.custom_keywords ?? row.customKeywords ?? '',
+    customInstructions: row.custom_instructions ?? row.customInstructions ?? row.ai_instructions ?? row.aiInstructions ?? '',
+    replySignature: row.reply_signature ?? row.replySignature ?? row.ai_signature ?? row.aiSignature ?? '',
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,
   };
@@ -1158,10 +1162,12 @@ export const db = {
 
         if (error) {
           console.error('[db.businessSettings.update] Supabase error:', error);
-          if (payload.seo_keywords !== undefined && (error.message?.includes('seo_keywords') || error.code === '42703' || error.message?.includes('column'))) {
-            console.warn('[db.businessSettings.update] Retrying without seo_keywords column...');
+          if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+            console.warn('[db.businessSettings.update] Retrying without new schema columns...');
             const retryPayload = { ...payload };
-            delete retryPayload.seo_keywords;
+            if (error.message?.includes('custom_instructions') || error.code === '42703') delete retryPayload.custom_instructions;
+            if (error.message?.includes('reply_signature') || error.code === '42703') delete retryPayload.reply_signature;
+            if (error.message?.includes('seo_keywords') || error.code === '42703') delete retryPayload.seo_keywords;
             const { data: retryData, error: retryError } = await supabase
               .from('business_settings')
               .update(retryPayload)
@@ -1236,10 +1242,12 @@ export const db = {
 
         if (error) {
           console.error('[db.businessSettings.create] Supabase error:', error);
-          if (payload.seo_keywords !== undefined && (error.message?.includes('seo_keywords') || error.code === '42703' || error.message?.includes('column'))) {
-            console.warn('[db.businessSettings.create] Retrying without seo_keywords column...');
+          if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+            console.warn('[db.businessSettings.create] Retrying without new schema columns...');
             const retryPayload = { ...payload };
-            delete retryPayload.seo_keywords;
+            if (error.message?.includes('custom_instructions') || error.code === '42703') delete retryPayload.custom_instructions;
+            if (error.message?.includes('reply_signature') || error.code === '42703') delete retryPayload.reply_signature;
+            if (error.message?.includes('seo_keywords') || error.code === '42703') delete retryPayload.seo_keywords;
             const { data: retryData, error: retryError } = await supabase
               .from('business_settings')
               .insert(retryPayload)

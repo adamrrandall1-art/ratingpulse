@@ -67,6 +67,9 @@ export default async function SettingsPage() {
   const rawKeywords = settings?.seoKeywords || settings?.seo_keywords || '';
   const safeKeywords = typeof rawKeywords === 'string' ? rawKeywords : '';
 
+  const safeCustomInstructions = settings?.customInstructions || settings?.custom_instructions || '';
+  const safeReplySignature = settings?.replySignature || settings?.reply_signature || '';
+
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
@@ -96,6 +99,12 @@ export default async function SettingsPage() {
     keywords: safeKeywords
       ? safeKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
       : [],
+    // AI Custom Instructions & Signature
+    customInstructions: safeCustomInstructions,
+    aiInstructions: safeCustomInstructions,
+    replySignature: safeReplySignature,
+    aiSignature: safeReplySignature,
+    signature: safeReplySignature,
   };
 
   // Safe fallback for business object required by settings tabs (GBP, Billing, etc.)
@@ -145,6 +154,10 @@ export default async function SettingsPage() {
       notifyPositiveEmailEnabled: safePositiveEmailEnabled,
       seoKeywords: safeKeywords,
       customKeywords: safeKeywords,
+      customInstructions: safeCustomInstructions,
+      aiInstructions: safeCustomInstructions,
+      replySignature: safeReplySignature,
+      aiSignature: safeReplySignature,
     };
   } else {
     business.positiveAlertPhone = safeSettings.notifyPositivePhone;
@@ -156,6 +169,10 @@ export default async function SettingsPage() {
     business.notifyPositiveEmailEnabled = safePositiveEmailEnabled;
     business.seoKeywords = safeKeywords;
     business.customKeywords = safeKeywords;
+    business.customInstructions = safeCustomInstructions;
+    business.aiInstructions = safeCustomInstructions;
+    business.replySignature = safeReplySignature;
+    business.aiSignature = safeReplySignature;
   }
 
   return (

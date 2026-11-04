@@ -84,8 +84,12 @@ export interface AiPersonaCardProps {
   setSettingsState?: React.Dispatch<React.SetStateAction<any>>;
   aiInstructions?: string;
   setAiInstructions?: (instructions: string) => void;
+  customInstructions?: string;
+  setCustomInstructions?: (instructions: string) => void;
   aiSignature?: string;
   setAiSignature?: (signature: string) => void;
+  replySignature?: string;
+  setReplySignature?: (signature: string) => void;
   keywords?: string[];
   setKeywords?: (keywords: string[]) => void;
   seoKeywords?: string | string[];
@@ -211,19 +215,27 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   );
 
   const [localInstructions, setLocalInstructions] = useState<string>(
-    props.settingsState?.aiInstructions !== undefined
-      ? props.settingsState.aiInstructions
-      : (props.aiInstructions !== undefined
-        ? props.aiInstructions
-        : (aiInstructions || initialBiz?.aiInstructions || ''))
+    props.settingsState?.customInstructions !== undefined
+      ? props.settingsState.customInstructions
+      : (props.settingsState?.aiInstructions !== undefined
+        ? props.settingsState.aiInstructions
+        : (props.customInstructions !== undefined
+          ? props.customInstructions
+          : (props.aiInstructions !== undefined
+            ? props.aiInstructions
+            : (aiInstructions || initialBiz?.customInstructions || initialBiz?.aiInstructions || ''))))
   );
 
   const [localSignature, setLocalSignature] = useState<string>(
-    props.settingsState?.aiSignature !== undefined
-      ? props.settingsState.aiSignature
-      : (props.aiSignature !== undefined
-        ? props.aiSignature
-        : (aiSignature || initialBiz?.aiSignature || ''))
+    props.settingsState?.replySignature !== undefined
+      ? props.settingsState.replySignature
+      : (props.settingsState?.aiSignature !== undefined
+        ? props.settingsState.aiSignature
+        : (props.replySignature !== undefined
+          ? props.replySignature
+          : (props.aiSignature !== undefined
+            ? props.aiSignature
+            : (aiSignature || initialBiz?.replySignature || initialBiz?.aiSignature || ''))))
   );
 
   const [localAutoReply, setLocalAutoReply] = useState<boolean>(
@@ -325,16 +337,18 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   }, [props.settingsState?.aiPersonality, props.settingsState?.aiTone]);
 
   useEffect(() => {
-    if (props.aiInstructions !== undefined && props.aiInstructions !== localInstructions) {
-      setLocalInstructions(props.aiInstructions);
+    const nextInst = props.customInstructions ?? props.aiInstructions ?? props.settingsState?.customInstructions ?? props.settingsState?.aiInstructions;
+    if (nextInst !== undefined && nextInst !== localInstructions) {
+      setLocalInstructions(nextInst);
     }
-  }, [props.aiInstructions]);
+  }, [props.customInstructions, props.aiInstructions, props.settingsState?.customInstructions, props.settingsState?.aiInstructions]);
 
   useEffect(() => {
-    if (props.aiSignature !== undefined && props.aiSignature !== localSignature) {
-      setLocalSignature(props.aiSignature);
+    const nextSig = props.replySignature ?? props.aiSignature ?? props.settingsState?.replySignature ?? props.settingsState?.aiSignature;
+    if (nextSig !== undefined && nextSig !== localSignature) {
+      setLocalSignature(nextSig);
     }
-  }, [props.aiSignature]);
+  }, [props.replySignature, props.aiSignature, props.settingsState?.replySignature, props.settingsState?.aiSignature]);
 
   useEffect(() => {
     if (props.autoReplyEnabled !== undefined && props.autoReplyEnabled !== localAutoReply) {
@@ -383,10 +397,12 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const handleInstructionsChange = (val: string) => {
     setLocalInstructions(val);
     setAiInstructions?.(val);
+    props.setCustomInstructions?.(val);
     if (props.setSettingsState) {
       props.setSettingsState((prev: any) => ({
         ...prev,
         aiInstructions: val,
+        customInstructions: val,
       }));
     }
   };
@@ -394,10 +410,12 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const handleSignatureChange = (val: string) => {
     setLocalSignature(val);
     setAiSignature?.(val);
+    props.setReplySignature?.(val);
     if (props.setSettingsState) {
       props.setSettingsState((prev: any) => ({
         ...prev,
         aiSignature: val,
+        replySignature: val,
       }));
     }
   };
@@ -470,7 +488,9 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         aiPersonality: localTone,
         ai_personality: localTone,
         aiInstructions: localInstructions,
+        customInstructions: localInstructions,
         aiSignature: localSignature,
+        replySignature: localSignature,
         autoReplyEnabled: localAutoReply,
         autoPublish5Star: localAutoReply,
         keywords: localKeywords,
@@ -647,7 +667,17 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
         <textarea
           rows={3}
-          value={props.aiInstructions !== undefined ? props.aiInstructions : localInstructions}
+          value={
+            props.customInstructions !== undefined
+              ? props.customInstructions
+              : (props.settingsState?.customInstructions !== undefined
+                ? props.settingsState.customInstructions
+                : (props.aiInstructions !== undefined
+                  ? props.aiInstructions
+                  : (props.settingsState?.aiInstructions !== undefined
+                    ? props.settingsState.aiInstructions
+                    : (localInstructions || ''))))
+          }
           onChange={(e) => handleInstructionsChange(e.target.value)}
           placeholder="E.g. Always mention that parking is validated in the rear lot. Never offer refunds or discounts in public review replies. Encourage reviewers to ask for Chef Marco next time."
           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 leading-relaxed"
@@ -668,7 +698,17 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
         </div>
         <input
           type="text"
-          value={props.aiSignature !== undefined ? props.aiSignature : localSignature}
+          value={
+            props.replySignature !== undefined
+              ? props.replySignature
+              : (props.settingsState?.replySignature !== undefined
+                ? props.settingsState.replySignature
+                : (props.aiSignature !== undefined
+                  ? props.aiSignature
+                  : (props.settingsState?.aiSignature !== undefined
+                    ? props.settingsState.aiSignature
+                    : (localSignature || ''))))
+          }
           onChange={(e) => handleSignatureChange(e.target.value)}
           placeholder="E.g. — The Management Team, RatingPulse"
           className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600"

@@ -127,6 +127,9 @@ export async function saveAllSettingsAction(payload: {
       formattedKeywords = raw.trim();
     }
 
+    const customInstructionsVal = payload.customInstructions ?? payload.aiInstructions ?? '';
+    const replySignatureVal = payload.replySignature ?? payload.signature ?? payload.aiSignature ?? '';
+
     const updatePayload: any = {
       userId: profile?.id || record?.userId,
       brandVoice: payload.brandVoice || payload.aiTone || payload.aiPersonality || 'friendly_professional',
@@ -136,6 +139,8 @@ export async function saveAllSettingsAction(payload: {
       notifyNegativeEnabled: Boolean(payload.notifyNegativeEnabled ?? payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
       googleReviewUrl: payload.googleReviewUrl || undefined,
       seoKeywords: formattedKeywords,
+      customInstructions: customInstructionsVal,
+      replySignature: replySignatureVal,
       updatedAt: new Date(),
     };
 
@@ -147,8 +152,8 @@ export async function saveAllSettingsAction(payload: {
           data: updatePayload,
         });
       } catch (updateErr: any) {
-        console.warn('Failed to update businessSettings with seoKeywords, retrying without seoKeywords:', updateErr?.message);
-        const { seoKeywords, ...fallbackPayload } = updatePayload;
+        console.warn('Failed to update businessSettings with new columns, retrying without new columns:', updateErr?.message);
+        const { seoKeywords, customInstructions, replySignature, ...fallbackPayload } = updatePayload;
         try {
           updated = await db.businessSettings.update({
             where: { id: record.id },
@@ -167,8 +172,8 @@ export async function saveAllSettingsAction(payload: {
           },
         });
       } catch (createErr: any) {
-        console.warn('Failed to create businessSettings with seoKeywords, retrying without seoKeywords:', createErr?.message);
-        const { seoKeywords, ...fallbackPayload } = updatePayload;
+        console.warn('Failed to create businessSettings with new columns, retrying without new columns:', createErr?.message);
+        const { seoKeywords, customInstructions, replySignature, ...fallbackPayload } = updatePayload;
         try {
           updated = await db.businessSettings.create({
             data: {
@@ -228,8 +233,10 @@ export async function saveAllSettingsAction(payload: {
             notifyNegativeEnabled: updated.notifyNegativeEnabled,
             googleReviewUrl: updated.googleReviewUrl ?? activeBusiness.googleReviewUrl,
             reviewUrl: updated.googleReviewUrl ?? activeBusiness.reviewUrl,
-            aiInstructions: payload.aiInstructions !== undefined ? payload.aiInstructions : activeBusiness.aiInstructions,
-            aiSignature: payload.aiSignature !== undefined ? payload.aiSignature : activeBusiness.aiSignature,
+            aiInstructions: customInstructionsVal || activeBusiness.aiInstructions,
+            customInstructions: customInstructionsVal || activeBusiness.customInstructions,
+            aiSignature: replySignatureVal || activeBusiness.aiSignature,
+            replySignature: replySignatureVal || activeBusiness.replySignature,
             autoReplyEnabled: payload.autoReplyEnabled !== undefined ? Boolean(payload.autoReplyEnabled) : activeBusiness.autoReplyEnabled,
             selectedModel: payload.selectedModel !== undefined ? payload.selectedModel : activeBusiness.selectedModel,
             smsTemplate: payload.smsTemplate !== undefined ? payload.smsTemplate : activeBusiness.smsTemplate,
