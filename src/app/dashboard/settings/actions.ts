@@ -52,22 +52,20 @@ export async function saveAllSettingsAction(payload: {
 
   try {
     const targetId = payload.settingsId || payload.id;
-    let recordToUpdate: any = null;
+    let record: any = null;
 
     if (targetId) {
-      recordToUpdate = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
+      record = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
     }
-
-    if (!recordToUpdate) {
-      recordToUpdate = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
+    if (!record) {
+      record = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
     }
-
-    if (!recordToUpdate) {
-      throw new Error('No business_settings record found to update');
+    if (!record) {
+      throw new Error('No record found to update');
     }
 
     const updated = await db.businessSettings.update({
-      where: { id: recordToUpdate.id },
+      where: { id: record.id },
       data: {
         brandVoice: payload.brandVoice || payload.aiTone,
         notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
@@ -88,7 +86,7 @@ export async function saveAllSettingsAction(payload: {
         where: {
           OR: [
             { clerkUserId: userId },
-            { id: recordToUpdate.id },
+            { id: record.id },
             { userId },
           ],
         },
@@ -131,7 +129,7 @@ export async function saveAllSettingsAction(payload: {
     // Set active business cookies
     try {
       const cookieStore = await cookies();
-      const cookieBizId = savedBusiness?.id || recordToUpdate?.id || targetId;
+      const cookieBizId = savedBusiness?.id || record?.id || targetId;
       cookieStore.set('activeBusinessId', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
       cookieStore.set('rp_active_business_id', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     } catch {}

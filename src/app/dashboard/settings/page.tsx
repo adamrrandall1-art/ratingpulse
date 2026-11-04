@@ -38,8 +38,9 @@ export default async function SettingsPage() {
           where: { id: profile.id },
           data: { clerkUserId: clerkUserId },
         });
-      } catch (e) {
-        console.error('Failed to link clerkUserId:', e);
+        console.log('Linked clerkUserId to Profile:', profile.id);
+      } catch (err) {
+        console.error('Failed to link clerkUserId:', err);
       }
     }
 
