@@ -81,15 +81,38 @@ export default async function SettingsPage() {
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
-    brandVoice: settings?.brandVoice || 'friendly_professional',
-    notifyNegativePhone: settings?.notifyNegativePhone || '',
-    notifyNegativeEmail: settings?.notifyNegativeEmail || '',
-    emailAlertsEnabled: settings?.emailAlertsEnabled ?? true,
-    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? true,
-    googleReviewUrl: settings?.googleReviewUrl || '',
-    placeId: settings?.placeId || '',
-    businessName: settings?.businessName || '',
+    brandVoice: settings?.brandVoice || business?.brandVoice || business?.aiTone || 'friendly_professional',
+    notifyNegativePhone: settings?.notifyNegativePhone || business?.negativeAlertPhone || '',
+    notifyNegativeEmail: settings?.notifyNegativeEmail || business?.negativeAlertEmail || '',
+    emailAlertsEnabled: settings?.emailAlertsEnabled ?? business?.emailAlertsEnabled ?? true,
+    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? business?.negativeAlertSmsEnabled ?? true,
+    googleReviewUrl: settings?.googleReviewUrl || business?.googleReviewUrl || '',
+    placeId: settings?.placeId || business?.placeId || '',
+    businessName: settings?.businessName || business?.name || '',
   };
+
+  if (!business) {
+    business = {
+      id: settings?.id || profile?.id || clerkUserId,
+      userId: profile?.id || clerkUserId,
+      clerkUserId: clerkUserId,
+      name: settings?.businessName || profile?.business_name || 'My Business',
+      brandVoice: safeSettings.brandVoice,
+      aiTone: safeSettings.brandVoice,
+      aiPersonality: safeSettings.brandVoice,
+      negativeAlertEmail: safeSettings.notifyNegativeEmail,
+      notifyNegativeEmail: safeSettings.notifyNegativeEmail,
+      negativeAlertPhone: safeSettings.notifyNegativePhone,
+      notifyNegativePhone: safeSettings.notifyNegativePhone,
+      emailAlertsEnabled: safeSettings.emailAlertsEnabled,
+      negativeAlertEmailEnabled: safeSettings.emailAlertsEnabled,
+      negativeEmailAlertEnabled: safeSettings.emailAlertsEnabled,
+      negativeAlertSmsEnabled: safeSettings.notifyNegativeEnabled,
+      smsAlertsEnabled: safeSettings.notifyNegativeEnabled,
+      googleReviewUrl: safeSettings.googleReviewUrl,
+      placeId: safeSettings.placeId,
+    };
+  }
 
   return (
     <SettingsClient 

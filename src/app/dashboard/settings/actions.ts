@@ -56,29 +56,60 @@ export async function saveAllSettingsAction(payload: {
     const targetId = payload.settingsId || payload.id;
     let record: any = null;
 
-    if (targetId) {
+    if (profile?.id) {
+      record = await db.businessSettings.findFirst({ where: { userId: profile.id } }).catch(() => null);
+    }
+    if (!record && targetId) {
       record = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
     }
     if (!record) {
       record = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
     }
 
-    if (!record) {
-      throw new Error('No business_settings record found');
-    }
+    const brandVoiceVal = payload.brandVoice || payload.aiTone || payload.aiPersonality || 'friendly_professional';
+    const negPhoneVal = payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '';
+    const negEmailVal = payload.negativeAlertEmail ?? payload.notifyNegativeEmail ?? '';
+    const emailAlertsVal =
+      typeof payload.emailAlertsEnabled === 'boolean'
+        ? payload.emailAlertsEnabled
+        : (typeof payload.negativeAlertEmailEnabled === 'boolean'
+          ? payload.negativeAlertEmailEnabled
+          : true);
+    const smsAlertsVal =
+      typeof payload.negativeAlertSmsEnabled === 'boolean'
+        ? payload.negativeAlertSmsEnabled
+        : (typeof payload.notifyNegativeEnabled === 'boolean'
+          ? payload.notifyNegativeEnabled
+          : (typeof payload.smsAlertsEnabled === 'boolean' ? payload.smsAlertsEnabled : true));
 
-    const updated = await db.businessSettings.update({
-      where: { id: record.id },
-      data: {
-        brandVoice: payload.brandVoice || payload.aiTone,
-        notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
-        notifyNegativeEmail: payload.negativeAlertEmail ?? payload.notifyNegativeEmail ?? '',
-        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled),
-        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.notifyNegativeEnabled),
-        googleReviewUrl: payload.googleReviewUrl || undefined,
-        updatedAt: new Date(),
-      },
-    });
+    let updated: any = null;
+    if (record) {
+      updated = await db.businessSettings.update({
+        where: { id: record.id },
+        data: {
+          userId: profile?.id || record.userId,
+          brandVoice: brandVoiceVal,
+          notifyNegativePhone: negPhoneVal,
+          notifyNegativeEmail: negEmailVal,
+          emailAlertsEnabled: emailAlertsVal,
+          notifyNegativeEnabled: smsAlertsVal,
+          googleReviewUrl: payload.googleReviewUrl || undefined,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      updated = await db.businessSettings.create({
+        data: {
+          userId: profile?.id || clerkUserId,
+          brandVoice: brandVoiceVal,
+          notifyNegativePhone: negPhoneVal,
+          notifyNegativeEmail: negEmailVal,
+          emailAlertsEnabled: emailAlertsVal,
+          notifyNegativeEnabled: smsAlertsVal,
+          googleReviewUrl: payload.googleReviewUrl || undefined,
+        },
+      });
+    }
 
     console.log('[ACTION] Successfully updated business_settings:', updated);
 

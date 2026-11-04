@@ -133,14 +133,30 @@ export default function SettingsClient({
     }
   };
 
-  // Build default settings from initialBusiness
-  const buildInitialSettings = (biz: any) => {
-    const isSms = biz?.negativeAlertSmsEnabled ?? biz?.smsAlertsEnabled ?? biz?.negativeSmsAlertEnabled ?? true;
-    const tone = biz?.brandVoice || biz?.brand_voice || biz?.aiPersonality || biz?.aiTone || 'friendly_professional';
-    const bizKw = biz?.seoKeywords || biz?.customKeywords;
+  // Build default settings from initialBusiness and initialSettings
+  const buildInitialSettings = (biz: any, initSettings?: any) => {
+    const rawSmsAlert =
+      initSettings?.notifyNegativeEnabled ??
+      initSettings?.notify_negative_enabled ??
+      biz?.negativeAlertSmsEnabled ??
+      biz?.smsAlertsEnabled ??
+      biz?.negativeSmsAlertEnabled ??
+      true;
+
+    const tone =
+      initSettings?.brandVoice ||
+      initSettings?.brand_voice ||
+      biz?.brandVoice ||
+      biz?.brand_voice ||
+      biz?.aiPersonality ||
+      biz?.aiTone ||
+      'friendly_professional';
+
+    const bizKw = biz?.seoKeywords || biz?.customKeywords || initSettings?.seoKeywords;
+
     const rawEmailAlert =
-      initialSettings?.emailAlertsEnabled ??
-      initialSettings?.email_alerts_enabled ??
+      initSettings?.emailAlertsEnabled ??
+      initSettings?.email_alerts_enabled ??
       biz?.negativeAlertEmailEnabled ??
       biz?.emailAlertsEnabled ??
       biz?.negativeEmailAlertEnabled;
@@ -150,75 +166,66 @@ export default function SettingsClient({
         ? rawEmailAlert
         : (typeof rawEmailAlert === 'string'
           ? (rawEmailAlert === 'true' || rawEmailAlert === 'on' || rawEmailAlert === '1')
-          : (rawEmailAlert !== undefined && rawEmailAlert !== null ? Boolean(rawEmailAlert) : false));
+          : (rawEmailAlert !== undefined && rawEmailAlert !== null ? Boolean(rawEmailAlert) : true));
+
+    const negEmail =
+      initSettings?.notifyNegativeEmail ||
+      biz?.negativeAlertEmail ||
+      biz?.notifyNegativeEmail ||
+      '';
+
+    const negPhone =
+      initSettings?.notifyNegativePhone ||
+      biz?.negativeAlertPhone ||
+      biz?.notifyNegativePhone ||
+      '';
+
+    const posEmail =
+      initSettings?.notifyPositiveEmail ||
+      biz?.positiveAlertEmail ||
+      biz?.notifyPositiveEmail ||
+      '';
+
+    const posPhone =
+      initSettings?.notifyPositivePhone ||
+      biz?.positiveAlertPhone ||
+      biz?.notifyPositivePhone ||
+      '';
 
     return {
-      negativeAlertEmail: biz?.negativeAlertEmail || '',
-      negativeAlertPhone: biz?.negativeAlertPhone || '',
-      positiveAlertEmail: biz?.positiveAlertEmail || '',
-      positiveAlertPhone: biz?.positiveAlertPhone || '',
-      negativeAlertSmsEnabled: Boolean(isSms),
-      smsAlertsEnabled: Boolean(isSms),
+      id: initSettings?.id || biz?.id || '',
+      negativeAlertEmail: negEmail,
+      negativeAlertPhone: negPhone,
+      positiveAlertEmail: posEmail,
+      positiveAlertPhone: posPhone,
+      negativeAlertSmsEnabled: Boolean(rawSmsAlert),
+      smsAlertsEnabled: Boolean(rawSmsAlert),
       negativeAlertEmailEnabled: emailAlertBool,
       negativeEmailAlertEnabled: emailAlertBool,
       emailAlertsEnabled: emailAlertBool,
       positiveAlertSmsEnabled: biz?.positiveAlertSmsEnabled ?? biz?.positiveSmsAlertEnabled ?? false,
       positiveAlertEmailEnabled: biz?.positiveAlertEmailEnabled ?? biz?.positiveEmailAlertEnabled ?? true,
-      negativeAlertsEnabled: biz?.negativeAlertsEnabled ?? true,
+      negativeAlertsEnabled: biz?.negativeAlertsEnabled ?? initSettings?.notifyNegativeEnabled ?? true,
       positiveAlertsEnabled: biz?.positiveAlertsEnabled ?? true,
       aiTone: tone,
       aiPersonality: tone,
       brandVoice: tone,
-      aiInstructions: biz?.aiInstructions || '',
-      aiSignature: biz?.aiSignature || '',
-      autoReplyEnabled: Boolean(biz?.autoReplyEnabled ?? biz?.autoPublish5Star ?? false),
-      selectedModel: biz?.selectedModel || 'gemini-1.5-flash',
-      smsTemplate: biz?.smsTemplate || initialSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
+      aiInstructions: biz?.aiInstructions || initSettings?.aiInstructions || '',
+      aiSignature: biz?.aiSignature || initSettings?.aiSignature || '',
+      autoReplyEnabled: Boolean(biz?.autoReplyEnabled ?? biz?.autoPublish5Star ?? initSettings?.autoReplyEnabled ?? false),
+      selectedModel: biz?.selectedModel || initSettings?.selectedModel || 'gemini-1.5-flash',
+      smsTemplate: biz?.smsTemplate || initSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
       keywords: bizKw
-        ? bizKw.split(',').map((k: string) => k.trim()).filter(Boolean)
+        ? (typeof bizKw === 'string' ? bizKw.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(bizKw) ? bizKw : []))
         : (initialSettings?.custom_keywords || settings.custom_keywords || []),
-      seoKeywords: bizKw || '',
-      customKeywords: bizKw || '',
+      seoKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(',') : ''),
+      customKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(',') : ''),
     };
   };
 
-  // Unified Atomic Settings State initialized from localStorage first, falling back to initialBusiness
+  // Unified Atomic Settings State initialized from server data first
   const [settingsState, setSettingsState] = useState(() => {
-    const fallback = buildInitialSettings(initialBusiness);
-    if (typeof window !== 'undefined') {
-      try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          const parsed = JSON.parse(stored);
-          return {
-            ...fallback,
-            ...parsed,
-            negativeAlertSmsEnabled: parsed.negativeAlertSmsEnabled !== undefined ? Boolean(parsed.negativeAlertSmsEnabled) : fallback.negativeAlertSmsEnabled,
-            smsAlertsEnabled: parsed.smsAlertsEnabled !== undefined ? Boolean(parsed.smsAlertsEnabled) : (parsed.negativeAlertSmsEnabled !== undefined ? Boolean(parsed.negativeAlertSmsEnabled) : fallback.smsAlertsEnabled),
-            negativeAlertEmailEnabled:
-              typeof parsed.negativeAlertEmailEnabled === 'boolean'
-                ? parsed.negativeAlertEmailEnabled
-                : (typeof parsed.emailAlertsEnabled === 'boolean'
-                  ? parsed.emailAlertsEnabled
-                  : (parsed.negativeAlertEmailEnabled !== undefined
-                    ? (parsed.negativeAlertEmailEnabled === 'true' || parsed.negativeAlertEmailEnabled === 'on')
-                    : fallback.negativeAlertEmailEnabled)),
-            emailAlertsEnabled:
-              typeof parsed.emailAlertsEnabled === 'boolean'
-                ? parsed.emailAlertsEnabled
-                : (typeof parsed.negativeAlertEmailEnabled === 'boolean'
-                  ? parsed.negativeAlertEmailEnabled
-                  : (parsed.emailAlertsEnabled !== undefined
-                    ? (parsed.emailAlertsEnabled === 'true' || parsed.emailAlertsEnabled === 'on')
-                    : fallback.emailAlertsEnabled)),
-            autoReplyEnabled: parsed.autoReplyEnabled !== undefined ? Boolean(parsed.autoReplyEnabled) : fallback.autoReplyEnabled,
-          };
-        }
-      } catch (e) {
-        console.warn('Failed to parse settings from localStorage:', e);
-      }
-    }
-    return fallback;
+    return buildInitialSettings(initialBusiness, initialSettings);
   });
 
   const updateSettingsField = (field: string, value: any) => {
@@ -288,97 +295,22 @@ export default function SettingsClient({
     });
   };
 
-  // Synchronize on mount and initialBusiness changes with dual-layer localStorage fallback
+  // Synchronize state upon server hydration and prop updates
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    let cachedSettings: Record<string, any> | null = null;
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        cachedSettings = JSON.parse(stored);
-      }
-    } catch {}
+    const fresh = buildInitialSettings(initialBusiness, initialSettings);
 
     setSettingsState((prev: any) => {
-      const next = {
+      const merged = {
         ...prev,
-        ...(cachedSettings || {}),
+        ...fresh,
       };
-
-      if (initialBusiness) {
-        if (initialBusiness.negativeAlertEmail) next.negativeAlertEmail = initialBusiness.negativeAlertEmail;
-        if (initialBusiness.negativeAlertPhone) next.negativeAlertPhone = initialBusiness.negativeAlertPhone;
-        if (initialBusiness.positiveAlertEmail) next.positiveAlertEmail = initialBusiness.positiveAlertEmail;
-        if (initialBusiness.positiveAlertPhone) next.positiveAlertPhone = initialBusiness.positiveAlertPhone;
-
-        const isSms = initialBusiness.negativeAlertSmsEnabled ?? initialBusiness.smsAlertsEnabled ?? initialBusiness.negativeSmsAlertEnabled;
-        if (isSms !== undefined) {
-          if (cachedSettings?.negativeAlertSmsEnabled !== undefined) {
-            next.negativeAlertSmsEnabled = Boolean(cachedSettings.negativeAlertSmsEnabled);
-            next.smsAlertsEnabled = Boolean(cachedSettings.negativeAlertSmsEnabled);
-          } else {
-            next.negativeAlertSmsEnabled = Boolean(isSms);
-            next.smsAlertsEnabled = Boolean(isSms);
-          }
-        }
-
-        if (initialBusiness.negativeAlertEmailEnabled !== undefined || initialBusiness.negativeEmailAlertEnabled !== undefined || initialBusiness.emailAlertsEnabled !== undefined || initialSettings?.emailAlertsEnabled !== undefined) {
-          const rawE = initialSettings?.emailAlertsEnabled !== undefined
-            ? initialSettings.emailAlertsEnabled
-            : (initialBusiness.emailAlertsEnabled ?? initialBusiness.negativeAlertEmailEnabled ?? initialBusiness.negativeEmailAlertEnabled);
-          const eVal = typeof rawE === 'boolean' ? rawE : (rawE === 'true' || rawE === 'on' || rawE === '1');
-          next.negativeAlertEmailEnabled = eVal;
-          next.negativeEmailAlertEnabled = eVal;
-          next.emailAlertsEnabled = eVal;
-        }
-        if (initialBusiness.positiveAlertSmsEnabled !== undefined || initialBusiness.positiveSmsAlertEnabled !== undefined) {
-          next.positiveAlertSmsEnabled = Boolean(initialBusiness.positiveAlertSmsEnabled ?? initialBusiness.positiveSmsAlertEnabled);
-        }
-        if (initialBusiness.positiveAlertEmailEnabled !== undefined || initialBusiness.positiveEmailAlertEnabled !== undefined) {
-          next.positiveAlertEmailEnabled = Boolean(initialBusiness.positiveAlertEmailEnabled ?? initialBusiness.positiveEmailAlertEnabled);
-        }
-        if (initialBusiness.negativeAlertsEnabled !== undefined) {
-          next.negativeAlertsEnabled = Boolean(initialBusiness.negativeAlertsEnabled);
-        }
-        if (initialBusiness.positiveAlertsEnabled !== undefined) {
-          next.positiveAlertsEnabled = Boolean(initialBusiness.positiveAlertsEnabled);
-        }
-
-        if (initialBusiness.aiPersonality || initialBusiness.aiTone || initialBusiness.brandVoice || initialBusiness.brand_voice) {
-          const t = initialBusiness.brandVoice || initialBusiness.brand_voice || initialBusiness.aiPersonality || initialBusiness.aiTone;
-          next.aiTone = t;
-          next.aiPersonality = t;
-          next.brandVoice = t;
-          setBrandVoiceState(t);
-        }
-        if (initialBusiness.aiInstructions !== undefined && initialBusiness.aiInstructions !== null) {
-          next.aiInstructions = initialBusiness.aiInstructions;
-        }
-        if (initialBusiness.aiSignature !== undefined && initialBusiness.aiSignature !== null) {
-          next.aiSignature = initialBusiness.aiSignature;
-        }
-        if (initialBusiness.autoReplyEnabled !== undefined || initialBusiness.autoPublish5Star !== undefined) {
-          next.autoReplyEnabled = Boolean(initialBusiness.autoReplyEnabled ?? initialBusiness.autoPublish5Star);
-        }
-        if (initialBusiness.selectedModel) {
-          next.selectedModel = initialBusiness.selectedModel;
-        }
-        if (initialBusiness.smsTemplate) {
-          next.smsTemplate = initialBusiness.smsTemplate;
-        }
-        const bKw = initialBusiness.seoKeywords || initialBusiness.customKeywords;
-        if (bKw) {
-          const kwArr = bKw.split(',').map((k: string) => k.trim()).filter(Boolean);
-          next.keywords = kwArr;
-          next.seoKeywords = bKw;
-          next.customKeywords = bKw;
-        }
-      }
-
-      persistToLocalStorage(next);
-      return next;
+      persistToLocalStorage(merged);
+      return merged;
     });
+
+    if (fresh.brandVoice) {
+      setBrandVoiceState(fresh.brandVoice);
+    }
 
     if (initialBusiness) {
       setActiveBusiness((prev: any) => ({
@@ -389,7 +321,7 @@ export default function SettingsClient({
         isConnected: true,
       }));
     }
-  }, [initialBusiness, setActiveBusiness]);
+  }, [initialBusiness, initialSettings, setActiveBusiness]);
 
   // Booleans for checkboxes/toggles bound directly to unified settingsState
   const negativeAlertsEnabled = settingsState.negativeAlertsEnabled;
@@ -684,12 +616,13 @@ export default function SettingsClient({
             : (rawEmailSetting !== undefined && rawEmailSetting !== null ? Boolean(rawEmailSetting) : false));
 
       const targetSettingsId = settingsId || initialSettings?.id || initialSettings?.settingsId || settingsState?.id;
+      const { id: _ignoredMergedId, ...restMergedState } = mergedState;
 
       const res = await saveAllSettingsAction({
         settingsId: targetSettingsId,
         id: targetSettingsId,
         businessId: targetBusinessId,
-        ...mergedState,
+        ...restMergedState,
         negativeAlertEmailEnabled: emailAlertsToSend,
         negativeEmailAlertEnabled: emailAlertsToSend,
         emailAlertsEnabled: emailAlertsToSend,
