@@ -206,6 +206,8 @@ function mapBusinessSettingsData(input: any) {
     else if (key === 'placeId') mapped.place_id = val;
     else if (key === 'businessName') mapped.business_name = val;
     else if (key === 'userId') mapped.user_id = val;
+    else if (key === 'seoKeywords') mapped.seo_keywords = val;
+    else if (key === 'customKeywords') mapped.seo_keywords = val;
     else if (key === 'updatedAt') mapped.updated_at = val;
     else if (key === 'createdAt') mapped.created_at = val;
     else mapped[key] = val;
@@ -226,6 +228,7 @@ function normalizeBusinessSettingsRow(row: any) {
     placeId: row.place_id ?? row.placeId,
     businessName: row.business_name ?? row.businessName,
     userId: row.user_id ?? row.userId,
+    seoKeywords: row.seo_keywords ?? row.seoKeywords ?? row.custom_keywords ?? row.customKeywords ?? '',
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,
   };

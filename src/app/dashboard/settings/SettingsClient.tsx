@@ -152,7 +152,7 @@ export default function SettingsClient({
       biz?.aiTone ||
       'friendly_professional';
 
-    const bizKw = biz?.seoKeywords || biz?.customKeywords || initSettings?.seoKeywords;
+    const bizKw = initSettings?.seoKeywords || initSettings?.seo_keywords || initSettings?.customKeywords || biz?.seoKeywords || biz?.customKeywords || '';
 
     const rawEmailAlert =
       initSettings?.emailAlertsEnabled ??
@@ -255,9 +255,9 @@ export default function SettingsClient({
       smsTemplate: biz?.smsTemplate || initSettings?.sms_template || settings.sms_template || 'Hi {{customer_name}}, thank you for choosing {{business_name}}! Could you take 30 seconds to share your experience with us on Google? {{review_link}}',
       keywords: bizKw
         ? (typeof bizKw === 'string' ? bizKw.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(bizKw) ? bizKw : []))
-        : (initialSettings?.custom_keywords || settings.custom_keywords || []),
-      seoKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(',') : ''),
-      customKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(',') : ''),
+        : (initialSettings?.keywords || initialSettings?.custom_keywords || settings.custom_keywords || []),
+      seoKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(', ') : ''),
+      customKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(', ') : ''),
     };
   };
 
@@ -339,6 +339,11 @@ export default function SettingsClient({
       const safePosEmail = (typeof rawPosEmail === 'string' && rawPosEmail !== 'true' && rawPosEmail !== 'false') ? rawPosEmail : '';
       const rawPosEmailEnabled = next.positiveAlertEmailEnabled ?? next.positiveEmailAlertEnabled ?? next.notifyPositiveEmailEnabled ?? prev.positiveAlertEmailEnabled;
       const isPosEmailEnabled = rawPosEmailEnabled !== undefined && rawPosEmailEnabled !== null ? Boolean(rawPosEmailEnabled) : true;
+      const rawKw = next.keywords ?? prev.keywords;
+      const kwList = Array.isArray(rawKw)
+        ? rawKw
+        : (typeof rawKw === 'string' ? rawKw.split(',').map((k: string) => k.trim()).filter(Boolean) : []);
+      const kwString = next.seoKeywords ?? next.customKeywords ?? (kwList.length > 0 ? kwList.join(', ') : prev.seoKeywords);
       const merged = {
         ...prev,
         ...next,
@@ -357,6 +362,9 @@ export default function SettingsClient({
         positiveAlertEmailEnabled: isPosEmailEnabled,
         positiveEmailAlertEnabled: isPosEmailEnabled,
         notifyPositiveEmailEnabled: isPosEmailEnabled,
+        keywords: kwList,
+        seoKeywords: kwString,
+        customKeywords: kwString,
         aiTone: tone,
         aiPersonality: tone,
         brandVoice: tone,
@@ -679,7 +687,9 @@ export default function SettingsClient({
         settingsState.aiTone ||
         'friendly_professional';
       const kwList = mergedState.keywords || [];
-      const kwString = Array.isArray(kwList) ? kwList.join(',') : (mergedState.seoKeywords || '');
+      const kwString = Array.isArray(kwList) && kwList.length > 0
+        ? kwList.join(', ')
+        : (typeof mergedState.seoKeywords === 'string' ? mergedState.seoKeywords : (mergedState.customKeywords || ''));
 
       const rawEmailSetting =
         mergedState.emailAlertsEnabled ??
@@ -980,10 +990,14 @@ export default function SettingsClient({
               setAiInstructions={setAiInstructions}
               aiSignature={aiSignature}
               setAiSignature={setAiSignature}
-              keywords={keywords}
+              keywords={settingsState.keywords || []}
               setKeywords={setKeywords}
-              seoKeywords={(settingsState.keywords || []).join(',')}
-              setSeoKeywords={(val) => updateSettingsField('seoKeywords', val)}
+              seoKeywords={settingsState.seoKeywords || (settingsState.keywords || []).join(', ')}
+              setSeoKeywords={(val) => {
+                updateSettingsField('seoKeywords', val);
+                const arr = typeof val === 'string' ? val.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(val) ? val : []);
+                updateSettingsField('keywords', arr);
+              }}
               autoPublish5Star={autoPublish5Star}
               setAutoPublish5Star={setAutoPublish5Star}
               autoReplyEnabled={autoReplyEnabled}

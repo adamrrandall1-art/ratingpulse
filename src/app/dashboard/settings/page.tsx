@@ -73,6 +73,11 @@ export default async function SettingsPage() {
       if (settings.businessName) {
         business.name = settings.businessName;
       }
+      if (settings.seoKeywords || settings.seo_keywords) {
+        const kw = settings.seoKeywords || settings.seo_keywords;
+        business.seoKeywords = kw;
+        business.customKeywords = kw;
+      }
     }
   } catch (error) {
     console.error('Error fetching settings on server:', error);
@@ -86,6 +91,8 @@ export default async function SettingsPage() {
   const rawEmailEnabled = profile?.notifyPositiveEnabled ?? profile?.notify_positive_enabled ?? business?.positiveAlertEmailEnabled ?? business?.positiveEmailAlertEnabled ?? business?.notifyPositiveEmailEnabled;
   const safePositiveEmailEnabled = rawEmailEnabled !== undefined && rawEmailEnabled !== null ? Boolean(rawEmailEnabled) : true;
 
+  const safeKeywords = settings?.seoKeywords || settings?.seo_keywords || business?.seoKeywords || business?.customKeywords || '';
+
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
@@ -93,6 +100,9 @@ export default async function SettingsPage() {
     googleReviewUrl: settings?.googleReviewUrl || business?.googleReviewUrl || '',
     placeId: settings?.placeId || business?.placeId || '',
     businessName: settings?.businessName || business?.name || '',
+    seoKeywords: safeKeywords,
+    customKeywords: safeKeywords,
+    keywords: safeKeywords ? (typeof safeKeywords === 'string' ? safeKeywords.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(safeKeywords) ? safeKeywords : [])) : [],
     // Negative Review Alerts (business_settings)
     notifyNegativePhone: settings?.notifyNegativePhone || business?.negativeAlertPhone || '',
     notifyNegativeEmail: settings?.notifyNegativeEmail || business?.negativeAlertEmail || '',
@@ -119,6 +129,8 @@ export default async function SettingsPage() {
     business.positiveAlertEmailEnabled = safePositiveEmailEnabled;
     business.positiveEmailAlertEnabled = safePositiveEmailEnabled;
     business.notifyPositiveEmailEnabled = safePositiveEmailEnabled;
+    business.seoKeywords = safeKeywords;
+    business.customKeywords = safeKeywords;
   }
 
   if (!business) {
@@ -148,6 +160,8 @@ export default async function SettingsPage() {
       positiveAlertEmailEnabled: safePositiveEmailEnabled,
       positiveEmailAlertEnabled: safePositiveEmailEnabled,
       notifyPositiveEmailEnabled: safePositiveEmailEnabled,
+      seoKeywords: safeKeywords,
+      customKeywords: safeKeywords,
     };
   }
 

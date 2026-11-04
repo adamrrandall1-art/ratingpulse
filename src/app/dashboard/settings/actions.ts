@@ -119,6 +119,12 @@ export async function saveAllSettingsAction(payload: {
           ? payload.notifyNegativeEnabled
           : (typeof payload.smsAlertsEnabled === 'boolean' ? payload.smsAlertsEnabled : true));
 
+    let rawKeywords = payload.seoKeywords ?? payload.keywords ?? payload.customKeywords ?? '';
+    if (Array.isArray(rawKeywords)) {
+      rawKeywords = rawKeywords.join(', ');
+    }
+    const cleanKeywords = typeof rawKeywords === 'string' ? rawKeywords : '';
+
     let updated: any = null;
     if (record) {
       updated = await db.businessSettings.update({
@@ -131,6 +137,7 @@ export async function saveAllSettingsAction(payload: {
           emailAlertsEnabled: emailAlertsVal,
           notifyNegativeEnabled: smsAlertsVal,
           googleReviewUrl: payload.googleReviewUrl || undefined,
+          seoKeywords: cleanKeywords,
           updatedAt: new Date(),
         },
       });
@@ -144,6 +151,7 @@ export async function saveAllSettingsAction(payload: {
           emailAlertsEnabled: emailAlertsVal,
           notifyNegativeEnabled: smsAlertsVal,
           googleReviewUrl: payload.googleReviewUrl || undefined,
+          seoKeywords: cleanKeywords,
         },
       });
     }
@@ -157,7 +165,7 @@ export async function saveAllSettingsAction(payload: {
         where: {
           OR: [
             { clerkUserId: clerkUserId },
-            { id: record.id },
+            { id: record?.id },
             { id: profile?.id },
             { userId: profile?.id },
             { userId: clerkUserId },
@@ -199,6 +207,8 @@ export async function saveAllSettingsAction(payload: {
             positiveAlertEmailEnabled: posEmailEnabled,
             positiveEmailAlertEnabled: posEmailEnabled,
             notifyPositiveEmailEnabled: posEmailEnabled,
+            seoKeywords: cleanKeywords,
+            customKeywords: cleanKeywords,
             updatedAt: new Date(),
           },
         }).catch(() => null);

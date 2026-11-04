@@ -239,6 +239,14 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const [localKeywords, setLocalKeywords] = useState<string[]>(() => {
     if (props.settingsState?.keywords && props.settingsState.keywords.length > 0) return props.settingsState.keywords;
     if (props.keywords && props.keywords.length > 0) return props.keywords;
+    if (props.seoKeywords) {
+      if (Array.isArray(props.seoKeywords)) return props.seoKeywords;
+      return props.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    }
+    if (props.settingsState?.seoKeywords) {
+      if (Array.isArray(props.settingsState.seoKeywords)) return props.settingsState.seoKeywords;
+      return props.settingsState.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
+    }
     if (initialBiz?.seoKeywords) {
       return initialBiz.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean);
     }
@@ -339,6 +347,17 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
       setLocalKeywords(props.keywords);
     }
   }, [props.keywords]);
+
+  useEffect(() => {
+    if (props.seoKeywords !== undefined && !props.keywords) {
+      const arr = typeof props.seoKeywords === 'string'
+        ? props.seoKeywords.split(',').map((k: string) => k.trim()).filter(Boolean)
+        : (Array.isArray(props.seoKeywords) ? props.seoKeywords : []);
+      if (JSON.stringify(arr) !== JSON.stringify(localKeywords)) {
+        setLocalKeywords(arr);
+      }
+    }
+  }, [props.seoKeywords, props.keywords]);
 
   useEffect(() => {
     if (propSelectedModel && propSelectedModel !== selectedModel) {
