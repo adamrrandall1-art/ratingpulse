@@ -1253,6 +1253,14 @@ export const db = {
         candidateEmails = Array.from(new Set(candidateEmails.filter(Boolean)));
         candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
 
+        const normalizeProfile = (row: any) => {
+          if (!row) return null;
+          return {
+            ...row,
+            clerkUserId: row.clerk_user_id || row.clerkUserId || null,
+          };
+        };
+
         // 1. Try finding by clerk_user_id
         if (candidateClerkIds.length > 0) {
           const { data: byClerk } = await supabase
@@ -1260,7 +1268,7 @@ export const db = {
             .select('*')
             .in('clerk_user_id', candidateClerkIds)
             .limit(1);
-          if (byClerk && byClerk[0]) return byClerk[0];
+          if (byClerk && byClerk[0]) return normalizeProfile(byClerk[0]);
         }
 
         // 2. Try finding by email
@@ -1281,7 +1289,7 @@ export const db = {
               } catch {}
               byEmail[0].clerk_user_id = candidateClerkIds[0];
             }
-            return byEmail[0];
+            return normalizeProfile(byEmail[0]);
           }
         }
 
@@ -1292,7 +1300,7 @@ export const db = {
             .select('*')
             .in('id', candidateIds)
             .limit(1);
-          if (byId && byId[0]) return byId[0];
+          if (byId && byId[0]) return normalizeProfile(byId[0]);
         }
 
         // 4. Fallback: if no criteria specified or fallback requested
@@ -1302,13 +1310,50 @@ export const db = {
             .select('*')
             .order('created_at', { ascending: false })
             .limit(1);
-          if (fallback && fallback[0]) return fallback[0];
+          if (fallback && fallback[0]) return normalizeProfile(fallback[0]);
         }
 
         return null;
       } catch {
         return null;
       }
+    },
+    update: async (args: { where: { id?: string; [key: string]: any }; data: any }) => {
+      const supabase = getAdminClient();
+      const id = args?.where?.id;
+      const updateData: any = {};
+      if (args?.data?.clerkUserId !== undefined) updateData.clerk_user_id = args.data.clerkUserId;
+      if (args?.data?.clerk_user_id !== undefined) updateData.clerk_user_id = args.data.clerk_user_id;
+      if (args?.data?.email !== undefined) updateData.email = args.data.email;
+      if (args?.data?.businessName !== undefined) updateData.business_name = args.data.businessName;
+      if (args?.data?.updatedAt !== undefined) updateData.updated_at = new Date().toISOString();
+
+      if (supabase && id) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .update(updateData)
+            .eq('id', id)
+            .select()
+            .maybeSingle();
+          if (error) {
+            console.error('[db.profile.update] Supabase error:', error);
+          }
+          if (data) {
+            return {
+              ...data,
+              clerkUserId: data.clerk_user_id || data.clerkUserId,
+            };
+          }
+        } catch (err) {
+          console.error('[db.profile.update] error:', err);
+        }
+      }
+      return {
+        id,
+        ...args.data,
+        clerkUserId: args.data.clerkUserId || args.data.clerk_user_id,
+      };
     },
     findUnique: async (args?: any) => {
       return (db as any).profile.findFirst(args);
@@ -1318,7 +1363,10 @@ export const db = {
       if (!supabase) return [];
       try {
         const { data } = await supabase.from('profiles').select('*');
-        return data || [];
+        return (data || []).map((row: any) => ({
+          ...row,
+          clerkUserId: row.clerk_user_id || row.clerkUserId || null,
+        }));
       } catch {
         return [];
       }

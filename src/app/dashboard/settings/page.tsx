@@ -13,22 +13,35 @@ export default async function SettingsPage() {
     redirect('/sign-in');
   }
 
+  let profile: any = null;
   let settings: any = null;
   let business: any = null;
 
   try {
-    const user = await currentUser().catch(() => null);
-    const userEmail = user?.emailAddresses?.[0]?.emailAddress;
+    const clerkUser = await currentUser().catch(() => null);
+    const primaryEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
 
-    // 1. Look up internal Profile by Clerk ID or email
-    const profile = await (db as any).profile?.findFirst?.({
+    // 1. Find profile by clerkUserId or email
+    profile = await db.profile.findFirst({
       where: {
         OR: [
           { clerkUserId: clerkUserId },
-          ...(userEmail ? [{ email: userEmail }] : []),
+          ...(primaryEmail ? [{ email: primaryEmail }] : []),
         ],
       },
     }).catch(() => null);
+
+    // 2. If matched by email but clerkUserId is missing, link it now
+    if (profile && !profile.clerkUserId) {
+      try {
+        profile = await db.profile.update({
+          where: { id: profile.id },
+          data: { clerkUserId: clerkUserId },
+        });
+      } catch (e) {
+        console.error('Failed to link clerkUserId:', e);
+      }
+    }
 
     const internalUserId = profile?.id;
 
@@ -133,6 +146,7 @@ export default async function SettingsPage() {
       key="settings-client"
       initialBusiness={business ? JSON.parse(JSON.stringify(business)) : null} 
       initialSettings={safeSettings}
+      initialProfile={profile ? JSON.parse(JSON.stringify(profile)) : null}
       settingsId={settings?.id}
     />
   );

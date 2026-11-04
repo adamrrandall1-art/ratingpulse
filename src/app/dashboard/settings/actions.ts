@@ -48,101 +48,38 @@ export async function saveAllSettingsAction(payload: {
     return { success: false, error: 'Unauthorized' };
   }
 
-  console.log('SAVE SETTINGS HIT. Payload:', payload);
+  console.log('--- SAVING SETTINGS ---', payload);
 
   try {
-    // Find the target row: prioritize explicit settingsId from client
-    let targetId = payload.settingsId || payload.id;
+    const targetId = payload.settingsId || payload.id;
+    let recordToUpdate: any = null;
 
-    if (!targetId) {
-      const profile = await (db as any).profile?.findFirst?.({
-        where: { clerkUserId: userId },
-      }).catch(() => null);
-
-      if (profile?.id) {
-        const byProfile = await db.businessSettings.findFirst({
-          where: { userId: profile.id },
-        }).catch(() => null);
-        targetId = byProfile?.id;
-      }
-
-      if (!targetId) {
-        const byClerk = await db.businessSettings.findFirst({
-          where: { userId },
-        }).catch(() => null);
-        targetId = byClerk?.id;
-      }
-
-      if (!targetId) {
-        const existing = await db.businessSettings.findFirst({
-          orderBy: { updatedAt: 'desc' },
-        }).catch(() => null);
-        targetId = existing?.id;
-      }
+    if (targetId) {
+      recordToUpdate = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
     }
 
-    if (!targetId) {
-      try {
-        const created = await db.businessSettings.create({
-          data: {
-            userId,
-            brandVoice: payload.brandVoice || payload.aiTone || 'friendly_professional',
-            notifyNegativeEmail: payload.negativeAlertEmail ?? '',
-            notifyNegativePhone: payload.negativeAlertPhone ?? '',
-            emailAlertsEnabled: Boolean(payload.emailAlertsEnabled),
-            notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.notifyNegativeEnabled),
-            googleReviewUrl: payload.googleReviewUrl || null,
-          },
-        });
-        targetId = created?.id;
-      } catch {}
+    if (!recordToUpdate) {
+      recordToUpdate = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
     }
 
-    if (!targetId) {
-      return { success: false, error: 'No business settings record could be located to update.' };
-    }
-
-    const toneVal =
-      payload.brandVoice ||
-      payload.aiTone ||
-      payload.tone ||
-      payload.aiPersonality;
-
-    const isEmail =
-      typeof payload.emailAlertsEnabled === 'boolean'
-        ? payload.emailAlertsEnabled
-        : (typeof payload.negativeAlertEmailEnabled === 'boolean'
-          ? payload.negativeAlertEmailEnabled
-          : (payload.emailAlertsEnabled === 'true' || payload.emailAlertsEnabled === 'on' || payload.emailAlertsEnabled === '1'));
-
-    const isSms =
-      typeof payload.negativeAlertSmsEnabled === 'boolean'
-        ? payload.negativeAlertSmsEnabled
-        : (typeof payload.notifyNegativeEnabled === 'boolean'
-          ? payload.notifyNegativeEnabled
-          : (typeof payload.smsAlertsEnabled === 'boolean'
-            ? payload.smsAlertsEnabled
-            : (payload.negativeAlertSmsEnabled === 'true' || payload.negativeAlertSmsEnabled === 'on' || payload.negativeAlertSmsEnabled === '1')));
-
-    const updateData: Record<string, any> = {
-      brandVoice: toneVal || 'friendly_professional',
-      notifyNegativeEmail: payload.negativeAlertEmail ?? payload.notifyNegativeEmail ?? '',
-      notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
-      emailAlertsEnabled: Boolean(isEmail),
-      notifyNegativeEnabled: Boolean(isSms),
-      updatedAt: new Date(),
-    };
-
-    if (payload.googleReviewUrl !== undefined) {
-      updateData.googleReviewUrl = payload.googleReviewUrl;
+    if (!recordToUpdate) {
+      throw new Error('No business_settings record found to update');
     }
 
     const updated = await db.businessSettings.update({
-      where: { id: targetId },
-      data: updateData,
+      where: { id: recordToUpdate.id },
+      data: {
+        brandVoice: payload.brandVoice || payload.aiTone,
+        notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
+        notifyNegativeEmail: payload.negativeAlertEmail ?? payload.notifyNegativeEmail ?? '',
+        emailAlertsEnabled: Boolean(payload.emailAlertsEnabled),
+        notifyNegativeEnabled: Boolean(payload.negativeAlertSmsEnabled ?? payload.notifyNegativeEnabled),
+        googleReviewUrl: payload.googleReviewUrl || undefined,
+        updatedAt: new Date(),
+      },
     });
 
-    console.log('Database successfully updated:', updated);
+    console.log('DB Updated Successfully:', updated);
 
     // Also update businesses table to maintain consistency
     let savedBusiness = null;
@@ -151,7 +88,7 @@ export async function saveAllSettingsAction(payload: {
         where: {
           OR: [
             { clerkUserId: userId },
-            { id: targetId },
+            { id: recordToUpdate.id },
             { userId },
           ],
         },
@@ -163,21 +100,21 @@ export async function saveAllSettingsAction(payload: {
         savedBusiness = await db.business.update({
           where: { id: activeBusiness.id },
           data: {
-            brandVoice: updateData.brandVoice,
-            aiTone: updateData.brandVoice,
-            aiPersonality: updateData.brandVoice,
-            negativeAlertEmail: updateData.notifyNegativeEmail,
-            notifyNegativeEmail: updateData.notifyNegativeEmail,
-            negativeAlertPhone: updateData.notifyNegativePhone,
-            notifyNegativePhone: updateData.notifyNegativePhone,
-            emailAlertsEnabled: updateData.emailAlertsEnabled,
-            negativeAlertEmailEnabled: updateData.emailAlertsEnabled,
-            negativeEmailAlertEnabled: updateData.emailAlertsEnabled,
-            negativeAlertSmsEnabled: updateData.notifyNegativeEnabled,
-            smsAlertsEnabled: updateData.notifyNegativeEnabled,
-            notifyNegativeEnabled: updateData.notifyNegativeEnabled,
-            googleReviewUrl: updateData.googleReviewUrl ?? activeBusiness.googleReviewUrl,
-            reviewUrl: updateData.googleReviewUrl ?? activeBusiness.reviewUrl,
+            brandVoice: updated.brandVoice,
+            aiTone: updated.brandVoice,
+            aiPersonality: updated.brandVoice,
+            negativeAlertEmail: updated.notifyNegativeEmail,
+            notifyNegativeEmail: updated.notifyNegativeEmail,
+            negativeAlertPhone: updated.notifyNegativePhone,
+            notifyNegativePhone: updated.notifyNegativePhone,
+            emailAlertsEnabled: updated.emailAlertsEnabled,
+            negativeAlertEmailEnabled: updated.emailAlertsEnabled,
+            negativeEmailAlertEnabled: updated.emailAlertsEnabled,
+            negativeAlertSmsEnabled: updated.notifyNegativeEnabled,
+            smsAlertsEnabled: updated.notifyNegativeEnabled,
+            notifyNegativeEnabled: updated.notifyNegativeEnabled,
+            googleReviewUrl: updated.googleReviewUrl ?? activeBusiness.googleReviewUrl,
+            reviewUrl: updated.googleReviewUrl ?? activeBusiness.reviewUrl,
             aiInstructions: payload.aiInstructions !== undefined ? payload.aiInstructions : activeBusiness.aiInstructions,
             aiSignature: payload.aiSignature !== undefined ? payload.aiSignature : activeBusiness.aiSignature,
             autoReplyEnabled: payload.autoReplyEnabled !== undefined ? Boolean(payload.autoReplyEnabled) : activeBusiness.autoReplyEnabled,
@@ -194,7 +131,7 @@ export async function saveAllSettingsAction(payload: {
     // Set active business cookies
     try {
       const cookieStore = await cookies();
-      const cookieBizId = savedBusiness?.id || targetId;
+      const cookieBizId = savedBusiness?.id || recordToUpdate?.id || targetId;
       cookieStore.set('activeBusinessId', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
       cookieStore.set('rp_active_business_id', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     } catch {}
