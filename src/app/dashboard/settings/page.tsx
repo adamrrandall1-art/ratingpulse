@@ -81,6 +81,11 @@ export default async function SettingsPage() {
   const posPhone = profile?.notifyPositivePhone || profile?.notify_positive_phone || business?.positiveAlertPhone || '';
   const posSms = Boolean(profile?.notifyPositiveSms ?? profile?.notify_positive_sms ?? business?.positiveAlertSmsEnabled);
 
+  const rawEmail = profile?.notifyPositiveEmail || profile?.notify_positive_email || business?.positiveAlertEmail || business?.notifyPositiveEmail || '';
+  const safePositiveEmail = (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail;
+  const rawEmailEnabled = profile?.notifyPositiveEnabled ?? profile?.notify_positive_enabled ?? business?.positiveAlertEmailEnabled ?? business?.positiveEmailAlertEnabled ?? business?.notifyPositiveEmailEnabled;
+  const safePositiveEmailEnabled = rawEmailEnabled !== undefined && rawEmailEnabled !== null ? Boolean(rawEmailEnabled) : true;
+
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
@@ -98,11 +103,22 @@ export default async function SettingsPage() {
     notifyPositiveSms: posSms,
     positiveAlertPhone: posPhone,
     positiveAlertSmsEnabled: posSms,
+    notifyPositiveEmail: safePositiveEmail,
+    positiveAlertEmail: safePositiveEmail,
+    notifyPositiveEnabled: safePositiveEmailEnabled,
+    notifyPositiveEmailEnabled: safePositiveEmailEnabled,
+    positiveAlertEmailEnabled: safePositiveEmailEnabled,
+    positiveEmailAlertEnabled: safePositiveEmailEnabled,
   };
 
   if (business) {
     business.positiveAlertPhone = safeSettings.notifyPositivePhone;
     business.positiveAlertSmsEnabled = safeSettings.notifyPositiveSms;
+    business.positiveAlertEmail = safePositiveEmail;
+    business.notifyPositiveEmail = safePositiveEmail;
+    business.positiveAlertEmailEnabled = safePositiveEmailEnabled;
+    business.positiveEmailAlertEnabled = safePositiveEmailEnabled;
+    business.notifyPositiveEmailEnabled = safePositiveEmailEnabled;
   }
 
   if (!business) {
@@ -127,6 +143,11 @@ export default async function SettingsPage() {
       placeId: safeSettings.placeId,
       positiveAlertPhone: safeSettings.notifyPositivePhone,
       positiveAlertSmsEnabled: safeSettings.notifyPositiveSms,
+      positiveAlertEmail: safePositiveEmail,
+      notifyPositiveEmail: safePositiveEmail,
+      positiveAlertEmailEnabled: safePositiveEmailEnabled,
+      positiveEmailAlertEnabled: safePositiveEmailEnabled,
+      notifyPositiveEmailEnabled: safePositiveEmailEnabled,
     };
   }
 

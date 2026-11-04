@@ -795,8 +795,22 @@ export const db = {
           };
           if (normalizedData.negativeAlertEmail !== undefined) profileUpdates.negative_alert_email = normalizedData.negativeAlertEmail;
           if (normalizedData.negativeAlertPhone !== undefined) profileUpdates.negative_alert_phone = normalizedData.negativeAlertPhone;
-          if (normalizedData.positiveAlertEmail !== undefined) profileUpdates.positive_alert_email = normalizedData.positiveAlertEmail;
+          if (normalizedData.positiveAlertEmail !== undefined) {
+            const raw = normalizedData.positiveAlertEmail;
+            profileUpdates.notify_positive_email = (raw === 'true' || raw === 'false' || typeof raw !== 'string') ? '' : raw;
+          }
+          if (normalizedData.notifyPositiveEmail !== undefined) {
+            const raw = normalizedData.notifyPositiveEmail;
+            profileUpdates.notify_positive_email = (raw === 'true' || raw === 'false' || typeof raw !== 'string') ? '' : raw;
+          }
+          if (normalizedData.notifyPositiveEnabled !== undefined) {
+            profileUpdates.notify_positive_enabled = Boolean(normalizedData.notifyPositiveEnabled);
+          } else if (normalizedData.positiveAlertEmailEnabled !== undefined) {
+            profileUpdates.notify_positive_enabled = Boolean(normalizedData.positiveAlertEmailEnabled);
+          }
           if (normalizedData.positiveAlertPhone !== undefined) profileUpdates.positive_alert_phone = normalizedData.positiveAlertPhone;
+          if (normalizedData.notifyPositivePhone !== undefined) profileUpdates.notify_positive_phone = normalizedData.notifyPositivePhone;
+          if (normalizedData.notifyPositiveSms !== undefined) profileUpdates.notify_positive_sms = Boolean(normalizedData.notifyPositiveSms);
           if (normalizedData.googleReviewUrl !== undefined) profileUpdates.review_url = normalizedData.googleReviewUrl;
           if (normalizedData.isGoogleConnected !== undefined) profileUpdates.google_connected = normalizedData.isGoogleConnected;
           if (normalizedData.placeId !== undefined) profileUpdates.google_place_id = normalizedData.placeId;
@@ -1251,11 +1265,17 @@ export const db = {
 
         const normalizeProfile = (row: any) => {
           if (!row) return null;
+          const rawEmail = row.notify_positive_email ?? row.notifyPositiveEmail ?? '';
+          const safeEmail = (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail;
+          const rawEnabled = row.notify_positive_enabled ?? row.notifyPositiveEnabled;
+          const safeEnabled = rawEnabled !== undefined && rawEnabled !== null ? Boolean(rawEnabled) : true;
           return {
             ...row,
             clerkUserId: row.clerk_user_id || row.clerkUserId || null,
             notifyPositivePhone: row.notify_positive_phone || row.notifyPositivePhone || '',
             notifyPositiveSms: Boolean(row.notify_positive_sms ?? row.notifyPositiveSms),
+            notifyPositiveEmail: safeEmail,
+            notifyPositiveEnabled: safeEnabled,
           };
         };
 
@@ -1317,6 +1337,18 @@ export const db = {
       if (args?.data?.notify_positive_phone !== undefined) updateData.notify_positive_phone = args.data.notify_positive_phone;
       if (args?.data?.notifyPositiveSms !== undefined) updateData.notify_positive_sms = Boolean(args.data.notifyPositiveSms);
       if (args?.data?.notify_positive_sms !== undefined) updateData.notify_positive_sms = Boolean(args.data.notify_positive_sms);
+
+      const rawPosEmail = args?.data?.notifyPositiveEmail ?? args?.data?.notify_positive_email;
+      if (rawPosEmail !== undefined) {
+        updateData.notify_positive_email = (rawPosEmail === 'true' || rawPosEmail === 'false' || typeof rawPosEmail !== 'string')
+          ? ''
+          : rawPosEmail;
+      }
+      const rawPosEnabled = args?.data?.notifyPositiveEnabled ?? args?.data?.notify_positive_enabled;
+      if (rawPosEnabled !== undefined) {
+        updateData.notify_positive_enabled = Boolean(rawPosEnabled);
+      }
+
       if (args?.data?.updatedAt !== undefined) updateData.updated_at = new Date().toISOString();
 
       if (supabase && id) {
@@ -1331,29 +1363,42 @@ export const db = {
             console.error('[db.profile.update] Supabase error:', error);
           }
           if (data) {
+            const rawEmail = data.notify_positive_email ?? data.notifyPositiveEmail ?? updateData.notify_positive_email ?? '';
             return {
               ...data,
               clerkUserId: data.clerk_user_id || data.clerkUserId,
               notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? args.data.notifyPositivePhone ?? '',
               notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? args.data.notifyPositiveSms),
+              notifyPositiveEmail: (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail,
+              notifyPositiveEnabled: Boolean(data.notify_positive_enabled ?? data.notifyPositiveEnabled ?? updateData.notify_positive_enabled ?? true),
             };
           }
         } catch (err) {
           console.error('[db.profile.update] error:', err);
         }
       }
+      const rawFallbackEmail = args.data.notifyPositiveEmail ?? args.data.notify_positive_email ?? '';
+      const rawFallbackEnabled = args.data.notifyPositiveEnabled ?? args.data.notify_positive_enabled;
       return {
         id,
         ...args.data,
         clerkUserId: args.data.clerkUserId || args.data.clerk_user_id,
         notifyPositivePhone: args.data.notifyPositivePhone ?? args.data.notify_positive_phone ?? '',
         notifyPositiveSms: Boolean(args.data.notifyPositiveSms ?? args.data.notify_positive_sms),
+        notifyPositiveEmail: (rawFallbackEmail === 'true' || rawFallbackEmail === 'false' || typeof rawFallbackEmail !== 'string') ? '' : rawFallbackEmail,
+        notifyPositiveEnabled: rawFallbackEnabled !== undefined && rawFallbackEnabled !== null ? Boolean(rawFallbackEnabled) : true,
       };
     },
     create: async (args: { data: any }) => {
       const supabase = getAdminClient();
       const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
       const id = args.data.id || generatedId;
+
+      const rawCreateEmail = args.data.notifyPositiveEmail || args.data.notify_positive_email || '';
+      const safeCreateEmail = (rawCreateEmail === 'true' || rawCreateEmail === 'false' || typeof rawCreateEmail !== 'string') ? '' : rawCreateEmail;
+      const rawCreateEnabled = args.data.notifyPositiveEnabled ?? args.data.notify_positive_enabled;
+      const safeCreateEnabled = rawCreateEnabled !== undefined && rawCreateEnabled !== null ? Boolean(rawCreateEnabled) : true;
+
       const payload: any = {
         clerk_user_id: args.data.clerkUserId || args.data.clerk_user_id || null,
         full_name: args.data.fullName || args.data.full_name || null,
@@ -1361,6 +1406,8 @@ export const db = {
         business_category: args.data.businessCategory || args.data.business_category || '',
         notify_positive_phone: args.data.notifyPositivePhone || args.data.notify_positive_phone || '',
         notify_positive_sms: Boolean(args.data.notifyPositiveSms ?? args.data.notify_positive_sms),
+        notify_positive_email: safeCreateEmail,
+        notify_positive_enabled: safeCreateEnabled,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -1385,6 +1432,8 @@ export const db = {
               clerkUserId: data.clerk_user_id || data.clerkUserId,
               notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? payload.notify_positive_phone,
               notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? payload.notify_positive_sms),
+              notifyPositiveEmail: safeCreateEmail,
+              notifyPositiveEnabled: safeCreateEnabled,
             };
           }
         } catch (err) {
@@ -1398,6 +1447,8 @@ export const db = {
         clerkUserId: payload.clerk_user_id,
         notifyPositivePhone: payload.notify_positive_phone,
         notifyPositiveSms: payload.notify_positive_sms,
+        notifyPositiveEmail: safeCreateEmail,
+        notifyPositiveEnabled: safeCreateEnabled,
         created_at: payload.created_at,
         updated_at: payload.updated_at,
       };

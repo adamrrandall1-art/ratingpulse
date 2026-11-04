@@ -56,6 +56,19 @@ export async function saveAllSettingsAction(payload: {
     const posPhoneVal = payload.notifyPositivePhone ?? payload.positiveAlertPhone ?? '';
     const posSmsVal = Boolean(payload.notifyPositiveSms ?? payload.positiveAlertSmsEnabled ?? payload.positiveSmsAlertEnabled);
 
+    let emailValue = payload.notifyPositiveEmail ?? payload.positiveAlertEmail ?? '';
+    if (typeof emailValue !== 'string' || emailValue === 'true' || emailValue === 'false') {
+      emailValue = '';
+    }
+    const rawPosEmailEnabled =
+      payload.notifyPositiveEmailEnabled ??
+      payload.positiveAlertEmailEnabled ??
+      payload.positiveEmailAlertEnabled ??
+      payload.notifyPositiveEnabled;
+    const posEmailEnabled = rawPosEmailEnabled !== undefined && rawPosEmailEnabled !== null
+      ? Boolean(rawPosEmailEnabled)
+      : true;
+
     // 1. UPDATE PROFILES TABLE (Positive alerts)
     let updatedProfile: any = null;
     if (profile?.id) {
@@ -65,6 +78,8 @@ export async function saveAllSettingsAction(payload: {
           data: {
             notifyPositivePhone: posPhoneVal,
             notifyPositiveSms: posSmsVal,
+            notifyPositiveEmail: emailValue,
+            notifyPositiveEnabled: posEmailEnabled,
             updatedAt: new Date(),
           },
         });
@@ -179,6 +194,11 @@ export async function saveAllSettingsAction(payload: {
             positiveAlertPhone: posPhoneVal,
             positiveAlertSmsEnabled: posSmsVal,
             positiveSmsAlertEnabled: posSmsVal,
+            positiveAlertEmail: emailValue,
+            notifyPositiveEmail: emailValue,
+            positiveAlertEmailEnabled: posEmailEnabled,
+            positiveEmailAlertEnabled: posEmailEnabled,
+            notifyPositiveEmailEnabled: posEmailEnabled,
             updatedAt: new Date(),
           },
         }).catch(() => null);
@@ -220,7 +240,7 @@ export async function saveSettingsAction(formData: FormData | Record<string, any
       body[key] = typeof val === 'string' ? val.trim() : val;
     }
     // HTML form checkboxes are omitted from FormData when unchecked:
-    if (formData.has('negativeAlertEmail') || formData.has('negativeAlertPhone') || formData.has('isNotificationForm') || formData.has('positiveAlertPhone')) {
+    if (formData.has('negativeAlertEmail') || formData.has('negativeAlertPhone') || formData.has('isNotificationForm') || formData.has('positiveAlertPhone') || formData.has('positiveAlertEmail') || formData.has('notifyPositiveEmail')) {
       if (!formData.has('emailAlertsEnabled') && !formData.has('negativeAlertEmailEnabled') && !formData.has('negativeEmailAlertEnabled')) {
         body.emailAlertsEnabled = false;
         body.negativeAlertEmailEnabled = false;
@@ -234,6 +254,12 @@ export async function saveSettingsAction(formData: FormData | Record<string, any
         body.positiveAlertSmsEnabled = false;
         body.positiveSmsAlertEnabled = false;
         body.notifyPositiveSms = false;
+      }
+      if (!formData.has('positiveAlertEmailEnabled') && !formData.has('positiveEmailAlertEnabled') && !formData.has('notifyPositiveEmailEnabled') && !formData.has('notifyPositiveEnabled')) {
+        body.positiveAlertEmailEnabled = false;
+        body.positiveEmailAlertEnabled = false;
+        body.notifyPositiveEmailEnabled = false;
+        body.notifyPositiveEnabled = false;
       }
     }
   } else if (formData && typeof formData === 'object') {

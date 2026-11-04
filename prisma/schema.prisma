@@ -85,6 +85,8 @@ model Profile {
   notificationPhone     String?   @map("notification_phone")
   notifyPositivePhone   String?   @map("notify_positive_phone")
   notifyPositiveSms     Boolean?  @default(false) @map("notify_positive_sms")
+  notifyPositiveEmail   String?   @map("notify_positive_email")
+  notifyPositiveEnabled Boolean?  @default(true) @map("notify_positive_enabled")
   createdAt             DateTime? @default(now()) @map("created_at")
   updatedAt             DateTime? @updatedAt @map("updated_at")
 
