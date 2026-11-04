@@ -50,13 +50,25 @@ export async function saveAllSettingsAction(payload: {
 
   const { settings, profile, clerkUserId } = session;
 
-  console.log('--- SAVING SETTINGS ---', payload);
+  console.log('[ACTION] Incoming settings update payload:', payload);
 
   try {
-    const targetId = payload.settingsId || payload.id || settings.id;
+    const targetId = payload.settingsId || payload.id;
+    let record: any = null;
+
+    if (targetId) {
+      record = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
+    }
+    if (!record) {
+      record = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
+    }
+
+    if (!record) {
+      throw new Error('No business_settings record found');
+    }
 
     const updated = await db.businessSettings.update({
-      where: { id: targetId },
+      where: { id: record.id },
       data: {
         brandVoice: payload.brandVoice || payload.aiTone,
         notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
@@ -68,7 +80,7 @@ export async function saveAllSettingsAction(payload: {
       },
     });
 
-    console.log('DB Updated Successfully:', updated);
+    console.log('[ACTION] Successfully updated business_settings:', updated);
 
     // Also update businesses table to maintain consistency
     let savedBusiness = null;
@@ -77,7 +89,7 @@ export async function saveAllSettingsAction(payload: {
         where: {
           OR: [
             { clerkUserId: clerkUserId },
-            { id: targetId },
+            { id: record.id },
             { id: profile?.id },
             { userId: profile?.id },
             { userId: clerkUserId },
@@ -122,7 +134,7 @@ export async function saveAllSettingsAction(payload: {
     // Set active business cookies
     try {
       const cookieStore = await cookies();
-      const cookieBizId = savedBusiness?.id || targetId;
+      const cookieBizId = savedBusiness?.id || record?.id || targetId;
       cookieStore.set('activeBusinessId', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
       cookieStore.set('rp_active_business_id', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     } catch {}

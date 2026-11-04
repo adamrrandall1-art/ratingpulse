@@ -1223,34 +1223,30 @@ export const db = {
         clerkUserId?: string | null;
         clerk_user_id?: string | null;
         id?: string | null;
-        email?: string | null;
         [key: string]: any;
       };
+      orderBy?: any;
       [key: string]: any;
     }) => {
       const supabase = getAdminClient();
       if (!supabase) return null;
       try {
         let candidateClerkIds: string[] = [];
-        let candidateEmails: string[] = [];
         let candidateIds: string[] = [];
 
         if (args?.where?.clerkUserId) candidateClerkIds.push(String(args.where.clerkUserId));
         if (args?.where?.clerk_user_id) candidateClerkIds.push(String(args.where.clerk_user_id));
-        if (args?.where?.email) candidateEmails.push(String(args.where.email));
         if (args?.where?.id) candidateIds.push(String(args.where.id));
 
         if (Array.isArray(args?.where?.OR)) {
           for (const item of args.where.OR) {
             if (item?.clerkUserId) candidateClerkIds.push(String(item.clerkUserId));
             if (item?.clerk_user_id) candidateClerkIds.push(String(item.clerk_user_id));
-            if (item?.email) candidateEmails.push(String(item.email));
             if (item?.id) candidateIds.push(String(item.id));
           }
         }
 
         candidateClerkIds = Array.from(new Set(candidateClerkIds.filter(Boolean)));
-        candidateEmails = Array.from(new Set(candidateEmails.filter(Boolean)));
         candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
 
         const normalizeProfile = (row: any) => {
@@ -1271,29 +1267,7 @@ export const db = {
           if (byClerk && byClerk[0]) return normalizeProfile(byClerk[0]);
         }
 
-        // 2. Try finding by email
-        if (candidateEmails.length > 0) {
-          const { data: byEmail } = await supabase
-            .from('profiles')
-            .select('*')
-            .in('email', candidateEmails)
-            .limit(1);
-          if (byEmail && byEmail[0]) {
-            // Auto-link clerk_user_id if available
-            if (candidateClerkIds[0] && !byEmail[0].clerk_user_id) {
-              try {
-                await supabase
-                  .from('profiles')
-                  .update({ clerk_user_id: candidateClerkIds[0] })
-                  .eq('id', byEmail[0].id);
-              } catch {}
-              byEmail[0].clerk_user_id = candidateClerkIds[0];
-            }
-            return normalizeProfile(byEmail[0]);
-          }
-        }
-
-        // 3. Try finding by profile id
+        // 2. Try finding by profile id
         if (candidateIds.length > 0) {
           const { data: byId } = await supabase
             .from('profiles')
@@ -1303,8 +1277,20 @@ export const db = {
           if (byId && byId[0]) return normalizeProfile(byId[0]);
         }
 
+        // 3. Check for unassigned profiles (where clerkUserId is null)
+        const wantsNullClerk = args?.where?.clerkUserId === null || args?.where?.clerk_user_id === null;
+        if (wantsNullClerk) {
+          const { data: unassigned } = await supabase
+            .from('profiles')
+            .select('*')
+            .is('clerk_user_id', null)
+            .order('created_at', { ascending: false })
+            .limit(1);
+          if (unassigned && unassigned[0]) return normalizeProfile(unassigned[0]);
+        }
+
         // 4. Fallback: if no criteria specified or fallback requested
-        if (candidateClerkIds.length === 0 && candidateEmails.length === 0 && candidateIds.length === 0) {
+        if (candidateClerkIds.length === 0 && candidateIds.length === 0) {
           const { data: fallback } = await supabase
             .from('profiles')
             .select('*')
@@ -1324,7 +1310,6 @@ export const db = {
       const updateData: any = {};
       if (args?.data?.clerkUserId !== undefined) updateData.clerk_user_id = args.data.clerkUserId;
       if (args?.data?.clerk_user_id !== undefined) updateData.clerk_user_id = args.data.clerk_user_id;
-      if (args?.data?.email !== undefined) updateData.email = args.data.email;
       if (args?.data?.businessName !== undefined) updateData.business_name = args.data.businessName;
       if (args?.data?.updatedAt !== undefined) updateData.updated_at = new Date().toISOString();
 
@@ -1361,7 +1346,6 @@ export const db = {
       const id = args.data.id || generatedId;
       const payload: any = {
         clerk_user_id: args.data.clerkUserId || args.data.clerk_user_id || null,
-        email: args.data.email || null,
         full_name: args.data.fullName || args.data.full_name || null,
         business_name: args.data.businessName || args.data.business_name || '',
         business_category: args.data.businessCategory || args.data.business_category || '',

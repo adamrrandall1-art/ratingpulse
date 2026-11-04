@@ -9,17 +9,20 @@ export async function getOrCreateUserSession() {
   const email = clerkUser?.emailAddresses?.[0]?.emailAddress || '';
   const fullName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') || 'Business Owner';
 
-  // 1. Try to find profile by clerkUserId
+  // 1. Look for profile by clerkUserId
   let profile = await db.profile.findFirst({
     where: { clerkUserId: clerkUserId },
   }).catch(() => null);
 
-  // 2. If not found, check by email (handles legacy accounts)
-  if (!profile && email) {
+  // 2. If not found, claim the existing profile record (fallback for owner/legacy account)
+  if (!profile) {
     profile = await db.profile.findFirst({
-      where: { email: email },
+      where: { clerkUserId: null },
+      orderBy: { createdAt: 'desc' },
     }).catch(() => null);
+
     if (profile) {
+      console.log(`[AUTH-SYNC] Binding Clerk ID ${clerkUserId} to Profile ID ${profile.id}`);
       try {
         profile = await db.profile.update({
           where: { id: profile.id },
@@ -31,14 +34,13 @@ export async function getOrCreateUserSession() {
     }
   }
 
-  // 3. If still no profile, AUTO-PROVISION a new profile for this new customer:
+  // 3. If still no profile, auto-provision a new profile
   if (!profile) {
-    console.log(`[AUTH-SYNC] Provisioning new profile for Clerk User: ${clerkUserId} (${email})`);
+    console.log(`[AUTH-SYNC] Provisioning new profile for Clerk User: ${clerkUserId}`);
     try {
       profile = await db.profile.create({
         data: {
           clerkUserId: clerkUserId,
-          email: email,
           fullName: fullName,
         },
       });
@@ -48,19 +50,40 @@ export async function getOrCreateUserSession() {
   }
 
   if (!profile) {
-    console.warn(`[AUTH-SYNC] Could not provision profile, creating fallback in-memory object`);
     profile = {
       id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : clerkUserId,
       clerkUserId: clerkUserId,
-      email: email,
       fullName: fullName,
     };
   }
 
-  // 4. Ensure business_settings exists for this profile
-  let settings = await db.businessSettings.findFirst({
-    where: { userId: profile.id },
-  }).catch(() => null);
+  // 4. Find business_settings linked to this profile
+  let settings = null;
+  if (profile?.id) {
+    settings = await db.businessSettings.findFirst({
+      where: { userId: profile.id },
+    }).catch(() => null);
+  }
+
+  // Fallback to most recent settings if not yet linked
+  if (!settings) {
+    settings = await db.businessSettings.findFirst({
+      orderBy: { updatedAt: 'desc' },
+    }).catch(() => null);
+
+    // If found, link it to this profile immediately
+    if (settings && profile?.id && settings.userId !== profile.id) {
+      try {
+        await db.businessSettings.update({
+          where: { id: settings.id },
+          data: { userId: profile.id },
+        });
+        settings.userId = profile.id;
+      } catch (linkErr) {
+        console.error('Failed to link business_settings to profile:', linkErr);
+      }
+    }
+  }
 
   if (!settings) {
     console.log(`[AUTH-SYNC] Provisioning default business_settings for Profile: ${profile.id}`);

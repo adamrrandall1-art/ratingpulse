@@ -78,18 +78,17 @@ export default async function SettingsPage() {
     console.error('Error fetching settings on server:', error);
   }
 
-  // Pass settings ID explicitly so actions can update the EXACT primary key row
   const safeSettings = {
     id: settings?.id || '',
-    userId: profile?.id || clerkUserId,
-    brandVoice: settings?.brandVoice || settings?.brand_voice || 'friendly_professional',
-    notifyNegativePhone: settings?.notifyNegativePhone || settings?.notify_negative_phone || '',
-    notifyNegativeEmail: settings?.notifyNegativeEmail || settings?.notify_negative_email || '',
-    emailAlertsEnabled: settings?.emailAlertsEnabled ?? settings?.email_alerts_enabled ?? true,
-    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? settings?.notify_negative_enabled ?? true,
-    googleReviewUrl: settings?.googleReviewUrl || settings?.google_review_url || '',
-    placeId: settings?.placeId || settings?.place_id || '',
-    businessName: settings?.businessName || settings?.business_name || '',
+    userId: profile?.id || settings?.userId || '',
+    brandVoice: settings?.brandVoice || 'friendly_professional',
+    notifyNegativePhone: settings?.notifyNegativePhone || '',
+    notifyNegativeEmail: settings?.notifyNegativeEmail || '',
+    emailAlertsEnabled: settings?.emailAlertsEnabled ?? true,
+    notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? true,
+    googleReviewUrl: settings?.googleReviewUrl || '',
+    placeId: settings?.placeId || '',
+    businessName: settings?.businessName || '',
   };
 
   return (
