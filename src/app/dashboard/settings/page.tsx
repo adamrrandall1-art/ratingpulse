@@ -78,18 +78,32 @@ export default async function SettingsPage() {
     console.error('Error fetching settings on server:', error);
   }
 
+  const posPhone = profile?.notifyPositivePhone || profile?.notify_positive_phone || business?.positiveAlertPhone || '';
+  const posSms = Boolean(profile?.notifyPositiveSms ?? profile?.notify_positive_sms ?? business?.positiveAlertSmsEnabled);
+
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
     brandVoice: settings?.brandVoice || business?.brandVoice || business?.aiTone || 'friendly_professional',
+    googleReviewUrl: settings?.googleReviewUrl || business?.googleReviewUrl || '',
+    placeId: settings?.placeId || business?.placeId || '',
+    businessName: settings?.businessName || business?.name || '',
+    // Negative Review Alerts (business_settings)
     notifyNegativePhone: settings?.notifyNegativePhone || business?.negativeAlertPhone || '',
     notifyNegativeEmail: settings?.notifyNegativeEmail || business?.negativeAlertEmail || '',
     emailAlertsEnabled: settings?.emailAlertsEnabled ?? business?.emailAlertsEnabled ?? true,
     notifyNegativeEnabled: settings?.notifyNegativeEnabled ?? business?.negativeAlertSmsEnabled ?? true,
-    googleReviewUrl: settings?.googleReviewUrl || business?.googleReviewUrl || '',
-    placeId: settings?.placeId || business?.placeId || '',
-    businessName: settings?.businessName || business?.name || '',
+    // Positive Review Alerts (profiles)
+    notifyPositivePhone: posPhone,
+    notifyPositiveSms: posSms,
+    positiveAlertPhone: posPhone,
+    positiveAlertSmsEnabled: posSms,
   };
+
+  if (business) {
+    business.positiveAlertPhone = safeSettings.notifyPositivePhone;
+    business.positiveAlertSmsEnabled = safeSettings.notifyPositiveSms;
+  }
 
   if (!business) {
     business = {
@@ -111,6 +125,8 @@ export default async function SettingsPage() {
       smsAlertsEnabled: safeSettings.notifyNegativeEnabled,
       googleReviewUrl: safeSettings.googleReviewUrl,
       placeId: safeSettings.placeId,
+      positiveAlertPhone: safeSettings.notifyPositivePhone,
+      positiveAlertSmsEnabled: safeSettings.notifyPositiveSms,
     };
   }
 

@@ -1254,6 +1254,8 @@ export const db = {
           return {
             ...row,
             clerkUserId: row.clerk_user_id || row.clerkUserId || null,
+            notifyPositivePhone: row.notify_positive_phone || row.notifyPositivePhone || '',
+            notifyPositiveSms: Boolean(row.notify_positive_sms ?? row.notifyPositiveSms),
           };
         };
 
@@ -1311,6 +1313,10 @@ export const db = {
       if (args?.data?.clerkUserId !== undefined) updateData.clerk_user_id = args.data.clerkUserId;
       if (args?.data?.clerk_user_id !== undefined) updateData.clerk_user_id = args.data.clerk_user_id;
       if (args?.data?.businessName !== undefined) updateData.business_name = args.data.businessName;
+      if (args?.data?.notifyPositivePhone !== undefined) updateData.notify_positive_phone = args.data.notifyPositivePhone;
+      if (args?.data?.notify_positive_phone !== undefined) updateData.notify_positive_phone = args.data.notify_positive_phone;
+      if (args?.data?.notifyPositiveSms !== undefined) updateData.notify_positive_sms = Boolean(args.data.notifyPositiveSms);
+      if (args?.data?.notify_positive_sms !== undefined) updateData.notify_positive_sms = Boolean(args.data.notify_positive_sms);
       if (args?.data?.updatedAt !== undefined) updateData.updated_at = new Date().toISOString();
 
       if (supabase && id) {
@@ -1328,6 +1334,8 @@ export const db = {
             return {
               ...data,
               clerkUserId: data.clerk_user_id || data.clerkUserId,
+              notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? args.data.notifyPositivePhone ?? '',
+              notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? args.data.notifyPositiveSms),
             };
           }
         } catch (err) {
@@ -1338,6 +1346,8 @@ export const db = {
         id,
         ...args.data,
         clerkUserId: args.data.clerkUserId || args.data.clerk_user_id,
+        notifyPositivePhone: args.data.notifyPositivePhone ?? args.data.notify_positive_phone ?? '',
+        notifyPositiveSms: Boolean(args.data.notifyPositiveSms ?? args.data.notify_positive_sms),
       };
     },
     create: async (args: { data: any }) => {
@@ -1349,6 +1359,8 @@ export const db = {
         full_name: args.data.fullName || args.data.full_name || null,
         business_name: args.data.businessName || args.data.business_name || '',
         business_category: args.data.businessCategory || args.data.business_category || '',
+        notify_positive_phone: args.data.notifyPositivePhone || args.data.notify_positive_phone || '',
+        notify_positive_sms: Boolean(args.data.notifyPositiveSms ?? args.data.notify_positive_sms),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -1371,6 +1383,8 @@ export const db = {
             return {
               ...data,
               clerkUserId: data.clerk_user_id || data.clerkUserId,
+              notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? payload.notify_positive_phone,
+              notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? payload.notify_positive_sms),
             };
           }
         } catch (err) {
@@ -1382,6 +1396,8 @@ export const db = {
         id: id || `prof_${Date.now()}`,
         ...args.data,
         clerkUserId: payload.clerk_user_id,
+        notifyPositivePhone: payload.notify_positive_phone,
+        notifyPositiveSms: payload.notify_positive_sms,
         created_at: payload.created_at,
         updated_at: payload.updated_at,
       };

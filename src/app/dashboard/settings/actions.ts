@@ -53,6 +53,28 @@ export async function saveAllSettingsAction(payload: {
   console.log('[ACTION] Incoming settings update payload:', payload);
 
   try {
+    const posPhoneVal = payload.notifyPositivePhone ?? payload.positiveAlertPhone ?? '';
+    const posSmsVal = Boolean(payload.notifyPositiveSms ?? payload.positiveAlertSmsEnabled ?? payload.positiveSmsAlertEnabled);
+
+    // 1. UPDATE PROFILES TABLE (Positive alerts)
+    let updatedProfile: any = null;
+    if (profile?.id) {
+      try {
+        updatedProfile = await db.profile.update({
+          where: { id: profile.id },
+          data: {
+            notifyPositivePhone: posPhoneVal,
+            notifyPositiveSms: posSmsVal,
+            updatedAt: new Date(),
+          },
+        });
+        console.log('[ACTION] Successfully updated profile positive alerts:', updatedProfile);
+      } catch (profErr) {
+        console.error('Failed to update profile positive alerts:', profErr);
+      }
+    }
+
+    // 2. UPDATE OR UPSERT BUSINESS_SETTINGS TABLE (Negative alerts + AI Tone)
     const targetId = payload.settingsId || payload.id;
     let record: any = null;
 
@@ -154,6 +176,9 @@ export async function saveAllSettingsAction(payload: {
             autoReplyEnabled: payload.autoReplyEnabled !== undefined ? Boolean(payload.autoReplyEnabled) : activeBusiness.autoReplyEnabled,
             selectedModel: payload.selectedModel !== undefined ? payload.selectedModel : activeBusiness.selectedModel,
             smsTemplate: payload.smsTemplate !== undefined ? payload.smsTemplate : activeBusiness.smsTemplate,
+            positiveAlertPhone: posPhoneVal,
+            positiveAlertSmsEnabled: posSmsVal,
+            positiveSmsAlertEnabled: posSmsVal,
             updatedAt: new Date(),
           },
         }).catch(() => null);
@@ -175,7 +200,12 @@ export async function saveAllSettingsAction(payload: {
     revalidatePath('/dashboard');
     revalidatePath('/dashboard', 'layout');
 
-    return { success: true, settings: updated, business: savedBusiness || updated };
+    return {
+      success: true,
+      settings: updated,
+      business: savedBusiness || updated,
+      profile: updatedProfile || profile,
+    };
   } catch (error: any) {
     console.error('DATABASE UPDATE FAILED:', error);
     return { success: false, error: error?.message || 'Failed to save settings' };
@@ -190,7 +220,7 @@ export async function saveSettingsAction(formData: FormData | Record<string, any
       body[key] = typeof val === 'string' ? val.trim() : val;
     }
     // HTML form checkboxes are omitted from FormData when unchecked:
-    if (formData.has('negativeAlertEmail') || formData.has('negativeAlertPhone') || formData.has('isNotificationForm')) {
+    if (formData.has('negativeAlertEmail') || formData.has('negativeAlertPhone') || formData.has('isNotificationForm') || formData.has('positiveAlertPhone')) {
       if (!formData.has('emailAlertsEnabled') && !formData.has('negativeAlertEmailEnabled') && !formData.has('negativeEmailAlertEnabled')) {
         body.emailAlertsEnabled = false;
         body.negativeAlertEmailEnabled = false;
@@ -199,6 +229,11 @@ export async function saveSettingsAction(formData: FormData | Record<string, any
       if (!formData.has('negativeAlertSmsEnabled') && !formData.has('smsAlertsEnabled') && !formData.has('notifyNegativeEnabled')) {
         body.negativeAlertSmsEnabled = false;
         body.smsAlertsEnabled = false;
+      }
+      if (!formData.has('positiveAlertSmsEnabled') && !formData.has('positiveSmsAlertEnabled') && !formData.has('notifyPositiveSms')) {
+        body.positiveAlertSmsEnabled = false;
+        body.positiveSmsAlertEnabled = false;
+        body.notifyPositiveSms = false;
       }
     }
   } else if (formData && typeof formData === 'object') {

@@ -182,15 +182,31 @@ export default function SettingsClient({
 
     const posEmail =
       initSettings?.notifyPositiveEmail ||
+      initSettings?.positiveAlertEmail ||
       biz?.positiveAlertEmail ||
       biz?.notifyPositiveEmail ||
       '';
 
     const posPhone =
       initSettings?.notifyPositivePhone ||
+      initSettings?.positiveAlertPhone ||
       biz?.positiveAlertPhone ||
       biz?.notifyPositivePhone ||
       '';
+
+    const rawPosSms =
+      initSettings?.notifyPositiveSms ??
+      initSettings?.positiveAlertSmsEnabled ??
+      initSettings?.positiveSmsAlertEnabled ??
+      biz?.positiveAlertSmsEnabled ??
+      biz?.positiveSmsAlertEnabled;
+
+    const posSmsBool =
+      typeof rawPosSms === 'boolean'
+        ? rawPosSms
+        : (typeof rawPosSms === 'string'
+          ? (rawPosSms === 'true' || rawPosSms === 'on' || rawPosSms === '1')
+          : Boolean(rawPosSms));
 
     return {
       id: initSettings?.id || biz?.id || '',
@@ -198,12 +214,15 @@ export default function SettingsClient({
       negativeAlertPhone: negPhone,
       positiveAlertEmail: posEmail,
       positiveAlertPhone: posPhone,
+      notifyPositivePhone: posPhone,
       negativeAlertSmsEnabled: Boolean(rawSmsAlert),
       smsAlertsEnabled: Boolean(rawSmsAlert),
       negativeAlertEmailEnabled: emailAlertBool,
       negativeEmailAlertEnabled: emailAlertBool,
       emailAlertsEnabled: emailAlertBool,
-      positiveAlertSmsEnabled: biz?.positiveAlertSmsEnabled ?? biz?.positiveSmsAlertEnabled ?? false,
+      positiveAlertSmsEnabled: posSmsBool,
+      positiveSmsAlertEnabled: posSmsBool,
+      notifyPositiveSms: posSmsBool,
       positiveAlertEmailEnabled: biz?.positiveAlertEmailEnabled ?? biz?.positiveEmailAlertEnabled ?? true,
       negativeAlertsEnabled: biz?.negativeAlertsEnabled ?? initSettings?.notifyNegativeEnabled ?? true,
       positiveAlertsEnabled: biz?.positiveAlertsEnabled ?? true,
@@ -243,8 +262,15 @@ export default function SettingsClient({
         next.negativeEmailAlertEnabled = boolVal;
         next.emailAlertsEnabled = boolVal;
       }
-      if (field === 'positiveAlertSmsEnabled' || field === 'positiveSmsAlertEnabled') {
-        next.positiveAlertSmsEnabled = Boolean(value);
+      if (field === 'positiveAlertSmsEnabled' || field === 'positiveSmsAlertEnabled' || field === 'notifyPositiveSms') {
+        const boolVal = typeof value === 'boolean' ? value : (value === 'true' || value === 'on' || value === '1');
+        next.positiveAlertSmsEnabled = boolVal;
+        next.positiveSmsAlertEnabled = boolVal;
+        next.notifyPositiveSms = boolVal;
+      }
+      if (field === 'positiveAlertPhone' || field === 'notifyPositivePhone') {
+        next.positiveAlertPhone = value;
+        next.notifyPositivePhone = value;
       }
       if (field === 'positiveAlertEmailEnabled' || field === 'positiveEmailAlertEnabled') {
         next.positiveAlertEmailEnabled = Boolean(value);
@@ -278,6 +304,9 @@ export default function SettingsClient({
       const rawIsEmail = next.negativeAlertEmailEnabled ?? next.emailAlertsEnabled ?? next.negativeEmailAlertEnabled ?? prev.negativeAlertEmailEnabled;
       const isEmail = typeof rawIsEmail === 'boolean' ? rawIsEmail : (rawIsEmail === 'true' || rawIsEmail === 'on' || rawIsEmail === '1');
       const tone = next.aiPersonality ?? next.aiTone ?? next.brandVoice ?? prev.aiTone;
+      const rawPosSms = next.positiveAlertSmsEnabled ?? next.positiveSmsAlertEnabled ?? next.notifyPositiveSms ?? prev.positiveAlertSmsEnabled;
+      const isPosSms = typeof rawPosSms === 'boolean' ? rawPosSms : (rawPosSms === 'true' || rawPosSms === 'on' || rawPosSms === '1');
+      const posPhone = next.positiveAlertPhone ?? next.notifyPositivePhone ?? prev.positiveAlertPhone;
       const merged = {
         ...prev,
         ...next,
@@ -286,6 +315,11 @@ export default function SettingsClient({
         negativeAlertEmailEnabled: isEmail,
         negativeEmailAlertEnabled: isEmail,
         emailAlertsEnabled: isEmail,
+        positiveAlertSmsEnabled: isPosSms,
+        positiveSmsAlertEnabled: isPosSms,
+        notifyPositiveSms: isPosSms,
+        positiveAlertPhone: posPhone,
+        notifyPositivePhone: posPhone,
         aiTone: tone,
         aiPersonality: tone,
         brandVoice: tone,
@@ -618,11 +652,19 @@ export default function SettingsClient({
       const targetSettingsId = settingsId || initialSettings?.id || initialSettings?.settingsId || settingsState?.id;
       const { id: _ignoredMergedId, ...restMergedState } = mergedState;
 
+      const posPhoneToSend = mergedState.notifyPositivePhone ?? mergedState.positiveAlertPhone ?? '';
+      const posSmsToSend = Boolean(mergedState.notifyPositiveSms ?? mergedState.positiveAlertSmsEnabled ?? mergedState.positiveSmsAlertEnabled);
+
       const res = await saveAllSettingsAction({
         settingsId: targetSettingsId,
         id: targetSettingsId,
         businessId: targetBusinessId,
         ...restMergedState,
+        notifyPositivePhone: posPhoneToSend,
+        positiveAlertPhone: posPhoneToSend,
+        notifyPositiveSms: posSmsToSend,
+        positiveAlertSmsEnabled: posSmsToSend,
+        positiveSmsAlertEnabled: posSmsToSend,
         negativeAlertEmailEnabled: emailAlertsToSend,
         negativeEmailAlertEnabled: emailAlertsToSend,
         emailAlertsEnabled: emailAlertsToSend,
@@ -654,23 +696,31 @@ export default function SettingsClient({
       setIsNotificationsSaved(true);
       setIsAiPersonaSaved(true);
 
-      const returnedRecord = res.settings || res.business;
-      if (returnedRecord) {
+      const returnedProfile = (res as any)?.profile;
+      const returnedRecord = (res as any)?.settings || (res as any)?.business;
+      const returnedPosPhone = returnedProfile?.notifyPositivePhone ?? returnedProfile?.notify_positive_phone ?? returnedRecord?.positiveAlertPhone ?? posPhoneToSend;
+      const returnedPosSms = returnedProfile?.notifyPositiveSms !== undefined
+        ? Boolean(returnedProfile.notifyPositiveSms)
+        : (returnedProfile?.notify_positive_sms !== undefined
+          ? Boolean(returnedProfile.notify_positive_sms)
+          : (returnedRecord?.positiveAlertSmsEnabled !== undefined ? Boolean(returnedRecord.positiveAlertSmsEnabled) : posSmsToSend));
+
+      if (returnedRecord || returnedProfile) {
         const returnedSms =
-          returnedRecord.negativeAlertSmsEnabled ??
-          returnedRecord.smsAlertsEnabled ??
-          returnedRecord.negativeSmsAlertEnabled ??
-          returnedRecord.notifyNegativeEnabled;
+          returnedRecord?.negativeAlertSmsEnabled ??
+          returnedRecord?.smsAlertsEnabled ??
+          returnedRecord?.negativeSmsAlertEnabled ??
+          returnedRecord?.notifyNegativeEnabled;
 
         const returnedEmail =
-          returnedRecord.emailAlertsEnabled ??
-          returnedRecord.negativeAlertEmailEnabled ??
-          returnedRecord.negativeEmailAlertEnabled ??
+          returnedRecord?.emailAlertsEnabled ??
+          returnedRecord?.negativeAlertEmailEnabled ??
+          returnedRecord?.negativeEmailAlertEnabled ??
           emailAlertsToSend;
         const returnedEmailBool = typeof returnedEmail === 'boolean' ? returnedEmail : (returnedEmail === 'true' || returnedEmail === 'on');
-        const returnedTone = returnedRecord.brandVoice ?? returnedRecord.brand_voice ?? returnedRecord.aiPersonality ?? returnedRecord.aiTone ?? toneToSave;
+        const returnedTone = returnedRecord?.brandVoice ?? returnedRecord?.brand_voice ?? returnedRecord?.aiPersonality ?? returnedRecord?.aiTone ?? toneToSave;
         setBrandVoiceState(returnedTone);
-        const returnedKw = returnedRecord.seoKeywords || returnedRecord.customKeywords;
+        const returnedKw = returnedRecord?.seoKeywords || returnedRecord?.customKeywords;
         const returnedKwList = returnedKw
           ? returnedKw.split(',').map((k: string) => k.trim()).filter(Boolean)
           : (settingsState.keywords || []);
@@ -678,27 +728,30 @@ export default function SettingsClient({
         setSettingsState((prev: any) => {
           const updated = {
             ...prev,
-            negativeAlertEmail: returnedRecord.negativeAlertEmail ?? returnedRecord.notifyNegativeEmail ?? prev.negativeAlertEmail,
-            negativeAlertPhone: returnedRecord.negativeAlertPhone ?? returnedRecord.notifyNegativePhone ?? prev.negativeAlertPhone,
-            positiveAlertEmail: returnedRecord.positiveAlertEmail ?? prev.positiveAlertEmail,
-            positiveAlertPhone: returnedRecord.positiveAlertPhone ?? prev.positiveAlertPhone,
+            negativeAlertEmail: returnedRecord?.negativeAlertEmail ?? returnedRecord?.notifyNegativeEmail ?? prev.negativeAlertEmail,
+            negativeAlertPhone: returnedRecord?.negativeAlertPhone ?? returnedRecord?.notifyNegativePhone ?? prev.negativeAlertPhone,
+            positiveAlertEmail: returnedRecord?.positiveAlertEmail ?? prev.positiveAlertEmail,
+            positiveAlertPhone: returnedPosPhone,
+            notifyPositivePhone: returnedPosPhone,
             negativeAlertSmsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.negativeAlertSmsEnabled,
             smsAlertsEnabled: returnedSms !== undefined ? Boolean(returnedSms) : prev.smsAlertsEnabled,
             negativeAlertEmailEnabled: returnedEmailBool,
             negativeEmailAlertEnabled: returnedEmailBool,
             emailAlertsEnabled: returnedEmailBool,
-            positiveAlertSmsEnabled: returnedRecord.positiveAlertSmsEnabled ?? prev.positiveAlertSmsEnabled,
-            positiveAlertEmailEnabled: returnedRecord.positiveAlertEmailEnabled ?? prev.positiveAlertEmailEnabled,
-            negativeAlertsEnabled: returnedRecord.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
-            positiveAlertsEnabled: returnedRecord.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
+            positiveAlertSmsEnabled: returnedPosSms,
+            positiveSmsAlertEnabled: returnedPosSms,
+            notifyPositiveSms: returnedPosSms,
+            positiveAlertEmailEnabled: returnedRecord?.positiveAlertEmailEnabled ?? prev.positiveAlertEmailEnabled,
+            negativeAlertsEnabled: returnedRecord?.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
+            positiveAlertsEnabled: returnedRecord?.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
             aiTone: returnedTone,
             aiPersonality: returnedTone,
             brandVoice: returnedTone,
-            aiInstructions: returnedRecord.aiInstructions ?? prev.aiInstructions,
-            aiSignature: returnedRecord.aiSignature ?? prev.aiSignature,
-            autoReplyEnabled: returnedRecord.autoReplyEnabled ?? prev.autoReplyEnabled,
-            selectedModel: returnedRecord.selectedModel ?? prev.selectedModel,
-            smsTemplate: returnedRecord.smsTemplate ?? prev.smsTemplate,
+            aiInstructions: returnedRecord?.aiInstructions ?? prev.aiInstructions,
+            aiSignature: returnedRecord?.aiSignature ?? prev.aiSignature,
+            autoReplyEnabled: returnedRecord?.autoReplyEnabled ?? prev.autoReplyEnabled,
+            selectedModel: returnedRecord?.selectedModel ?? prev.selectedModel,
+            smsTemplate: returnedRecord?.smsTemplate ?? prev.smsTemplate,
             keywords: returnedKwList,
             seoKeywords: returnedKw || prev.seoKeywords || kwString,
             customKeywords: returnedKw || prev.customKeywords || kwString,
@@ -707,14 +760,17 @@ export default function SettingsClient({
           return updated;
         });
 
-        setActiveBusiness((prev: any) => ({
-          ...(prev || {}),
-          ...returnedRecord,
-          isGoogleConnected: true,
-          google_connected: true,
-          isConnected: true,
-        }));
+        if (returnedRecord) {
+          setActiveBusiness((prev: any) => ({
+            ...(prev || {}),
+            ...returnedRecord,
+            isGoogleConnected: true,
+            google_connected: true,
+            isConnected: true,
+          }));
+        }
       }
+
 
       toast.success('Settings saved successfully');
 
@@ -910,9 +966,9 @@ export default function SettingsClient({
               setPositiveAlertSmsEnabled={(val) => updateSettingsField('positiveAlertSmsEnabled', val)}
               positiveSmsAlertEnabled={settingsState.positiveAlertSmsEnabled}
               setPositiveSmsAlertEnabled={(val) => updateSettingsField('positiveAlertSmsEnabled', val)}
-              positiveAlertEmail={positiveAlertEmail || initialBusiness?.positiveAlertEmail || ''}
+              positiveAlertEmail={settingsState.positiveAlertEmail || ''}
               setPositiveAlertEmail={setPositiveAlertEmail}
-              positiveAlertPhone={positiveAlertPhone || initialBusiness?.positiveAlertPhone || ''}
+              positiveAlertPhone={settingsState.positiveAlertPhone || ''}
               setPositiveAlertPhone={setPositiveAlertPhone}
               notifyNegativeEnabled={notifyNegativeEnabled}
               setNotifyNegativeEnabled={setNotifyNegativeEnabled}
@@ -924,14 +980,15 @@ export default function SettingsClient({
               setNegativeEmailAddress={setNegativeEmailAddress}
               negativePhone={negativePhone || initialBusiness?.negativeAlertPhone || ''}
               setNegativePhone={setNegativePhone}
-              notifyPositiveEnabled={notifyPositiveEnabled}
-              setNotifyPositiveEnabled={setNotifyPositiveEnabled}
-              notifyPositiveEmail={notifyPositiveEmail}
-              setNotifyPositiveEmail={setNotifyPositiveEmail}
-              notifyPositiveSms={notifyPositiveSms}
-              setNotifyPositiveSms={setNotifyPositiveSms}
-              positiveEmailAddress={positiveEmailAddress || initialBusiness?.positiveAlertEmail || ''}
+              notifyPositiveEnabled={settingsState.positiveAlertsEnabled}
+              setNotifyPositiveEnabled={setPositiveAlertsEnabled}
+              notifyPositiveEmail={settingsState.positiveAlertEmailEnabled}
+              setNotifyPositiveEmail={setPositiveEmailAlertEnabled}
+              notifyPositiveSms={Boolean(settingsState.positiveAlertSmsEnabled ?? settingsState.positiveSmsAlertEnabled ?? settingsState.notifyPositiveSms)}
+              setNotifyPositiveSms={setPositiveSmsAlertEnabled}
+              positiveEmailAddress={settingsState.positiveAlertEmail || ''}
               setPositiveEmailAddress={setPositiveEmailAddress}
+
               onSendTestReviewInvite={handleSendTestReviewInvite}
               onSendTestInvite={handleSendTestReviewInvite}
               onSendTestWelcome={handleSendTestWelcome}
