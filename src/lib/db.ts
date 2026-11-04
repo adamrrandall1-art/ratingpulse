@@ -1355,6 +1355,53 @@ export const db = {
         clerkUserId: args.data.clerkUserId || args.data.clerk_user_id,
       };
     },
+    create: async (args: { data: any }) => {
+      const supabase = getAdminClient();
+      const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
+      const id = args.data.id || generatedId;
+      const payload: any = {
+        clerk_user_id: args.data.clerkUserId || args.data.clerk_user_id || null,
+        email: args.data.email || null,
+        full_name: args.data.fullName || args.data.full_name || null,
+        business_name: args.data.businessName || args.data.business_name || '',
+        business_category: args.data.businessCategory || args.data.business_category || '',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      if (id) {
+        payload.id = id;
+      }
+
+      if (supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .insert(payload)
+            .select()
+            .maybeSingle();
+
+          if (error) {
+            console.error('[db.profile.create] Supabase error:', error);
+          }
+          if (data) {
+            return {
+              ...data,
+              clerkUserId: data.clerk_user_id || data.clerkUserId,
+            };
+          }
+        } catch (err) {
+          console.error('[db.profile.create] error:', err);
+        }
+      }
+
+      return {
+        id: id || `prof_${Date.now()}`,
+        ...args.data,
+        clerkUserId: payload.clerk_user_id,
+        created_at: payload.created_at,
+        updated_at: payload.updated_at,
+      };
+    },
     findUnique: async (args?: any) => {
       return (db as any).profile.findFirst(args);
     },

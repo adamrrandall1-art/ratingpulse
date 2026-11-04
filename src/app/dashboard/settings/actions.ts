@@ -1,6 +1,6 @@
 'use server';
 
-import { auth } from '@clerk/nextjs/server';
+import { getOrCreateUserSession } from '@/lib/auth-sync';
 import { db, toSnakeBrandVoice } from '@/lib/db';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
@@ -43,29 +43,20 @@ export async function saveAllSettingsAction(payload: {
   notifyNegativeEnabled?: boolean;
   [key: string]: any;
 }) {
-  const { userId } = await auth();
-  if (!userId) {
+  const session = await getOrCreateUserSession();
+  if (!session) {
     return { success: false, error: 'Unauthorized' };
   }
+
+  const { settings, profile, clerkUserId } = session;
 
   console.log('--- SAVING SETTINGS ---', payload);
 
   try {
-    const targetId = payload.settingsId || payload.id;
-    let record: any = null;
-
-    if (targetId) {
-      record = await db.businessSettings.findUnique({ where: { id: targetId } }).catch(() => null);
-    }
-    if (!record) {
-      record = await db.businessSettings.findFirst({ orderBy: { updatedAt: 'desc' } }).catch(() => null);
-    }
-    if (!record) {
-      throw new Error('No record found to update');
-    }
+    const targetId = payload.settingsId || payload.id || settings.id;
 
     const updated = await db.businessSettings.update({
-      where: { id: record.id },
+      where: { id: targetId },
       data: {
         brandVoice: payload.brandVoice || payload.aiTone,
         notifyNegativePhone: payload.negativeAlertPhone ?? payload.notifyNegativePhone ?? '',
@@ -85,9 +76,11 @@ export async function saveAllSettingsAction(payload: {
       const businesses = await db.business.findMany({
         where: {
           OR: [
-            { clerkUserId: userId },
-            { id: record.id },
-            { userId },
+            { clerkUserId: clerkUserId },
+            { id: targetId },
+            { id: profile?.id },
+            { userId: profile?.id },
+            { userId: clerkUserId },
           ],
         },
         orderBy: { updatedAt: 'desc' },
@@ -129,7 +122,7 @@ export async function saveAllSettingsAction(payload: {
     // Set active business cookies
     try {
       const cookieStore = await cookies();
-      const cookieBizId = savedBusiness?.id || record?.id || targetId;
+      const cookieBizId = savedBusiness?.id || targetId;
       cookieStore.set('activeBusinessId', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
       cookieStore.set('rp_active_business_id', cookieBizId, { path: '/', maxAge: 60 * 60 * 24 * 365 });
     } catch {}

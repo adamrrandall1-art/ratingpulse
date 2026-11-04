@@ -3,9 +3,10 @@ export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 import React from 'react';
-import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { db } from '@/lib/db';
+import { getOrCreateUserSession } from '@/lib/auth-sync';
 import { getInitialServerBusiness } from '@/lib/server-business';
 import DashboardClientLayout from '@/components/dashboard/DashboardClientLayout';
 
@@ -14,8 +15,12 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const clerkAuth = await auth().catch(() => null);
-  const clerkUserId = clerkAuth?.userId;
+  const session = await getOrCreateUserSession();
+  if (!session) {
+    redirect('/sign-in');
+  }
+
+  const { clerkUserId, profile } = session;
 
   let business = null;
 
@@ -24,7 +29,9 @@ export default async function DashboardLayout({
       where: {
         OR: [
           { clerkUserId: clerkUserId },
+          { userId: profile?.id || clerkUserId },
           { userId: clerkUserId },
+          { id: profile?.id || clerkUserId },
           { id: clerkUserId },
         ],
       },

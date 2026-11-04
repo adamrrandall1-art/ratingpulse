@@ -1,4 +1,4 @@
-import { auth, currentUser } from '@clerk/nextjs/server';
+import { getOrCreateUserSession } from '@/lib/auth-sync';
 import { redirect } from 'next/navigation';
 import db from '@/lib/db';
 import SettingsClient from './SettingsClient';
@@ -8,66 +8,15 @@ export const revalidate = 0;
 export const fetchCache = 'force-no-store';
 
 export default async function SettingsPage() {
-  const { userId: clerkUserId } = await auth();
-  if (!clerkUserId) {
-    redirect('/sign-in');
-  }
+  const session = await getOrCreateUserSession();
+  if (!session) redirect('/sign-in');
 
-  let profile: any = null;
-  let settings: any = null;
+  const { settings, profile, clerkUserId } = session;
+
   let business: any = null;
 
   try {
-    const clerkUser = await currentUser().catch(() => null);
-    const primaryEmail = clerkUser?.emailAddresses?.[0]?.emailAddress;
-
-    // 1. Find profile by clerkUserId or email
-    profile = await db.profile.findFirst({
-      where: {
-        OR: [
-          { clerkUserId: clerkUserId },
-          ...(primaryEmail ? [{ email: primaryEmail }] : []),
-        ],
-      },
-    }).catch(() => null);
-
-    // 2. If matched by email but clerkUserId is missing, link it now
-    if (profile && !profile.clerkUserId) {
-      try {
-        profile = await db.profile.update({
-          where: { id: profile.id },
-          data: { clerkUserId: clerkUserId },
-        });
-        console.log('Linked clerkUserId to Profile:', profile.id);
-      } catch (err) {
-        console.error('Failed to link clerkUserId:', err);
-      }
-    }
-
-    const internalUserId = profile?.id;
-
-    // 2. Fetch business_settings using profile ID, or clerk ID, or most recent record fallback
-    if (internalUserId) {
-      settings = await db.businessSettings.findFirst({
-        where: { userId: internalUserId },
-      }).catch(() => null);
-    }
-
-    if (!settings) {
-      settings = await db.businessSettings.findFirst({
-        where: { userId: clerkUserId },
-      }).catch(() => null);
-    }
-
-    // 3. Fallback for primary dev user if profile mapping isn't fully linked
-    if (!settings) {
-      settings = await db.businessSettings.findFirst({
-        orderBy: { updatedAt: 'desc' },
-      }).catch(() => null);
-    }
-
-    // Safely resolve user's businesses
-    const targetUserId = internalUserId || clerkUserId;
+    const targetUserId = profile?.id || clerkUserId;
     const businesses = await db.business.findMany({
       where: {
         OR: [
@@ -132,6 +81,7 @@ export default async function SettingsPage() {
   // Pass settings ID explicitly so actions can update the EXACT primary key row
   const safeSettings = {
     id: settings?.id || '',
+    userId: profile?.id || clerkUserId,
     brandVoice: settings?.brandVoice || settings?.brand_voice || 'friendly_professional',
     notifyNegativePhone: settings?.notifyNegativePhone || settings?.notify_negative_phone || '',
     notifyNegativeEmail: settings?.notifyNegativeEmail || settings?.notify_negative_email || '',
