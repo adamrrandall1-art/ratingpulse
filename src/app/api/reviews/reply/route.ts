@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { generateGeminiReviewReply } from '@/lib/gemini';
 import { createClient } from '@supabase/supabase-js';
 import { getValidAccessTokenForProfile, replyToGBPReview } from '@/lib/google-gbp';
 import { Profile } from '@/lib/supabase/types';
@@ -117,43 +117,31 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Call Gemini to generate a response
-    const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || process.env.GOOGLE_GENAI_API_KEY || '';
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Missing GEMINI_API_KEY in environment' }, { status: 500 });
+    // Call Gemini to generate a response with strict invisible keyword integration
+    const brandVoice = body.brandVoice || body.tone || 'friendly and professional';
+    const seoKeywords = body.seoKeywords ?? body.keywords ?? body.customKeywords;
+    const customInstructions = body.customInstructions ?? body.aiInstructions ?? '';
+    const replySignature = body.replySignature ?? body.aiSignature ?? body.signature ?? '';
+
+    let reply = '';
+    try {
+      reply = await generateGeminiReviewReply({
+        reviewerName,
+        starRating: rating,
+        reviewText: effectiveReviewText,
+        brandVoice,
+        seoKeywords,
+        customInstructions,
+        replySignature,
+        model: body.selectedModel || 'gemini-2.5-flash',
+      });
+    } catch (genErr: any) {
+      console.warn('[Gemini Reply Error]:', genErr?.message);
+      reply = `Thank you so much for the ${rating}-star review, ${reviewerName}! We truly appreciate your support and look forward to welcoming you back to ${businessName}.`;
+      if (replySignature && !reply.includes(replySignature.trim())) {
+        reply = `${reply}\n\n${replySignature.trim()}`;
+      }
     }
-
-    const ai = new GoogleGenAI({ apiKey });
-
-    const prompt = `You are the owner of "${businessName || "RatingPulse"}".
-Write a warm, authentic 2-sentence reply thanking ${reviewerName} for their ${rating || 5}-star review.
-Customer review: "${effectiveReviewText}"
-
-Rules:
-- Mention at least one specific item or detail they wrote about.
-- Keep it natural and neighborly.
-- Output ONLY the final response text without quotes or preamble.`;
-
-    console.log('[Gemini API] Calling generateContent with 8s timeout...');
-    const callPromise = ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        // Turn off thinking tokens so 100% of token budget goes to the response
-        thinkingConfig: {
-          thinkingBudget: 0,
-        },
-        temperature: 0.7,
-        maxOutputTokens: 500,
-      },
-    });
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Generation timed out. Please try again.')), 8000)
-    );
-
-    const response: any = await Promise.race([callPromise, timeoutPromise]);
-    const reply = (response?.text || '').trim().replace(/^["']|["']$/g, '');
 
     if (!reply) {
       return NextResponse.json({ error: 'Empty response returned from AI' }, { status: 500 });

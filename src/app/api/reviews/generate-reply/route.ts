@@ -1,71 +1,72 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { generateGeminiReviewReply } from '@/lib/gemini';
 
 interface GenerateReplyPayload {
   reviewText?: string;
+  review_text?: string;
+  text?: string;
   authorName?: string;
+  author_name?: string;
+  reviewerName?: string;
   rating?: number;
+  starRating?: number;
   businessName?: string;
   businessCategory?: string;
-  tone?: 'friendly_professional' | 'casual_enthusiastic' | 'concise_polite' | 'empathetic' | string;
+  tone?: string;
+  brandVoice?: string;
   keywords?: string[];
+  seoKeywords?: string | string[];
+  customKeywords?: string | string[];
+  customInstructions?: string;
+  aiInstructions?: string;
+  replySignature?: string;
+  aiSignature?: string;
+  signature?: string;
+  selectedModel?: string;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body: GenerateReplyPayload = await req.json().catch(() => ({}));
-    const {
-      reviewText = '',
-      authorName = 'Valued Customer',
-      rating = 5,
-      businessName = 'our team',
-      businessCategory = 'Local Business',
-      tone = 'friendly_professional',
-      keywords = [],
-    } = body;
+    const reviewerName = body.reviewerName || body.authorName || body.author_name || 'Valued Customer';
+    const starRating = Number(body.starRating ?? body.rating) || 5;
+    const reviewText = body.reviewText || body.review_text || body.text || '';
+    const businessName = body.businessName || 'our business';
+    const brandVoice = body.brandVoice || body.tone || 'friendly and professional';
+    const seoKeywords = body.seoKeywords ?? body.keywords ?? body.customKeywords;
+    const customInstructions = body.customInstructions ?? body.aiInstructions ?? '';
+    const replySignature = body.replySignature ?? body.aiSignature ?? body.signature ?? '';
 
-    const apiKey =
-      process.env.GEMINI_API_KEY ||
-      process.env.GOOGLE_API_KEY ||
-      process.env.GOOGLE_GENAI_API_KEY ||
-      '';
-
-    if (!apiKey) {
-      console.error('[Gemini API] GEMINI_API_KEY environment variable is not set! Missing API Key.');
-      return NextResponse.json({ error: 'Missing Gemini API Key' }, { status: 500 });
+    let reply = '';
+    try {
+      reply = await generateGeminiReviewReply({
+        reviewerName,
+        starRating,
+        reviewText,
+        brandVoice,
+        seoKeywords,
+        customInstructions,
+        replySignature,
+        model: body.selectedModel || 'gemini-2.5-flash',
+      });
+    } catch (geminiErr: any) {
+      console.warn('[Gemini API Warning in generate-reply]:', geminiErr?.message);
+      // Fallback to intelligent dynamic template reply
+      reply = generateDynamicTailoredReply({
+        reviewText,
+        authorName: reviewerName,
+        rating: starRating,
+        businessName,
+        businessCategory: body.businessCategory || 'Local Business',
+        tone: brandVoice,
+        keywords: Array.isArray(seoKeywords) ? seoKeywords : (typeof seoKeywords === 'string' ? seoKeywords.split(',') : []),
+      });
+      if (replySignature && !reply.includes(replySignature.trim())) {
+        reply = `${reply}\n\n${replySignature.trim()}`;
+      }
     }
-
-    const ai = new GoogleGenAI({ apiKey });
-    const prompt = `You are the owner of "${businessName || "RatingPulse"}".
-Write a complete, authentic 2-sentence reply thanking ${authorName} for their ${rating}-star review.
-Customer review: "${reviewText || 'Great service!'}"
-
-Requirements:
-- Mention at least one specific item or detail they wrote about.
-- Keep it natural, appreciative, and concise.
-- Output ONLY the final response text with no quotes, preamble, or markdown.`;
-
-    console.log('[Gemini API] Calling generateContent with 8s timeout in generate-reply...');
-    const callPromise = ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: prompt,
-      config: {
-        thinkingConfig: {
-          thinkingBudget: 0,
-        },
-        temperature: 0.7,
-        maxOutputTokens: 500,
-      },
-    });
-
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('Generation timed out. Please try again.')), 8000)
-    );
-
-    const response: any = await Promise.race([callPromise, timeoutPromise]);
-    const reply = (response?.text || '').trim().replace(/^["']|["']$/g, '');
 
     if (!reply) {
       return NextResponse.json({ error: 'Empty response returned from AI' }, { status: 500 });
@@ -76,7 +77,7 @@ Requirements:
       success: true,
       reply,
       replyText: reply,
-      model: 'gemini-3.8-flash',
+      model: body.selectedModel || 'gemini-2.5-flash',
     });
   } catch (error: any) {
     console.error('[Gemini API Detailed Error in generate-reply]:', error);
