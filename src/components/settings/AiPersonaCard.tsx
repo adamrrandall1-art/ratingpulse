@@ -164,6 +164,109 @@ const SUGGESTED_KEYWORDS = [
   'transparent pricing',
 ];
 
+/**
+ * Natural simulation preview generator for Live AI Persona Preview.
+ * Weaves SEO keywords, brand voice, instructions, and signature into fluid, authentic sentences.
+ */
+export function generateSimulationPreview({
+  tone = 'friendly_professional',
+  keywords = [],
+  signature = '',
+  customInstructions = '',
+  seed = 0,
+}: {
+  tone?: string;
+  keywords?: string[] | string;
+  signature?: string;
+  customInstructions?: string;
+  seed?: number;
+}): string {
+  const cleanKeywords = Array.isArray(keywords)
+    ? keywords.filter(Boolean).map((k) => String(k).trim()).filter(Boolean).slice(0, 2)
+    : typeof keywords === 'string'
+      ? keywords
+          .split(',')
+          .map((k: string) => k.trim())
+          .filter(Boolean)
+          .slice(0, 2)
+      : [];
+
+  const normTone = (tone || '').toLowerCase().replace(/[^a-z]/g, '');
+
+  let keywordSentence = '';
+  if (cleanKeywords.length > 0) {
+    const kwText = cleanKeywords.join(' and ');
+    const kwTemplates = [
+      ` Our whole crew works hard to provide a ${kwText} experience every single day.`,
+      ` Our team takes great pride in delivering a ${kwText} experience every time you visit.`,
+      ` We are truly dedicated to providing a top-quality, ${kwText} standard for every customer.`,
+    ];
+    keywordSentence = kwTemplates[Math.abs(seed) % kwTemplates.length];
+  }
+
+  let greeting = 'Hey Alex! Thank you so much for the glowing review!';
+  let closing = 'We can’t wait to welcome you back again soon!';
+
+  if (normTone.includes('casual') || normTone.includes('enthusiastic')) {
+    const casualGreetings = [
+      'Hey Alex! WOW, thank you so much for the 5-star love! We are smiling ear to ear reading this.',
+      'Hey Alex! WOW, thank you so much for the glowing review! Our team is absolutely thrilled to see your feedback.',
+      'Hey Alex! Thanks a million for the incredible 5-star review! Your kind words made our entire team’s day.',
+    ];
+    const casualClosings = [
+      'Can’t wait to welcome you back again soon!',
+      'See you again very soon for another great visit!',
+      'Looking forward to seeing you again next time!',
+    ];
+    greeting = casualGreetings[Math.abs(seed) % casualGreetings.length];
+    closing = casualClosings[Math.abs(seed) % casualClosings.length];
+  } else if (normTone.includes('concise') || normTone.includes('polite') || normTone.includes('direct')) {
+    const conciseGreetings = [
+      'Thank you for your review and 5-star rating, Alex.',
+      'Thank you for taking the time to share your feedback, Alex.',
+      'Thank you for your business and your kind review, Alex.',
+    ];
+    const conciseClosings = [
+      'We appreciate your patronage and look forward to serving you again.',
+      'We value your support and hope to see you again soon.',
+      'Thank you for choosing us and we look forward to your next visit.',
+    ];
+    greeting = conciseGreetings[Math.abs(seed) % conciseGreetings.length];
+    closing = conciseClosings[Math.abs(seed) % conciseClosings.length];
+  } else if (normTone.includes('empath') || normTone.includes('caring')) {
+    const empatheticGreetings = [
+      'Dear Alex, thank you from the bottom of our hearts for sharing your experience.',
+      'Dear Alex, reading your thoughtful review truly warms our hearts.',
+      'Dear Alex, thank you so much for taking the time to write such kind words.',
+    ];
+    const empatheticClosings = [
+      'Knowing our team made you feel cared for means everything to us. We look forward to seeing you again.',
+      'We are so grateful for your trust and hope to welcome you back whenever you need us.',
+      'Your appreciation means the world to our staff. We are always here for you.',
+    ];
+    greeting = empatheticGreetings[Math.abs(seed) % empatheticGreetings.length];
+    closing = empatheticClosings[Math.abs(seed) % empatheticClosings.length];
+  } else {
+    // Friendly & Professional / Professional & Warm / default
+    const friendlyGreetings = [
+      'Hi Alex, thank you so much for taking the time to leave us this wonderful 5-star review!',
+      'Hi Alex, we truly appreciate your kind feedback and five-star rating!',
+      'Hi Alex, thank you for sharing your experience with our team!',
+    ];
+    const friendlyClosings = [
+      'We look forward to welcoming you back again soon!',
+      'We can’t wait to see you again on your next visit!',
+      'Thank you again for your trust and support!',
+    ];
+    greeting = friendlyGreetings[Math.abs(seed) % friendlyGreetings.length];
+    closing = friendlyClosings[Math.abs(seed) % friendlyClosings.length];
+  }
+
+  const signOff = signature && signature.trim() ? `\n\n${signature.trim()}` : '';
+
+  return `${greeting}${keywordSentence} ${closing}${signOff}`;
+}
+
 export default function AiPersonaCard(props: AiPersonaCardProps) {
   const {
     initialBusiness,
@@ -270,6 +373,8 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
 
   const [newKeyword, setNewKeyword] = useState('');
   const [isSimulating, setIsSimulating] = useState(false);
+  const [simulationSeed, setSimulationSeed] = useState(0);
+  const [livePreviewText, setLivePreviewText] = useState<string | null>(null);
 
   // Sync state if initialBusiness changes
   useEffect(() => {
@@ -380,6 +485,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   }, [propSelectedModel]);
 
   const handleToneSelect = (tone: BrandVoiceType) => {
+    setLivePreviewText(null);
     setLocalTone(tone);
     setBrandVoice?.(tone);
     setAiTone?.(tone);
@@ -395,6 +501,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   };
 
   const handleInstructionsChange = (val: string) => {
+    setLivePreviewText(null);
     setLocalInstructions(val);
     setAiInstructions?.(val);
     props.setCustomInstructions?.(val);
@@ -408,6 +515,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   };
 
   const handleSignatureChange = (val: string) => {
+    setLivePreviewText(null);
     setLocalSignature(val);
     setAiSignature?.(val);
     props.setReplySignature?.(val);
@@ -436,6 +544,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   const handleAddKeyword = (kwToAdd?: string) => {
     const text = (kwToAdd || newKeyword).trim();
     if (text && !localKeywords.includes(text)) {
+      setLivePreviewText(null);
       const updated = [...localKeywords, text];
       setLocalKeywords(updated);
       setKeywords?.(updated);
@@ -453,6 +562,7 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   };
 
   const handleRemoveKeyword = (kw: string) => {
+    setLivePreviewText(null);
     const updated = localKeywords.filter((k) => k !== kw);
     setLocalKeywords(updated);
     setKeywords?.(updated);
@@ -529,9 +639,67 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
 
   // Generate dynamic live preview text
   const currentPersona = PERSONA_OPTIONS.find((p) => isPersonaSelected(localTone, p.key)) || PERSONA_OPTIONS[0];
-  const keywordHighlights = localKeywords.length > 0 ? ` Mentioning our commitment to ${localKeywords.slice(0, 2).join(' and ')}.` : '';
-  const signatureSuffix = localSignature ? ` ${localSignature}` : '';
-  const previewReply = `${currentPersona.samplePrefix}${keywordHighlights}${signatureSuffix}`;
+
+  const simulatedPreview = generateSimulationPreview({
+    tone: localTone,
+    keywords: localKeywords,
+    signature: localSignature,
+    customInstructions: localInstructions,
+    seed: simulationSeed,
+  });
+
+  const previewReply = livePreviewText || simulatedPreview;
+
+  const handleResimulate = async () => {
+    setIsSimulating(true);
+    const nextSeed = simulationSeed + 1;
+    setSimulationSeed(nextSeed);
+
+    const simulatedFallback = generateSimulationPreview({
+      tone: localTone,
+      keywords: localKeywords,
+      signature: localSignature,
+      customInstructions: localInstructions,
+      seed: nextSeed,
+    });
+
+    try {
+      const res = await fetch('/api/reviews/generate-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          reviewerName: 'Alex M.',
+          starRating: 5,
+          reviewText: 'Had an incredible experience here yesterday! The team was super attentive and everything was handled seamlessly.',
+          brandVoice: localTone,
+          seoKeywords: localKeywords,
+          customInstructions: localInstructions,
+          replySignature: localSignature,
+          selectedModel: props.selectedModel || selectedModel || 'gemini-2.5-flash',
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.reply && typeof data.reply === 'string' && data.reply.trim()) {
+          setLivePreviewText(data.reply.trim());
+          toast.success('AI Preview Refreshed', {
+            description: `Generated authentic response using ${currentPersona.title} voice.`,
+          });
+          return;
+        }
+      }
+    } catch (apiErr) {
+      console.warn('[Live Preview Simulation Warning]:', apiErr);
+    } finally {
+      setIsSimulating(false);
+    }
+
+    setLivePreviewText(simulatedFallback);
+    toast.success('AI Preview Refreshed', {
+      description: `Simulated response updated using ${currentPersona.title} voice.`,
+    });
+  };
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-2xs space-y-6">
@@ -826,16 +994,9 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           </div>
           <button
             type="button"
-            onClick={() => {
-              setIsSimulating(true);
-              setTimeout(() => {
-                setIsSimulating(false);
-                toast.success('AI Preview Refreshed', {
-                  description: `Simulated response updated using ${currentPersona.title} voice.`,
-                });
-              }, 400);
-            }}
-            className="text-[11px] text-purple-700 font-bold hover:underline flex items-center gap-1 cursor-pointer"
+            onClick={handleResimulate}
+            disabled={isSimulating}
+            className="text-[11px] text-purple-700 font-bold hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`w-3 h-3 ${isSimulating ? 'animate-spin' : ''}`} />
             Re-simulate
@@ -872,11 +1033,11 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
                 AI Reply ({currentPersona.title})
               </span>
             </div>
-            <div className="p-3 rounded-xl bg-white border border-purple-200 text-xs text-slate-800 leading-relaxed font-sans shadow-2xs">
+            <div className="p-3 rounded-xl bg-white border border-purple-200 text-xs text-slate-800 leading-relaxed font-sans shadow-2xs whitespace-pre-line">
               {isSimulating ? (
                 <div className="flex items-center gap-2 text-slate-400 py-1">
                   <RefreshCw className="w-3.5 h-3.5 animate-spin text-purple-600" />
-                  <span>Synthesizing response with Gemini 3.8 Flash...</span>
+                  <span>Synthesizing response with Gemini...</span>
                 </div>
               ) : (
                 previewReply
