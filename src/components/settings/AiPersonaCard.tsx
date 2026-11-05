@@ -262,9 +262,30 @@ export function generateSimulationPreview({
     closing = friendlyClosings[Math.abs(seed) % friendlyClosings.length];
   }
 
-  const signOff = signature && signature.trim() ? `\n\n${signature.trim()}` : '';
+  // Parse and incorporate custom instructions / business policies if present
+  let policySentence = '';
+  if (customInstructions && customInstructions.trim()) {
+    const trimmed = customInstructions.trim();
+    // If instructions mention parking, add a realistic parking mention
+    if (/parking/i.test(trimmed)) {
+      policySentence = ' Just a quick reminder for your next visit that we validate parking in the rear lot!';
+    } else {
+      // Generic fallback incorporating custom directive context
+      const firstInstruction = trimmed.split(/[\.\n]/)[0]?.trim();
+      if (firstInstruction) {
+        const cleaned = firstInstruction.replace(/^(always|never|please|be sure to|make sure to)\s+(mention\s+that\s+|state\s+that\s+)?/i, '').trim();
+        if (cleaned) {
+          const capitalized = cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+          policySentence = ` ${capitalized.replace(/[.!?]*$/, '')}.`;
+        }
+      }
+    }
+  }
 
-  return `${greeting}${keywordSentence} ${closing}${signOff}`;
+  const closingSentence = closing ? ` ${closing.trim()}` : '';
+  const signOffText = signature && signature.trim() ? `\n\n${signature.trim()}` : '';
+
+  return `${greeting}${keywordSentence}${policySentence}${closingSentence}${signOffText}`;
 }
 
 export default function AiPersonaCard(props: AiPersonaCardProps) {
@@ -640,11 +661,39 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
   // Generate dynamic live preview text
   const currentPersona = PERSONA_OPTIONS.find((p) => isPersonaSelected(localTone, p.key)) || PERSONA_OPTIONS[0];
 
+  const currentVoice = localTone || props.brandVoice || props.settingsState?.brandVoice || 'friendly_professional';
+  const currentKeywords =
+    (localKeywords && localKeywords.length > 0)
+      ? localKeywords
+      : (props.keywords && props.keywords.length > 0)
+        ? props.keywords
+        : props.seoKeywords || props.settingsState?.seoKeywords || [];
+  const currentInstructions =
+    (props.customInstructions !== undefined && props.customInstructions !== null && props.customInstructions !== '')
+      ? props.customInstructions
+      : (props.settingsState?.customInstructions !== undefined && props.settingsState?.customInstructions !== null && props.settingsState?.customInstructions !== '')
+        ? props.settingsState.customInstructions
+        : (props.aiInstructions !== undefined && props.aiInstructions !== null && props.aiInstructions !== '')
+          ? props.aiInstructions
+          : (props.settingsState?.aiInstructions !== undefined && props.settingsState?.aiInstructions !== null && props.settingsState?.aiInstructions !== '')
+            ? props.settingsState.aiInstructions
+            : (localInstructions || '');
+  const currentSignature =
+    (props.replySignature !== undefined && props.replySignature !== null && props.replySignature !== '')
+      ? props.replySignature
+      : (props.settingsState?.replySignature !== undefined && props.settingsState?.replySignature !== null && props.settingsState?.replySignature !== '')
+        ? props.settingsState.replySignature
+        : (props.aiSignature !== undefined && props.aiSignature !== null && props.aiSignature !== '')
+          ? props.aiSignature
+          : (props.settingsState?.aiSignature !== undefined && props.settingsState?.aiSignature !== null && props.settingsState?.aiSignature !== '')
+            ? props.settingsState.aiSignature
+            : (localSignature || '');
+
   const simulatedPreview = generateSimulationPreview({
-    tone: localTone,
-    keywords: localKeywords,
-    signature: localSignature,
-    customInstructions: localInstructions,
+    tone: currentVoice,
+    keywords: currentKeywords,
+    signature: currentSignature,
+    customInstructions: currentInstructions,
     seed: simulationSeed,
   });
 
@@ -656,10 +705,10 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
     setSimulationSeed(nextSeed);
 
     const simulatedFallback = generateSimulationPreview({
-      tone: localTone,
-      keywords: localKeywords,
-      signature: localSignature,
-      customInstructions: localInstructions,
+      tone: currentVoice,
+      keywords: currentKeywords,
+      signature: currentSignature,
+      customInstructions: currentInstructions,
       seed: nextSeed,
     });
 
@@ -671,10 +720,10 @@ export default function AiPersonaCard(props: AiPersonaCardProps) {
           reviewerName: 'Alex M.',
           starRating: 5,
           reviewText: 'Had an incredible experience here yesterday! The team was super attentive and everything was handled seamlessly.',
-          brandVoice: localTone,
-          seoKeywords: localKeywords,
-          customInstructions: localInstructions,
-          replySignature: localSignature,
+          brandVoice: currentVoice,
+          seoKeywords: currentKeywords,
+          customInstructions: currentInstructions,
+          replySignature: currentSignature,
           selectedModel: props.selectedModel || selectedModel || 'gemini-2.5-flash',
         }),
       });
