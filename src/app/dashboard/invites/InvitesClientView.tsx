@@ -51,8 +51,8 @@ export default function InvitesClientView({ initialInvites = [] }: InvitesClient
     (initialInvites?.length || 0)
   );
 
-  const totalInvitesSent = isDemoMode ? (142 + (invites?.length || 0)) : mergedInvitesCount;
-  const deliveryRate = isDemoMode ? '98.4%' : (totalInvitesSent > 0 ? '100.0%' : '0.0%');
+  const totalInvitesSent = mergedInvitesCount;
+  const deliveryRate = totalInvitesSent > 0 ? '100.0%' : '0.0%';
 
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
@@ -79,11 +79,6 @@ export default function InvitesClientView({ initialInvites = [] }: InvitesClient
               </div>
               <div className="text-2xl font-extrabold text-slate-900 mt-1 flex items-baseline gap-2">
                 <span>{totalInvitesSent}</span>
-                {isDemoMode && (
-                  <span className="text-xs font-semibold text-emerald-600 flex items-center gap-0.5">
-                    <TrendingUp className="w-3.5 h-3.5" /> +28% vs last mo
-                  </span>
-                )}
               </div>
             </div>
             <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">

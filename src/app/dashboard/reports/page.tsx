@@ -1,68 +1,34 @@
 export const dynamic = 'force-dynamic';
-export const fetchCache = 'force-no-store';
 export const revalidate = 0;
 
 import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import ReportsClientView from './ReportsClientView';
 
 export default async function ReportsPage() {
-  let invites: any[] = [];
-  try {
-    const clerkAuth = await auth().catch(() => null);
-    const userId = clerkAuth?.userId;
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) redirect('/sign-in');
 
-    if (userId) {
-      let profileId: string | null = null;
-      try {
-        const profile = await db.profile.findFirst({
-          where: {
-            OR: [
-              { clerkUserId: userId },
-              { clerk_user_id: userId },
-              { id: userId },
-            ],
-          },
-        });
-        if (profile?.id) profileId = profile.id;
-      } catch {}
+  const profile = await db.profile.findFirst({
+    where: { clerkUserId },
+  });
 
-      const businesses = await db.business.findMany({
+  const invites = profile?.id
+    ? await db.reviewInvite.findMany({
         where: {
           OR: [
-            { userId },
-            { clerkUserId: userId },
-            { id: userId },
-            ...(profileId ? [{ userId: profileId }, { clerkUserId: profileId }, { id: profileId }] : []),
+            { userId: profile.id },
+            { user_id: profile.id },
+            { userId: clerkUserId },
+            { user_id: clerkUserId },
+            { businessId: profile.businessId || undefined },
+            { business_id: profile.businessId || undefined },
           ],
         },
-        orderBy: { updatedAt: 'desc' },
-      }).catch(() => []);
-      const business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
-
-      const orConditions: any[] = [
-        { userId },
-        { user_id: userId },
-      ];
-      if (profileId) {
-        orConditions.push({ userId: profileId });
-        orConditions.push({ user_id: profileId });
-      }
-      if (business?.id) {
-        orConditions.push({ businessId: business.id });
-        orConditions.push({ business_id: business.id });
-      }
-
-      invites = await db.reviewInvite.findMany({
-        where: {
-          OR: orConditions,
-        },
         orderBy: { createdAt: 'desc' },
-      });
-    }
-  } catch (error) {
-    console.warn('[REPORTS_PAGE_LOADER_ERROR]', error);
-  }
+      })
+    : [];
 
   return <ReportsClientView initialInvites={invites} />;
 }

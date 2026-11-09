@@ -89,10 +89,8 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
             : (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
         : '—');
 
-  const totalInvitesSent = isDemoMode ? 153 : effectiveInvites.length;
-  const completedReviewsFromInvites = isDemoMode
-    ? 48
-    : effectiveInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
+  const totalInvitesSent = effectiveInvites.length;
+  const completedReviewsFromInvites = effectiveInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
   const conversionRate = totalInvitesSent > 0
     ? `${((completedReviewsFromInvites / totalInvitesSent) * 100).toFixed(1)}%`
     : '0.0%';

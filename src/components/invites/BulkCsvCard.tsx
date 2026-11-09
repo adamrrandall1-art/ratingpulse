@@ -55,7 +55,7 @@ export default function BulkCsvCard({ onBulkProcessed }: BulkCsvCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const sampleCsvContent = `name,phone,email\nSarah Jenkins,(555) 234-5678,sarah@example.com\nMichael Chang,(555) 345-6789,mchang@example.com\nEmma Watson,(555) 456-7890,emma@example.com\nDavid Miller,(555) 567-8901,david@example.com\nSophia Rodriguez,(555) 678-9012,sophia@example.com`;
+  const sampleCsvContent = `name,phone,email\nSarah Jenkins,(555) 234-5678,sarah@example.com\nAlex Morgan,(555) 345-6789,alex@example.com\nEmma Watson,(555) 456-7890,emma@example.com\nDavid Miller,(555) 567-8901,david@example.com\nSophia Rodriguez,(555) 678-9012,sophia@example.com`;
 
   const handleDownloadSample = (e: React.MouseEvent) => {
     e.preventDefault();

@@ -26,22 +26,22 @@ export default function ChannelPerformanceCard({
 }: ChannelPerformanceCardProps) {
   const isDemo = isDemoMode;
 
-  const smsInvites = isDemo ? [] : invites.filter((i) => i.channel === 'sms' || i.channel === 'both');
-  const emailInvites = isDemo ? [] : invites.filter((i) => i.channel === 'email');
+  const smsInvites = invites.filter((i) => i.channel === 'sms' || i.channel === 'both');
+  const emailInvites = invites.filter((i) => i.channel === 'email');
 
-  const smsSent = isDemo ? 98 : smsInvites.length;
-  const smsDelivered = isDemo ? '99.0%' : (smsSent > 0 ? '100.0%' : '0.0%');
-  const smsClicks = isDemo ? '48.2%' : (smsSent > 0 ? '50.0%' : '0.0%');
-  const smsClickCount = isDemo ? 47 : Math.round(smsSent * 0.5);
-  const smsCompleted = isDemo ? 34 : smsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
-  const smsConversion = isDemo ? '34.7%' : (smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%');
+  const smsSent = smsInvites.length;
+  const smsDelivered = smsSent > 0 ? '100.0%' : '0.0%';
+  const smsClicks = smsSent > 0 ? '50.0%' : '0.0%';
+  const smsClickCount = Math.round(smsSent * 0.5);
+  const smsCompleted = smsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
+  const smsConversion = smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%';
 
-  const emailSent = isDemo ? 55 : emailInvites.length;
-  const emailDelivered = isDemo ? '98.1%' : (emailSent > 0 ? '100.0%' : '0.0%');
-  const emailOpenRate = isDemo ? '62.4%' : (emailSent > 0 ? '60.0%' : '0.0%');
-  const emailOpenedCount = isDemo ? 34 : Math.round(emailSent * 0.6);
-  const emailCompleted = isDemo ? 14 : emailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
-  const emailConversion = isDemo ? '25.4%' : (emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%');
+  const emailSent = emailInvites.length;
+  const emailDelivered = emailSent > 0 ? '100.0%' : '0.0%';
+  const emailOpenRate = emailSent > 0 ? '60.0%' : '0.0%';
+  const emailOpenedCount = Math.round(emailSent * 0.6);
+  const emailCompleted = emailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
+  const emailConversion = emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%';
 
   return (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-7 space-y-6">

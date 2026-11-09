@@ -145,95 +145,63 @@ export async function POST(req: NextRequest) {
   console.log('[SMS] success — sid:', result.messageId, '| simulated:', result.simulated);
 
   // 6. Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
-  let targetUserId: string | null = null;
-  let targetBusinessId: string | null = null;
-
-  try {
-    const authData = await auth().catch(() => null);
-    const clerkUserId = authData?.userId || null;
-    const effectiveUserId = clerkUserId || userId;
-
-    if (effectiveUserId) {
-      const profile = await db.profile.findFirst({
-        where: {
-          OR: [
-            { clerkUserId: effectiveUserId },
-            { id: effectiveUserId },
-          ],
-        },
-      }).catch(() => null);
-
-      if (profile?.id) {
-        targetUserId = profile.id;
-      } else if (effectiveUserId) {
-        targetUserId = effectiveUserId;
-      }
-
-      const business = await db.business.findFirst({
-        where: {
-          OR: [
-            { userId: targetUserId || effectiveUserId },
-            { clerkUserId: effectiveUserId },
-            { id: targetUserId || effectiveUserId },
-          ],
-        },
-      }).catch(() => null) || await db.businessSettings.findFirst({
-        where: {
-          OR: [
-            { userId: targetUserId || effectiveUserId },
-          ],
-        },
-      }).catch(() => null);
-
-      if (business?.id) {
-        targetBusinessId = business.id;
-      } else {
-        targetBusinessId = targetUserId;
-      }
-    }
-  } catch (authErr) {
-    console.warn('[SMS] Error resolving user/business:', authErr);
+  const authData = await auth().catch(() => null);
+  const clerkUserId = authData?.userId || (userId as string) || null;
+  if (!clerkUserId) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
   }
 
-  let createdInvite: any = null;
-  try {
-    createdInvite = await db.reviewInvite.create({
-      data: {
-        id: inviteToken,
-        token: inviteToken,
-        userId: targetUserId || userId || undefined,
-        user_id: targetUserId || userId || undefined,
-        businessId: targetBusinessId || targetUserId || undefined,
-        business_id: targetBusinessId || targetUserId || undefined,
-        customerName: customerName,
-        customerPhone: formattedTo,
-        phone: formattedTo,
-        channel: 'sms',
-        status: 'sent',
-        sentAt: new Date().toISOString(),
-        createdAt: new Date().toISOString(),
-        placeId: placeId || null,
-        businessName: businessName,
-        reviewLink: funnelUrl,
-        serviceType: serviceType,
-      },
-    });
-  } catch (dbErr) {
-    console.error('[SMS] db.reviewInvite.create error:', dbErr);
-  }
+  // Resolve Supabase profile and business
+  const profile = await db.profile.findFirst({
+    where: {
+      OR: [
+        { clerkUserId },
+        { id: clerkUserId },
+      ],
+    },
+  }).catch(() => null);
+
+  const business = await db.business.findFirst({
+    where: {
+      OR: [
+        { userId: profile?.id },
+        { clerkUserId },
+      ],
+    },
+  }).catch(() => null) || await db.businessSettings.findFirst({
+    where: {
+      OR: [
+        { userId: profile?.id },
+      ],
+    },
+  }).catch(() => null);
+
+  // Create the review_invites record
+  const newInvite = await db.reviewInvite.create({
+    data: {
+      id: inviteToken,
+      token: inviteToken,
+      userId: profile?.id,
+      businessId: business?.id,
+      customerName: (body.recipientName as string) || (body.customerName as string) || customerName || 'Customer',
+      phone: formattedTo,
+      customerPhone: formattedTo,
+      channel: 'sms',
+      status: 'sent',
+      sentAt: new Date(),
+      createdAt: new Date(),
+      placeId: placeId || null,
+      businessName: businessName,
+      reviewLink: funnelUrl,
+      serviceType: serviceType,
+    },
+  });
 
   // 7. Return success with invite metadata
   return NextResponse.json(
     {
       success:   true,
-      invite:    createdInvite || {
-        id: inviteToken,
-        token: inviteToken,
-        customer_name: customerName,
-        customer_phone: formattedTo,
-        status: 'sent',
-        funnelUrl,
-      },
+      invite:    newInvite,
       messageId: result.messageId,
       status:    result.status,
       from:      twilioPhoneNumber,

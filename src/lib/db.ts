@@ -1642,25 +1642,118 @@ export const db = {
       const supabase = getAdminClient();
       if (supabase) {
         try {
-          const payload: any = {
-            id: norm.id,
-            token: norm.token,
-            customer_name: norm.customer_name,
-            customer_phone: norm.customer_phone,
-            service_type: norm.service_type,
-            channel: norm.channel,
-            status: norm.status,
-            sent_at: norm.sent_at,
-            created_at: norm.created_at,
-            place_id: norm.place_id,
-            business_name: norm.business_name,
-            review_link: norm.review_link,
-          };
-          if (norm.customer_email) payload.customer_email = norm.customer_email;
-          if (norm.user_id && UUID_REGEX.test(norm.user_id)) payload.user_id = norm.user_id;
-          if (norm.business_id && UUID_REGEX.test(norm.business_id)) payload.business_id = norm.business_id;
+          // 1. Resolve user_id: if Clerk ID, resolve to Supabase profiles.id (UUID)
+          let resolvedUserId = norm.user_id || norm.userId || null;
+          if (resolvedUserId && !UUID_REGEX.test(resolvedUserId)) {
+            try {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('clerk_user_id', resolvedUserId)
+                .maybeSingle();
+              if (prof?.id && UUID_REGEX.test(prof.id)) {
+                resolvedUserId = prof.id;
+              }
+            } catch {}
+          }
 
-          await supabase.from('review_invites').insert([payload]);
+          // 2. Resolve business_id: must be a valid UUID in profiles.id if constrained
+          let resolvedBusinessId = norm.business_id || norm.businessId || null;
+          if (resolvedBusinessId && !UUID_REGEX.test(resolvedBusinessId)) {
+            resolvedBusinessId = null;
+          }
+
+          // Generate or validate UUID for id (Supabase review_invites.id is type uuid)
+          const safeId = (norm.id && UUID_REGEX.test(norm.id))
+            ? norm.id
+            : (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null);
+
+          // Build primary payload
+          const primaryPayload: Record<string, any> = {
+            customer_name: norm.customer_name || 'Customer',
+            customer_phone: norm.customer_phone || norm.phone || '',
+            service_type: norm.service_type || 'General Service',
+            status: norm.status || 'sent',
+            sent_at: norm.sent_at || new Date().toISOString(),
+            created_at: norm.created_at || new Date().toISOString(),
+          };
+
+          if (safeId) primaryPayload.id = safeId;
+          if (resolvedUserId && UUID_REGEX.test(resolvedUserId)) primaryPayload.user_id = resolvedUserId;
+          if (resolvedBusinessId && UUID_REGEX.test(resolvedBusinessId)) primaryPayload.business_id = resolvedBusinessId;
+          if (norm.customer_email) primaryPayload.customer_email = norm.customer_email;
+          if (norm.channel) primaryPayload.channel = norm.channel;
+          if (norm.token) primaryPayload.token = norm.token;
+          if (norm.place_id) primaryPayload.place_id = norm.place_id;
+          if (norm.business_name) primaryPayload.business_name = norm.business_name;
+          if (norm.review_link) primaryPayload.review_link = norm.review_link;
+
+          const { data: insData, error: insError } = await supabase
+            .from('review_invites')
+            .insert([primaryPayload])
+            .select()
+            .maybeSingle();
+
+          if (insError) {
+            console.warn('[db.reviewInvite.create] Primary insert note:', insError.message, insError.code);
+
+            // Retry 1: If foreign key error on business_id (code 23503), remove business_id
+            let retryPayload = { ...primaryPayload };
+            if (insError.code === '23503' || insError.message?.includes('business_id')) {
+              delete retryPayload.business_id;
+            }
+
+            // Retry 2: If column does not exist (code 42703), strip extended columns
+            if (insError.code === '42703' || insError.message?.includes('column') || insError.message?.includes('does not exist')) {
+              delete retryPayload.token;
+              delete retryPayload.review_link;
+              delete retryPayload.business_name;
+              delete retryPayload.place_id;
+              delete retryPayload.customer_email;
+              delete retryPayload.channel;
+              delete retryPayload.business_id;
+            }
+
+            const { data: retryData, error: retryErr } = await supabase
+              .from('review_invites')
+              .insert([retryPayload])
+              .select()
+              .maybeSingle();
+
+            if (retryErr) {
+              console.warn('[db.reviewInvite.create] Retry note, trying base schema:', retryErr.message);
+              // Absolute base schema guaranteed by initial migration:
+              const basePayload: Record<string, any> = {
+                customer_name: norm.customer_name || 'Customer',
+                customer_phone: norm.customer_phone || norm.phone || '',
+                service_type: norm.service_type || 'General Service',
+                status: norm.status || 'sent',
+                sent_at: norm.sent_at || new Date().toISOString(),
+                created_at: norm.created_at || new Date().toISOString(),
+              };
+              if (safeId) basePayload.id = safeId;
+              if (resolvedUserId && UUID_REGEX.test(resolvedUserId)) basePayload.user_id = resolvedUserId;
+
+              const { data: baseData, error: baseErr } = await supabase
+                .from('review_invites')
+                .insert([basePayload])
+                .select()
+                .maybeSingle();
+
+              if (baseErr) {
+                console.error('[db.reviewInvite.create] Base insert error:', baseErr.message);
+              } else if (baseData) {
+                norm.id = baseData.id;
+                cacheReviewInvite(norm);
+              }
+            } else if (retryData) {
+              norm.id = retryData.id;
+              cacheReviewInvite(norm);
+            }
+          } else if (insData) {
+            norm.id = insData.id;
+            cacheReviewInvite(norm);
+          }
         } catch (err) {
           console.warn('[db.reviewInvite.create] Supabase insert note:', err);
         }

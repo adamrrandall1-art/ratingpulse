@@ -39,69 +39,6 @@ function maskEmail(email: string): string {
   return `${maskedUser}@${domain}`;
 }
 
-const DEFAULT_SAMPLE_INVITES = [
-  {
-    id: 'mock-1',
-    customer_name: 'Marcus Vance',
-    customer_phone: '+15552348910',
-    customer_email: 'marcus.vance@gmail.com',
-    service_type: 'Software Setup & Onboarding',
-    channel: 'sms',
-    status: 'delivered',
-    sent_at: '2026-10-06T14:15:00Z',
-  },
-  {
-    id: 'mock-2',
-    customer_name: 'Elena Rostova',
-    customer_phone: '+15553459021',
-    customer_email: 'elena.r@outlook.com',
-    service_type: 'Google Review Campaign',
-    channel: 'both',
-    status: 'reviewed',
-    sent_at: '2026-10-06T13:40:00Z',
-  },
-  {
-    id: 'mock-3',
-    customer_name: 'Devon Hayes',
-    customer_phone: '+15554560132',
-    customer_email: 'dhayes@techcorp.io',
-    service_type: 'Reputation Management Audit',
-    channel: 'sms',
-    status: 'queued',
-    sent_at: '2026-10-06T22:30:00Z',
-  },
-  {
-    id: 'mock-4',
-    customer_name: 'Chloe Bennett',
-    customer_phone: '+15555671243',
-    customer_email: 'chloe.bennett@yahoo.com',
-    service_type: 'Review Ingestion Consultation',
-    channel: 'sms',
-    status: 'delivered',
-    sent_at: '2026-10-06T11:20:00Z',
-  },
-  {
-    id: 'mock-5',
-    customer_name: 'Jordan Rivera',
-    customer_phone: '+15556782354',
-    customer_email: 'jrivera@gmail.com',
-    service_type: 'AI Review Reply Setup',
-    channel: 'email',
-    status: 'delivered',
-    sent_at: '2026-10-05T16:45:00Z',
-  },
-  {
-    id: 'mock-6',
-    customer_name: 'Aaliyah Patel',
-    customer_phone: '+15557893465',
-    customer_email: 'aaliyah.p@icloud.com',
-    service_type: 'Growth Plan Consultation',
-    channel: 'both',
-    status: 'pending',
-    sent_at: '2026-10-05T15:10:00Z',
-  },
-];
-
 export default function InviteHistoryTable({ customInvites, initialInvites }: InviteHistoryTableProps) {
   const { invites, activeBusiness, isDemoMode } = useRatingPulseStore();
   const [search, setSearch] = useState('');
@@ -118,7 +55,7 @@ export default function InviteHistoryTable({ customInvites, initialInvites }: In
     'https://ratingpulse.co/rate';
 
   const providedInvites = initialInvites || customInvites || [];
-  const combinedStoreAndProvided = [...(invites || []), ...providedInvites].filter(
+  const mergedInvites = [...(invites || []), ...providedInvites].filter(
     (inv, idx, self) =>
       idx ===
       self.findIndex(
@@ -128,19 +65,6 @@ export default function InviteHistoryTable({ customInvites, initialInvites }: In
           (t.customer_phone && t.customer_phone === inv.customer_phone && t.sent_at === inv.sent_at)
       )
   );
-
-  // In Live Mode, only show real database invites; in Demo Mode, populate sample invites
-  const mergedInvites = isDemoMode
-    ? [...combinedStoreAndProvided, ...DEFAULT_SAMPLE_INVITES].filter(
-        (inv, idx, self) =>
-          idx ===
-          self.findIndex(
-            (t) =>
-              t.id === inv.id ||
-              (t.customer_phone && t.customer_phone === inv.customer_phone)
-          )
-      )
-    : combinedStoreAndProvided;
 
   const filtered = mergedInvites.filter((inv) => {
     const q = search.trim().toLowerCase();
@@ -208,9 +132,9 @@ export default function InviteHistoryTable({ customInvites, initialInvites }: In
       {/* Table Body */}
       {filtered.length === 0 ? (
         <div className="p-12 text-center max-w-md mx-auto space-y-2">
-          <p className="text-xs font-bold text-slate-800">
+          <p className="text-sm font-semibold text-slate-800">
             {mergedInvites.length === 0
-              ? "No invites sent yet. Click 'Send SMS Invite' to get started."
+              ? "No review invites sent yet. Click 'Send SMS Invite' above to send your first review request."
               : "No matching invitations found"}
           </p>
           <p className="text-xs text-slate-400">
