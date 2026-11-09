@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/lib/db';
 import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
@@ -142,62 +144,96 @@ export async function POST(req: NextRequest) {
 
   console.log('[SMS] success — sid:', result.messageId, '| simulated:', result.simulated);
 
-  // 6. Fire-and-forget: log to review_invites using schema columns.
-  const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-  const supabaseKey     =
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.SUPABASE_SERVICE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  // 6. Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
+  let targetUserId: string | null = null;
+  let targetBusinessId: string | null = null;
 
-  if (supabaseUrl && supabaseKey) {
-    void (async () => {
-      try {
-        const sb = createClient(supabaseUrl, supabaseKey, {
-          auth: { persistSession: false, autoRefreshToken: false },
-        });
-        const payload: Record<string, unknown> = {
-          id:             inviteToken,
-          token:          inviteToken,
-          customer_name:  customerName,
-          customer_phone: formattedTo,
-          service_type:   serviceType,
-          place_id:       placeId || null,
-          business_name:  businessName,
-          review_link:    activeGoogleReviewUrl || null,
-          status:         'sent',
-          sent_at:        new Date().toISOString(),
-        };
-        // Only include user_id when it's a valid UUID
-        if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-          payload.user_id = userId;
-          payload.business_id = userId;
-        }
-        const { error } = await sb.from('review_invites').insert([payload]);
-        if (error) {
-          const fallbackPayload: Record<string, unknown> = {
-            id:             inviteToken,
-            customer_name:  customerName,
-            customer_phone: formattedTo,
-            service_type:   serviceType,
-            status:         'sent',
-            sent_at:        new Date().toISOString(),
-          };
-          if (userId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId)) {
-            fallbackPayload.user_id = userId;
-          }
-          await sb.from('review_invites').insert([fallbackPayload]);
-        }
-      } catch (e) {
-        console.error('[SMS] DB log exception:', e);
+  try {
+    const authData = await auth().catch(() => null);
+    const clerkUserId = authData?.userId || null;
+    const effectiveUserId = clerkUserId || userId;
+
+    if (effectiveUserId) {
+      const profile = await db.profile.findFirst({
+        where: {
+          OR: [
+            { clerkUserId: effectiveUserId },
+            { id: effectiveUserId },
+          ],
+        },
+      }).catch(() => null);
+
+      if (profile?.id) {
+        targetUserId = profile.id;
+      } else if (effectiveUserId) {
+        targetUserId = effectiveUserId;
       }
-    })();
+
+      const business = await db.business.findFirst({
+        where: {
+          OR: [
+            { userId: targetUserId || effectiveUserId },
+            { clerkUserId: effectiveUserId },
+            { id: targetUserId || effectiveUserId },
+          ],
+        },
+      }).catch(() => null) || await db.businessSettings.findFirst({
+        where: {
+          OR: [
+            { userId: targetUserId || effectiveUserId },
+          ],
+        },
+      }).catch(() => null);
+
+      if (business?.id) {
+        targetBusinessId = business.id;
+      } else {
+        targetBusinessId = targetUserId;
+      }
+    }
+  } catch (authErr) {
+    console.warn('[SMS] Error resolving user/business:', authErr);
   }
 
-  // 7. Return success
+  let createdInvite: any = null;
+  try {
+    createdInvite = await db.reviewInvite.create({
+      data: {
+        id: inviteToken,
+        token: inviteToken,
+        userId: targetUserId || userId || undefined,
+        user_id: targetUserId || userId || undefined,
+        businessId: targetBusinessId || targetUserId || undefined,
+        business_id: targetBusinessId || targetUserId || undefined,
+        customerName: customerName,
+        customerPhone: formattedTo,
+        phone: formattedTo,
+        channel: 'sms',
+        status: 'sent',
+        sentAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        placeId: placeId || null,
+        businessName: businessName,
+        reviewLink: funnelUrl,
+        serviceType: serviceType,
+      },
+    });
+  } catch (dbErr) {
+    console.error('[SMS] db.reviewInvite.create error:', dbErr);
+  }
+
+  // 7. Return success with invite metadata
   return NextResponse.json(
     {
       success:   true,
+      invite:    createdInvite || {
+        id: inviteToken,
+        token: inviteToken,
+        customer_name: customerName,
+        customer_phone: formattedTo,
+        status: 'sent',
+        funnelUrl,
+      },
       messageId: result.messageId,
       status:    result.status,
       from:      twilioPhoneNumber,

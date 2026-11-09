@@ -48,36 +48,40 @@ export async function GET(req: NextRequest) {
     }).catch(() => []);
     const business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
 
-    const supabase = getSupabaseAdmin();
-    let invites: any[] = [];
+    // Resolve profile ID if available
+    let profileId: string | null = null;
+    try {
+      const profile = await db.profile.findFirst({
+        where: {
+          OR: [
+            { clerkUserId: userId },
+            { clerk_user_id: userId },
+            { id: userId },
+          ],
+        },
+      });
+      if (profile?.id) profileId = profile.id;
+    } catch {}
 
-    if (supabase) {
-      const candidateIds: string[] = [];
-      if (business?.id && UUID_REGEX.test(business.id)) candidateIds.push(business.id);
-      if (UUID_REGEX.test(userId)) candidateIds.push(userId);
-
-      try {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('clerk_user_id', userId)
-          .maybeSingle();
-        if (prof?.id && UUID_REGEX.test(prof.id)) candidateIds.push(prof.id);
-      } catch {}
-
-      for (const candId of candidateIds) {
-        try {
-          const { data } = await supabase
-            .from('review_invites')
-            .select('*')
-            .eq('user_id', candId);
-          if (data && data.length > 0) {
-            invites = data;
-            break;
-          }
-        } catch {}
-      }
+    const orConditions: any[] = [
+      { userId },
+      { user_id: userId },
+    ];
+    if (profileId) {
+      orConditions.push({ userId: profileId });
+      orConditions.push({ user_id: profileId });
     }
+    if (business?.id) {
+      orConditions.push({ businessId: business.id });
+      orConditions.push({ business_id: business.id });
+    }
+
+    const invites = await db.reviewInvite.findMany({
+      where: {
+        OR: orConditions,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
 
     return NextResponse.json({
       success: true,

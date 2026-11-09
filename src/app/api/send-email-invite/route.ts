@@ -3,6 +3,8 @@ export const dynamic = 'force-dynamic';
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { createClient } from '@supabase/supabase-js';
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -105,53 +107,71 @@ ${businessName}`;
       console.log('[Resend email invite sent successfully]:', resendMessageId);
     }
 
-    // 2. Record Outgoing Invite in Supabase review_invites table
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    // 2. Resolve Clerk auth, profile, and business and record outgoing invite via db.reviewInvite.create
+    const clerkAuth = await auth().catch(() => null);
+    const effectiveClerkUserId = clerkAuth?.userId || rawUserId || null;
 
-    if (supabaseUrl && supabaseKey) {
+    let profileId: string | null = (rawUserId && isUuid.test(rawUserId)) ? rawUserId : null;
+    if (effectiveClerkUserId && !profileId) {
       try {
-        const supabaseAdmin = createClient(supabaseUrl, supabaseKey, {
-          auth: { persistSession: false },
+        const prof = await db.profile.findFirst({
+          where: {
+            OR: [
+              { clerkUserId: effectiveClerkUserId },
+              { clerk_user_id: effectiveClerkUserId },
+              { id: effectiveClerkUserId },
+            ],
+          },
         });
+        if (prof?.id) profileId = prof.id;
+      } catch {}
+    }
 
-        const insertRecord: Record<string, unknown> = {
-          recipient_email: customerEmail,
-          recipient_name: customerName || null,
-          customer_email: customerEmail,
-          customer_name: customerName || 'Valued Customer',
-          customer_phone: customerEmail,
+    let businessRecord: any = null;
+    try {
+      const bizs = await db.business.findMany({
+        where: {
+          OR: [
+            ...(effectiveClerkUserId ? [{ userId: effectiveClerkUserId }, { clerkUserId: effectiveClerkUserId }, { id: effectiveClerkUserId }] : []),
+            ...(profileId ? [{ userId: profileId }, { clerkUserId: profileId }, { id: profileId }] : []),
+            ...(rawBusinessId ? [{ id: rawBusinessId }] : []),
+          ],
+        },
+      });
+      businessRecord = bizs[0] || null;
+    } catch {}
+
+    const finalBusinessId = businessRecord?.id || (rawBusinessId && isUuid.test(rawBusinessId) ? rawBusinessId : profileId || null);
+    const finalUserId = profileId || effectiveClerkUserId || null;
+
+    let createdInvite: any = null;
+    try {
+      createdInvite = await db.reviewInvite.create({
+        data: {
+          id: inviteId || undefined,
+          token: inviteId || undefined,
+          userId: finalUserId,
+          businessId: finalBusinessId,
+          customerName: customerName || 'Valued Customer',
+          customerEmail,
+          customerPhone: customerEmail,
           channel: 'email',
-          service_type: body.serviceType || body.service_type || 'Email Review Request',
+          serviceType: body.serviceType || body.service_type || 'Email Review Request',
           status: 'sent',
-          sent_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-        };
-
-        if (resolvedUserId) {
-          insertRecord.user_id = resolvedUserId;
-          insertRecord.business_id = resolvedUserId;
-        }
-
-        const { data: dbData, error: dbError } = await supabaseAdmin
-          .from('review_invites')
-          .insert([insertRecord])
-          .select();
-
-        if (dbError) {
-          console.error('[Supabase review_invites insert error]:', dbError.message, dbError.details);
-        } else {
-          console.log('[Supabase review_invites recorded]:', dbData);
-        }
-      } catch (dbEx) {
-        console.warn('[Supabase tracking exception]:', dbEx);
-      }
+          sentAt: new Date().toISOString(),
+          businessName,
+          reviewLink: reviewGateUrl,
+        },
+      });
+    } catch (dbEx) {
+      console.warn('[reviewInvite tracking exception]:', dbEx);
     }
 
     return NextResponse.json({
       success: true,
       messageId: resendMessageId,
       reviewGateUrl,
+      invite: createdInvite,
     });
   } catch (err: any) {
     console.error('[Fatal send-email-invite error]:', err);

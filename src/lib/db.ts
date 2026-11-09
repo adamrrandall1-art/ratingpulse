@@ -7,12 +7,16 @@ import path from 'path';
 const globalStore = globalThis as unknown as {
   __rp_businesses?: Map<string, BusinessRecord>;
   __rp_business_settings?: Map<string, any>;
+  __rp_review_invites?: Map<string, any>;
 };
 if (!globalStore.__rp_businesses) {
   globalStore.__rp_businesses = new Map<string, BusinessRecord>();
 }
 if (!globalStore.__rp_business_settings) {
   globalStore.__rp_business_settings = new Map<string, any>();
+}
+if (!globalStore.__rp_review_invites) {
+  globalStore.__rp_review_invites = new Map<string, any>();
 }
 
 function getSettingsCacheFilePath(): string | null {
@@ -62,6 +66,108 @@ function cacheBusinessSettings(record: any) {
   if (record.userId) globalStore.__rp_business_settings.set(record.userId, record);
   if (record.user_id) globalStore.__rp_business_settings.set(record.user_id, record);
   saveSettingsToDisk(record);
+}
+
+function getReviewInvitesCacheFilePath(): string | null {
+  try {
+    const dir = path.join(process.cwd(), 'node_modules', '.cache');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    return path.join(dir, 'rp_review_invites.json');
+  } catch {
+    return null;
+  }
+}
+
+function normalizeReviewInvite(row: any) {
+  if (!row) return null;
+  const id = String(row.id || row.token || `inv_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`);
+  const token = String(row.token || id);
+  const userId = row.userId || row.user_id || null;
+  const businessId = row.businessId || row.business_id || null;
+  const customerName = row.customerName || row.customer_name || row.name || 'Valued Customer';
+  const customerPhone = row.customerPhone || row.customer_phone || row.phone || '';
+  const customerEmail = row.customerEmail || row.customer_email || row.email || null;
+  const serviceType = row.serviceType || row.service_type || 'General Service';
+  const channel = row.channel || (customerEmail && !customerPhone ? 'email' : 'sms');
+  const status = row.status || 'sent';
+  const sentAt = row.sentAt || row.sent_at || row.createdAt || row.created_at || new Date().toISOString();
+  const createdAt = row.createdAt || row.created_at || sentAt;
+  const updatedAt = row.updatedAt || row.updated_at || createdAt;
+  const placeId = row.placeId || row.place_id || null;
+  const businessName = row.businessName || row.business_name || null;
+  const reviewLink = row.reviewLink || row.review_link || row.reviewUrl || null;
+  const ratingReceived = row.ratingReceived !== undefined ? row.ratingReceived : (row.rating_received !== undefined ? row.rating_received : null);
+  const feedbackText = row.feedbackText || row.feedback_text || null;
+  const resolutionStatus = row.resolutionStatus || row.resolution_status || (status === 'resolved' ? 'resolved' : 'unresolved');
+
+  return {
+    id,
+    token,
+    userId,
+    user_id: userId,
+    businessId,
+    business_id: businessId,
+    customerName,
+    customer_name: customerName,
+    customerPhone,
+    customer_phone: customerPhone,
+    phone: customerPhone,
+    customerEmail,
+    customer_email: customerEmail,
+    email: customerEmail,
+    serviceType,
+    service_type: serviceType,
+    channel,
+    status,
+    sentAt,
+    sent_at: typeof sentAt === 'string' ? sentAt : new Date(sentAt).toISOString(),
+    createdAt,
+    created_at: typeof createdAt === 'string' ? createdAt : new Date(createdAt).toISOString(),
+    updatedAt,
+    updated_at: typeof updatedAt === 'string' ? updatedAt : new Date(updatedAt).toISOString(),
+    placeId,
+    place_id: placeId,
+    businessName,
+    business_name: businessName,
+    reviewLink,
+    review_link: reviewLink,
+    ratingReceived,
+    rating_received: ratingReceived,
+    feedbackText,
+    feedback_text: feedbackText,
+    resolutionStatus,
+    resolution_status: resolutionStatus,
+  };
+}
+
+function saveReviewInviteToDisk(record: any) {
+  try {
+    const filePath = getReviewInvitesCacheFilePath();
+    if (!filePath) return;
+    let data: Record<string, any> = {};
+    if (fs.existsSync(filePath)) {
+      try {
+        data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      } catch {}
+    }
+    const norm = normalizeReviewInvite(record);
+    if (!norm) return;
+    if (norm.id) data[norm.id] = norm;
+    if (norm.token && norm.token !== norm.id) data[norm.token] = norm;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+  } catch {}
+}
+
+function cacheReviewInvite(record: any) {
+  if (!record) return;
+  if (!globalStore.__rp_review_invites) globalStore.__rp_review_invites = new Map<string, any>();
+  const norm = normalizeReviewInvite(record);
+  if (!norm) return;
+  if (norm.id) globalStore.__rp_review_invites.set(norm.id, norm);
+  if (norm.token && norm.token !== norm.id) globalStore.__rp_review_invites.set(norm.token, norm);
+  saveReviewInviteToDisk(norm);
 }
 
 function findCachedBusinessSettings(candidateIds: string[]): any | null {
@@ -1510,6 +1616,181 @@ export const db = {
       } catch {
         return [];
       }
+    },
+  },
+  reviewInvite: {
+    create: async (args: { data: any }) => {
+      const input = args.data || {};
+      const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `inv_${Date.now()}`;
+      const id = input.id || input.token || generatedId;
+      const token = input.token || id;
+
+      const norm = normalizeReviewInvite({
+        ...input,
+        id,
+        token,
+      });
+
+      if (!norm) {
+        throw new Error('Failed to normalize review invite record');
+      }
+
+      // Cache to memory and disk immediately
+      cacheReviewInvite(norm);
+
+      // Persist to Supabase review_invites table
+      const supabase = getAdminClient();
+      if (supabase) {
+        try {
+          const payload: any = {
+            id: norm.id,
+            token: norm.token,
+            customer_name: norm.customer_name,
+            customer_phone: norm.customer_phone,
+            service_type: norm.service_type,
+            channel: norm.channel,
+            status: norm.status,
+            sent_at: norm.sent_at,
+            created_at: norm.created_at,
+            place_id: norm.place_id,
+            business_name: norm.business_name,
+            review_link: norm.review_link,
+          };
+          if (norm.customer_email) payload.customer_email = norm.customer_email;
+          if (norm.user_id && UUID_REGEX.test(norm.user_id)) payload.user_id = norm.user_id;
+          if (norm.business_id && UUID_REGEX.test(norm.business_id)) payload.business_id = norm.business_id;
+
+          await supabase.from('review_invites').insert([payload]);
+        } catch (err) {
+          console.warn('[db.reviewInvite.create] Supabase insert note:', err);
+        }
+      }
+
+      return norm;
+    },
+
+    findMany: async (args?: {
+      where?: any;
+      orderBy?: any;
+      take?: number;
+      [key: string]: any;
+    }) => {
+      const supabase = getAdminClient();
+      let records: any[] = [];
+
+      // 1. Fetch from Supabase
+      if (supabase) {
+        try {
+          const { data } = await supabase
+            .from('review_invites')
+            .select('*')
+            .order('created_at', { ascending: false });
+          if (data && Array.isArray(data)) {
+            for (const row of data) {
+              const norm = normalizeReviewInvite(row);
+              if (norm) {
+                records.push(norm);
+                cacheReviewInvite(norm);
+              }
+            }
+          }
+        } catch {}
+      }
+
+      // 2. Merge memory cache records
+      if (globalStore.__rp_review_invites && globalStore.__rp_review_invites.size > 0) {
+        for (const inv of globalStore.__rp_review_invites.values()) {
+          const norm = normalizeReviewInvite(inv);
+          if (norm && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
+            records.push(norm);
+          }
+        }
+      }
+
+      // 3. Merge disk cache records
+      try {
+        const filePath = getReviewInvitesCacheFilePath();
+        if (filePath && fs.existsSync(filePath)) {
+          const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          for (const raw of Object.values(data)) {
+            const norm = normalizeReviewInvite(raw);
+            if (norm && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
+              records.push(norm);
+            }
+          }
+        }
+      } catch {}
+
+      // 4. Apply where filtering if provided
+      if (args?.where) {
+        const candidateUserIds: string[] = [];
+        const candidateBusinessIds: string[] = [];
+
+        if (args.where.userId) candidateUserIds.push(String(args.where.userId));
+        if (args.where.user_id) candidateUserIds.push(String(args.where.user_id));
+        if (args.where.businessId) candidateBusinessIds.push(String(args.where.businessId));
+        if (args.where.business_id) candidateBusinessIds.push(String(args.where.business_id));
+        if (args.where.business?.userId) candidateUserIds.push(String(args.where.business.userId));
+
+        if (Array.isArray(args.where.OR)) {
+          for (const item of args.where.OR) {
+            if (item?.userId) candidateUserIds.push(String(item.userId));
+            if (item?.user_id) candidateUserIds.push(String(item.user_id));
+            if (item?.businessId) candidateBusinessIds.push(String(item.businessId));
+            if (item?.business_id) candidateBusinessIds.push(String(item.business_id));
+            if (item?.business?.userId) candidateUserIds.push(String(item.business.userId));
+          }
+        }
+
+        const validCandUserIds = new Set(candidateUserIds.filter(Boolean));
+        const validCandBizIds = new Set(candidateBusinessIds.filter(Boolean));
+
+        if (validCandUserIds.size > 0 || validCandBizIds.size > 0) {
+          records = records.filter(r => {
+            if (r.userId && validCandUserIds.has(String(r.userId))) return true;
+            if (r.user_id && validCandUserIds.has(String(r.user_id))) return true;
+            if (r.businessId && validCandBizIds.has(String(r.businessId))) return true;
+            if (r.business_id && validCandBizIds.has(String(r.business_id))) return true;
+            if (r.businessId && validCandUserIds.has(String(r.businessId))) return true;
+            if (r.userId && validCandBizIds.has(String(r.userId))) return true;
+            return false;
+          });
+        }
+      }
+
+      // 5. Deduplicate by id / token
+      const seen = new Set<string>();
+      records = records.filter(r => {
+        if (!r.id || seen.has(r.id)) return false;
+        seen.add(r.id);
+        if (r.token) seen.add(r.token);
+        return true;
+      });
+
+      // 6. Sort
+      const orderProp = args?.orderBy?.createdAt ? 'createdAt' : (args?.orderBy?.sentAt ? 'sentAt' : 'createdAt');
+      const isDesc = args?.orderBy ? (args.orderBy[orderProp] !== 'asc') : true;
+      records.sort((a, b) => {
+        const dateA = a[orderProp] ? new Date(a[orderProp]).getTime() : 0;
+        const dateB = b[orderProp] ? new Date(b[orderProp]).getTime() : 0;
+        return isDesc ? dateB - dateA : dateA - dateB;
+      });
+
+      if (args?.take && args.take > 0) {
+        records = records.slice(0, args.take);
+      }
+
+      return records;
+    },
+
+    findFirst: async (args?: any) => {
+      const records = await db.reviewInvite.findMany(args);
+      return records[0] || null;
+    },
+
+    count: async (args?: any) => {
+      const records = await db.reviewInvite.findMany(args);
+      return records.length;
     },
   },
 };

@@ -18,6 +18,7 @@ import { resolveReviewUrl } from '@/lib/google-places';
 
 interface InviteHistoryTableProps {
   customInvites?: any[];
+  initialInvites?: any[];
 }
 
 function maskPhone(phone: string): string {
@@ -101,7 +102,7 @@ const DEFAULT_SAMPLE_INVITES = [
   },
 ];
 
-export default function InviteHistoryTable({ customInvites }: InviteHistoryTableProps) {
+export default function InviteHistoryTable({ customInvites, initialInvites }: InviteHistoryTableProps) {
   const { invites, activeBusiness, isDemoMode } = useRatingPulseStore();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'delivered' | 'reviewed' | 'queued' | 'pending'>('all');
@@ -116,12 +117,30 @@ export default function InviteHistoryTable({ customInvites }: InviteHistoryTable
     resolveReviewUrl(activeBusiness?.placeId) ||
     'https://ratingpulse.co/rate';
 
+  const providedInvites = initialInvites || customInvites || [];
+  const combinedStoreAndProvided = [...(invites || []), ...providedInvites].filter(
+    (inv, idx, self) =>
+      idx ===
+      self.findIndex(
+        (t) =>
+          t.id === inv.id ||
+          (t.token && t.token === inv.token) ||
+          (t.customer_phone && t.customer_phone === inv.customer_phone && t.sent_at === inv.sent_at)
+      )
+  );
+
   // In Live Mode, only show real database invites; in Demo Mode, populate sample invites
   const mergedInvites = isDemoMode
-    ? [...(invites || []), ...DEFAULT_SAMPLE_INVITES].filter(
-        (inv, idx, self) => idx === self.findIndex((t) => t.id === inv.id || (t.customer_phone && t.customer_phone === inv.customer_phone))
+    ? [...combinedStoreAndProvided, ...DEFAULT_SAMPLE_INVITES].filter(
+        (inv, idx, self) =>
+          idx ===
+          self.findIndex(
+            (t) =>
+              t.id === inv.id ||
+              (t.customer_phone && t.customer_phone === inv.customer_phone)
+          )
       )
-    : (invites || []);
+    : combinedStoreAndProvided;
 
   const filtered = mergedInvites.filter((inv) => {
     const q = search.trim().toLowerCase();

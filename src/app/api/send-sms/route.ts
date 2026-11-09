@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
+import { db } from '@/lib/db';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { resolveReviewUrl } from '@/lib/google-places';
@@ -95,9 +97,95 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
+    let targetUserId: string | null = null;
+    let targetBusinessId: string | null = null;
+
+    try {
+      const authData = await auth().catch(() => null);
+      const clerkUserId = authData?.userId || null;
+      const effectiveUserId = clerkUserId || body.userId;
+
+      if (effectiveUserId) {
+        const profile = await db.profile.findFirst({
+          where: {
+            OR: [
+              { clerkUserId: effectiveUserId },
+              { id: effectiveUserId },
+            ],
+          },
+        }).catch(() => null);
+
+        if (profile?.id) {
+          targetUserId = profile.id;
+        } else if (effectiveUserId) {
+          targetUserId = effectiveUserId;
+        }
+
+        const business = await db.business.findFirst({
+          where: {
+            OR: [
+              { userId: targetUserId || effectiveUserId },
+              { clerkUserId: effectiveUserId },
+              { id: targetUserId || effectiveUserId },
+            ],
+          },
+        }).catch(() => null) || await db.businessSettings.findFirst({
+          where: {
+            OR: [
+              { userId: targetUserId || effectiveUserId },
+            ],
+          },
+        }).catch(() => null);
+
+        if (business?.id) {
+          targetBusinessId = business.id;
+        } else {
+          targetBusinessId = targetUserId;
+        }
+      }
+    } catch (authErr) {
+      console.warn('[send-sms] Error resolving user/business:', authErr);
+    }
+
+    let createdInvite: any = null;
+    try {
+      createdInvite = await db.reviewInvite.create({
+        data: {
+          id: inviteToken,
+          token: inviteToken,
+          userId: targetUserId || body.userId || undefined,
+          user_id: targetUserId || body.userId || undefined,
+          businessId: targetBusinessId || targetUserId || undefined,
+          business_id: targetBusinessId || targetUserId || undefined,
+          customerName: customerName,
+          customerPhone: formattedTo,
+          phone: formattedTo,
+          channel: 'sms',
+          status: 'sent',
+          sentAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
+          placeId: placeId || null,
+          businessName: businessName,
+          reviewLink: funnelUrl,
+          serviceType: serviceType || 'General Service',
+        },
+      });
+    } catch (dbErr) {
+      console.error('[send-sms] db.reviewInvite.create error:', dbErr);
+    }
+
     return NextResponse.json(
       {
         success: true,
+        invite: createdInvite || {
+          id: inviteToken,
+          token: inviteToken,
+          customer_name: customerName,
+          customer_phone: formattedTo,
+          status: 'sent',
+          funnelUrl,
+        },
         messageId: result.messageId,
         status: result.status,
         from: twilioPhoneNumber,

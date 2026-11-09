@@ -502,10 +502,12 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
               resolveReviewUrl(activeBiz?.reviewUrl) ||
               resolveReviewUrl(activeBiz?.placeId) ||
               null;
-            await fetch('/api/invites/send', {
+            const res = await fetch('/api/invites/send', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
+                userId: state.profile?.id || (state.profile as any)?.clerkUserId || (state.profile as any)?.clerk_user_id,
+                businessId: activeBiz?.id,
                 customerName,
                 customerPhone,
                 serviceType,
@@ -518,6 +520,16 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 reviewGateUrl: gatingUrl,
               }),
             });
+            if (res.ok) {
+              const resJson = await res.json().catch(() => null);
+              if (resJson?.invite) {
+                set((s) => ({
+                  invites: s.invites.map((inv) =>
+                    inv.id === newInvite.id ? { ...inv, ...resJson.invite } : inv
+                  ),
+                }));
+              }
+            }
           } catch (err) {
             console.error('Failed to send SMS invite API:', err);
           }
@@ -554,7 +566,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           try {
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
             const gatingUrl = `${baseUrl}/review/${activeBiz?.id || 'demo'}`;
-            await fetch('/api/send-email-invite', {
+            const res = await fetch('/api/send-email-invite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -562,13 +574,23 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                 customer_name: customerName,
                 business_name: activeBiz?.name,
                 business_id: activeBiz?.id,
-                user_id: state.profile?.id,
+                user_id: state.profile?.id || (state.profile as any)?.clerkUserId,
                 place_id: activeBiz?.placeId,
                 reviewGateUrl: gatingUrl,
                 reviewUrl: gatingUrl,
                 service_type: serviceType,
               }),
             });
+            if (res.ok) {
+              const resJson = await res.json().catch(() => null);
+              if (resJson?.invite) {
+                set((s) => ({
+                  invites: s.invites.map((inv) =>
+                    inv.id === newInvite.id ? { ...inv, ...resJson.invite } : inv
+                  ),
+                }));
+              }
+            }
           } catch (err) {
             console.error('Failed to send email invite API:', err);
           }
@@ -916,7 +938,17 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           if (isMounted && invitesRes.ok) {
             const invitesJson = await invitesRes.json().catch(() => null);
             if (invitesJson?.success && Array.isArray(invitesJson.invites)) {
-              zustandStore.setInvites(invitesJson.invites as Invite[]);
+              if (invitesJson.invites.length > 0) {
+                const fetched: Invite[] = invitesJson.invites;
+                const existing = zustandStore.invites;
+                const merged = [...fetched];
+                for (const item of existing) {
+                  if (!merged.some(m => m.id === item.id || (((m as any).token) && (m as any).token === (item as any).token) || (m.customer_phone && m.customer_phone === item.customer_phone && m.sent_at === item.sent_at))) {
+                    merged.push(item);
+                  }
+                }
+                zustandStore.setInvites(merged);
+              }
             }
           }
 
