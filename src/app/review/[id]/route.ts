@@ -66,6 +66,27 @@ export async function GET(
       business.placeId = business.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg';
       business.googleReviewUrl = business.googleReviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
     } else if (id) {
+      // Record link tap event & update invite status in review_invites
+      try {
+        const invite = await db.reviewInvite.findFirst({
+          where: {
+            OR: [{ id }, { token: id }],
+          },
+        });
+        if (invite) {
+          await db.reviewInvite.update({
+            where: { id: invite.id },
+            data: {
+              status: invite.status === 'reviewed' ? 'reviewed' : 'opened',
+              openedAt: new Date(),
+              clicks: { increment: 1 },
+            },
+          });
+        }
+      } catch (tapErr) {
+        console.warn('[review/[id]] Error updating invite tap:', tapErr);
+      }
+
       const supabase = getSupabaseAdmin();
       let settingsData: any = null;
 

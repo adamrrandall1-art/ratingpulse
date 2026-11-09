@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { db } from '@/lib/db';
 import {
   extractPlaceId,
   constructGoogleReviewUrl,
@@ -60,14 +61,48 @@ export async function getFunnelData(
     const supabase = getSupabaseAdmin();
     if (supabase) {
       // 1. Fetch invite record
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
-      let inviteQuery = supabase.from('review_invites').select('*');
-      if (isUuid) {
-        inviteQuery = inviteQuery.eq('id', token);
-      } else {
-        inviteQuery = inviteQuery.or(`id.eq.${token},token.eq.${token}`);
+      let inviteData: any = null;
+      try {
+        inviteData = await db.reviewInvite.findFirst({
+          where: {
+            OR: [
+              { id: token },
+              { token: token },
+            ],
+          },
+        });
+      } catch {}
+
+      if (!inviteData) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
+        let inviteQuery = supabase.from('review_invites').select('*');
+        if (isUuid) {
+          inviteQuery = inviteQuery.eq('id', token);
+        } else {
+          inviteQuery = inviteQuery.or(`id.eq.${token},token.eq.${token}`);
+        }
+        const { data: sData } = await inviteQuery.maybeSingle();
+        inviteData = sData;
       }
-      const { data: inviteData } = await inviteQuery.maybeSingle();
+
+      // Record tap event & increment clicks in review_invites
+      if (inviteData?.id) {
+        try {
+          const updatedInvite = await db.reviewInvite.update({
+            where: { id: inviteData.id },
+            data: {
+              status: inviteData.status === 'reviewed' ? 'reviewed' : 'opened',
+              openedAt: new Date(),
+              clicks: { increment: 1 },
+            },
+          });
+          if (updatedInvite) {
+            inviteData = { ...inviteData, ...updatedInvite };
+          }
+        } catch (tapErr) {
+          console.warn('[getFunnelData] Error updating invite tap:', tapErr);
+        }
+      }
 
       // 2. In the database query, always fetch the live associated business record
       const targetUserId = inviteData?.user_id || inviteData?.business_id;

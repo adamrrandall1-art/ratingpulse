@@ -89,8 +89,20 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
             : (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
         : '—');
 
-  const totalInvitesSent = effectiveInvites.length;
-  const completedReviewsFromInvites = effectiveInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
+  // Filter invites consistently by timeRange across all reports metrics
+  const now = Date.now();
+  const timeFilteredInvites = effectiveInvites.filter((inv) => {
+    if (!timeRange || timeRange === 'all') return true;
+    const days = timeRange === '90d' ? 90 : timeRange === '60d' ? 60 : 30;
+    const dateStr = inv.sent_at || (inv as any).sentAt || inv.created_at || (inv as any).createdAt;
+    if (!dateStr) return true;
+    const t = new Date(dateStr).getTime();
+    if (isNaN(t)) return true;
+    return (now - t) <= days * 24 * 60 * 60 * 1000;
+  });
+
+  const totalInvitesSent = timeFilteredInvites.length;
+  const completedReviewsFromInvites = timeFilteredInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
   const conversionRate = totalInvitesSent > 0
     ? `${((completedReviewsFromInvites / totalInvitesSent) * 100).toFixed(1)}%`
     : '0.0%';
@@ -109,7 +121,20 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
   const handleExportReport = () => {
     setIsExporting(true);
     try {
-      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,${ratingScore} / 5.0\nMonthly Review Velocity,${reviewVelocity} new reviews\nInvite Conversion Rate,${conversionRate} (${completedReviewsFromInvites} completed / ${totalInvitesSent} sent)\nAI Response Rate,${aiResponseRate}\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,${totalInvitesSent},100.0%,50.0% click rate,${completedReviewsFromInvites},${conversionRate}\n\nExported from RatingPulse`;
+      const smsInvites = timeFilteredInvites.filter(i => i.channel === 'sms' || i.channel === 'both');
+      const totalSmsSent = smsInvites.length;
+      const totalSmsClicks = smsInvites.filter((i: any) =>
+        (typeof i.clicks === 'number' && i.clicks > 0) ||
+        i.openedAt ||
+        i.opened_at ||
+        i.clickedAt ||
+        i.clicked_at ||
+        i.status === 'opened' ||
+        i.status === 'reviewed'
+      ).length;
+      const smsClickRate = totalSmsSent > 0 ? `${((totalSmsClicks / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
+
+      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,${ratingScore} / 5.0\nMonthly Review Velocity,${reviewVelocity} new reviews\nInvite Conversion Rate,${conversionRate} (${completedReviewsFromInvites} completed / ${totalInvitesSent} sent)\nAI Response Rate,${aiResponseRate}\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,${totalSmsSent},100.0%,${smsClickRate} click rate (${totalSmsClicks} taps),${completedReviewsFromInvites},${conversionRate}\n\nExported from RatingPulse`;
 
       const blob = new Blob([csvReport], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);

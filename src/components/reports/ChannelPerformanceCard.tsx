@@ -26,20 +26,49 @@ export default function ChannelPerformanceCard({
 }: ChannelPerformanceCardProps) {
   const isDemo = isDemoMode;
 
-  const smsInvites = invites.filter((i) => i.channel === 'sms' || i.channel === 'both');
-  const emailInvites = invites.filter((i) => i.channel === 'email');
+  // Filter invites consistently by timeRange across all channels and calculations
+  const now = Date.now();
+  const filteredInvites = invites.filter((inv) => {
+    if (!timeRange || timeRange === 'all') return true;
+    const days = timeRange === '90d' ? 90 : timeRange === '60d' ? 60 : 30;
+    const dateStr = inv.sent_at || (inv as any).sentAt || inv.created_at || (inv as any).createdAt;
+    if (!dateStr) return true;
+    const t = new Date(dateStr).getTime();
+    if (isNaN(t)) return true;
+    return (now - t) <= days * 24 * 60 * 60 * 1000;
+  });
 
-  const smsSent = smsInvites.length;
-  const smsDelivered = smsSent > 0 ? '100.0%' : '0.0%';
-  const smsClicks = smsSent > 0 ? '50.0%' : '0.0%';
-  const smsClickCount = Math.round(smsSent * 0.5);
+  const smsInvites = filteredInvites.filter((i) => i.channel === 'sms' || i.channel === 'both');
+  const emailInvites = filteredInvites.filter((i) => i.channel === 'email');
+
+  const totalSent = smsInvites.length;
+  const totalClicks = smsInvites.filter((i: any) =>
+    (typeof i.clicks === 'number' && i.clicks > 0) ||
+    i.openedAt ||
+    i.opened_at ||
+    i.clickedAt ||
+    i.clicked_at ||
+    i.status === 'opened' ||
+    i.status === 'reviewed'
+  ).length;
+
+  const clickThroughRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : '0.0';
+  const smsDelivered = totalSent > 0 ? '100.0%' : '0.0%';
   const smsCompleted = smsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
-  const smsConversion = smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%';
+  const smsConversion = totalSent > 0 ? `${((smsCompleted / totalSent) * 100).toFixed(1)}%` : '0.0%';
 
   const emailSent = emailInvites.length;
+  const emailOpenedCount = emailInvites.filter((i: any) =>
+    (typeof i.clicks === 'number' && i.clicks > 0) ||
+    i.openedAt ||
+    i.opened_at ||
+    i.clickedAt ||
+    i.clicked_at ||
+    i.status === 'opened' ||
+    i.status === 'reviewed'
+  ).length;
+  const emailOpenRate = emailSent > 0 ? `${((emailOpenedCount / emailSent) * 100).toFixed(1)}%` : '0.0%';
   const emailDelivered = emailSent > 0 ? '100.0%' : '0.0%';
-  const emailOpenRate = emailSent > 0 ? '60.0%' : '0.0%';
-  const emailOpenedCount = Math.round(emailSent * 0.6);
   const emailCompleted = emailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const emailConversion = emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%';
 
@@ -58,7 +87,7 @@ export default function ChannelPerformanceCard({
           </p>
         </div>
         <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full shrink-0">
-          Last 30 Days
+          {timeRange === 'all' ? 'All Time' : `Last ${timeRange.replace('d', '')} Days`}
         </span>
       </div>
 
@@ -89,14 +118,14 @@ export default function ChannelPerformanceCard({
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Sent</div>
-              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{smsSent}</div>
+              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{totalSent}</div>
               <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">{smsDelivered} Delivered</div>
             </div>
 
             <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Click-Through</div>
-              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{smsClicks}</div>
-              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{smsClickCount} Taps</div>
+              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{clickThroughRate}%</div>
+              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{totalClicks} Taps</div>
             </div>
           </div>
 

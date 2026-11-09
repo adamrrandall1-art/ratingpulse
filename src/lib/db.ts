@@ -92,6 +92,11 @@ function normalizeReviewInvite(row: any) {
   const serviceType = row.serviceType || row.service_type || 'General Service';
   const channel = row.channel || (customerEmail && !customerPhone ? 'email' : 'sms');
   const status = row.status || 'sent';
+  const openedAt = row.openedAt || row.opened_at || null;
+  const clickedAt = row.clickedAt || row.clicked_at || null;
+  const clicks = typeof row.clicks === 'number'
+    ? row.clicks
+    : (row.clicks ? Number(row.clicks) : (openedAt || clickedAt || status === 'opened' || status === 'reviewed' ? 1 : 0));
   const sentAt = row.sentAt || row.sent_at || row.createdAt || row.created_at || new Date().toISOString();
   const createdAt = row.createdAt || row.created_at || sentAt;
   const updatedAt = row.updatedAt || row.updated_at || createdAt;
@@ -121,6 +126,11 @@ function normalizeReviewInvite(row: any) {
     service_type: serviceType,
     channel,
     status,
+    openedAt,
+    opened_at: openedAt ? (typeof openedAt === 'string' ? openedAt : new Date(openedAt).toISOString()) : null,
+    clickedAt,
+    clicked_at: clickedAt ? (typeof clickedAt === 'string' ? clickedAt : new Date(clickedAt).toISOString()) : null,
+    clicks,
     sentAt,
     sent_at: typeof sentAt === 'string' ? sentAt : new Date(sentAt).toISOString(),
     createdAt,
@@ -1816,8 +1826,14 @@ export const db = {
 
       // 4. Apply where filtering if provided
       if (args?.where) {
+        if (args.where.id || args.where.token) {
+          const tId = String(args.where.id || args.where.token);
+          records = records.filter(r => r.id === tId || r.token === tId);
+        }
+
         const candidateUserIds: string[] = [];
         const candidateBusinessIds: string[] = [];
+        const candidateIds: string[] = [];
 
         if (args.where.userId) candidateUserIds.push(String(args.where.userId));
         if (args.where.user_id) candidateUserIds.push(String(args.where.user_id));
@@ -1827,6 +1843,8 @@ export const db = {
 
         if (Array.isArray(args.where.OR)) {
           for (const item of args.where.OR) {
+            if (item?.id) candidateIds.push(String(item.id));
+            if (item?.token) candidateIds.push(String(item.token));
             if (item?.userId) candidateUserIds.push(String(item.userId));
             if (item?.user_id) candidateUserIds.push(String(item.user_id));
             if (item?.businessId) candidateBusinessIds.push(String(item.businessId));
@@ -1835,8 +1853,17 @@ export const db = {
           }
         }
 
+        const validCandIds = new Set(candidateIds.filter(Boolean));
         const validCandUserIds = new Set(candidateUserIds.filter(Boolean));
         const validCandBizIds = new Set(candidateBusinessIds.filter(Boolean));
+
+        if (validCandIds.size > 0) {
+          records = records.filter(r => {
+            if (r.id && validCandIds.has(String(r.id))) return true;
+            if (r.token && validCandIds.has(String(r.token))) return true;
+            return false;
+          });
+        }
 
         if (validCandUserIds.size > 0 || validCandBizIds.size > 0) {
           records = records.filter(r => {
@@ -1874,6 +1901,132 @@ export const db = {
       }
 
       return records;
+    },
+
+    update: async (args: {
+      where: { id?: string; token?: string; [key: string]: any };
+      data: any;
+    }) => {
+      const targetId = String(args.where.id || args.where.token || '');
+      if (!targetId) return null;
+
+      // 1. Fetch current record
+      const existing = await db.reviewInvite.findFirst({
+        where: {
+          OR: [
+            { id: targetId },
+            { token: targetId },
+          ],
+        },
+      });
+
+      const current = existing || {
+        id: targetId,
+        token: targetId,
+        status: 'sent',
+        clicks: 0,
+      };
+
+      // 2. Compute updated fields
+      let nextStatus = args.data.status !== undefined ? args.data.status : current.status;
+      if (current.status === 'reviewed' && args.data.status === 'opened') {
+        nextStatus = 'reviewed';
+      }
+
+      let nextClicks = typeof current.clicks === 'number' ? current.clicks : 0;
+      if (typeof args.data.clicks === 'object' && args.data.clicks !== null && 'increment' in args.data.clicks) {
+        nextClicks += Number(args.data.clicks.increment) || 1;
+      } else if (typeof args.data.clicks === 'number') {
+        nextClicks = args.data.clicks;
+      } else if (args.data.clicks) {
+        nextClicks += 1;
+      } else if (args.data.openedAt || args.data.opened_at || args.data.clickedAt || args.data.clicked_at) {
+        nextClicks = Math.max(nextClicks, 1);
+      }
+
+      const nextOpenedAt = args.data.openedAt ?? args.data.opened_at ?? current.openedAt ?? current.opened_at ?? new Date().toISOString();
+      const nextClickedAt = args.data.clickedAt ?? args.data.clicked_at ?? current.clickedAt ?? current.clicked_at ?? nextOpenedAt;
+      const nextUpdatedAt = new Date().toISOString();
+
+      const merged = {
+        ...current,
+        ...args.data,
+        id: current.id || targetId,
+        token: current.token || targetId,
+        status: nextStatus,
+        clicks: nextClicks,
+        openedAt: nextOpenedAt,
+        opened_at: typeof nextOpenedAt === 'string' ? nextOpenedAt : new Date(nextOpenedAt).toISOString(),
+        clickedAt: nextClickedAt,
+        clicked_at: typeof nextClickedAt === 'string' ? nextClickedAt : new Date(nextClickedAt).toISOString(),
+        updatedAt: nextUpdatedAt,
+        updated_at: nextUpdatedAt,
+      };
+
+      const norm = normalizeReviewInvite(merged);
+      if (norm) {
+        cacheReviewInvite(norm);
+      }
+
+      // 3. Persist update to Supabase review_invites table
+      const supabase = getAdminClient();
+      if (supabase) {
+        try {
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(norm?.id || targetId);
+          const updatePayload: Record<string, any> = {
+            status: norm?.status || nextStatus,
+            updated_at: nextUpdatedAt,
+          };
+
+          if (norm?.opened_at) updatePayload.opened_at = norm.opened_at;
+          if (norm?.clicked_at) updatePayload.clicked_at = norm.clicked_at;
+          if (norm?.clicks !== undefined) updatePayload.clicks = norm.clicks;
+          if (args.data.ratingReceived !== undefined) updatePayload.rating_received = args.data.ratingReceived;
+          if (args.data.rating_received !== undefined) updatePayload.rating_received = args.data.rating_received;
+          if (args.data.reviewReceivedAt) updatePayload.review_received_at = new Date(args.data.reviewReceivedAt).toISOString();
+          if (args.data.review_received_at) updatePayload.review_received_at = new Date(args.data.review_received_at).toISOString();
+
+          let query = supabase.from('review_invites').update(updatePayload);
+          if (isUuid) {
+            query = query.eq('id', norm?.id || targetId);
+          } else {
+            query = query.eq('token', targetId);
+          }
+
+          const { error: updErr } = await query;
+          if (updErr) {
+            if (updErr.code === '42703') {
+              console.warn('[db.reviewInvite.update] Column mismatch, retrying base status update:', updErr.message);
+              const basePayload: Record<string, any> = {
+                status: norm?.status || nextStatus,
+                updated_at: nextUpdatedAt,
+              };
+              let retryQuery = supabase.from('review_invites').update(basePayload);
+              if (isUuid) {
+                retryQuery = retryQuery.eq('id', norm?.id || targetId);
+              } else {
+                retryQuery = retryQuery.eq('token', targetId);
+              }
+              const { error: retryErr } = await retryQuery;
+              if (retryErr && retryErr.code === '42703') {
+                let fallbackQuery = supabase.from('review_invites').update({ status: norm?.status || nextStatus });
+                if (isUuid) {
+                  fallbackQuery = fallbackQuery.eq('id', norm?.id || targetId);
+                } else {
+                  fallbackQuery = fallbackQuery.eq('token', targetId);
+                }
+                await fallbackQuery;
+              }
+            } else {
+              console.error('[db.reviewInvite.update] Supabase error:', updErr.message);
+            }
+          }
+        } catch (dbErr) {
+          console.warn('[db.reviewInvite.update] Supabase update warning:', dbErr);
+        }
+      }
+
+      return norm || merged;
     },
 
     findFirst: async (args?: any) => {

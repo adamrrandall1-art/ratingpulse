@@ -117,16 +117,30 @@ export interface Review {
 
 export interface Invite {
   id: string;
+  token?: string;
   user_id: string;
+  userId?: string;
   business_id?: string | null;
+  businessId?: string | null;
   place_id?: string | null;
+  placeId?: string | null;
   customer_name: string;
+  customerName?: string;
   customer_phone: string;
+  customerPhone?: string;
   customer_email?: string | null;
+  customerEmail?: string | null;
   service_type: string;
+  serviceType?: string;
   channel?: string;
   status: 'sent' | 'delivered' | 'opened' | 'reviewed' | 'feedback_submitted' | string;
   sent_at: string;
+  sentAt?: string | Date;
+  opened_at?: string | null;
+  openedAt?: string | Date | null;
+  clicked_at?: string | null;
+  clickedAt?: string | Date | null;
+  clicks?: number;
   review_received_at?: string | null;
   rating_received?: number | null;
   feedback_text?: string | null;
