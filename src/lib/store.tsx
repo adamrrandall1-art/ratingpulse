@@ -67,6 +67,61 @@ export const isLowStarOrFeedback = (inv: Partial<Invite>) => {
   return hasLowRating || hasFeedbackText || isFeedbackStatus;
 };
 
+export function computeMergedFeedback(invites: Invite[] = [], feedbackList: any[] = []) {
+  const map = new Map<string, any>();
+
+  feedbackList.forEach((f: any) => {
+    const id = String(f.id);
+    map.set(id, {
+      id,
+      user_id: f.user_id,
+      business_id: f.business_id,
+      customer_name: f.customer_name || 'Anonymous Customer',
+      customer_phone: f.customer_phone || '',
+      customer_email: f.customer_email || '',
+      service_type: 'Private Feedback Gate',
+      status: f.status || 'unresolved',
+      resolution_status: f.status === 'resolved' ? 'resolved' : (f.status === 'contacted' ? 'contacted' : 'needs_follow_up'),
+      rating_received: Number(f.rating) || 2,
+      rating: Number(f.rating) || 2,
+      feedback_text: f.feedback_text || '',
+      notes: f.notes || '',
+      created_at: f.created_at || new Date().toISOString(),
+      sent_at: f.created_at || new Date().toISOString(),
+      review_received_at: f.created_at || new Date().toISOString(),
+    });
+  });
+
+  const inviteItems = invites.filter((inv: Invite) => isLowStarOrFeedback(inv));
+  inviteItems.forEach((inv: Invite) => {
+    const id = String(inv.id);
+    if (!map.has(id)) {
+      const alreadyExists = Array.from(map.values()).some(
+        (existing) =>
+          existing.feedback_text &&
+          inv.feedback_text &&
+          existing.feedback_text === inv.feedback_text &&
+          existing.customer_name === inv.customer_name
+      );
+      if (!alreadyExists) {
+        map.set(id, {
+          ...inv,
+          id,
+          rating_received: Number(inv.rating_received) || Number((inv as any).rating) || 2,
+          rating: Number(inv.rating_received) || Number((inv as any).rating) || 2,
+          notes: (inv as any).notes || '',
+        });
+      }
+    }
+  });
+
+  return Array.from(map.values()).sort((a, b) => {
+    const tA = new Date(a.review_received_at || a.created_at || a.sent_at || 0).getTime();
+    const tB = new Date(b.review_received_at || b.created_at || b.sent_at || 0).getTime();
+    return tB - tA;
+  });
+}
+
 export interface RatingPulseStoreState {
   hasHydrated: boolean;
   isDemoMode: boolean;
@@ -76,6 +131,7 @@ export interface RatingPulseStoreState {
   settings: BusinessSettings;
   reviews: Review[];
   invites: Invite[];
+  feedback: any[];
   isLoaded: boolean;
   isSaving: boolean;
   searchQuery: string;
@@ -89,6 +145,7 @@ export interface RatingPulseStoreState {
   setSearchQuery: (query: string) => void;
   setReviews: (reviews: Review[]) => void;
   setInvites: (invites: Invite[]) => void;
+  setFeedback: (feedback: any[]) => void;
   setProfile: (profile: Profile) => void;
   setSettings: (settings: BusinessSettings) => void;
   setIsLoaded: (val: boolean) => void;
@@ -138,11 +195,13 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
       settings: initialSettings,
       reviews: initialReviews,
       invites: initialInvites,
+      feedback: [],
       isLoaded: false,
       isSaving: false,
       searchQuery: '',
 
       setHasHydrated: (val: boolean) => set({ hasHydrated: val }),
+      setFeedback: (feedback: any[]) => set({ feedback }),
 
       toggleDemoMode: (enable?: boolean) => {
         set((state) => {
@@ -610,6 +669,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           liveBusiness: null,
           reviews: [],
           invites: [],
+          feedback: [],
         });
       },
 
@@ -623,6 +683,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           reviews: DEMO_REVIEWS || initialReviews,
           invites: DEMO_INVITES || initialInvites,
           settings: DEMO_SETTINGS || initialSettings,
+          feedback: [],
         });
       },
     }),
@@ -662,6 +723,7 @@ registerCacheResetListener(() => {
   store.setLiveBusiness(null);
   store.setReviews([]);
   store.setInvites([]);
+  store.setFeedback([]);
 });
 
 export interface RatingPulseStoreContextType {
@@ -671,6 +733,8 @@ export interface RatingPulseStoreContextType {
   settings: BusinessSettings;
   reviews: Review[];
   invites: Invite[];
+  feedback: any[];
+  setFeedback: (feedback: any[]) => void;
   isLoaded: boolean;
   isSaving: boolean;
   isDemoMode: boolean;
@@ -831,17 +895,21 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        // Fetch live reviews and invites via internal server API routes instead of direct Supabase queries with raw Clerk IDs
+        // Fetch live reviews, invites, and feedback via internal server API routes instead of direct Supabase queries with raw Clerk IDs
         try {
-          const [revsRes, invitesRes] = await Promise.all([
+          const [revsRes, invitesRes, feedbackRes] = await Promise.all([
             fetch(`/api/reviews?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`),
             fetch(`/api/invites?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`),
+            fetch(`/api/feedback?userId=${encodeURIComponent(activeUserId)}&_t=${Date.now()}`).catch(() => null),
           ]);
 
           if (isMounted && revsRes.ok) {
             const revsJson = await revsRes.json().catch(() => null);
-            if (revsJson?.success && Array.isArray(revsJson.reviews) && revsJson.reviews.length > 0) {
+            if (revsJson?.success && Array.isArray(revsJson.reviews)) {
               zustandStore.setReviews(revsJson.reviews as Review[]);
+            }
+            if (revsJson?.success && Array.isArray(revsJson.feedback) && revsJson.feedback.length > 0) {
+              zustandStore.setFeedback(revsJson.feedback);
             }
           }
 
@@ -849,6 +917,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const invitesJson = await invitesRes.json().catch(() => null);
             if (invitesJson?.success && Array.isArray(invitesJson.invites)) {
               zustandStore.setInvites(invitesJson.invites as Invite[]);
+            }
+          }
+
+          if (isMounted && feedbackRes && feedbackRes.ok) {
+            const fbJson = await feedbackRes.json().catch(() => null);
+            if (fbJson?.success && Array.isArray(fbJson.feedback) && fbJson.feedback.length > 0) {
+              zustandStore.setFeedback(fbJson.feedback);
             }
           }
         } catch (fetchErr) {
@@ -976,6 +1051,10 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     };
   }, [store.isDemoMode, store.profile, store.demoBusiness, store.liveBusiness]);
 
+  const mergedFeedback = useMemo(() => {
+    return computeMergedFeedback(activeInvites, store.feedback || []);
+  }, [activeInvites, store.feedback]);
+
   return {
     activeBusiness,
     setActiveBusiness: store.setActiveBusiness,
@@ -983,6 +1062,8 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     settings: store.settings,
     reviews: activeReviews,
     invites: activeInvites,
+    feedback: store.feedback || [],
+    setFeedback: store.setFeedback,
     isLoaded: store.isLoaded,
     isSaving: store.isSaving,
     isDemoMode: store.isDemoMode,
@@ -1005,8 +1086,8 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
     resetDemoData: store.resetDemoData,
     pendingReviewsCount: activeReviews.filter((r) => r.status === 'pending_approval').length,
     publishedReviewsCount: activeReviews.filter((r) => r.status === 'published').length,
-    privateFeedbackCount: activeInvites.filter((inv) => isLowStarOrFeedback(inv)).length,
-    unresolvedFeedbackCount: activeInvites.filter((inv) => isLowStarOrFeedback(inv) && inv.resolution_status !== 'resolved').length,
+    privateFeedbackCount: mergedFeedback.length,
+    unresolvedFeedbackCount: mergedFeedback.filter((item) => item.resolution_status !== 'resolved' && item.status !== 'resolved' && item.status !== 'archived').length,
     searchQuery: store.searchQuery,
     setSearchQuery: store.setSearchQuery,
   };

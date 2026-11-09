@@ -373,5 +373,62 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function GET(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get('userId');
+
+    const supabaseAdmin = getAdminClient();
+    if (!supabaseAdmin) {
+      return NextResponse.json({ success: true, feedback: [] });
+    }
+
+    let feedback: any[] = [];
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+    if (userId) {
+      const candidateIds: string[] = [];
+      if (isUuid.test(userId)) candidateIds.push(userId);
+
+      try {
+        const { data: prof } = await supabaseAdmin
+          .from('profiles')
+          .select('id')
+          .eq('clerk_user_id', userId)
+          .maybeSingle();
+        if (prof?.id && isUuid.test(prof.id)) candidateIds.push(prof.id);
+      } catch {}
+
+      for (const candId of candidateIds) {
+        try {
+          const { data } = await supabaseAdmin
+            .from('feedback')
+            .select('*')
+            .or(`user_id.eq.${candId},business_id.eq.${candId}`)
+            .order('created_at', { ascending: false });
+          if (data && data.length > 0) {
+            feedback = data;
+            break;
+          }
+        } catch {}
+      }
+    }
+
+    if (feedback.length === 0) {
+      const { data } = await supabaseAdmin
+        .from('feedback')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (data) feedback = data;
+    }
+
+    return NextResponse.json({ success: true, feedback }, { status: 200 });
+  } catch (error: any) {
+    console.warn('[FEEDBACK_GET_ERROR]', error);
+    return NextResponse.json({ success: true, feedback: [] }, { status: 200 });
+  }
+}
+
 
 

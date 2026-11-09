@@ -50,6 +50,7 @@ export async function GET(req: NextRequest) {
 
     const supabase = getSupabaseAdmin();
     let reviews: any[] = [];
+    let feedback: any[] = [];
 
     if (supabase) {
       const candidateIds: string[] = [];
@@ -77,11 +78,39 @@ export async function GET(req: NextRequest) {
           }
         } catch {}
       }
+
+      for (const candId of candidateIds) {
+        try {
+          const { data: fbData } = await supabase
+            .from('feedback')
+            .select('*')
+            .or(`user_id.eq.${candId},business_id.eq.${candId}`)
+            .order('created_at', { ascending: false });
+          if (fbData && fbData.length > 0) {
+            feedback = fbData;
+            break;
+          }
+        } catch {}
+      }
+
+      if (feedback.length === 0) {
+        try {
+          const { data: allFb } = await supabase
+            .from('feedback')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(50);
+          if (allFb && allFb.length > 0) {
+            feedback = allFb;
+          }
+        } catch {}
+      }
     }
 
     return NextResponse.json({
       success: true,
       reviews,
+      feedback,
     }, { status: 200 });
   } catch (error: any) {
     console.warn('[REVIEWS_API_ERROR]', error);

@@ -38,10 +38,12 @@ export default function PrivateFeedbackFeed({
   subFilter,
   onSubFilterChange,
 }: PrivateFeedbackFeedProps) {
-  const { profile, invites, updateInviteResolution, searchQuery } = useRatingPulseStore();
+  const { profile, invites, feedback, updateInviteResolution, searchQuery } = useRatingPulseStore();
   const [internalFilter, setInternalFilter] = useState<FeedbackFilter>('needs_follow_up');
   const activeFilter = subFilter || internalFilter;
-  const [supabaseFeedback, setSupabaseFeedback] = useState<any[]>(liveFeedback);
+  const [supabaseFeedback, setSupabaseFeedback] = useState<any[]>(() => {
+    return (liveFeedback && liveFeedback.length > 0) ? liveFeedback : (feedback || []);
+  });
   const [activeHighlightId, setActiveHighlightId] = useState<string | null>(highlightId || null);
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({});
   const [savedNotes, setSavedNotes] = useState<Record<string, string>>({});
@@ -55,26 +57,62 @@ export default function PrivateFeedbackFeed({
     onSubFilterChange?.(newFilter);
   };
 
-  // 1. Fetch live feedback rows from Supabase
+  // Sync incoming liveFeedback or store feedback into local state
+  useEffect(() => {
+    const incoming = (liveFeedback && liveFeedback.length > 0) ? liveFeedback : feedback;
+    if (incoming && incoming.length > 0) {
+      setSupabaseFeedback((prev) => {
+        const map = new Map<string, any>();
+        prev.forEach((item) => map.set(String(item.id), item));
+        incoming.forEach((item: any) => map.set(String(item.id), { ...map.get(String(item.id)), ...item }));
+        return Array.from(map.values());
+      });
+    }
+  }, [liveFeedback, feedback]);
+
+  // 1. Fetch live feedback rows from Supabase (with API fallback)
   useEffect(() => {
     async function fetchSupabaseFeedback() {
-      if (!isSupabaseConfigured || !supabase) return;
       try {
-        let query = supabase.from('feedback').select('*').order('created_at', { ascending: false });
-        if (profile.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.id)) {
-          query = query.or(`user_id.eq.${profile.id},business_id.eq.${profile.id}`);
+        let fetchedData: any[] = [];
+        if (isSupabaseConfigured && supabase) {
+          let query = supabase.from('feedback').select('*').order('created_at', { ascending: false });
+          if (profile.id && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(profile.id)) {
+            query = query.or(`user_id.eq.${profile.id},business_id.eq.${profile.id}`);
+          }
+          const { data, error } = await query;
+          if (!error && data && data.length > 0) {
+            fetchedData = data;
+          }
         }
-        const { data, error } = await query;
-        if (!error && data) {
-          setSupabaseFeedback(data);
+
+        // If client-side Supabase returned 0 rows or is unconfigured, fallback to server API route
+        if (fetchedData.length === 0) {
+          const userIdParam = profile.id || (profile as any).clerk_user_id || '';
+          const res = await fetch(`/api/feedback?userId=${encodeURIComponent(userIdParam)}&_t=${Date.now()}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json?.success && Array.isArray(json.feedback) && json.feedback.length > 0) {
+              fetchedData = json.feedback;
+            }
+          }
+        }
+
+        if (fetchedData.length > 0) {
+          setSupabaseFeedback((prev) => {
+            const map = new Map<string, any>();
+            prev.forEach((item) => map.set(String(item.id), item));
+            fetchedData.forEach((item: any) => map.set(String(item.id), { ...map.get(String(item.id)), ...item }));
+            return Array.from(map.values());
+          });
         }
       } catch (err) {
-        console.warn('Error fetching private feedback from Supabase:', err);
+        console.warn('Error fetching private feedback:', err);
       }
     }
 
     fetchSupabaseFeedback();
-  }, [profile.id]);
+  }, [profile.id, (profile as any).clerk_user_id]);
 
   // Sync highlightId prop
   useEffect(() => {
