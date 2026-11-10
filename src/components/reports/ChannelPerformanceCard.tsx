@@ -41,33 +41,32 @@ export default function ChannelPerformanceCard({
   const smsInvites = filteredInvites.filter((i) => i.channel === 'sms' || i.channel === 'both');
   const emailInvites = filteredInvites.filter((i) => i.channel === 'email');
 
-  const totalSent = smsInvites.length;
-  const totalClicks = smsInvites.filter((i: any) =>
-    (typeof i.clicks === 'number' && i.clicks > 0) ||
+  const smsSent = smsInvites.length;
+  const smsTaps = smsInvites.filter((i: any) =>
+    i.status === 'opened' ||
+    i.status === 'reviewed' ||
+    (i.clicks && i.clicks > 0) ||
     i.openedAt ||
     i.opened_at ||
     i.clickedAt ||
-    i.clicked_at ||
-    i.status === 'opened' ||
-    i.status === 'reviewed'
+    i.clicked_at
   ).length;
-
-  const clickThroughRate = totalSent > 0 ? ((totalClicks / totalSent) * 100).toFixed(1) : '0.0';
-  const smsDelivered = totalSent > 0 ? '100.0%' : '0.0%';
+  const smsCTR = smsSent > 0 ? ((smsTaps / smsSent) * 100).toFixed(1) : '0.0';
+  const smsDelivered = smsSent > 0 ? '100.0%' : '0.0%';
   const smsCompleted = smsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
-  const smsConversion = totalSent > 0 ? `${((smsCompleted / totalSent) * 100).toFixed(1)}%` : '0.0%';
+  const smsConversion = smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%';
 
   const emailSent = emailInvites.length;
-  const emailOpenedCount = emailInvites.filter((i: any) =>
-    (typeof i.clicks === 'number' && i.clicks > 0) ||
+  const emailOpens = emailInvites.filter((i: any) =>
+    i.status === 'opened' ||
+    i.status === 'reviewed' ||
+    (i.clicks && i.clicks > 0) ||
     i.openedAt ||
     i.opened_at ||
     i.clickedAt ||
-    i.clicked_at ||
-    i.status === 'opened' ||
-    i.status === 'reviewed'
+    i.clicked_at
   ).length;
-  const emailOpenRate = emailSent > 0 ? `${((emailOpenedCount / emailSent) * 100).toFixed(1)}%` : '0.0%';
+  const emailOpenRate = emailSent > 0 ? ((emailOpens / emailSent) * 100).toFixed(1) : '0.0';
   const emailDelivered = emailSent > 0 ? '100.0%' : '0.0%';
   const emailCompleted = emailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const emailConversion = emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%';
@@ -118,14 +117,14 @@ export default function ChannelPerformanceCard({
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Sent</div>
-              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{totalSent}</div>
+              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{smsSent}</div>
               <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">{smsDelivered} Delivered</div>
             </div>
 
             <div className="p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Click-Through</div>
-              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{clickThroughRate}%</div>
-              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{totalClicks} Taps</div>
+              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{smsCTR}%</div>
+              <div className="text-[11px] text-indigo-600 font-semibold mt-0.5">{smsTaps} Taps</div>
             </div>
           </div>
 
@@ -171,8 +170,8 @@ export default function ChannelPerformanceCard({
 
             <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl">
               <div className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">Open Rate</div>
-              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{emailOpenRate}</div>
-              <div className="text-[11px] text-slate-600 font-semibold mt-0.5">{emailOpenedCount} Opened</div>
+              <div className="text-lg font-extrabold text-slate-900 mt-0.5">{emailOpenRate}%</div>
+              <div className="text-[11px] text-slate-600 font-semibold mt-0.5">{emailOpens} Opened</div>
             </div>
           </div>
 

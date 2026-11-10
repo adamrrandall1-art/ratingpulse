@@ -86,11 +86,11 @@ function normalizeReviewInvite(row: any) {
   const token = String(row.token || id);
   const userId = row.userId || row.user_id || null;
   const businessId = row.businessId || row.business_id || null;
-  const customerName = row.customerName || row.customer_name || row.name || 'Valued Customer';
-  const customerPhone = row.customerPhone || row.customer_phone || row.phone || '';
-  const customerEmail = row.customerEmail || row.customer_email || row.email || null;
+  const customerName = row.customerName || row.customer_name || row.recipientName || row.recipient_name || row.name || 'Valued Customer';
+  const customerEmail = row.customerEmail || row.customer_email || row.recipientEmail || row.recipient_email || row.email || (typeof row.customer_phone === 'string' && row.customer_phone.includes('@') ? row.customer_phone : null);
+  const customerPhone = row.customerPhone || row.customer_phone || row.recipientPhone || row.phone || '';
   const serviceType = row.serviceType || row.service_type || 'General Service';
-  const channel = row.channel || (customerEmail && !customerPhone ? 'email' : 'sms');
+  const channel = row.channel || (customerEmail && (!customerPhone || customerPhone.includes('@')) ? 'email' : 'sms');
   const status = row.status || 'sent';
   const openedAt = row.openedAt || row.opened_at || null;
   const clickedAt = row.clickedAt || row.clicked_at || null;
@@ -1681,7 +1681,7 @@ export const db = {
           // Build primary payload
           const primaryPayload: Record<string, any> = {
             customer_name: norm.customer_name || 'Customer',
-            customer_phone: norm.customer_phone || norm.phone || '',
+            customer_phone: norm.customer_phone || norm.phone || norm.customer_email || norm.email || '',
             service_type: norm.service_type || 'General Service',
             status: norm.status || 'sent',
             sent_at: norm.sent_at || new Date().toISOString(),
@@ -1691,7 +1691,7 @@ export const db = {
           if (safeId) primaryPayload.id = safeId;
           if (resolvedUserId && UUID_REGEX.test(resolvedUserId)) primaryPayload.user_id = resolvedUserId;
           if (resolvedBusinessId && UUID_REGEX.test(resolvedBusinessId)) primaryPayload.business_id = resolvedBusinessId;
-          if (norm.customer_email) primaryPayload.customer_email = norm.customer_email;
+          if (norm.customer_email || norm.email) primaryPayload.customer_email = norm.customer_email || norm.email;
           if (norm.channel) primaryPayload.channel = norm.channel;
           if (norm.token) primaryPayload.token = norm.token;
           if (norm.place_id) primaryPayload.place_id = norm.place_id;
@@ -2027,6 +2027,48 @@ export const db = {
       }
 
       return norm || merged;
+    },
+
+    updateMany: async (args: {
+      where?: any;
+      data: any;
+    }) => {
+      if (!args?.data) return { count: 0 };
+      let updatedCount = 0;
+
+      // 1. Gather all candidate IDs or tokens from where clause
+      const targetIds = new Set<string>();
+      if (args?.where?.id) targetIds.add(String(args.where.id));
+      if (args?.where?.token) targetIds.add(String(args.where.token));
+      if (Array.isArray(args?.where?.OR)) {
+        for (const o of args.where.OR) {
+          if (o?.id) targetIds.add(String(o.id));
+          if (o?.token) targetIds.add(String(o.token));
+        }
+      }
+
+      // 2. Find matching records across DB and cache
+      const recordsToUpdate = await db.reviewInvite.findMany({ where: args?.where });
+      for (const rec of recordsToUpdate) {
+        if (rec?.id) targetIds.add(String(rec.id));
+        if (rec?.token) targetIds.add(String(rec.token));
+      }
+
+      // 3. Update each target
+      for (const tid of targetIds) {
+        if (!tid) continue;
+        try {
+          const res = await db.reviewInvite.update({
+            where: { id: tid, token: tid },
+            data: args.data,
+          });
+          if (res) updatedCount++;
+        } catch (e) {
+          console.warn('[db.reviewInvite.updateMany] update item note:', e);
+        }
+      }
+
+      return { count: updatedCount };
     },
 
     findFirst: async (args?: any) => {

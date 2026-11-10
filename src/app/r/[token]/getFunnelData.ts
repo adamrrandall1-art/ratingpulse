@@ -86,22 +86,45 @@ export async function getFunnelData(
       }
 
       // Record tap event & increment clicks in review_invites
-      if (inviteData?.id) {
+      const inviteId =
+        (typeof searchParams?.id === 'string' ? searchParams.id : '') ||
+        (typeof searchParams?.inviteId === 'string' ? searchParams.inviteId : '') ||
+        token;
+      const queryToken = (typeof searchParams?.token === 'string' ? searchParams.token : '') || token;
+      const queryEmail = typeof searchParams?.email === 'string' ? searchParams.email : '';
+      const queryPhone = typeof searchParams?.phone === 'string' ? searchParams.phone : '';
+
+      if (inviteId || queryToken || queryEmail || queryPhone) {
+        await db.reviewInvite.updateMany({
+          where: {
+            OR: [
+              ...(inviteId ? [{ id: inviteId }, { token: inviteId }] : []),
+              ...(queryToken ? [{ token: queryToken }, { id: queryToken }] : []),
+              ...(queryEmail ? [{ customerEmail: queryEmail }, { customer_email: queryEmail }, { email: queryEmail }] : []),
+              ...(queryPhone ? [{ customerPhone: queryPhone }, { customer_phone: queryPhone }, { phone: queryPhone }] : []),
+            ],
+          },
+          data: {
+            status: inviteData?.status === 'reviewed' ? 'reviewed' : 'opened',
+            openedAt: new Date(),
+            clicks: { increment: 1 },
+          },
+        }).catch((tapErr) => {
+          console.warn('[getFunnelData] Error updating invite tap:', tapErr);
+        });
+
+        // Re-read latest invite state
         try {
-          const updatedInvite = await db.reviewInvite.update({
-            where: { id: inviteData.id },
-            data: {
-              status: inviteData.status === 'reviewed' ? 'reviewed' : 'opened',
-              openedAt: new Date(),
-              clicks: { increment: 1 },
+          const fresh = await db.reviewInvite.findFirst({
+            where: {
+              OR: [
+                { id: token },
+                { token: token },
+              ],
             },
           });
-          if (updatedInvite) {
-            inviteData = { ...inviteData, ...updatedInvite };
-          }
-        } catch (tapErr) {
-          console.warn('[getFunnelData] Error updating invite tap:', tapErr);
-        }
+          if (fresh) inviteData = fresh;
+        } catch {}
       }
 
       // 2. In the database query, always fetch the live associated business record

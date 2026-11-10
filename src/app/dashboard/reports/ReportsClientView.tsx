@@ -133,8 +133,25 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
         i.status === 'reviewed'
       ).length;
       const smsClickRate = totalSmsSent > 0 ? `${((totalSmsClicks / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
+      const smsCompleted = smsInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
+      const smsConversion = totalSmsSent > 0 ? `${((smsCompleted / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
 
-      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,${ratingScore} / 5.0\nMonthly Review Velocity,${reviewVelocity} new reviews\nInvite Conversion Rate,${conversionRate} (${completedReviewsFromInvites} completed / ${totalInvitesSent} sent)\nAI Response Rate,${aiResponseRate}\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,${totalSmsSent},100.0%,${smsClickRate} click rate (${totalSmsClicks} taps),${completedReviewsFromInvites},${conversionRate}\n\nExported from RatingPulse`;
+      const emailInvites = timeFilteredInvites.filter(i => i.channel === 'email');
+      const totalEmailSent = emailInvites.length;
+      const totalEmailOpens = emailInvites.filter((i: any) =>
+        (typeof i.clicks === 'number' && i.clicks > 0) ||
+        i.openedAt ||
+        i.opened_at ||
+        i.clickedAt ||
+        i.clicked_at ||
+        i.status === 'opened' ||
+        i.status === 'reviewed'
+      ).length;
+      const emailOpenRate = totalEmailSent > 0 ? `${((totalEmailOpens / totalEmailSent) * 100).toFixed(1)}%` : '0.0%';
+      const emailCompleted = emailInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
+      const emailConversion = totalEmailSent > 0 ? `${((emailCompleted / totalEmailSent) * 100).toFixed(1)}%` : '0.0%';
+
+      const csvReport = `RatingPulse Performance Report - ${businessName}\nGenerated: ${new Date().toLocaleDateString()}\nTimeframe: ${timeRange.toUpperCase()}\n\nKey Performance Indicators\nAverage Google Rating,${ratingScore} / 5.0\nMonthly Review Velocity,${reviewVelocity} new reviews\nInvite Conversion Rate,${conversionRate} (${completedReviewsFromInvites} completed / ${totalInvitesSent} sent)\nAI Response Rate,${aiResponseRate}\n\nChannel Breakdown\nChannel,Sent,Delivered %,Clicks / Opens,Completed Reviews,Conversion %\nSMS Invites,${totalSmsSent},100.0%,${smsClickRate} click rate (${totalSmsClicks} taps),${smsCompleted},${smsConversion}\nEmail Invites,${totalEmailSent},100.0%,${emailOpenRate} open rate (${totalEmailOpens} opens),${emailCompleted},${emailConversion}\n\nExported from RatingPulse`;
 
       const blob = new Blob([csvReport], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);

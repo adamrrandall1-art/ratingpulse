@@ -66,25 +66,30 @@ export async function GET(
       business.placeId = business.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg';
       business.googleReviewUrl = business.googleReviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
     } else if (id) {
-      // Record link tap event & update invite status in review_invites
-      try {
-        const invite = await db.reviewInvite.findFirst({
+      // Record link tap/open event in review_invites
+      const inviteId = id || url.searchParams.get('id') || url.searchParams.get('inviteId');
+      const token = url.searchParams.get('token') || id;
+      const queryEmail = url.searchParams.get('email');
+      const queryPhone = url.searchParams.get('phone');
+
+      if (inviteId || token || queryEmail || queryPhone) {
+        await db.reviewInvite.updateMany({
           where: {
-            OR: [{ id }, { token: id }],
+            OR: [
+              ...(inviteId ? [{ id: inviteId }, { token: inviteId }] : []),
+              ...(token ? [{ token }, { id: token }] : []),
+              ...(queryEmail ? [{ customerEmail: queryEmail }, { customer_email: queryEmail }, { email: queryEmail }] : []),
+              ...(queryPhone ? [{ customerPhone: queryPhone }, { customer_phone: queryPhone }, { phone: queryPhone }] : []),
+            ],
           },
+          data: {
+            status: 'opened',
+            openedAt: new Date(),
+            clicks: { increment: 1 },
+          },
+        }).catch((tapErr) => {
+          console.warn('[review/[id]] Error updating invite tap:', tapErr);
         });
-        if (invite) {
-          await db.reviewInvite.update({
-            where: { id: invite.id },
-            data: {
-              status: invite.status === 'reviewed' ? 'reviewed' : 'opened',
-              openedAt: new Date(),
-              clicks: { increment: 1 },
-            },
-          });
-        }
-      } catch (tapErr) {
-        console.warn('[review/[id]] Error updating invite tap:', tapErr);
       }
 
       const supabase = getSupabaseAdmin();

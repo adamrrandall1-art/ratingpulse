@@ -562,6 +562,8 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           invites: [newInvite, ...state.invites],
         });
 
+        let finalInvite: Invite = newInvite;
+
         if (!state.isDemoMode) {
           try {
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://ratingpulse.co';
@@ -572,6 +574,9 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
               body: JSON.stringify({
                 customer_email: customerEmail,
                 customer_name: customerName,
+                recipientEmail: customerEmail,
+                recipientName: customerName,
+                email: customerEmail,
                 business_name: activeBiz?.name,
                 business_id: activeBiz?.id,
                 user_id: state.profile?.id || (state.profile as any)?.clerkUserId,
@@ -584,9 +589,10 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
             if (res.ok) {
               const resJson = await res.json().catch(() => null);
               if (resJson?.invite) {
+                finalInvite = { ...newInvite, ...resJson.invite };
                 set((s) => ({
                   invites: s.invites.map((inv) =>
-                    inv.id === newInvite.id ? { ...inv, ...resJson.invite } : inv
+                    inv.id === newInvite.id ? finalInvite : inv
                   ),
                 }));
               }
@@ -596,7 +602,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           }
         }
 
-        return newInvite;
+        return finalInvite;
       },
 
       updateInviteResolution: async (inviteId: string, resolution: 'unresolved' | 'resolved' | 'needs_follow_up') => {

@@ -67,6 +67,13 @@ function ReviewGateContent() {
           .eq('id', idParam)
           .maybeSingle();
 
+        if (inviteData && inviteData.id) {
+          void supabase
+            .from('review_invites')
+            .update({ status: 'opened' })
+            .eq('id', inviteData.id);
+        }
+
         const resolvedUserId = inviteData?.user_id || idParam;
         if (inviteData?.customer_name) {
           setCustomerName(inviteData.customer_name);

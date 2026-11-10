@@ -14,21 +14,27 @@ export default async function InvitesPage() {
     where: { clerkUserId },
   });
 
-  const invites = profile?.id
-    ? await db.reviewInvite.findMany({
-        where: {
-          OR: [
-            { userId: profile.id },
-            { user_id: profile.id },
-            { userId: clerkUserId },
-            { user_id: clerkUserId },
-            { businessId: profile.businessId || undefined },
-            { business_id: profile.businessId || undefined },
-          ],
-        },
-        orderBy: { createdAt: 'desc' },
-      })
-    : [];
+  const orConditions: any[] = [
+    { userId: clerkUserId },
+    { user_id: clerkUserId },
+  ];
+
+  if (profile?.id) {
+    orConditions.push({ userId: profile.id });
+    orConditions.push({ user_id: profile.id });
+  }
+
+  if (profile?.businessId) {
+    orConditions.push({ businessId: profile.businessId });
+    orConditions.push({ business_id: profile.businessId });
+  }
+
+  const invites = await db.reviewInvite.findMany({
+    where: {
+      OR: orConditions,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
 
   return <InvitesClientView initialInvites={invites} />;
 }
