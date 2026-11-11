@@ -11,15 +11,20 @@ export default async function InvitesPage() {
   if (!clerkUserId) redirect('/sign-in');
 
   const profile = await db.profile.findFirst({
-    where: { clerkUserId },
+    where: {
+      OR: [
+        { clerkUserId: clerkUserId },
+        { id: clerkUserId },
+      ],
+    },
   });
 
-  const invites = profile?.id
-    ? await db.reviewInvite.findMany({
-        where: { userId: profile.id },
-        orderBy: { createdAt: 'desc' },
-      })
-    : [];
+  const targetUserId = profile?.id || clerkUserId;
+
+  const invites = await db.reviewInvite.findMany({
+    where: { userId: targetUserId },
+    orderBy: { createdAt: 'desc' },
+  });
 
   return <InvitesClientView initialInvites={invites} />;
 }

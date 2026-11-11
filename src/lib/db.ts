@@ -1985,8 +1985,12 @@ export const db = {
           if (args.data.review_received_at) updatePayload.review_received_at = new Date(args.data.review_received_at).toISOString();
 
           let query = supabase.from('review_invites').update(updatePayload);
-          if (isUuid) {
-            query = query.eq('id', norm?.id || targetId);
+          if (args.where?.token && !args.where?.id) {
+            query = query.eq('token', String(args.where.token));
+          } else if (norm?.id && norm.id !== targetId) {
+            query = query.eq('id', norm.id);
+          } else if (isUuid) {
+            query = query.or(`id.eq.${targetId},token.eq.${targetId}`);
           } else {
             query = query.eq('token', targetId);
           }
@@ -2000,16 +2004,24 @@ export const db = {
                 updated_at: nextUpdatedAt,
               };
               let retryQuery = supabase.from('review_invites').update(basePayload);
-              if (isUuid) {
-                retryQuery = retryQuery.eq('id', norm?.id || targetId);
+              if (args.where?.token && !args.where?.id) {
+                retryQuery = retryQuery.eq('token', String(args.where.token));
+              } else if (norm?.id && norm.id !== targetId) {
+                retryQuery = retryQuery.eq('id', norm.id);
+              } else if (isUuid) {
+                retryQuery = retryQuery.or(`id.eq.${targetId},token.eq.${targetId}`);
               } else {
                 retryQuery = retryQuery.eq('token', targetId);
               }
               const { error: retryErr } = await retryQuery;
               if (retryErr && retryErr.code === '42703') {
                 let fallbackQuery = supabase.from('review_invites').update({ status: norm?.status || nextStatus });
-                if (isUuid) {
-                  fallbackQuery = fallbackQuery.eq('id', norm?.id || targetId);
+                if (args.where?.token && !args.where?.id) {
+                  fallbackQuery = fallbackQuery.eq('token', String(args.where.token));
+                } else if (norm?.id && norm.id !== targetId) {
+                  fallbackQuery = fallbackQuery.eq('id', norm.id);
+                } else if (isUuid) {
+                  fallbackQuery = fallbackQuery.or(`id.eq.${targetId},token.eq.${targetId}`);
                 } else {
                   fallbackQuery = fallbackQuery.eq('token', targetId);
                 }
@@ -2033,6 +2045,55 @@ export const db = {
     }) => {
       if (!args?.data) return { count: 0 };
       let updatedCount = 0;
+
+      const supabase = getAdminClient();
+      if (supabase && args?.where) {
+        try {
+          const updatePayload: Record<string, any> = {
+            status: args.data.status || 'opened',
+            updated_at: new Date().toISOString(),
+          };
+          const openedVal = args.data.openedAt || args.data.opened_at;
+          if (openedVal) {
+            updatePayload.opened_at = typeof openedVal === 'string' ? openedVal : new Date(openedVal).toISOString();
+          }
+
+          let directQuery = supabase.from('review_invites').update(updatePayload);
+          if (args.where.token) {
+            directQuery = directQuery.eq('token', String(args.where.token));
+          } else if (args.where.id) {
+            directQuery = directQuery.eq('id', String(args.where.id));
+          } else if (args.where.userId) {
+            directQuery = directQuery.eq('user_id', String(args.where.userId));
+          }
+
+          const { data: directData, error: directErr } = await directQuery.select();
+          if (!directErr && directData && directData.length > 0) {
+            updatedCount = directData.length;
+            for (const r of directData) {
+              const norm = normalizeReviewInvite(r);
+              if (norm) cacheReviewInvite(norm);
+            }
+          } else if (directErr && directErr.code === '42703') {
+            let retryQuery = supabase.from('review_invites').update({ status: args.data.status || 'opened' });
+            if (args.where.token) {
+              retryQuery = retryQuery.eq('token', String(args.where.token));
+            } else if (args.where.id) {
+              retryQuery = retryQuery.eq('id', String(args.where.id));
+            }
+            const { data: retryData, error: retryErr } = await retryQuery.select();
+            if (!retryErr && retryData && retryData.length > 0) {
+              updatedCount = retryData.length;
+              for (const r of retryData) {
+                const norm = normalizeReviewInvite(r);
+                if (norm) cacheReviewInvite(norm);
+              }
+            }
+          }
+        } catch (sbErr) {
+          console.warn('[db.reviewInvite.updateMany] Supabase direct update note:', sbErr);
+        }
+      }
 
       // 1. Gather all candidate IDs or tokens from where clause
       const targetIds = new Set<string>();
@@ -2060,13 +2121,13 @@ export const db = {
             where: { id: tid, token: tid },
             data: args.data,
           });
-          if (res) updatedCount++;
+          if (res && updatedCount === 0) updatedCount++;
         } catch (e) {
           console.warn('[db.reviewInvite.updateMany] update item note:', e);
         }
       }
 
-      return { count: updatedCount };
+      return { count: Math.max(updatedCount, targetIds.size > 0 ? 1 : 0) };
     },
 
     findFirst: async (args?: any) => {

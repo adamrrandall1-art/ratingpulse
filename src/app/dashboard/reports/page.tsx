@@ -11,25 +11,22 @@ export default async function ReportsPage() {
   if (!clerkUserId) redirect('/sign-in');
 
   const profile = await db.profile.findFirst({
-    where: { clerkUserId },
+    where: {
+      OR: [
+        { clerkUserId: clerkUserId },
+        { id: clerkUserId },
+      ],
+    },
   });
 
-  const invites = profile?.id
-    ? await db.reviewInvite.findMany({
-        where: { userId: profile.id },
-        orderBy: { createdAt: 'desc' },
-      })
-    : [];
+  const targetUserId = profile?.id || clerkUserId;
 
-  // SMS Invites Calculation
-  const smsInvites = invites.filter((i) => Boolean(i.phone) && !i.email);
-  const smsSent = smsInvites.length;
-  const smsOpened = smsInvites.filter(
-    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
-  ).length;
-  const smsCTR = smsSent > 0 ? ((smsOpened / smsSent) * 100).toFixed(1) : '0.0';
+  const invites = await db.reviewInvite.findMany({
+    where: { userId: targetUserId },
+    orderBy: { createdAt: 'desc' },
+  });
 
-  // Email Invites Calculation
+  // Separate SMS and Email metrics
   const emailInvites = invites.filter((i) => Boolean(i.email));
   const emailSent = emailInvites.length;
   const emailOpened = emailInvites.filter(
@@ -37,6 +34,13 @@ export default async function ReportsPage() {
   ).length;
   const emailOpenRate =
     emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
+
+  const smsInvites = invites.filter((i) => Boolean(i.phone) && !i.email);
+  const smsSent = smsInvites.length;
+  const smsOpened = smsInvites.filter(
+    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
+  ).length;
+  const smsCTR = smsSent > 0 ? ((smsOpened / smsSent) * 100).toFixed(1) : '0.0';
 
   return (
     <ReportsClientView
