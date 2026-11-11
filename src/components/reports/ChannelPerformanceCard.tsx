@@ -46,30 +46,25 @@ export default function ChannelPerformanceCard({
     return (now - t) <= days * 24 * 60 * 60 * 1000;
   });
 
-  // SMS Invites: phone IS NOT NULL (or has value) and NOT email
+  // SMS Invites: customer_phone does NOT contain '@'
   const computedSmsInvites = filteredInvites.filter((i: any) => {
-    const phone = i.phone || i.customer_phone || i.customerPhone;
-    const email = i.email || i.customer_email || i.customerEmail;
-    return Boolean(phone) && !email;
+    const contact = i.customerPhone || i.customer_phone || i.phone || '';
+    return contact && !contact.includes('@');
   });
   const computedSmsSent = computedSmsInvites.length;
   const computedSmsOpened = computedSmsInvites.filter((i: any) =>
-    i.status === 'opened' ||
-    i.status === 'reviewed' ||
-    Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
+    i.status === 'opened' || i.status === 'reviewed'
   ).length;
   const computedSmsCTR = computedSmsSent > 0 ? ((computedSmsOpened / computedSmsSent) * 100).toFixed(1) : '0.0';
 
-  // Email Invites: email IS NOT NULL (or has value)
+  // Email Invites: customer_phone contains '@'
   const computedEmailInvites = filteredInvites.filter((i: any) => {
-    const email = i.email || i.customer_email || i.customerEmail;
-    return Boolean(email);
+    const contact = i.customerPhone || i.customer_phone || i.phone || i.customerEmail || i.customer_email || i.email || '';
+    return contact.includes('@');
   });
   const computedEmailSent = computedEmailInvites.length;
   const computedEmailOpened = computedEmailInvites.filter((i: any) =>
-    i.status === 'opened' ||
-    i.status === 'reviewed' ||
-    Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
+    i.status === 'opened' || i.status === 'reviewed'
   ).length;
   const computedEmailOpenRate = computedEmailSent > 0 ? ((computedEmailOpened / computedEmailSent) * 100).toFixed(1) : '0.0';
 

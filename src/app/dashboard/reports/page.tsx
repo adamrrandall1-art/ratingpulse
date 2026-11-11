@@ -26,21 +26,26 @@ export default async function ReportsPage() {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Separate SMS and Email metrics
-  const emailInvites = invites.filter((i) => Boolean(i.email));
-  const emailSent = emailInvites.length;
-  const emailOpened = emailInvites.filter(
-    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
-  ).length;
-  const emailOpenRate =
-    emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
+  // Differentiate SMS vs Email by checking for '@' in customer_phone / customerPhone
+  const emailInvites = invites.filter(i => {
+    const contact = i.customerPhone || i.customer_phone || '';
+    return contact.includes('@');
+  });
 
-  const smsInvites = invites.filter((i) => Boolean(i.phone) && !i.email);
+  const smsInvites = invites.filter(i => {
+    const contact = i.customerPhone || i.customer_phone || '';
+    return contact && !contact.includes('@');
+  });
+
+  // Calculate SMS Metrics
   const smsSent = smsInvites.length;
-  const smsOpened = smsInvites.filter(
-    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
-  ).length;
+  const smsOpened = smsInvites.filter(i => i.status === 'opened' || i.status === 'reviewed').length;
   const smsCTR = smsSent > 0 ? ((smsOpened / smsSent) * 100).toFixed(1) : '0.0';
+
+  // Calculate Email Metrics
+  const emailSent = emailInvites.length;
+  const emailOpened = emailInvites.filter(i => i.status === 'opened' || i.status === 'reviewed').length;
+  const emailOpenRate = emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
 
   return (
     <ReportsClientView

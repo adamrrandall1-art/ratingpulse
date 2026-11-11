@@ -1985,14 +1985,14 @@ export const db = {
           if (args.data.review_received_at) updatePayload.review_received_at = new Date(args.data.review_received_at).toISOString();
 
           let query = supabase.from('review_invites').update(updatePayload);
-          if (args.where?.token && !args.where?.id) {
-            query = query.eq('token', String(args.where.token));
+          if (args.where?.id) {
+            query = query.eq('id', String(args.where.id));
           } else if (norm?.id && norm.id !== targetId) {
             query = query.eq('id', norm.id);
           } else if (isUuid) {
             query = query.or(`id.eq.${targetId},token.eq.${targetId}`);
           } else {
-            query = query.eq('token', targetId);
+            query = query.eq('id', targetId);
           }
 
           const { error: updErr } = await query;
@@ -2000,30 +2000,29 @@ export const db = {
             if (updErr.code === '42703') {
               console.warn('[db.reviewInvite.update] Column mismatch, retrying base status update:', updErr.message);
               const basePayload: Record<string, any> = {
-                status: norm?.status || nextStatus,
-                updated_at: nextUpdatedAt,
+                status: args.data.status || norm?.status || nextStatus || 'opened',
               };
               let retryQuery = supabase.from('review_invites').update(basePayload);
-              if (args.where?.token && !args.where?.id) {
-                retryQuery = retryQuery.eq('token', String(args.where.token));
+              if (args.where?.id) {
+                retryQuery = retryQuery.eq('id', String(args.where.id));
               } else if (norm?.id && norm.id !== targetId) {
                 retryQuery = retryQuery.eq('id', norm.id);
               } else if (isUuid) {
                 retryQuery = retryQuery.or(`id.eq.${targetId},token.eq.${targetId}`);
               } else {
-                retryQuery = retryQuery.eq('token', targetId);
+                retryQuery = retryQuery.eq('id', targetId);
               }
               const { error: retryErr } = await retryQuery;
               if (retryErr && retryErr.code === '42703') {
                 let fallbackQuery = supabase.from('review_invites').update({ status: norm?.status || nextStatus });
-                if (args.where?.token && !args.where?.id) {
-                  fallbackQuery = fallbackQuery.eq('token', String(args.where.token));
+                if (args.where?.id) {
+                  fallbackQuery = fallbackQuery.eq('id', String(args.where.id));
                 } else if (norm?.id && norm.id !== targetId) {
                   fallbackQuery = fallbackQuery.eq('id', norm.id);
                 } else if (isUuid) {
                   fallbackQuery = fallbackQuery.or(`id.eq.${targetId},token.eq.${targetId}`);
                 } else {
-                  fallbackQuery = fallbackQuery.eq('token', targetId);
+                  fallbackQuery = fallbackQuery.eq('id', targetId);
                 }
                 await fallbackQuery;
               }

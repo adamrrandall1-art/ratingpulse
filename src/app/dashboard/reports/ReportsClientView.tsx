@@ -133,29 +133,24 @@ export default function ReportsClientView({
     setIsExporting(true);
     try {
       const smsInvites = timeFilteredInvites.filter((i: any) => {
-        const phone = i.phone || i.customer_phone || i.customerPhone;
-        const email = i.email || i.customer_email || i.customerEmail;
-        return Boolean(phone) && !email;
+        const contact = i.customerPhone || i.customer_phone || i.phone || '';
+        return contact && !contact.includes('@');
       });
       const totalSmsSent = smsInvites.length;
       const totalSmsClicks = smsInvites.filter((i: any) =>
-        i.status === 'opened' ||
-        i.status === 'reviewed' ||
-        Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
+        i.status === 'opened' || i.status === 'reviewed'
       ).length;
       const smsClickRate = totalSmsSent > 0 ? `${((totalSmsClicks / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
       const smsCompleted = smsInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
       const smsConversion = totalSmsSent > 0 ? `${((smsCompleted / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
 
       const emailInvites = timeFilteredInvites.filter((i: any) => {
-        const email = i.email || i.customer_email || i.customerEmail;
-        return Boolean(email);
+        const contact = i.customerPhone || i.customer_phone || i.phone || i.customerEmail || i.customer_email || i.email || '';
+        return contact.includes('@');
       });
       const totalEmailSent = emailInvites.length;
       const totalEmailOpens = emailInvites.filter((i: any) =>
-        i.status === 'opened' ||
-        i.status === 'reviewed' ||
-        Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
+        i.status === 'opened' || i.status === 'reviewed'
       ).length;
       const emailOpenRate = totalEmailSent > 0 ? `${((totalEmailOpens / totalEmailSent) * 100).toFixed(1)}%` : '0.0%';
       const emailCompleted = emailInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;

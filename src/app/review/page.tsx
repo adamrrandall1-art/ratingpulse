@@ -8,14 +8,16 @@ export default async function ReviewPage(props: {
   searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
   const searchParams = props.searchParams ? await props.searchParams : {};
-  const token =
-    typeof searchParams?.token === 'string'
-      ? searchParams.token
+  const inviteId =
+    typeof searchParams?.inviteId === 'string'
+      ? searchParams.inviteId
       : typeof searchParams?.id === 'string'
       ? searchParams.id
+      : typeof searchParams?.token === 'string'
+      ? searchParams.token
       : 'demo';
 
-  const data = await getFunnelData(token, searchParams);
+  const data = await getFunnelData(inviteId, searchParams);
 
   return (
     <Suspense
@@ -26,7 +28,7 @@ export default async function ReviewPage(props: {
       }
     >
       <FunnelClient
-        token={token}
+        token={inviteId}
         destinationUrl={data.destinationUrl}
         business={data.business}
         invite={data.invite}

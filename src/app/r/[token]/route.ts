@@ -9,23 +9,21 @@ export async function GET(
   props: { params: Promise<{ token: string }> | { token: string } }
 ) {
   const resolvedParams = await Promise.resolve(props.params);
-  const token = resolvedParams?.token || (props.params as any)?.token || '';
-  console.log('[TRACKING REDIRECT] Processing token:', token);
+  const inviteId = resolvedParams?.token || (props.params as any)?.token || '';
+  console.log('[TRACKING REDIRECT] Processing invite ID:', inviteId);
 
   try {
-    // Direct update without prior lookup
-    const updated = await db.reviewInvite.updateMany({
-      where: { token },
+    // Update review_invites where id matches inviteId
+    await db.reviewInvite.update({
+      where: { id: inviteId },
       data: {
         status: 'opened',
-        openedAt: new Date(),
       },
     });
-    console.log('[TRACKING REDIRECT] Rows updated:', updated.count);
+    console.log('[TRACKING REDIRECT] Successfully marked invite as opened');
   } catch (err) {
     console.error('[TRACKING REDIRECT ERROR]:', err);
   }
 
-  // Redirect user to the review funnel
-  return NextResponse.redirect(new URL(`/review?token=${token}`, request.url));
+  return NextResponse.redirect(new URL(`/review?inviteId=${inviteId}`, request.url));
 }
