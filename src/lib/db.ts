@@ -1690,9 +1690,7 @@ export const db = {
 
           if (safeId) primaryPayload.id = safeId;
           if (resolvedUserId && UUID_REGEX.test(resolvedUserId)) primaryPayload.user_id = resolvedUserId;
-          if (resolvedBusinessId && UUID_REGEX.test(resolvedBusinessId)) primaryPayload.business_id = resolvedBusinessId;
           if (norm.customer_email || norm.email) primaryPayload.customer_email = norm.customer_email || norm.email;
-          if (norm.channel) primaryPayload.channel = norm.channel;
           if (norm.token) primaryPayload.token = norm.token;
           if (norm.place_id) primaryPayload.place_id = norm.place_id;
           if (norm.business_name) primaryPayload.business_name = norm.business_name;

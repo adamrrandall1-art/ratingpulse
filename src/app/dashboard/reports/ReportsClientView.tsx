@@ -25,11 +25,22 @@ import RatingTrendCard from '@/components/reports/RatingTrendCard';
 
 type TimeRangeOption = '30d' | '60d' | '90d' | 'all';
 
-interface ReportsClientViewProps {
-  initialInvites?: any[];
+export interface ChannelMetrics {
+  smsSent?: number;
+  smsCTR?: string;
+  emailSent?: number;
+  emailOpenRate?: string;
 }
 
-export default function ReportsClientView({ initialInvites = [] }: ReportsClientViewProps) {
+interface ReportsClientViewProps {
+  initialInvites?: any[];
+  channelMetrics?: ChannelMetrics;
+}
+
+export default function ReportsClientView({
+  initialInvites = [],
+  channelMetrics,
+}: ReportsClientViewProps) {
   const { activeBusiness, reviews, invites, isDemoMode } = useRatingPulseStore();
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('30d');
   const [isExporting, setIsExporting] = useState(false);
@@ -121,31 +132,30 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
   const handleExportReport = () => {
     setIsExporting(true);
     try {
-      const smsInvites = timeFilteredInvites.filter(i => i.channel === 'sms' || i.channel === 'both');
+      const smsInvites = timeFilteredInvites.filter((i: any) => {
+        const phone = i.phone || i.customer_phone || i.customerPhone;
+        const email = i.email || i.customer_email || i.customerEmail;
+        return Boolean(phone) && !email;
+      });
       const totalSmsSent = smsInvites.length;
       const totalSmsClicks = smsInvites.filter((i: any) =>
-        (typeof i.clicks === 'number' && i.clicks > 0) ||
-        i.openedAt ||
-        i.opened_at ||
-        i.clickedAt ||
-        i.clicked_at ||
         i.status === 'opened' ||
-        i.status === 'reviewed'
+        i.status === 'reviewed' ||
+        Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
       ).length;
       const smsClickRate = totalSmsSent > 0 ? `${((totalSmsClicks / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
       const smsCompleted = smsInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
       const smsConversion = totalSmsSent > 0 ? `${((smsCompleted / totalSmsSent) * 100).toFixed(1)}%` : '0.0%';
 
-      const emailInvites = timeFilteredInvites.filter(i => i.channel === 'email');
+      const emailInvites = timeFilteredInvites.filter((i: any) => {
+        const email = i.email || i.customer_email || i.customerEmail;
+        return Boolean(email);
+      });
       const totalEmailSent = emailInvites.length;
       const totalEmailOpens = emailInvites.filter((i: any) =>
-        (typeof i.clicks === 'number' && i.clicks > 0) ||
-        i.openedAt ||
-        i.opened_at ||
-        i.clickedAt ||
-        i.clicked_at ||
         i.status === 'opened' ||
-        i.status === 'reviewed'
+        i.status === 'reviewed' ||
+        Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
       ).length;
       const emailOpenRate = totalEmailSent > 0 ? `${((totalEmailOpens / totalEmailSent) * 100).toFixed(1)}%` : '0.0%';
       const emailCompleted = emailInvites.filter(i => i.status === 'reviewed' || i.status === 'completed').length;
@@ -360,6 +370,10 @@ export default function ReportsClientView({ initialInvites = [] }: ReportsClient
             timeRange={timeRange}
             invites={effectiveInvites}
             isDemoMode={isDemoMode}
+            smsSent={channelMetrics?.smsSent}
+            smsCTR={channelMetrics?.smsCTR}
+            emailSent={channelMetrics?.emailSent}
+            emailOpenRate={channelMetrics?.emailOpenRate}
           />
         </div>
       </div>

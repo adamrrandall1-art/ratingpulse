@@ -17,12 +17,20 @@ interface ChannelPerformanceCardProps {
   timeRange?: string;
   invites?: Invite[];
   isDemoMode?: boolean;
+  smsSent?: number;
+  smsCTR?: string;
+  emailSent?: number;
+  emailOpenRate?: string;
 }
 
 export default function ChannelPerformanceCard({
   timeRange = '30d',
   invites = [],
   isDemoMode = false,
+  smsSent: propSmsSent,
+  smsCTR: propSmsCTR,
+  emailSent: propEmailSent,
+  emailOpenRate: propEmailOpenRate,
 }: ChannelPerformanceCardProps) {
   const isDemo = isDemoMode;
 
@@ -38,37 +46,46 @@ export default function ChannelPerformanceCard({
     return (now - t) <= days * 24 * 60 * 60 * 1000;
   });
 
-  const smsInvites = filteredInvites.filter((i) => i.channel === 'sms' || i.channel === 'both');
-  const emailInvites = filteredInvites.filter((i) => i.channel === 'email');
-
-  const smsSent = smsInvites.length;
-  const smsTaps = smsInvites.filter((i: any) =>
+  // SMS Invites: phone IS NOT NULL (or has value) and NOT email
+  const computedSmsInvites = filteredInvites.filter((i: any) => {
+    const phone = i.phone || i.customer_phone || i.customerPhone;
+    const email = i.email || i.customer_email || i.customerEmail;
+    return Boolean(phone) && !email;
+  });
+  const computedSmsSent = computedSmsInvites.length;
+  const computedSmsOpened = computedSmsInvites.filter((i: any) =>
     i.status === 'opened' ||
     i.status === 'reviewed' ||
-    (i.clicks && i.clicks > 0) ||
-    i.openedAt ||
-    i.opened_at ||
-    i.clickedAt ||
-    i.clicked_at
+    Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
   ).length;
-  const smsCTR = smsSent > 0 ? ((smsTaps / smsSent) * 100).toFixed(1) : '0.0';
+  const computedSmsCTR = computedSmsSent > 0 ? ((computedSmsOpened / computedSmsSent) * 100).toFixed(1) : '0.0';
+
+  // Email Invites: email IS NOT NULL (or has value)
+  const computedEmailInvites = filteredInvites.filter((i: any) => {
+    const email = i.email || i.customer_email || i.customerEmail;
+    return Boolean(email);
+  });
+  const computedEmailSent = computedEmailInvites.length;
+  const computedEmailOpened = computedEmailInvites.filter((i: any) =>
+    i.status === 'opened' ||
+    i.status === 'reviewed' ||
+    Boolean(i.openedAt || i.opened_at || i.clickedAt || i.clicked_at || (i.clicks && i.clicks > 0))
+  ).length;
+  const computedEmailOpenRate = computedEmailSent > 0 ? ((computedEmailOpened / computedEmailSent) * 100).toFixed(1) : '0.0';
+
+  // Use props if provided (e.g. from analytics server loader), otherwise use time-filtered computed metrics
+  const smsSent = propSmsSent !== undefined ? propSmsSent : computedSmsSent;
+  const smsCTR = propSmsCTR !== undefined ? propSmsCTR : computedSmsCTR;
+  const smsTaps = computedSmsOpened;
   const smsDelivered = smsSent > 0 ? '100.0%' : '0.0%';
-  const smsCompleted = smsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
+  const smsCompleted = computedSmsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const smsConversion = smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%';
 
-  const emailSent = emailInvites.length;
-  const emailOpens = emailInvites.filter((i: any) =>
-    i.status === 'opened' ||
-    i.status === 'reviewed' ||
-    (i.clicks && i.clicks > 0) ||
-    i.openedAt ||
-    i.opened_at ||
-    i.clickedAt ||
-    i.clicked_at
-  ).length;
-  const emailOpenRate = emailSent > 0 ? ((emailOpens / emailSent) * 100).toFixed(1) : '0.0';
+  const emailSent = propEmailSent !== undefined ? propEmailSent : computedEmailSent;
+  const emailOpenRate = propEmailOpenRate !== undefined ? propEmailOpenRate : computedEmailOpenRate;
+  const emailOpens = computedEmailOpened;
   const emailDelivered = emailSent > 0 ? '100.0%' : '0.0%';
-  const emailCompleted = emailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
+  const emailCompleted = computedEmailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const emailConversion = emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%';
 
   return (

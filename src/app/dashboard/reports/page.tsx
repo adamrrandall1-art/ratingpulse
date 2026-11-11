@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
+import db from '@/lib/db';
 import ReportsClientView from './ReportsClientView';
 
 export default async function ReportsPage() {
@@ -14,27 +14,39 @@ export default async function ReportsPage() {
     where: { clerkUserId },
   });
 
-  const orConditions: any[] = [
-    { userId: clerkUserId },
-    { user_id: clerkUserId },
-  ];
+  const invites = profile?.id
+    ? await db.reviewInvite.findMany({
+        where: { userId: profile.id },
+        orderBy: { createdAt: 'desc' },
+      })
+    : [];
 
-  if (profile?.id) {
-    orConditions.push({ userId: profile.id });
-    orConditions.push({ user_id: profile.id });
-  }
+  // SMS Invites Calculation
+  const smsInvites = invites.filter((i) => Boolean(i.phone) && !i.email);
+  const smsSent = smsInvites.length;
+  const smsOpened = smsInvites.filter(
+    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
+  ).length;
+  const smsCTR = smsSent > 0 ? ((smsOpened / smsSent) * 100).toFixed(1) : '0.0';
 
-  if (profile?.businessId) {
-    orConditions.push({ businessId: profile.businessId });
-    orConditions.push({ business_id: profile.businessId });
-  }
+  // Email Invites Calculation
+  const emailInvites = invites.filter((i) => Boolean(i.email));
+  const emailSent = emailInvites.length;
+  const emailOpened = emailInvites.filter(
+    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
+  ).length;
+  const emailOpenRate =
+    emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
 
-  const invites = await db.reviewInvite.findMany({
-    where: {
-      OR: orConditions,
-    },
-    orderBy: { createdAt: 'desc' },
-  });
-
-  return <ReportsClientView initialInvites={invites} />;
+  return (
+    <ReportsClientView
+      initialInvites={invites}
+      channelMetrics={{
+        smsSent,
+        smsCTR,
+        emailSent,
+        emailOpenRate,
+      }}
+    />
+  );
 }

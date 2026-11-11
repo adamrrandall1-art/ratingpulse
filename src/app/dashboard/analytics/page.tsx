@@ -1,1 +1,53 @@
-export { default } from '@/app/dashboard/reports/page';
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+import { auth } from '@clerk/nextjs/server';
+import { redirect } from 'next/navigation';
+import db from '@/lib/db';
+import ReportsClientView from '@/app/dashboard/reports/ReportsClientView';
+
+export default async function AnalyticsPage() {
+  const { userId: clerkUserId } = await auth();
+  if (!clerkUserId) redirect('/sign-in');
+
+  // Query invites for current user strictly by userId (linking via Clerk user_id -> Supabase profile id)
+  const profile = await db.profile.findFirst({
+    where: { clerkUserId },
+  });
+
+  const invites = profile?.id
+    ? await db.reviewInvite.findMany({
+        where: { userId: profile.id },
+        orderBy: { createdAt: 'desc' },
+      })
+    : [];
+
+  // SMS Invites Calculation
+  const smsInvites = invites.filter((i) => Boolean(i.phone) && !i.email);
+  const smsSent = smsInvites.length;
+  const smsOpened = smsInvites.filter(
+    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
+  ).length;
+  const smsCTR = smsSent > 0 ? ((smsOpened / smsSent) * 100).toFixed(1) : '0.0';
+
+  // Email Invites Calculation
+  const emailInvites = invites.filter((i) => Boolean(i.email));
+  const emailSent = emailInvites.length;
+  const emailOpened = emailInvites.filter(
+    (i) => i.status === 'opened' || i.status === 'reviewed' || i.openedAt
+  ).length;
+  const emailOpenRate =
+    emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
+
+  return (
+    <ReportsClientView
+      initialInvites={invites}
+      channelMetrics={{
+        smsSent,
+        smsCTR,
+        emailSent,
+        emailOpenRate,
+      }}
+    />
+  );
+}
