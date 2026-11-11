@@ -96,15 +96,15 @@ export const getReviewUrl = (business: {
   if (candidateUrl && typeof candidateUrl === 'string' && candidateUrl.trim() && !isInternalFunnelUrl(candidateUrl.trim())) {
     let clean = candidateUrl.trim();
 
-    // If candidate is the deprecated search.google.com/local/writereview (which fails with 404 on Google),
-    // convert it directly to the canonical Google Maps place URL instead of sending users to a 404.
+    // Ensure writereview retains the direct Google review modal destination
     if (clean.includes('search.google.com/local/writereview')) {
       const extracted =
         extractPlaceId(clean) ||
         extractPlaceId(business.placeId || business.place_id || business.google_place_id);
       if (extracted) {
-        return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(extracted)}`;
+        return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(extracted)}`;
       }
+      return clean;
     } else {
       if (clean.startsWith('//')) {
         clean = 'https:' + clean;
@@ -115,12 +115,12 @@ export const getReviewUrl = (business: {
     }
   }
 
-  // 2. Canonical Google Maps Place URL
+  // 2. Canonical Google Review Modal URL (search.google.com/local/writereview?placeid=...)
   const rawPlaceId = business.placeId || business.place_id || business.google_place_id;
   const cleanPlaceId = extractPlaceId(rawPlaceId) || (rawPlaceId ? String(rawPlaceId).trim() : null);
 
   if (cleanPlaceId) {
-    return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(cleanPlaceId)}`;
+    return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(cleanPlaceId)}`;
   }
 
   // 3. Fallback to business name + address search on Google
@@ -136,23 +136,23 @@ export const getReviewUrl = (business: {
 };
 
 /**
- * Returns the canonical Google Maps place URL for a place ID:
- * https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}
+ * Returns the canonical Google review modal URL for a place ID:
+ * https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}
  */
 export function getCanonicalGoogleReviewUrl(placeId: string | null | undefined): string {
   const clean = extractPlaceId(placeId) || (placeId ? String(placeId).trim() : '');
   if (!clean) return '';
-  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(clean)}`;
+  return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(clean)}`;
 }
 
 /**
  * Fallback URL for Google Maps place page:
- * https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(placeId)}
+ * https://search.google.com/local/writereview?placeid=${encodeURIComponent(placeId)}
  */
 export function getMapsPlaceFallbackUrl(placeId: string | null | undefined): string {
   const clean = extractPlaceId(placeId) || (placeId ? String(placeId).trim() : '');
   if (!clean) return '';
-  return `https://www.google.com/maps/place/?q=place_id:${encodeURIComponent(clean)}`;
+  return `https://search.google.com/local/writereview?placeid=${encodeURIComponent(clean)}`;
 }
 
 /**

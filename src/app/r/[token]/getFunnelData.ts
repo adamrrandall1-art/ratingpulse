@@ -40,6 +40,7 @@ export async function getFunnelData(
 
   let invite: FunnelInvite | null = null;
   let liveBusiness: FunnelBusiness | null = null;
+  let settings: any = null;
 
   if (token === 'demo' || token === 'demo_ratingpulse_001') {
     liveBusiness = {
@@ -130,7 +131,6 @@ export async function getFunnelData(
       // 2. In the database query, always fetch the live associated business record
       const targetUserId = inviteData?.user_id || inviteData?.business_id;
       let profile: any = null;
-      let settings: any = null;
 
       if (targetUserId) {
         const [profRes, settRes] = await Promise.allSettled([
@@ -295,13 +295,13 @@ export async function getFunnelData(
 
       const rawPlaceCandidate =
         queryPlaceId ||
-        profile?.google_place_id?.trim() ||
         settings?.place_id?.trim() ||
+        profile?.google_place_id?.trim() ||
         inviteData?.place_id?.trim() ||
-        null;
+        'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
 
       // Cleanly extract Google place ID
-      const livePlaceId = extractPlaceId(rawPlaceCandidate);
+      const livePlaceId = extractPlaceId(rawPlaceCandidate) || 'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
 
       const liveCustomReviewUrl =
         liveGoogleReviewUrl ||
@@ -314,8 +314,8 @@ export async function getFunnelData(
 
       const liveBusinessName =
         queryBusiness ||
-        profile?.business_name ||
         settings?.business_name ||
+        profile?.business_name ||
         inviteData?.business_name ||
         'RatingPulse';
 
@@ -384,5 +384,7 @@ export async function getFunnelData(
     destinationUrl,
     business: liveBusiness,
     invite,
+    settings,
+    placeId: liveBusiness.placeId,
   };
 }

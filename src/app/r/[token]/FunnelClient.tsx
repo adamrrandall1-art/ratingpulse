@@ -24,13 +24,16 @@ import {
   resolveReviewUrl,
   getReviewUrl,
 } from '@/lib/google';
-import type { FunnelBusiness, FunnelInvite } from './types';
+import type { FunnelBusiness, FunnelInvite, FunnelSettings } from './types';
 
 interface FunnelClientProps {
   token: string;
   destinationUrl: string | null;
   business: FunnelBusiness;
   invite: FunnelInvite | null;
+  settings?: FunnelSettings | null;
+  placeId?: string | null;
+  inviteId?: string;
 }
 
 export default function FunnelClient({
@@ -38,6 +41,9 @@ export default function FunnelClient({
   destinationUrl,
   business,
   invite,
+  settings,
+  placeId: propPlaceId,
+  inviteId: propInviteId,
 }: FunnelClientProps) {
   // Rating and Funnel State
   const [selectedRating, setSelectedRating] = useState<number | null>(null);
@@ -57,26 +63,15 @@ export default function FunnelClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  // Derive active review link: prioritize direct custom review link, then canonical Google Maps place URL
-  const activeReviewLink =
-    business?.googleReviewUrl ||
-    (business as any)?.google_review_url ||
-    invite?.business?.googleReviewUrl ||
-    (invite?.business as any)?.google_review_url ||
-    destinationUrl ||
-    (business as any)?.reviewLink ||
-    invite?.review_link;
-
-  const targetUrl = getReviewUrl({
-    ...business,
-    googleReviewUrl: activeReviewLink,
-    reviewLink: (business as any)?.reviewLink || invite?.review_link,
-    placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
-    name: business?.name || invite?.business_name,
-    address: business?.address,
-  });
-
-  const effectiveDestinationUrl = targetUrl;
+  const inviteId = propInviteId || invite?.id || token;
+  const effectivePlaceId =
+    settings?.place_id ||
+    propPlaceId ||
+    business?.placeId ||
+    invite?.business?.placeId ||
+    'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
+  const reviewDestination = `https://search.google.com/local/writereview?placeid=${effectivePlaceId}`;
+  const effectiveDestinationUrl = reviewDestination;
 
   useEffect(() => {
     return () => {
@@ -105,53 +100,20 @@ export default function FunnelClient({
 
       setIsRedirecting(true);
 
-      // Async log invite status in Supabase (non-blocking)
-      if (isSupabaseConfigured && supabase && token) {
-        try {
-          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(token);
-          let updateQuery = supabase
-            .from('review_invites')
-            .update({
-              status: 'reviewed',
-              rating_received: rating,
-              review_received_at: new Date().toISOString(),
-            });
+      const placeId = settings?.place_id || 'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
+      const reviewDestination = `https://search.google.com/local/writereview?placeid=${placeId}`;
 
-          if (isUuid) {
-            void updateQuery.eq('id', token);
-          } else {
-            void updateQuery.eq('token', token);
-          }
-        } catch (dbErr) {
-          console.warn('DB update on 5-star rating warning:', dbErr);
-        }
+      // Mark invite as reviewed in background
+      if (inviteId) {
+        fetch('/api/review/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inviteId, status: 'reviewed' }),
+          keepalive: true,
+        }).catch(() => {});
       }
 
-      // 2. Set timeout for 1.2 seconds (1200ms) before executing auto-redirect using getReviewUrl
-      const redirectLink =
-        business?.googleReviewUrl ||
-        (business as any)?.google_review_url ||
-        invite?.business?.googleReviewUrl ||
-        (invite?.business as any)?.google_review_url ||
-        destinationUrl ||
-        (business as any)?.reviewLink ||
-        invite?.review_link;
-
-      const targetUrl = getReviewUrl({
-        ...business,
-        googleReviewUrl: redirectLink,
-        reviewLink: (business as any)?.reviewLink || invite?.review_link,
-        placeId: business?.placeId || invite?.business?.placeId || invite?.place_id,
-        name: business?.name || invite?.business_name,
-        address: business?.address,
-      });
-
-      if (redirectTimerRef.current) {
-        clearTimeout(redirectTimerRef.current);
-      }
-      redirectTimerRef.current = setTimeout(() => {
-        window.location.href = targetUrl;
-      }, 1200);
+      window.location.href = reviewDestination;
     }
   };
 
@@ -288,9 +250,9 @@ export default function FunnelClient({
                 <span>Opening Google Reviews...</span>
               </div>
 
-              {targetUrl ? (
+              {reviewDestination ? (
                 <a
-                  href={targetUrl}
+                  href={reviewDestination}
                   className="text-xs text-slate-400 underline mt-4 inline-block"
                 >
                   Click here if you are not redirected automatically

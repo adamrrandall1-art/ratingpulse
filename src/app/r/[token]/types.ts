@@ -20,8 +20,17 @@ export interface FunnelInvite {
   [key: string]: any;
 }
 
+export interface FunnelSettings {
+  place_id?: string | null;
+  google_review_url?: string | null;
+  business_name?: string | null;
+  [key: string]: any;
+}
+
 export interface FunnelData {
   destinationUrl: string | null;
   business: FunnelBusiness;
   invite: FunnelInvite | null;
+  settings?: FunnelSettings | null;
+  placeId?: string | null;
 }
