@@ -298,10 +298,10 @@ export async function getFunnelData(
         settings?.place_id?.trim() ||
         profile?.google_place_id?.trim() ||
         inviteData?.place_id?.trim() ||
-        'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
+        null;
 
       // Cleanly extract Google place ID
-      const livePlaceId = extractPlaceId(rawPlaceCandidate) || 'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
+      const livePlaceId = extractPlaceId(rawPlaceCandidate);
 
       const liveCustomReviewUrl =
         liveGoogleReviewUrl ||
@@ -322,8 +322,11 @@ export async function getFunnelData(
       liveBusiness = {
         id: profile?.id || targetUserId || token,
         name: liveBusinessName,
+        business_name: liveBusinessName,
         placeId: livePlaceId,
-        googleReviewUrl: liveBusinessReviewUrl,
+        place_id: livePlaceId,
+        googleReviewUrl: liveGoogleReviewUrl || liveBusinessReviewUrl,
+        google_review_url: liveGoogleReviewUrl || rawSettingsUrl || null,
         address: profile?.formatted_address || null,
         ownerEmail: profile?.notification_email || profile?.email || null,
         ownerPhone: profile?.notification_phone || profile?.phone || null,

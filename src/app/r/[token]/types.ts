@@ -1,8 +1,11 @@
 export interface FunnelBusiness {
   id: string;
   name: string;
+  business_name?: string | null;
   placeId: string | null;
+  place_id?: string | null;
   googleReviewUrl: string | null;
+  google_review_url?: string | null;
   address: string | null;
   ownerEmail: string | null;
   ownerPhone: string | null;

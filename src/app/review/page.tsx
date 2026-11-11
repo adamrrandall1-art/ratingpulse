@@ -80,14 +80,44 @@ export default async function ReviewPage(props: {
 
   const data = await getFunnelData(inviteId, searchParams);
 
-  const effectivePlaceId = settings?.place_id || data.business.placeId || 'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
-  const effectiveDestinationUrl = `https://search.google.com/local/writereview?placeid=${effectivePlaceId}`;
+  const rawGoogleReviewUrl =
+    settings?.google_review_url ||
+    data.business.googleReviewUrl ||
+    (data.business as any)?.google_review_url ||
+    null;
+
+  const validGoogleReviewUrl =
+    rawGoogleReviewUrl && typeof rawGoogleReviewUrl === 'string' && rawGoogleReviewUrl.startsWith('http')
+      ? rawGoogleReviewUrl.trim()
+      : null;
+
+  const rawPlaceId =
+    settings?.place_id ||
+    data.business.placeId ||
+    null;
+
+  const businessName =
+    settings?.business_name ||
+    data.business.name ||
+    'RatingPulse';
+
+  let effectiveDestinationUrl: string;
+  if (validGoogleReviewUrl) {
+    effectiveDestinationUrl = validGoogleReviewUrl;
+  } else if (rawPlaceId) {
+    effectiveDestinationUrl = `https://search.google.com/local/writereview?placeid=${rawPlaceId}`;
+  } else {
+    effectiveDestinationUrl = `https://www.google.com/search?q=${encodeURIComponent(businessName + ' reviews')}`;
+  }
 
   const updatedBusiness = {
     ...data.business,
-    name: settings?.business_name || data.business.name || 'RatingPulse',
-    placeId: effectivePlaceId,
-    googleReviewUrl: effectiveDestinationUrl,
+    name: businessName,
+    business_name: businessName,
+    placeId: rawPlaceId,
+    place_id: rawPlaceId,
+    googleReviewUrl: validGoogleReviewUrl || effectiveDestinationUrl,
+    google_review_url: validGoogleReviewUrl || null,
   };
 
   return (
@@ -105,7 +135,7 @@ export default async function ReviewPage(props: {
         business={updatedBusiness}
         invite={data.invite}
         settings={settings}
-        placeId={effectivePlaceId}
+        placeId={rawPlaceId}
       />
     </Suspense>
   );

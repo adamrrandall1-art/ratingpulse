@@ -64,13 +64,38 @@ export default function FunnelClient({
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   const inviteId = propInviteId || invite?.id || token;
-  const effectivePlaceId =
+
+  const directReviewUrl =
+    business?.google_review_url ||
+    (business as any)?.googleReviewUrl ||
+    settings?.google_review_url ||
+    (destinationUrl && destinationUrl.startsWith('http') && !destinationUrl.includes('/local/writereview') ? destinationUrl : null);
+
+  const validDirectUrl =
+    directReviewUrl && typeof directReviewUrl === 'string' && directReviewUrl.startsWith('http')
+      ? directReviewUrl.trim()
+      : null;
+
+  const placeId =
     settings?.place_id ||
-    propPlaceId ||
+    business?.place_id ||
     business?.placeId ||
-    invite?.business?.placeId ||
-    'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
-  const reviewDestination = `https://search.google.com/local/writereview?placeid=${effectivePlaceId}`;
+    propPlaceId ||
+    null;
+
+  const bizName =
+    business?.business_name ||
+    business?.name ||
+    settings?.business_name ||
+    'RatingPulse';
+
+  const reviewDestination =
+    validDirectUrl
+      ? validDirectUrl
+      : placeId
+      ? `https://search.google.com/local/writereview?placeid=${placeId}`
+      : `https://www.google.com/search?q=${encodeURIComponent(bizName + ' reviews')}`;
+
   const effectiveDestinationUrl = reviewDestination;
 
   useEffect(() => {
@@ -100,9 +125,6 @@ export default function FunnelClient({
 
       setIsRedirecting(true);
 
-      const placeId = settings?.place_id || 'ChIJ30Y_j4pZwokRx0wHl0m6SgQ';
-      const reviewDestination = `https://search.google.com/local/writereview?placeid=${placeId}`;
-
       // Mark invite as reviewed in background
       if (inviteId) {
         fetch('/api/review/status', {
@@ -113,7 +135,26 @@ export default function FunnelClient({
         }).catch(() => {});
       }
 
-      window.location.href = reviewDestination;
+      // Check business.google_review_url first
+      if (business?.google_review_url && business.google_review_url.startsWith('http')) {
+        window.location.href = business.google_review_url;
+        return;
+      }
+
+      // Also check fallback direct review URL from settings or business
+      if (validDirectUrl && validDirectUrl.startsWith('http')) {
+        window.location.href = validDirectUrl;
+        return;
+      }
+
+      // Only fall back to placeid-based review URL if google_review_url is missing AND place_id exists
+      if (placeId) {
+        window.location.href = `https://search.google.com/local/writereview?placeid=${placeId}`;
+        return;
+      }
+
+      // If both are missing, fall back to Google Search
+      window.location.href = `https://www.google.com/search?q=${encodeURIComponent((business?.business_name || 'RatingPulse') + ' reviews')}`;
     }
   };
 
