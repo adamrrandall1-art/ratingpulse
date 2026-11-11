@@ -27,8 +27,10 @@ type TimeRangeOption = '30d' | '60d' | '90d' | 'all';
 
 export interface ChannelMetrics {
   smsSent?: number;
+  smsOpened?: number;
   smsCTR?: string;
   emailSent?: number;
+  emailOpened?: number;
   emailOpenRate?: string;
 }
 
@@ -366,8 +368,10 @@ export default function ReportsClientView({
             invites={effectiveInvites}
             isDemoMode={isDemoMode}
             smsSent={channelMetrics?.smsSent}
+            smsOpened={channelMetrics?.smsOpened}
             smsCTR={channelMetrics?.smsCTR}
             emailSent={channelMetrics?.emailSent}
+            emailOpened={channelMetrics?.emailOpened}
             emailOpenRate={channelMetrics?.emailOpenRate}
           />
         </div>

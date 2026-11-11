@@ -18,8 +18,10 @@ interface ChannelPerformanceCardProps {
   invites?: Invite[];
   isDemoMode?: boolean;
   smsSent?: number;
+  smsOpened?: number;
   smsCTR?: string;
   emailSent?: number;
+  emailOpened?: number;
   emailOpenRate?: string;
 }
 
@@ -28,8 +30,10 @@ export default function ChannelPerformanceCard({
   invites = [],
   isDemoMode = false,
   smsSent: propSmsSent,
+  smsOpened: propSmsOpened,
   smsCTR: propSmsCTR,
   emailSent: propEmailSent,
+  emailOpened: propEmailOpened,
   emailOpenRate: propEmailOpenRate,
 }: ChannelPerformanceCardProps) {
   const isDemo = isDemoMode;
@@ -71,14 +75,14 @@ export default function ChannelPerformanceCard({
   // Use props if provided (e.g. from analytics server loader), otherwise use time-filtered computed metrics
   const smsSent = propSmsSent !== undefined ? propSmsSent : computedSmsSent;
   const smsCTR = propSmsCTR !== undefined ? propSmsCTR : computedSmsCTR;
-  const smsTaps = computedSmsOpened;
+  const smsTaps = propSmsOpened !== undefined ? propSmsOpened : computedSmsOpened;
   const smsDelivered = smsSent > 0 ? '100.0%' : '0.0%';
   const smsCompleted = computedSmsInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const smsConversion = smsSent > 0 ? `${((smsCompleted / smsSent) * 100).toFixed(1)}%` : '0.0%';
 
   const emailSent = propEmailSent !== undefined ? propEmailSent : computedEmailSent;
   const emailOpenRate = propEmailOpenRate !== undefined ? propEmailOpenRate : computedEmailOpenRate;
-  const emailOpens = computedEmailOpened;
+  const emailOpens = propEmailOpened !== undefined ? propEmailOpened : computedEmailOpened;
   const emailDelivered = emailSent > 0 ? '100.0%' : '0.0%';
   const emailCompleted = computedEmailInvites.filter((i) => i.status === 'reviewed' || i.status === 'completed').length;
   const emailConversion = emailSent > 0 ? `${((emailCompleted / emailSent) * 100).toFixed(1)}%` : '0.0%';
