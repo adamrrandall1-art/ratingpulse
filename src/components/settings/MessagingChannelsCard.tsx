@@ -381,7 +381,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
           </div>
           <div>
             <div className="font-bold text-slate-900">48h Auto Follow-Up</div>
-            <div className="text-[11px] text-slate-500 font-mono">Hourly Worker</div>
+            <div className="text-[11px] text-slate-500 font-mono">Daily (10:00 AM EST)</div>
             <div className="text-[10px] text-amber-600 font-semibold">Automatic Reminders Active</div>
           </div>
         </div>
@@ -440,7 +440,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
             <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
               Automated 48-Hour Follow-Up Reminders
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                Active Hourly Cron
+                Active Daily Cron
               </span>
             </div>
             <div className="text-[11px] text-slate-500 mt-0.5">
