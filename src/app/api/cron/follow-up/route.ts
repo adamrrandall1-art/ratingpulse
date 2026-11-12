@@ -45,22 +45,22 @@ export async function GET(request: Request) {
       );
     }
 
-    // 2. Compute ISO timestamps: created <= 48 hours ago AND created >= 7 days ago
+    // 2. Compute ISO timestamps: sent <= 48 hours ago AND sent >= 7 days ago
     const now = new Date();
     const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
     const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
     console.log('[Cron Follow-up] Querying unopened invites sent between', sevenDaysAgo, 'and', fortyEightHoursAgo);
 
-    // 3. Query eligible invites: status = 'sent', reminder_sent_at is null, between 48h and 7d ago, limit 50
+    // 3. Query eligible invites: status = 'sent', reminder_sent_at is null, sent between 48h and 7d ago, limit 50
     const { data: eligibleInvites, error: queryError } = await supabaseAdmin
       .from('review_invites')
-      .select('id, user_id, customer_name, customer_phone, status, created_at, reminder_sent_at')
+      .select('id, user_id, customer_name, customer_phone, status, sent_at, created_at, reminder_sent_at')
       .eq('status', 'sent')
       .is('reminder_sent_at', null)
-      .lte('created_at', fortyEightHoursAgo)
-      .gte('created_at', sevenDaysAgo)
-      .order('created_at', { ascending: true })
+      .lte('sent_at', fortyEightHoursAgo)
+      .gte('sent_at', sevenDaysAgo)
+      .order('sent_at', { ascending: true })
       .limit(50);
 
     if (queryError) {
