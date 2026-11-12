@@ -11,8 +11,10 @@ import {
   Clock,
   Moon,
   Zap,
-  Info
+  Info,
+  AlertTriangle
 } from 'lucide-react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
@@ -40,7 +42,7 @@ interface QuickSenderCardProps {
 }
 
 export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) {
-  const { activeBusiness, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
+  const { activeBusiness, profile, isDemoMode, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
   const [channel, setChannel] = useState<ChannelType>('sms');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -174,6 +176,24 @@ export default function QuickSenderCard({ onInviteSent }: QuickSenderCardProps) 
           )}
         </div>
       </div>
+
+      {/* Inactive Subscription Warning Banner */}
+      {!isDemoMode && profile?.plan_status && ['canceled', 'past_due', 'unpaid'].includes(profile.plan_status.toLowerCase()) && (
+        <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 text-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              Subscription is <strong>{profile.plan_status}</strong>. An active subscription or 14-day free trial is required to dispatch review invites.
+            </span>
+          </div>
+          <Link
+            href="/dashboard/settings#billing"
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs shrink-0 text-center transition"
+          >
+            Start 14-Day Free Trial
+          </Link>
+        </div>
+      )}
 
       {/* Channel Switcher */}
       <div className="flex items-center justify-between gap-2">

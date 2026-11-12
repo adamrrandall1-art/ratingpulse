@@ -6,6 +6,8 @@ import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
 
+import { checkSubscriptionAccess } from '@/lib/subscription';
+
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
   if (digits.length === 10) return `+1${digits}`;
@@ -72,7 +74,44 @@ export async function POST(req: NextRequest) {
     const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
     const serviceType  = (body.serviceType  as string) || 'General Service';
 
-    // 1. Generate unique invite token / ID
+    // 1. Resolve authenticated user & verify subscription / trial access before dispatching SMS
+    const authData = await auth().catch(() => null);
+    const clerkUserId = authData?.userId || (userId as string) || null;
+    if (!clerkUserId && !isDemoMode) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Resolve Supabase profile and business
+    const profile = clerkUserId
+      ? await db.profile.findFirst({
+          where: {
+            OR: [
+              { clerkUserId },
+              { id: clerkUserId },
+            ],
+          },
+        }).catch(() => null)
+      : null;
+
+    // Subscription & 14-day free trial gating
+    const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+      isDemoMode,
+      userEmail: profile?.notification_email || profile?.email,
+    });
+
+    if (!subCheck.hasActiveAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          requiresSubscription: true,
+          status: subCheck.status,
+        },
+        { status: 403 }
+      );
+    }
+
+    // 2. Generate unique invite token / ID
     const inviteToken = crypto.randomUUID();
     const funnelUrl = `${appUrl}/r/${inviteToken}`;
 
@@ -86,7 +125,7 @@ export async function POST(req: NextRequest) {
       resolveReviewUrl(placeId) ||
       '';
 
-    // 2. Set destination link in SMS text body to RatingPulse review funnel
+    // 3. Set destination link in SMS text body to RatingPulse review funnel
     let rawMessage: string;
     if (body.message && typeof body.message === 'string') {
       let customMsg = body.message;
@@ -115,23 +154,6 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
-    // 3. Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
-    const authData = await auth().catch(() => null);
-    const clerkUserId = authData?.userId || (userId as string) || null;
-    if (!clerkUserId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve Supabase profile and business
-    const profile = await db.profile.findFirst({
-      where: {
-        OR: [
-          { clerkUserId },
-          { id: clerkUserId },
-        ],
-      },
-    }).catch(() => null);
 
     const business = await db.business.findFirst({
       where: {

@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,6 +55,41 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Resolve authenticated user & verify subscription / trial access before dispatching SMS
+    const authData = await auth().catch(() => null);
+    const clerkUserId = authData?.userId || (body.userId as string) || null;
+    if (!clerkUserId && !isDemoMode) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const profile = clerkUserId
+      ? await db.profile.findFirst({
+          where: {
+            OR: [
+              { clerkUserId },
+              { id: clerkUserId },
+            ],
+          },
+        }).catch(() => null)
+      : null;
+
+    const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+      isDemoMode,
+      userEmail: profile?.notification_email || profile?.email,
+    });
+
+    if (!subCheck.hasActiveAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          requiresSubscription: true,
+          status: subCheck.status,
+        },
+        { status: 403 }
+      );
+    }
+
     // TCPA Quiet Hours Compliance Check (8:00 AM - 9:00 PM local time)
     const timeZone = body.timeZone || body.timezone || 'America/New_York';
     const { isWithinAllowedWindow, currentHour } = checkQuietHours(timeZone);
@@ -96,23 +132,6 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
-    // Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
-    const authData = await auth().catch(() => null);
-    const clerkUserId = authData?.userId || (body.userId as string) || null;
-    if (!clerkUserId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Resolve Supabase profile and business
-    const profile = await db.profile.findFirst({
-      where: {
-        OR: [
-          { clerkUserId },
-          { id: clerkUserId },
-        ],
-      },
-    }).catch(() => null);
 
     const business = await db.business.findFirst({
       where: {

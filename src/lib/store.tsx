@@ -529,9 +529,20 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                   ),
                 }));
               }
+            } else {
+              const errJson = await res.json().catch(() => null);
+              const errMsg = errJson?.error || 'An active subscription or 14-day free trial is required to send review invites.';
+              set((s) => ({
+                invites: s.invites.filter((inv) => inv.id !== newInvite.id),
+              }));
+              throw new Error(errMsg);
             }
-          } catch (err) {
+          } catch (err: any) {
+            set((s) => ({
+              invites: s.invites.filter((inv) => inv.id !== newInvite.id),
+            }));
             console.error('Failed to send SMS invite API:', err);
+            throw err;
           }
         }
 
@@ -596,9 +607,20 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
                   ),
                 }));
               }
+            } else {
+              const errJson = await res.json().catch(() => null);
+              const errMsg = errJson?.error || 'An active subscription or 14-day free trial is required to send review invites.';
+              set((s) => ({
+                invites: s.invites.filter((inv) => inv.id !== newInvite.id),
+              }));
+              throw new Error(errMsg);
             }
-          } catch (err) {
+          } catch (err: any) {
+            set((s) => ({
+              invites: s.invites.filter((inv) => inv.id !== newInvite.id),
+            }));
             console.error('Failed to send email invite API:', err);
+            throw err;
           }
         }
 

@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { sendTwilioSms } from '@/lib/twilio';
 import { getResendClient, resendFromEmail } from '@/lib/resend';
 import { db } from '@/lib/db';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -132,6 +133,38 @@ export async function GET(request: Request) {
 
       const trackingUrl = `${appUrl}/r/${inviteId}`;
       const isEmail = recipientTarget.includes('@');
+
+      // Enforce active/trialing Stripe subscription gating
+      if (invite.user_id) {
+        const subCheck = await checkSubscriptionAccess(invite.user_id, {
+          supabaseClient: supabaseAdmin,
+        });
+
+        if (!subCheck.hasActiveAccess) {
+          console.log(`[Cron Follow-up] Skipping invite ${inviteId}: Account ${invite.user_id} subscription inactive (${subCheck.status}: ${subCheck.reason})`);
+
+          // Stamp reminder_sent_at so this invite is not indefinitely queried in daily cron
+          const stampedAt = new Date().toISOString();
+          await supabaseAdmin
+            .from('review_invites')
+            .update({ reminder_sent_at: stampedAt })
+            .eq('id', inviteId);
+
+          await db.reviewInvite.update({
+            where: { id: inviteId },
+            data: { reminder_sent_at: stampedAt },
+          }).catch(() => {});
+
+          details.push({
+            id: inviteId,
+            recipient: recipientTarget,
+            channel: isEmail ? 'email' : 'sms',
+            status: 'skipped_inactive_subscription',
+            reason: subCheck.reason || `Subscription status: ${subCheck.status}`,
+          });
+          continue;
+        }
+      }
 
       try {
         let dispatchSuccess = false;

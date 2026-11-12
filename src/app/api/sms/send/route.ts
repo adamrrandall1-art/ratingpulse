@@ -6,6 +6,8 @@ import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
 
+import { checkSubscriptionAccess } from '@/lib/subscription';
+
 // ─── E.164 formatter (inlined for extra safety) ──────────────────────────────
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
@@ -71,7 +73,45 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 4. TCPA Quiet Hours Compliance Check (8:00 AM - 9:00 PM local time)
+  const isDemoMode   = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
+  const userId       = (body.userId       as string) || '';
+
+  // 4. Resolve authenticated user & verify subscription / trial access before dispatching SMS
+  const authData = await auth().catch(() => null);
+  const clerkUserId = authData?.userId || (userId as string) || null;
+  if (!clerkUserId && !isDemoMode) {
+    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const profile = clerkUserId
+    ? await db.profile.findFirst({
+        where: {
+          OR: [
+            { clerkUserId },
+            { id: clerkUserId },
+          ],
+        },
+      }).catch(() => null)
+    : null;
+
+  const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+    isDemoMode,
+    userEmail: profile?.notification_email || profile?.email,
+  });
+
+  if (!subCheck.hasActiveAccess) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'An active subscription or 14-day free trial is required to send review invites.',
+        requiresSubscription: true,
+        status: subCheck.status,
+      },
+      { status: 403 }
+    );
+  }
+
+  // 5. TCPA Quiet Hours Compliance Check (8:00 AM - 9:00 PM local time)
   const timeZone = (body.timeZone as string) || (body.timezone as string) || 'America/New_York';
   const { isWithinAllowedWindow, currentHour } = checkQuietHours(timeZone);
   if (!isWithinAllowedWindow) {
@@ -87,8 +127,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 5. Build SMS body
-  const isDemoMode   = Boolean(body.isDemoMode ?? body.isSimulationMode ?? body.demoMode ?? false);
+  // 6. Build SMS body
   const customerName = (body.customerName as string) || (body.name as string) || 'Valued Customer';
   const businessName = isDemoMode
     ? "RatingPulse"
@@ -100,7 +139,6 @@ export async function POST(req: NextRequest) {
     ? demoReviewUrl
     : (resolveReviewUrl(body.googleReviewUrl as string) || resolveReviewUrl(placeId) || '');
   const serviceType  = (body.serviceType  as string) || 'General Service';
-  const userId       = (body.userId       as string) || '';
 
   const inviteToken = crypto.randomUUID();
   const funnelUrl = `${appUrl}/r/${inviteToken}`;
@@ -123,7 +161,7 @@ export async function POST(req: NextRequest) {
 
   console.log('[SMS] dispatching to:', formattedTo, '| from:', twilioPhoneNumber || 'unset');
 
-  // 6. Send via Twilio — wrap in try/catch so any throw becomes a 400/500 JSON response
+  // 7. Send via Twilio — wrap in try/catch so any throw becomes a 400/500 JSON response
   let result;
   try {
     result = await sendTwilioSms(formattedTo, messageBody);
@@ -144,23 +182,7 @@ export async function POST(req: NextRequest) {
 
   console.log('[SMS] success — sid:', result.messageId, '| simulated:', result.simulated);
 
-  // 6. Explicit DB insert: Resolve authenticated user & business, then persist to review_invites
-  const authData = await auth().catch(() => null);
-  const clerkUserId = authData?.userId || (userId as string) || null;
-  if (!clerkUserId) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // Resolve Supabase profile and business
-  const profile = await db.profile.findFirst({
-    where: {
-      OR: [
-        { clerkUserId },
-        { id: clerkUserId },
-      ],
-    },
-  }).catch(() => null);
-
+  // 8. Explicit DB insert: Resolve business and persist to review_invites
   const business = await db.business.findFirst({
     where: {
       OR: [

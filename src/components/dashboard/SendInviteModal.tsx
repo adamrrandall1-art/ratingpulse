@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { X, Send, Smartphone, Sparkles, CheckCircle2 } from 'lucide-react';
 import { useRatingPulseStore } from '@/lib/store';
 import confetti from 'canvas-confetti';
+import { toast } from 'sonner';
 import { resolveReviewUrl } from '@/lib/google-places';
 
 interface Props {
@@ -26,27 +27,34 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
     if (!customerName || !customerPhone) return;
 
     setIsSending(true);
-    await sendSmsInvite(customerName, customerPhone, serviceType);
-    setIsSending(false);
-    setSuccess(true);
-
     try {
-      confetti({
-        particleCount: 50,
-        spread: 50,
-        origin: { y: 0.5 },
-        colors: ['#2563eb', '#10b981']
-      });
-    } catch {
-      // ignore
-    }
+      await sendSmsInvite(customerName, customerPhone, serviceType);
+      setSuccess(true);
 
-    setTimeout(() => {
-      setSuccess(false);
-      setCustomerName('');
-      setCustomerPhone('');
-      onClose();
-    }, 1500);
+      try {
+        confetti({
+          particleCount: 50,
+          spread: 50,
+          origin: { y: 0.5 },
+          colors: ['#2563eb', '#10b981']
+        });
+      } catch {
+        // ignore
+      }
+
+      setTimeout(() => {
+        setSuccess(false);
+        setCustomerName('');
+        setCustomerPhone('');
+        onClose();
+      }, 1500);
+    } catch (err: any) {
+      toast.error('Failed to send invite', {
+        description: err?.message || 'An active subscription or 14-day free trial is required to send review invites.',
+      });
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const effectiveBiz = activeBusiness.name;

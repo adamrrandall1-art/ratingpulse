@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,6 +50,23 @@ export async function POST(req: NextRequest) {
           },
         }).catch(() => null)
       : null;
+
+    // Subscription & 14-day free trial gating
+    const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+      userEmail: profile?.notification_email || profile?.email,
+    });
+
+    if (!subCheck.hasActiveAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          requiresSubscription: true,
+          status: subCheck.status,
+        },
+        { status: 403 }
+      );
+    }
 
     const business = await db.business.findFirst({
       where: {

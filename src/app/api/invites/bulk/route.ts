@@ -4,6 +4,8 @@ import { sendTwilioSms, formatE164, appendComplianceFooter } from '@/lib/twilio'
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
 
+import { checkSubscriptionAccess } from '@/lib/subscription';
+
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
   if (digits.length === 10) return `+1${digits}`;
@@ -63,6 +65,24 @@ export async function POST(req: NextRequest) {
       : (body.placeId || body.google_place_id || '');
     const userId = body.userId || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+
+    // Subscription & 14-day free trial gating for bulk campaign dispatch
+    const subCheck = await checkSubscriptionAccess(userId, {
+      isDemoMode,
+    });
+
+    if (!subCheck.hasActiveAccess) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          requiresSubscription: true,
+          status: subCheck.status,
+        },
+        { status: 403 }
+      );
+    }
+
     const activeGoogleReviewUrl =
       resolveReviewUrl(body.googleReviewUrl) ||
       resolveReviewUrl(body.business?.googleReviewUrl) ||

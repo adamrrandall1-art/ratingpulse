@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Smartphone, Mail, Send, Sparkles, CheckCircle2, User, PhoneCall, Layers } from 'lucide-react';
+import { Smartphone, Mail, Send, Sparkles, CheckCircle2, User, PhoneCall, Layers, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
 import { useRatingPulseStore } from '@/lib/store';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 
 export default function QuickReviewSender() {
-  const { activeBusiness, settings, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
+  const { activeBusiness, settings, profile, isDemoMode, sendSmsInvite, sendEmailInvite } = useRatingPulseStore();
   const [channel, setChannel] = useState<'sms' | 'email' | 'both'>('sms');
   const [customerName, setCustomerName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -71,13 +72,22 @@ export default function QuickReviewSender() {
         });
       } else {
         // Mode 'both': send concurrently
-        await Promise.allSettled([
+        const results = await Promise.allSettled([
           sendSmsInvite(finalName, phoneNumber, serviceType),
           sendEmailInvite(finalName, emailAddress, serviceType),
         ]);
-        toast.success('Invites successfully dispatched via SMS and Email!', {
-          description: `Delivered to ${phoneNumber} and ${emailAddress}`,
-        });
+        const rejected = results.filter((r) => r.status === 'rejected') as PromiseRejectedResult[];
+        if (rejected.length === 2) {
+          throw rejected[0].reason || new Error('Failed to dispatch invites. Active subscription required.');
+        } else if (rejected.length === 1) {
+          toast.warning('Partial delivery', {
+            description: rejected[0].reason?.message || 'One channel failed to dispatch.',
+          });
+        } else {
+          toast.success('Invites successfully dispatched via SMS and Email!', {
+            description: `Delivered to ${phoneNumber} and ${emailAddress}`,
+          });
+        }
       }
 
       setSentSuccess(true);
@@ -194,6 +204,24 @@ export default function QuickReviewSender() {
           </button>
         </div>
       </div>
+
+      {/* Inactive Subscription Warning Banner */}
+      {!isDemoMode && profile?.plan_status && ['canceled', 'past_due', 'unpaid'].includes(profile.plan_status.toLowerCase()) && (
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 text-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              Subscription is <strong>{profile.plan_status}</strong>. An active subscription or 14-day free trial is required to dispatch review invites.
+            </span>
+          </div>
+          <Link
+            href="/dashboard/settings#billing"
+            className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold rounded-lg text-xs shrink-0 text-center transition"
+          >
+            Start 14-Day Free Trial
+          </Link>
+        </div>
+      )}
 
       {/* Interactive Form */}
       <form onSubmit={handleSend} className="mt-5 space-y-4">

@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
 import { sendTwilioSms, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { Resend } from 'resend';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 export async function sendInviteAction(formData: {
   customerName?: string;
@@ -42,6 +43,18 @@ export async function sendInviteAction(formData: {
   const profile = await db.profile.findFirst({
     where: { clerkUserId },
   });
+
+  // Enforce active/trialing Stripe subscription gating
+  const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+    userEmail: (profile as any)?.notification_email || (profile as any)?.email,
+  });
+
+  if (!subCheck.hasActiveAccess) {
+    return {
+      success: false,
+      error: subCheck.reason || 'An active subscription or 14-day free trial is required to send review invites.',
+    };
+  }
 
   const business = await db.business.findFirst({
     where: { userId: profile?.id },
@@ -115,6 +128,18 @@ export async function sendEmailInviteAction(formData: {
   const profile = await db.profile.findFirst({
     where: { clerkUserId },
   });
+
+  // Enforce active/trialing Stripe subscription gating
+  const subCheck = await checkSubscriptionAccess(profile?.id || clerkUserId, {
+    userEmail: (profile as any)?.notification_email || (profile as any)?.email,
+  });
+
+  if (!subCheck.hasActiveAccess) {
+    return {
+      success: false,
+      error: subCheck.reason || 'An active subscription or 14-day free trial is required to send review invites.',
+    };
+  }
 
   const business = await db.business.findFirst({
     where: { userId: profile?.id },
