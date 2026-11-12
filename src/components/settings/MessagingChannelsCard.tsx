@@ -341,7 +341,7 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
       </div>
 
       {/* 1. Carrier & Infrastructure Status Badge */}
-      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
         <div className="flex items-start gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
             <Phone className="w-3.5 h-3.5" />
@@ -372,6 +372,17 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
             <div className="font-bold text-slate-900">TCPA Guard</div>
             <div className="text-[11px] text-slate-500 font-mono">8:00 AM – 9:00 PM</div>
             <div className="text-[10px] text-purple-600 font-semibold">Quiet Hours Protection Active</div>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2.5">
+          <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 mt-0.5">
+            <RefreshCw className="w-3.5 h-3.5" />
+          </div>
+          <div>
+            <div className="font-bold text-slate-900">48h Auto Follow-Up</div>
+            <div className="text-[11px] text-slate-500 font-mono">Hourly Worker</div>
+            <div className="text-[10px] text-amber-600 font-semibold">Automatic Reminders Active</div>
           </div>
         </div>
       </div>
@@ -416,6 +427,26 @@ export default function MessagingChannelsCard(props: MessagingChannelsCardProps)
               + {item.token}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Automated 48-Hour Follow-Up Reminders */}
+      <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-start gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center shrink-0 mt-0.5 font-bold">
+            <RefreshCw className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <div className="text-xs font-bold text-slate-900 flex items-center gap-2">
+              Automated 48-Hour Follow-Up Reminders
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                Active Hourly Cron
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500 mt-0.5">
+              Customers who have not opened or completed their review invite automatically receive a single polite reminder after 48 hours via SMS or email.
+            </div>
+          </div>
         </div>
       </div>
 
