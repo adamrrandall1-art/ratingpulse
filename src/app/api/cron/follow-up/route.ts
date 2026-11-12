@@ -55,7 +55,7 @@ export async function GET(request: Request) {
     // 3. Query eligible invites: status = 'sent', reminder_sent_at is null, between 48h and 7d ago, limit 50
     const { data: eligibleInvites, error: queryError } = await supabaseAdmin
       .from('review_invites')
-      .select('id, user_id, customer_name, customer_phone, status, created_at, reminder_sent_at, business_name')
+      .select('id, user_id, customer_name, customer_phone, status, created_at, reminder_sent_at')
       .eq('status', 'sent')
       .is('reminder_sent_at', null)
       .lte('created_at', fortyEightHoursAgo)
@@ -114,10 +114,22 @@ export async function GET(request: Request) {
       const inviteId = invite.id;
       const recipientTarget = (invite.customer_phone || '').trim();
       const firstName = invite.customer_name?.split(' ')[0]?.trim() || 'there';
-      const businessName =
-        invite.business_name ||
-        (invite.user_id ? businessNameMap.get(invite.user_id) : null) ||
-        'our team';
+
+      // Query business_settings by user_id to resolve business_name
+      let businessName = (invite.user_id ? businessNameMap.get(invite.user_id) : null) || '';
+      if (!businessName && invite.user_id) {
+        const { data: settings } = await supabaseAdmin
+          .from('business_settings')
+          .select('business_name')
+          .eq('user_id', invite.user_id)
+          .maybeSingle();
+
+        businessName = settings?.business_name || 'our team';
+        businessNameMap.set(invite.user_id, businessName);
+      } else if (!businessName) {
+        businessName = 'our team';
+      }
+
       const trackingUrl = `${appUrl}/r/${inviteId}`;
       const isEmail = recipientTarget.includes('@');
 
