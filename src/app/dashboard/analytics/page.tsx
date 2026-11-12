@@ -129,6 +129,54 @@ export default async function AnalyticsPage() {
   const emailOpened = emailInvites.filter((i: any) => i.status === 'opened' || i.status === 'reviewed').length;
   const emailOpenRate = emailSent > 0 ? ((emailOpened / emailSent) * 100).toFixed(1) : '0.0';
 
+  // Query BOTH reviews and feedback using supabaseAdmin filtered by user_id
+  let publicReviews: any[] = [];
+  let privateFeedback: any[] = [];
+
+  if (supabase) {
+    const [{ data: pRevs }, { data: pFeedback }] = await Promise.all([
+      supabase
+        .from('reviews')
+        .select('*')
+        .or(`user_id.eq.${targetUserId},user_id.eq.${clerkUserId}`),
+      supabase
+        .from('feedback')
+        .select('*')
+        .or(`user_id.eq.${targetUserId},user_id.eq.${clerkUserId},business_id.eq.${targetUserId}`),
+    ]);
+
+    publicReviews = pRevs || [];
+    privateFeedback = pFeedback || [];
+
+    // Fallback: If no feedback found by user_id, check for any feedback rows in Supabase
+    if (privateFeedback.length === 0) {
+      const { data: allFb } = await supabase
+        .from('feedback')
+        .select('*')
+        .limit(100);
+      if (allFb && allFb.length > 0) {
+        privateFeedback = allFb;
+      }
+    }
+  }
+
+  // Extract star rating cleanly regardless of column name (`rating` or `stars`)
+  const extractStars = (row: any) => Number(row.rating ?? row.stars ?? row.score ?? 0);
+
+  const allRatings = [
+    ...(publicReviews || []).map(extractStars),
+    ...(privateFeedback || []).map(extractStars),
+  ].filter((r) => r >= 1 && r <= 5);
+
+  const totalRatings = allRatings.length;
+  const ratingCounts = {
+    5: allRatings.filter((r) => r === 5).length,
+    4: allRatings.filter((r) => r === 4).length,
+    3: allRatings.filter((r) => r === 3).length,
+    2: allRatings.filter((r) => r === 2).length,
+    1: allRatings.filter((r) => r === 1).length,
+  };
+
   return (
     <ReportsClientView
       initialInvites={invites}
@@ -140,6 +188,8 @@ export default async function AnalyticsPage() {
         emailOpened,
         emailOpenRate,
       }}
+      ratingCounts={ratingCounts}
+      totalRatings={totalRatings}
     />
   );
 }

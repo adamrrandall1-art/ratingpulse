@@ -34,18 +34,32 @@ export interface ChannelMetrics {
   emailOpenRate?: string;
 }
 
+export interface RatingCounts {
+  5: number;
+  4: number;
+  3: number;
+  2: number;
+  1: number;
+}
+
 interface ReportsClientViewProps {
   initialInvites?: any[];
   channelMetrics?: ChannelMetrics;
+  ratingCounts?: RatingCounts;
+  totalRatings?: number;
 }
 
 export default function ReportsClientView({
   initialInvites = [],
   channelMetrics,
+  ratingCounts,
+  totalRatings,
 }: ReportsClientViewProps) {
-  const { activeBusiness, reviews, invites, isDemoMode } = useRatingPulseStore();
+  const { activeBusiness, reviews, invites, isDemoMode: storeIsDemoMode } = useRatingPulseStore();
   const [timeRange, setTimeRange] = useState<TimeRangeOption>('30d');
   const [isExporting, setIsExporting] = useState(false);
+
+  const isDemoMode = storeIsDemoMode && totalRatings === undefined;
 
   const businessName = isDemoMode
     ? (activeBusiness.name || 'RatingPulse')
@@ -53,7 +67,7 @@ export default function ReportsClientView({
 
   const totalReviews = isDemoMode
     ? (activeBusiness.reviewCount || 128)
-    : (reviews.length || activeBusiness.reviewCount || 0);
+    : (totalRatings !== undefined ? totalRatings : (reviews.length || activeBusiness.reviewCount || 0));
 
   const effectiveInvites = [...(invites || []), ...(initialInvites || [])].filter(
     (inv, idx, self) =>
@@ -92,14 +106,18 @@ export default function ReportsClientView({
 
   const hasRatings = isDemoMode
     ? true
-    : (activeBusiness.rating > 0 || reviews.length > 0);
+    : (totalRatings !== undefined ? totalRatings > 0 : (activeBusiness.rating > 0 || reviews.length > 0));
+
+  const avgRating = totalRatings !== undefined && totalRatings > 0 && ratingCounts
+    ? ((ratingCounts[5] * 5 + ratingCounts[4] * 4 + ratingCounts[3] * 3 + ratingCounts[2] * 2 + ratingCounts[1] * 1) / totalRatings).toFixed(1)
+    : null;
 
   const ratingScore = isDemoMode
     ? (activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '4.9')
     : (hasRatings
-        ? (activeBusiness.rating > 0
+        ? (avgRating || (activeBusiness.rating > 0
             ? activeBusiness.rating.toFixed(1)
-            : (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1))
+            : (reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '5.0')))
         : '—');
 
   // Filter invites consistently by timeRange across all reports metrics
@@ -358,6 +376,8 @@ export default function ReportsClientView({
             timeRange={timeRange}
             reviews={reviews}
             isDemoMode={isDemoMode}
+            ratingCounts={ratingCounts}
+            totalRatings={totalRatings}
           />
         </div>
 

@@ -4,11 +4,21 @@ import React from 'react';
 import { Star, CheckCircle2, ThumbsUp, Heart } from 'lucide-react';
 import { Review } from '@/lib/supabase/types';
 
+export interface RatingCounts {
+  5: number;
+  4: number;
+  3: number;
+  2: number;
+  1: number;
+}
+
 interface RatingDistributionCardProps {
   totalReviews?: number;
   timeRange?: string;
   reviews?: Review[];
   isDemoMode?: boolean;
+  ratingCounts?: RatingCounts;
+  totalRatings?: number;
 }
 
 export default function RatingDistributionCard({
@@ -16,9 +26,21 @@ export default function RatingDistributionCard({
   timeRange = '30d',
   reviews = [],
   isDemoMode = false,
+  ratingCounts: propRatingCounts,
+  totalRatings: propTotalRatings,
 }: RatingDistributionCardProps) {
-  const isDemo = isDemoMode;
-  const countTotal = isDemo ? (totalReviews || 128) : (reviews.length || totalReviews || 0);
+  // If server provided totalRatings / ratingCounts, disable demo mode and use live data
+  const isDemo = isDemoMode && propTotalRatings === undefined;
+
+  const serverTotal = propTotalRatings !== undefined
+    ? propTotalRatings
+    : propRatingCounts
+    ? (propRatingCounts[5] + propRatingCounts[4] + propRatingCounts[3] + propRatingCounts[2] + propRatingCounts[1])
+    : undefined;
+
+  const countTotal = isDemo
+    ? (totalReviews || 128)
+    : (serverTotal !== undefined ? serverTotal : (reviews.length || totalReviews || 0));
 
   let distribution = [];
   let positiveRate = 0;
@@ -32,6 +54,21 @@ export default function RatingDistributionCard({
       { stars: 1, percentage: 0, count: 0, color: 'bg-rose-400' },
     ];
     positiveRate = 97;
+  } else if (propRatingCounts && countTotal > 0) {
+    const c5 = propRatingCounts[5] || 0;
+    const c4 = propRatingCounts[4] || 0;
+    const c3 = propRatingCounts[3] || 0;
+    const c2 = propRatingCounts[2] || 0;
+    const c1 = propRatingCounts[1] || 0;
+
+    distribution = [
+      { stars: 5, percentage: Math.round((c5 / countTotal) * 100), count: c5, color: 'bg-emerald-500' },
+      { stars: 4, percentage: Math.round((c4 / countTotal) * 100), count: c4, color: 'bg-teal-500' },
+      { stars: 3, percentage: Math.round((c3 / countTotal) * 100), count: c3, color: 'bg-amber-400' },
+      { stars: 2, percentage: Math.round((c2 / countTotal) * 100), count: c2, color: 'bg-orange-400' },
+      { stars: 1, percentage: Math.round((c1 / countTotal) * 100), count: c1, color: 'bg-rose-400' },
+    ];
+    positiveRate = Math.round(((c5 + c4) / countTotal) * 100);
   } else if (countTotal === 0) {
     distribution = [
       { stars: 5, percentage: 0, count: 0, color: 'bg-emerald-500' },
@@ -109,11 +146,15 @@ export default function RatingDistributionCard({
         <div className="flex items-center gap-2 text-emerald-700 font-bold">
           <ThumbsUp className="w-4 h-4 text-emerald-600" />
           <span>
-            {countTotal > 0 ? `${positiveRate}% Positive Sentiment (4★ & 5★ Reviews)` : 'No reviews recorded yet'}
+            {countTotal > 0
+              ? `${positiveRate}% Positive Sentiment (${countTotal} Total Rating${countTotal === 1 ? '' : 's'})`
+              : 'No reviews recorded yet'}
           </span>
         </div>
         <span className="text-[11px] text-slate-400 font-medium">
-          {countTotal > 0 ? 'Zero public 1★ reviews recorded' : 'Awaiting incoming reviews'}
+          {countTotal > 0
+            ? `${countTotal} total rating${countTotal === 1 ? '' : 's'} recorded`
+            : 'Awaiting incoming reviews'}
         </span>
       </div>
     </div>
