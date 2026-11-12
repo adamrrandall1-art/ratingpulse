@@ -2,8 +2,24 @@
 
 import { getOrCreateUserSession } from '@/lib/auth-sync';
 import { db, toSnakeBrandVoice } from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { cookies } from 'next/headers';
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseServiceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ADMIN_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
+  if (!supabaseUrl || !supabaseServiceKey) return null;
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 export async function saveAllSettingsAction(payload: {
   businessId?: string;
@@ -12,6 +28,9 @@ export async function saveAllSettingsAction(payload: {
   positiveAlertEmail?: string | null;
   positiveAlertPhone?: string | null;
   googleReviewUrl?: string | null;
+  google_review_url?: string | null;
+  placeId?: string | null;
+  place_id?: string | null;
   aiTone?: string | null;
   aiPersonality?: string | null;
   brandVoice?: string | null;
@@ -53,6 +72,15 @@ export async function saveAllSettingsAction(payload: {
   console.log('[ACTION] Incoming settings update payload:', payload);
 
   try {
+    const googleReviewUrlVal =
+      payload.googleReviewUrl !== undefined
+        ? payload.googleReviewUrl
+        : (payload.google_review_url !== undefined ? payload.google_review_url : undefined);
+
+    const placeIdVal =
+      payload.placeId !== undefined
+        ? payload.placeId
+        : (payload.place_id !== undefined ? payload.place_id : undefined);
     const posPhoneVal = payload.notifyPositivePhone ?? payload.positiveAlertPhone ?? '';
     const posSmsVal = Boolean(payload.notifyPositiveSms ?? payload.positiveAlertSmsEnabled ?? payload.positiveSmsAlertEnabled);
 
@@ -69,27 +97,36 @@ export async function saveAllSettingsAction(payload: {
       ? Boolean(rawPosEmailEnabled)
       : true;
 
-    // 1. UPDATE PROFILES TABLE (Positive alerts)
+    // 1. UPDATE PROFILES TABLE (Positive alerts + Review links)
     let updatedProfile: any = null;
     if (profile?.id) {
       try {
+        const profileUpdates: any = {
+          notifyPositivePhone: posPhoneVal,
+          notifyPositiveSms: posSmsVal,
+          notifyPositiveEmail: emailValue,
+          notifyPositiveEnabled: posEmailEnabled,
+          updatedAt: new Date(),
+        };
+        if (googleReviewUrlVal !== undefined) {
+          profileUpdates.reviewUrl = googleReviewUrlVal;
+          profileUpdates.review_url = googleReviewUrlVal;
+        }
+        if (placeIdVal !== undefined) {
+          profileUpdates.googlePlaceId = placeIdVal;
+          profileUpdates.google_place_id = placeIdVal;
+        }
         updatedProfile = await db.profile.update({
           where: { id: profile.id },
-          data: {
-            notifyPositivePhone: posPhoneVal,
-            notifyPositiveSms: posSmsVal,
-            notifyPositiveEmail: emailValue,
-            notifyPositiveEnabled: posEmailEnabled,
-            updatedAt: new Date(),
-          },
+          data: profileUpdates,
         });
-        console.log('[ACTION] Successfully updated profile positive alerts:', updatedProfile);
+        console.log('[ACTION] Successfully updated profile:', updatedProfile);
       } catch (profErr) {
-        console.error('Failed to update profile positive alerts:', profErr);
+        console.error('Failed to update profile:', profErr);
       }
     }
 
-    // 2. UPDATE OR UPSERT BUSINESS_SETTINGS TABLE (Negative alerts + AI Tone)
+    // 2. UPDATE OR UPSERT BUSINESS_SETTINGS TABLE (Review Links + Negative alerts + AI Tone)
     const targetId = payload.settingsId || payload.id;
     let record: any = null;
 
@@ -137,12 +174,46 @@ export async function saveAllSettingsAction(payload: {
       notifyNegativeEmail: payload.notifyNegativeEmail ?? payload.negativeAlertEmail ?? '',
       emailAlertsEnabled: Boolean(payload.emailAlertsEnabled ?? payload.negativeAlertEmailEnabled ?? true),
       notifyNegativeEnabled: Boolean(payload.notifyNegativeEnabled ?? payload.negativeAlertSmsEnabled ?? payload.smsAlertsEnabled ?? true),
-      googleReviewUrl: payload.googleReviewUrl || undefined,
+      ...(googleReviewUrlVal !== undefined && { googleReviewUrl: googleReviewUrlVal, google_review_url: googleReviewUrlVal }),
+      ...(placeIdVal !== undefined && { placeId: placeIdVal, place_id: placeIdVal }),
       seoKeywords: formattedKeywords,
       customInstructions: customInstructionsVal,
       replySignature: replySignatureVal,
       updatedAt: new Date(),
     };
+
+    // Direct Supabase Admin upsert to guarantee persistence to business_settings
+    const supabase = getSupabaseAdmin();
+    const targetUserId = profile?.id || record?.userId || clerkUserId;
+    if (supabase && targetUserId) {
+      try {
+        const sbSettingsUpdates: Record<string, any> = {
+          user_id: targetUserId,
+          updated_at: new Date().toISOString(),
+        };
+        if (googleReviewUrlVal !== undefined) sbSettingsUpdates.google_review_url = googleReviewUrlVal;
+        if (placeIdVal !== undefined) sbSettingsUpdates.place_id = placeIdVal;
+        if (brandVoiceVal) sbSettingsUpdates.brand_voice = toSnakeBrandVoice(brandVoiceVal);
+        if (negEmailVal) sbSettingsUpdates.notify_negative_email = negEmailVal;
+        if (negPhoneVal) sbSettingsUpdates.notify_negative_phone = negPhoneVal;
+        sbSettingsUpdates.email_alerts_enabled = emailAlertsVal;
+        sbSettingsUpdates.notify_negative_enabled = smsAlertsVal;
+        if (formattedKeywords) sbSettingsUpdates.seo_keywords = formattedKeywords;
+        if (customInstructionsVal) sbSettingsUpdates.custom_instructions = customInstructionsVal;
+        if (replySignatureVal) sbSettingsUpdates.reply_signature = replySignatureVal;
+
+        const { error: sbUpsertErr } = await supabase
+          .from('business_settings')
+          .upsert(sbSettingsUpdates, { onConflict: 'user_id' });
+        if (sbUpsertErr) {
+          console.warn('[ACTION] Supabase business_settings direct upsert note:', sbUpsertErr.message);
+        } else {
+          console.log('[ACTION] Successfully persisted to Supabase business_settings directly');
+        }
+      } catch (sbErr) {
+        console.warn('[ACTION] Supabase business_settings update error:', sbErr);
+      }
+    }
 
     let updated: any = null;
     if (record) {
@@ -233,6 +304,7 @@ export async function saveAllSettingsAction(payload: {
             notifyNegativeEnabled: updated.notifyNegativeEnabled,
             googleReviewUrl: updated.googleReviewUrl ?? activeBusiness.googleReviewUrl,
             reviewUrl: updated.googleReviewUrl ?? activeBusiness.reviewUrl,
+            placeId: updated.placeId ?? activeBusiness.placeId,
             aiInstructions: customInstructionsVal || activeBusiness.aiInstructions,
             customInstructions: customInstructionsVal || activeBusiness.customInstructions,
             aiSignature: replySignatureVal || activeBusiness.aiSignature,
@@ -270,6 +342,7 @@ export async function saveAllSettingsAction(payload: {
     revalidatePath('/dashboard/settings');
     revalidatePath('/dashboard');
     revalidatePath('/dashboard', 'layout');
+    revalidatePath('/review');
 
     return {
       success: true,

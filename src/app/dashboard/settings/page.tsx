@@ -1,11 +1,27 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import db from '@/lib/db';
+import { createClient } from '@supabase/supabase-js';
 import SettingsClient, { SettingsClientView } from './SettingsClient';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const fetchCache = 'force-no-store';
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseServiceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ADMIN_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    '';
+  if (!supabaseUrl || !supabaseServiceKey) return null;
+  return createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
 
 export default async function SettingsPage() {
   const { userId: clerkUserId } = await auth();
@@ -42,6 +58,30 @@ export default async function SettingsPage() {
     }
   }
 
+  // Also query directly via Supabase Admin to ensure live google_review_url & place_id are loaded
+  const supabaseAdmin = getSupabaseAdmin();
+  if (supabaseAdmin && profile?.id) {
+    try {
+      const { data: sbSettings } = await supabaseAdmin
+        .from('business_settings')
+        .select('*')
+        .eq('user_id', profile.id)
+        .maybeSingle();
+      if (sbSettings) {
+        settings = {
+          ...(settings || {}),
+          ...sbSettings,
+          googleReviewUrl: sbSettings.google_review_url || sbSettings.googleReviewUrl || settings?.googleReviewUrl || '',
+          placeId: sbSettings.place_id || sbSettings.placeId || settings?.placeId || '',
+          businessName: sbSettings.business_name || sbSettings.businessName || settings?.businessName || '',
+          brandVoice: sbSettings.brand_voice || sbSettings.brandVoice || settings?.brandVoice || 'friendly_professional',
+        };
+      }
+    } catch (sbErr) {
+      console.warn('SupabaseAdmin business_settings lookup note:', sbErr);
+    }
+  }
+
   if (!settings) {
     try {
       settings = await db.businessSettings.findFirst({
@@ -73,10 +113,10 @@ export default async function SettingsPage() {
   const safeSettings = {
     id: settings?.id || '',
     userId: profile?.id || settings?.userId || '',
-    brandVoice: settings?.brandVoice || 'friendly_professional',
-    googleReviewUrl: settings?.googleReviewUrl || '',
-    placeId: settings?.placeId || '',
-    businessName: settings?.businessName || profile?.businessName || profile?.business_name || '',
+    brandVoice: settings?.brandVoice || settings?.brand_voice || 'friendly_professional',
+    googleReviewUrl: settings?.googleReviewUrl || settings?.google_review_url || profile?.review_url || profile?.google_review_url || '',
+    placeId: settings?.placeId || settings?.place_id || profile?.google_place_id || profile?.place_id || '',
+    businessName: settings?.businessName || settings?.business_name || profile?.businessName || profile?.business_name || '',
     // Negative alerts
     notifyNegativePhone: settings?.notifyNegativePhone || '',
     notifyNegativeEmail: settings?.notifyNegativeEmail || '',

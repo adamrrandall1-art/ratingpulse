@@ -258,6 +258,8 @@ export default function SettingsClient({
       keywords: bizKw
         ? (typeof bizKw === 'string' ? bizKw.split(',').map((k: string) => k.trim()).filter(Boolean) : (Array.isArray(bizKw) ? bizKw : []))
         : (initialSettings?.keywords || initialSettings?.custom_keywords || settings.custom_keywords || []),
+      googleReviewUrl: initSettings?.googleReviewUrl || initSettings?.google_review_url || biz?.googleReviewUrl || biz?.reviewUrl || '',
+      placeId: initSettings?.placeId || initSettings?.place_id || biz?.placeId || '',
       seoKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(', ') : ''),
       customKeywords: typeof bizKw === 'string' ? bizKw : (Array.isArray(bizKw) ? bizKw.join(', ') : ''),
     };
@@ -271,6 +273,12 @@ export default function SettingsClient({
   const updateSettingsField = (field: string, value: any) => {
     setSettingsState((prev: any) => {
       const next = { ...prev, [field]: value };
+      if (field === 'googleReviewUrl' || field === 'google_review_url') {
+        next.googleReviewUrl = value;
+      }
+      if (field === 'placeId' || field === 'place_id') {
+        next.placeId = value;
+      }
       if (field === 'negativeAlertSmsEnabled' || field === 'smsAlertsEnabled' || field === 'negativeSmsAlertEnabled') {
         const boolVal = Boolean(value);
         next.negativeAlertSmsEnabled = boolVal;
@@ -766,7 +774,8 @@ export default function SettingsClient({
         negativeSmsAlertEnabled: isSmsToSend,
         notifySms: isSmsToSend,
         enableSmsAlerts: isSmsToSend,
-        googleReviewUrl: activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || 'https://g.page/r/Cc5qbA6YaZ6-EBM/review',
+        googleReviewUrl: mergedState.googleReviewUrl !== undefined ? mergedState.googleReviewUrl : (activeBusiness?.googleReviewUrl || initialBusiness?.googleReviewUrl || ''),
+        placeId: mergedState.placeId !== undefined ? mergedState.placeId : (activeBusiness?.placeId || initialBusiness?.placeId || ''),
         customKeywords: kwString,
         keywords: kwList,
         seoKeywords: kwString,
@@ -846,6 +855,8 @@ export default function SettingsClient({
             notifyPositiveSms: returnedPosSms,
             negativeAlertsEnabled: returnedRecord?.negativeAlertsEnabled ?? prev.negativeAlertsEnabled,
             positiveAlertsEnabled: returnedRecord?.positiveAlertsEnabled ?? prev.positiveAlertsEnabled,
+            googleReviewUrl: returnedRecord?.googleReviewUrl ?? returnedRecord?.google_review_url ?? mergedState.googleReviewUrl ?? prev.googleReviewUrl,
+            placeId: returnedRecord?.placeId ?? returnedRecord?.place_id ?? mergedState.placeId ?? prev.placeId,
             aiTone: returnedTone,
             aiPersonality: returnedTone,
             brandVoice: returnedTone,
@@ -866,6 +877,9 @@ export default function SettingsClient({
           setActiveBusiness((prev: any) => ({
             ...(prev || {}),
             ...returnedRecord,
+            googleReviewUrl: returnedRecord?.googleReviewUrl ?? returnedRecord?.google_review_url ?? mergedState.googleReviewUrl ?? prev?.googleReviewUrl,
+            reviewUrl: returnedRecord?.googleReviewUrl ?? returnedRecord?.google_review_url ?? mergedState.googleReviewUrl ?? prev?.reviewUrl,
+            placeId: returnedRecord?.placeId ?? returnedRecord?.place_id ?? mergedState.placeId ?? prev?.placeId,
             isGoogleConnected: true,
             google_connected: true,
             isConnected: true,
@@ -992,7 +1006,14 @@ export default function SettingsClient({
         {/* TAB 1: GOOGLE BUSINESS PROFILE */}
         {activeTab === 'gbp' && (
           <div className="space-y-6 animate-in fade-in duration-150">
-            <GbpIntegrationCard business={initialBusiness} initialBusiness={initialBusiness} />
+            <GbpIntegrationCard
+              business={initialBusiness}
+              initialBusiness={initialBusiness}
+              settingsState={settingsState}
+              setSettingsState={setUnifiedSettingsState}
+              onSave={handleSave}
+              isSaving={isSaving}
+            />
           </div>
         )}
 

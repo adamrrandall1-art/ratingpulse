@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -14,23 +14,134 @@ import {
   Building2,
   ShieldCheck,
   Store,
+  Link2,
+  Save,
 } from 'lucide-react';
 import { useRatingPulseStore, isBusinessConnected } from '@/lib/store';
+import { saveAllSettingsAction } from '@/app/dashboard/settings/actions';
 import { toast } from 'sonner';
 
 interface GbpIntegrationCardProps {
   onSyncComplete?: (count: number) => void;
   business?: any;
   initialBusiness?: any;
+  settingsState?: any;
+  setSettingsState?: React.Dispatch<React.SetStateAction<any>>;
+  onSave?: (overrides?: any) => Promise<void> | void;
+  isSaving?: boolean;
 }
 
-export default function GbpIntegrationCard({ onSyncComplete, business, initialBusiness }: GbpIntegrationCardProps) {
-  const { activeBusiness, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
+export default function GbpIntegrationCard({
+  onSyncComplete,
+  business,
+  initialBusiness,
+  settingsState,
+  setSettingsState,
+  onSave,
+  isSaving = false,
+}: GbpIntegrationCardProps) {
+  const { activeBusiness, setActiveBusiness, syncGoogleReviews, disconnectBusiness, isDemoMode, toggleDemoMode } = useRatingPulseStore();
   const [isSyncing, setIsSyncing] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
   const [showConfirmDisconnect, setShowConfirmDisconnect] = useState(false);
+  const [isSavingReviewLinks, setIsSavingReviewLinks] = useState(false);
+
+  // Review URL and Place ID states
+  const [googleReviewUrl, setGoogleReviewUrl] = useState<string>(() => {
+    return (
+      settingsState?.googleReviewUrl ||
+      settingsState?.google_review_url ||
+      activeBusiness?.googleReviewUrl ||
+      activeBusiness?.reviewUrl ||
+      initialBusiness?.googleReviewUrl ||
+      initialBusiness?.reviewUrl ||
+      business?.googleReviewUrl ||
+      business?.reviewUrl ||
+      ''
+    );
+  });
+
+  const [placeIdInput, setPlaceIdInput] = useState<string>(() => {
+    return (
+      settingsState?.placeId ||
+      settingsState?.place_id ||
+      activeBusiness?.placeId ||
+      initialBusiness?.placeId ||
+      business?.placeId ||
+      ''
+    );
+  });
+
+  useEffect(() => {
+    if (settingsState?.googleReviewUrl !== undefined) {
+      setGoogleReviewUrl(settingsState.googleReviewUrl);
+    }
+  }, [settingsState?.googleReviewUrl]);
+
+  useEffect(() => {
+    if (settingsState?.placeId !== undefined) {
+      setPlaceIdInput(settingsState.placeId);
+    }
+  }, [settingsState?.placeId]);
+
+  const handleReviewUrlChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setGoogleReviewUrl(val);
+    if (setSettingsState) {
+      setSettingsState((prev: any) => ({
+        ...prev,
+        googleReviewUrl: val,
+      }));
+    }
+    setActiveBusiness({
+      googleReviewUrl: val,
+      reviewUrl: val,
+    });
+  };
+
+  const handlePlaceIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setPlaceIdInput(val);
+    if (setSettingsState) {
+      setSettingsState((prev: any) => ({
+        ...prev,
+        placeId: val,
+      }));
+    }
+    setActiveBusiness({
+      placeId: val,
+    });
+  };
+
+  const handleSaveReviewLinks = async () => {
+    setIsSavingReviewLinks(true);
+    try {
+      if (onSave) {
+        await onSave({ googleReviewUrl, placeId: placeIdInput });
+      } else {
+        const res = await saveAllSettingsAction({
+          googleReviewUrl,
+          placeId: placeIdInput,
+          businessId: activeBusiness?.id || initialBusiness?.id,
+        });
+        if (!res || !res.success) {
+          throw new Error((res as any)?.error || 'Failed to save review link settings.');
+        }
+      }
+      toast.success('Direct Google Review Link saved successfully!', {
+        description: 'Customer review invites and routing will now direct directly to this URL.',
+      });
+    } catch (err: any) {
+      toast.error('Failed to save review link', {
+        description: err?.message || 'Could not update review link settings.',
+      });
+    } finally {
+      setIsSavingReviewLinks(false);
+    }
+  };
 
   const hasReviewUrl = Boolean(
+    (googleReviewUrl && googleReviewUrl.startsWith('http')) ||
     (activeBusiness?.googleReviewUrl && activeBusiness.googleReviewUrl.startsWith('http')) ||
     (activeBusiness?.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
     activeBusiness?.isGoogleConnected
@@ -39,7 +150,7 @@ export default function GbpIntegrationCard({ onSyncComplete, business, initialBu
   const businessName = activeBusiness.name;
   const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
   const reviewCount = activeBusiness.reviewCount;
-  const placeId = activeBusiness.placeId || 'Not configured';
+  const placeId = placeIdInput || activeBusiness.placeId || 'Not configured';
   const address = activeBusiness.address;
 
   const handleSync = async () => {
@@ -182,6 +293,112 @@ export default function GbpIntegrationCard({ onSyncComplete, business, initialBu
           </div>
         </div>
       )}
+
+      {/* Direct Google Review Link & Place ID Configuration Form */}
+      <div className="p-5 rounded-2xl bg-white border border-slate-200/90 shadow-2xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+              <Link2 className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                Google Review Destination Links
+              </h4>
+              <p className="text-xs text-slate-500">
+                Direct happy customers to your official Google review form when they rate 4 or 5 stars.
+              </p>
+            </div>
+          </div>
+          {googleReviewUrl && (
+            <a
+              href={googleReviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+            >
+              <span>Test Review Link</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          {/* 1. Direct Google Review Link (Recommended) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label htmlFor="google_review_url" className="block text-xs font-bold text-slate-800">
+                Direct Google Review Link <span className="text-blue-600 font-semibold">(Recommended)</span>
+              </label>
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                Works for all businesses
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                id="google_review_url"
+                name="google_review_url"
+                type="url"
+                placeholder="https://g.page/r/your-business-code/review"
+                value={googleReviewUrl}
+                onChange={handleReviewUrlChange}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono transition-all"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Search &apos;my business&apos; on Google, click &apos;Ask for reviews&apos;, and paste the link here. Works for all businesses, including service-area businesses without a public street address.
+            </p>
+          </div>
+
+          {/* 2. Google Place ID (Optional Fallback) */}
+          <div className="space-y-1.5 pt-2 border-t border-slate-100">
+            <div className="flex items-center justify-between">
+              <label htmlFor="place_id" className="block text-xs font-bold text-slate-700">
+                Google Place ID <span className="text-slate-400 font-normal">(Optional Fallback)</span>
+              </label>
+              <span className="text-[10px] text-slate-400 font-medium">
+                Physical storefronts
+              </span>
+            </div>
+            <div className="relative">
+              <input
+                id="place_id"
+                name="place_id"
+                type="text"
+                placeholder="e.g. ChIJ30Y_j4pZwokRx0wHl0m6SgQ"
+                value={placeIdInput}
+                onChange={handlePlaceIdChange}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-xs text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600 font-mono transition-all"
+              />
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Used as a fallback for storefront businesses if a direct review link is not provided.
+            </p>
+          </div>
+
+          {/* Save Button for Review Links */}
+          <div className="flex items-center justify-end pt-2">
+            <button
+              type="button"
+              onClick={handleSaveReviewLinks}
+              disabled={isSavingReviewLinks || isSaving}
+              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
+            >
+              {(isSavingReviewLinks || isSaving) ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Saving Review Links...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save Review Link Settings</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
 
       {/* Action Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
