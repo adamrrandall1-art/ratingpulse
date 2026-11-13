@@ -42,6 +42,8 @@ create table if not exists public.subscriptions (
 
 -- Profiles columns
 alter table public.profiles add column if not exists id uuid references auth.users on delete cascade;
+alter table public.profiles add column if not exists clerk_user_id text;
+create unique index if not exists idx_profiles_clerk_user_id on public.profiles(clerk_user_id);
 alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists business_name text default '';

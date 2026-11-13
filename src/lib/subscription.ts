@@ -75,7 +75,7 @@ export async function checkSubscriptionAccess(
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
     const { data: prof } = await supabaseAdmin
       .from('profiles')
-      .select('id, clerk_user_id, email, notification_email, plan_status')
+      .select('*')
       .or(isUuid ? `id.eq.${userId},clerk_user_id.eq.${userId}` : `clerk_user_id.eq.${userId},id.eq.${userId}`)
       .maybeSingle();
 

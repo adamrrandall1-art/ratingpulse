@@ -1,5 +1,5 @@
 import { auth, currentUser } from '@clerk/nextjs/server';
-import db, { getAdminClient } from '@/lib/db';
+import db, { getAdminClient, safeUpsertProfile } from '@/lib/db';
 import { randomUUID } from 'crypto';
 
 export async function getOrCreateUserSession() {
@@ -45,64 +45,31 @@ export async function getOrCreateUserSession() {
     }).catch(() => null);
   }
 
-  // 2. If no profile exists for this Clerk user, explicitly insert a clean row in Supabase profiles
+  // 2. If no profile exists for this Clerk user, explicitly upsert a clean row in Supabase profiles
   if (!profile) {
     console.log(`[AUTH-SYNC] Provisioning new isolated profile for Clerk User: ${clerkUserId}`);
-    const newProfileId = randomUUID();
-    const insertPayload: any = {
-      id: newProfileId,
-      clerk_user_id: clerkUserId,
-      email: email || null,
-      full_name: fullName,
-      business_name: '',
-      business_category: 'Local Business',
-      google_place_id: '',
-      review_url: '',
-      google_rating: 0,
-      google_review_count: 0,
-      google_connected: false,
-      notification_email: email || null,
-      plan_status: 'trialing',
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
 
     if (supabaseAdmin) {
       try {
-        const { data: createdProfile, error: insertError } = await supabaseAdmin
-          .from('profiles')
-          .insert(insertPayload)
-          .select()
-          .maybeSingle();
+        const savedProfile = await safeUpsertProfile(supabaseAdmin, {
+          clerkUserId,
+          email,
+          fullName,
+          businessName: '',
+          businessCategory: 'Local Business',
+        });
 
-        if (insertError) {
-          console.error('[auth-sync] profile insert failed:', insertError);
-          // If error (such as concurrent insert or duplicate), check again by clerk_user_id
-          const { data: existingAfterError } = await supabaseAdmin
-            .from('profiles')
-            .select('*')
-            .eq('clerk_user_id', clerkUserId)
-            .maybeSingle();
-
-          if (existingAfterError) {
-            profile = {
-              ...existingAfterError,
-              clerkUserId: existingAfterError.clerk_user_id || existingAfterError.clerkUserId,
-              email: existingAfterError.email || existingAfterError.notification_email || email,
-              fullName: existingAfterError.full_name || existingAfterError.fullName || fullName,
-            };
-          }
-        } else if (createdProfile) {
+        if (savedProfile) {
           profile = {
-            ...createdProfile,
-            clerkUserId: createdProfile.clerk_user_id || createdProfile.clerkUserId,
-            email: createdProfile.email || createdProfile.notification_email || email,
-            fullName: createdProfile.full_name || createdProfile.fullName || fullName,
+            ...savedProfile,
+            clerkUserId: savedProfile.clerk_user_id || savedProfile.clerkUserId || clerkUserId,
+            email: savedProfile.email || savedProfile.notification_email || email,
+            fullName: savedProfile.full_name || savedProfile.fullName || fullName,
           };
           console.log(`[AUTH-SYNC] Successfully persisted new profile in Supabase:`, profile.id);
         }
       } catch (err) {
-        console.error('[auth-sync] Exception during profile insert in Supabase:', err);
+        console.error('[auth-sync] Exception during profile upsert in Supabase:', err);
       }
     }
 
@@ -111,17 +78,11 @@ export async function getOrCreateUserSession() {
       try {
         profile = await db.profile.create({
           data: {
-            id: newProfileId,
             clerkUserId: clerkUserId,
             email: email,
             fullName: fullName,
             businessName: '',
             businessCategory: 'Local Business',
-            googlePlaceId: '',
-            reviewUrl: '',
-            googleRating: 0,
-            googleReviewCount: 0,
-            googleConnected: false,
           },
         });
       } catch (err) {
@@ -205,12 +166,12 @@ export async function getOrCreateUserSession() {
       try {
         const { data: createdSettings, error: settingsInsertError } = await supabaseAdmin
           .from('business_settings')
-          .insert(settingsPayload)
+          .upsert(settingsPayload, { onConflict: 'user_id' })
           .select()
           .maybeSingle();
 
         if (settingsInsertError) {
-          console.error('[auth-sync] business_settings insert failed:', settingsInsertError);
+          console.error('[auth-sync] business_settings upsert failed:', settingsInsertError);
           // If schema mismatch error (e.g. column does not exist), retry with minimal base columns
           if (settingsInsertError.code === '42703' || settingsInsertError.message?.includes('column')) {
             const minPayload = {
@@ -223,11 +184,11 @@ export async function getOrCreateUserSession() {
             };
             const { data: retrySettings, error: retryError } = await supabaseAdmin
               .from('business_settings')
-              .insert(minPayload)
+              .upsert(minPayload, { onConflict: 'user_id' })
               .select()
               .maybeSingle();
             if (retryError) {
-              console.error('[auth-sync] business_settings retry insert failed:', retryError);
+              console.error('[auth-sync] business_settings retry upsert failed:', retryError);
             } else if (retrySettings) {
               settings = retrySettings;
             }

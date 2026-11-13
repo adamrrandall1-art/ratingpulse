@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getInitialServerBusiness } from '@/lib/server-business';
+import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
@@ -370,6 +371,175 @@ function normalizeProfile(row: any) {
     notifyPositiveEmail: safeEmail,
     notifyPositiveEnabled: safeEnabled,
   };
+}
+
+export async function safeUpsertProfile(
+  supabase: any,
+  params: {
+    id?: string;
+    clerkUserId: string;
+    email?: string | null;
+    fullName?: string | null;
+    businessName?: string | null;
+    businessCategory?: string | null;
+    notifyPositivePhone?: string | null;
+    notifyPositiveSms?: boolean;
+    notifyPositiveEmail?: string | null;
+    notifyPositiveEnabled?: boolean;
+  }
+) {
+  if (!supabase || !params.clerkUserId) return null;
+
+  // 1. Fetch existing profile by clerk_user_id to preserve its primary key ID
+  let existing: any = null;
+  try {
+    const { data: existingData, error: fetchErr } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('clerk_user_id', params.clerkUserId)
+      .maybeSingle();
+
+    if (!fetchErr && existingData) {
+      existing = existingData;
+    }
+  } catch (err) {
+    console.warn('[safeUpsertProfile] Error querying existing profile:', err);
+  }
+
+  // Preserve existing ID or use provided UUID or generate new UUID
+  const targetId = existing?.id || (params.id && UUID_REGEX.test(params.id) ? params.id : randomUUID());
+  const nowIso = new Date().toISOString();
+
+  const emailVal = params.email || params.notifyPositiveEmail || existing?.notification_email || existing?.email || null;
+  const fullNameVal = params.fullName || existing?.full_name || 'Business Owner';
+  const bizNameVal = params.businessName !== undefined ? params.businessName : (existing?.business_name ?? '');
+  const bizCategoryVal = params.businessCategory !== undefined ? params.businessCategory : (existing?.business_category ?? 'Local Business');
+
+  // Build payload adhering to Prisma schema
+  const payload: Record<string, any> = {
+    id: targetId,
+    clerk_user_id: params.clerkUserId,
+    full_name: fullNameVal,
+    business_name: bizNameVal,
+    business_category: bizCategoryVal,
+    notification_email: emailVal,
+    notify_positive_phone: params.notifyPositivePhone || existing?.notify_positive_phone || '',
+    notify_positive_sms: Boolean(params.notifyPositiveSms ?? existing?.notify_positive_sms),
+    notify_positive_email: emailVal || '',
+    notify_positive_enabled: params.notifyPositiveEnabled !== undefined ? Boolean(params.notifyPositiveEnabled) : (existing?.notify_positive_enabled ?? true),
+    updated_at: nowIso,
+  };
+
+  if (!existing) {
+    payload.created_at = nowIso;
+  }
+
+  let attempts = 0;
+  let savedData: any = null;
+  let lastError: any = null;
+
+  while (attempts < 6) {
+    attempts++;
+    const { data, error } = await supabase
+      .from('profiles')
+      .upsert(payload, { onConflict: 'clerk_user_id' })
+      .select()
+      .maybeSingle();
+
+    if (!error && data) {
+      savedData = data;
+      lastError = null;
+      break;
+    }
+
+    lastError = error;
+
+    // Check if error is column mismatch (code 42703 or message mentions column)
+    if (error && (error.code === '42703' || error.message?.includes('column'))) {
+      const match =
+        error.message.match(/column "?([a-zA-Z0-9_]+)"? of relation/i) ||
+        error.message.match(/column "?([a-zA-Z0-9_.]+)"? does not exist/i) ||
+        error.message.match(/Could not find the '([a-zA-Z0-9_]+)' column/i);
+
+      if (match && match[1]) {
+        const badCol = match[1].replace(/.*\.([a-zA-Z0-9_]+)$/, '$1');
+        console.warn(`[safeUpsertProfile] Stripping unsupported column "${badCol}" and retrying...`);
+        delete payload[badCol];
+        continue;
+      } else {
+        const corePrismaCols = new Set([
+          'id', 'clerk_user_id', 'full_name', 'business_name', 'business_category',
+          'phone', 'notification_email', 'notification_phone', 'notify_positive_phone',
+          'notify_positive_sms', 'notify_positive_email', 'notify_positive_enabled',
+          'created_at', 'updated_at'
+        ]);
+        let strippedAny = false;
+        for (const k of Object.keys(payload)) {
+          if (!corePrismaCols.has(k)) {
+            delete payload[k];
+            strippedAny = true;
+          }
+        }
+        if (strippedAny) continue;
+      }
+    }
+
+    // Check if error is ON CONFLICT specification (code 42P10)
+    if (error && (error.code === '42P10' || error.message?.includes('conflict') || error.message?.includes('constraint'))) {
+      console.warn('[safeUpsertProfile] OnConflict not supported on clerk_user_id (42P10), falling back to select-update/insert');
+      if (existing?.id) {
+        const updateRes = await supabase
+          .from('profiles')
+          .update(payload)
+          .eq('id', existing.id)
+          .select()
+          .maybeSingle();
+        if (!updateRes.error && updateRes.data) {
+          savedData = updateRes.data;
+          lastError = null;
+          break;
+        }
+        lastError = updateRes.error;
+      } else {
+        const insertRes = await supabase
+          .from('profiles')
+          .insert(payload)
+          .select()
+          .maybeSingle();
+        if (!insertRes.error && insertRes.data) {
+          savedData = insertRes.data;
+          lastError = null;
+          break;
+        }
+        lastError = insertRes.error;
+      }
+      break;
+    }
+
+    // Check if error is unique violation (code 23505)
+    if (error && error.code === '23505') {
+      console.warn('[safeUpsertProfile] Unique violation (23505), re-querying existing profile...');
+      const refetch = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('clerk_user_id', params.clerkUserId)
+        .maybeSingle();
+      if (refetch.data) {
+        savedData = refetch.data;
+        lastError = null;
+        break;
+      }
+    }
+
+    break;
+  }
+
+  if (lastError) {
+    console.error('[safeUpsertProfile] Failed to upsert profile in Supabase:', lastError);
+    return null;
+  }
+
+  return savedData;
 }
 
 export const db = {
@@ -1576,93 +1746,84 @@ export const db = {
     },
     create: async (args: { data: any }) => {
       const supabase = getAdminClient();
-      const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
-      const id = (args.data.id && UUID_REGEX.test(args.data.id)) ? args.data.id : generatedId;
+      const clerkUserId = args.data?.clerkUserId || args.data?.clerk_user_id;
 
-      const rawCreateEmail = args.data.notifyPositiveEmail || args.data.notify_positive_email || '';
-      const safeCreateEmail = (rawCreateEmail === 'true' || rawCreateEmail === 'false' || typeof rawCreateEmail !== 'string') ? '' : rawCreateEmail;
-      const rawCreateEnabled = args.data.notifyPositiveEnabled ?? args.data.notify_positive_enabled;
-      const safeCreateEnabled = rawCreateEnabled !== undefined && rawCreateEnabled !== null ? Boolean(rawCreateEnabled) : true;
-      const email = args.data.email || args.data.notificationEmail || args.data.notification_email || (safeCreateEmail && safeCreateEmail.includes('@') ? safeCreateEmail : null);
-
-      const payload: any = {
-        clerk_user_id: args.data.clerkUserId || args.data.clerk_user_id || null,
-        full_name: args.data.fullName || args.data.full_name || null,
-        email: email,
-        notification_email: email,
-        business_name: args.data.businessName || args.data.business_name || '',
-        business_category: args.data.businessCategory || args.data.business_category || '',
-        notify_positive_phone: args.data.notifyPositivePhone || args.data.notify_positive_phone || '',
-        notify_positive_sms: Boolean(args.data.notifyPositiveSms ?? args.data.notify_positive_sms),
-        notify_positive_email: safeCreateEmail,
-        notify_positive_enabled: safeCreateEnabled,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      if (id) {
-        payload.id = id;
-      }
-      if (args.data.googlePlaceId || args.data.google_place_id) {
-        payload.google_place_id = args.data.googlePlaceId || args.data.google_place_id;
-      }
-      if (args.data.reviewUrl || args.data.review_url) {
-        payload.review_url = args.data.reviewUrl || args.data.review_url;
-      }
-      if (args.data.googleRating !== undefined || args.data.google_rating !== undefined) {
-        payload.google_rating = args.data.googleRating ?? args.data.google_rating ?? 0;
-      }
-      if (args.data.googleReviewCount !== undefined || args.data.google_review_count !== undefined) {
-        payload.google_review_count = args.data.googleReviewCount ?? args.data.google_review_count ?? 0;
-      }
-      if (args.data.googleConnected !== undefined || args.data.google_connected !== undefined) {
-        payload.google_connected = Boolean(args.data.googleConnected ?? args.data.google_connected);
-      }
-      if (args.data.planStatus || args.data.plan_status) {
-        payload.plan_status = args.data.planStatus || args.data.plan_status;
-      }
-
-      if (supabase) {
+      if (supabase && clerkUserId) {
         try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .insert(payload)
-            .select()
-            .maybeSingle();
-
-          if (error) {
-            console.error('[db.profile.create] Supabase error:', error);
-            if (error.code === '23505' && payload.clerk_user_id) {
-              const { data: existing } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('clerk_user_id', payload.clerk_user_id)
-                .maybeSingle();
-              if (existing) {
-                return normalizeProfile(existing);
-              }
-            }
-          }
-          if (data) {
-            return normalizeProfile(data);
+          const saved = await safeUpsertProfile(supabase, {
+            id: args.data.id,
+            clerkUserId,
+            email: args.data.email || args.data.notificationEmail || args.data.notification_email,
+            fullName: args.data.fullName || args.data.full_name,
+            businessName: args.data.businessName || args.data.business_name,
+            businessCategory: args.data.businessCategory || args.data.business_category,
+            notifyPositivePhone: args.data.notifyPositivePhone || args.data.notify_positive_phone,
+            notifyPositiveSms: args.data.notifyPositiveSms ?? args.data.notify_positive_sms,
+            notifyPositiveEmail: args.data.notifyPositiveEmail ?? args.data.notify_positive_email,
+            notifyPositiveEnabled: args.data.notifyPositiveEnabled ?? args.data.notify_positive_enabled,
+          });
+          if (saved) {
+            return normalizeProfile(saved);
           }
         } catch (err) {
-          console.error('[db.profile.create] error:', err);
+          console.error('[db.profile.create] safeUpsertProfile failed:', err);
         }
       }
 
+      // Offline / fallback return
+      const rawCreateEmail = args.data?.notifyPositiveEmail || args.data?.notify_positive_email || '';
+      const safeCreateEmail = (rawCreateEmail === 'true' || rawCreateEmail === 'false' || typeof rawCreateEmail !== 'string') ? '' : rawCreateEmail;
+      const rawCreateEnabled = args.data?.notifyPositiveEnabled ?? args.data?.notify_positive_enabled;
+      const safeCreateEnabled = rawCreateEnabled !== undefined && rawCreateEnabled !== null ? Boolean(rawCreateEnabled) : true;
+      const email = args.data?.email || args.data?.notificationEmail || args.data?.notification_email || (safeCreateEmail && safeCreateEmail.includes('@') ? safeCreateEmail : null);
+      const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
+      const id = (args.data?.id && UUID_REGEX.test(args.data.id)) ? args.data.id : (generatedId || `prof_${Date.now()}`);
+
       return {
-        id: id || `prof_${Date.now()}`,
+        id,
         ...args.data,
-        clerkUserId: payload.clerk_user_id,
+        clerkUserId: clerkUserId || null,
         email: email,
-        fullName: payload.full_name,
-        notifyPositivePhone: payload.notify_positive_phone,
-        notifyPositiveSms: payload.notify_positive_sms,
+        fullName: args.data?.fullName || args.data?.full_name || 'Business Owner',
+        notifyPositivePhone: args.data?.notifyPositivePhone || args.data?.notify_positive_phone || '',
+        notifyPositiveSms: Boolean(args.data?.notifyPositiveSms ?? args.data?.notify_positive_sms),
         notifyPositiveEmail: safeCreateEmail,
         notifyPositiveEnabled: safeCreateEnabled,
-        created_at: payload.created_at,
-        updated_at: payload.updated_at,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       };
+    },
+    upsert: async (args: { where?: any; create: any; update?: any }) => {
+      const supabase = getAdminClient();
+      const clerkUserId =
+        args.where?.clerkUserId ||
+        args.where?.clerk_user_id ||
+        args.create?.clerkUserId ||
+        args.create?.clerk_user_id ||
+        args.update?.clerkUserId ||
+        args.update?.clerk_user_id;
+
+      const data = { ...args.create, ...(args.update || {}) };
+      if (supabase && clerkUserId) {
+        try {
+          const saved = await safeUpsertProfile(supabase, {
+            id: args.where?.id || data.id,
+            clerkUserId,
+            email: data.email || data.notificationEmail || data.notification_email,
+            fullName: data.fullName || data.full_name,
+            businessName: data.businessName || data.business_name,
+            businessCategory: data.businessCategory || data.business_category,
+            notifyPositivePhone: data.notifyPositivePhone || data.notify_positive_phone,
+            notifyPositiveSms: data.notifyPositiveSms ?? data.notify_positive_sms,
+            notifyPositiveEmail: data.notifyPositiveEmail ?? data.notify_positive_email,
+            notifyPositiveEnabled: data.notifyPositiveEnabled ?? data.notify_positive_enabled,
+          });
+          if (saved) return normalizeProfile(saved);
+        } catch (err) {
+          console.error('[db.profile.upsert] safeUpsertProfile failed:', err);
+        }
+      }
+      return (db as any).profile.create({ data });
     },
     findUnique: async (args?: any) => {
       return (db as any).profile.findFirst(args);
