@@ -125,8 +125,8 @@ export async function handleSavePlace(req: NextRequest) {
       }
       if (fetchedDetails) {
         if (fetchedDetails.formatted_address) profileUpdates.formatted_address = fetchedDetails.formatted_address;
-        if (fetchedDetails.rating) profileUpdates.google_rating = fetchedDetails.rating;
-        if (fetchedDetails.user_ratings_total) profileUpdates.google_review_count = fetchedDetails.user_ratings_total;
+        if (fetchedDetails.rating !== undefined && fetchedDetails.rating !== null) profileUpdates.google_rating = fetchedDetails.rating;
+        if (fetchedDetails.user_ratings_total !== undefined && fetchedDetails.user_ratings_total !== null) profileUpdates.google_review_count = fetchedDetails.user_ratings_total;
       }
 
       if (profile?.id) {

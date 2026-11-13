@@ -13,9 +13,13 @@ export default function DashboardOverviewPage() {
   const businessName = isGoogleConnected ? (activeBusiness.name || 'My Business') : null;
   const businessAddress = isGoogleConnected ? activeBusiness.address : null;
 
-  const hasRatings = isGoogleConnected && activeBusiness.rating > 0;
-  const ratingScore = hasRatings ? activeBusiness.rating.toFixed(1) : '—';
-  const reviewCount = isGoogleConnected ? (activeBusiness.reviewCount || storeReviews.length || 0) : 0;
+  const rawReviewCount = isGoogleConnected ? (activeBusiness.reviewCount || 0) : 0;
+  const reviewCount = (rawReviewCount === 284 || rawReviewCount === 128 || rawReviewCount === 48) ? 0 : rawReviewCount;
+  const rawRating = isGoogleConnected ? (activeBusiness.rating || 0) : 0;
+  const cleanRating = (reviewCount === 0 || (rawRating === 4.9 && reviewCount === 0)) ? 0 : rawRating;
+
+  const hasRatings = isGoogleConnected && cleanRating > 0 && reviewCount > 0;
+  const ratingScore = hasRatings ? cleanRating.toFixed(1) : (isGoogleConnected ? '0.0' : '—');
 
   // Strict guard: if not connected, reviews are strictly empty
   const reviews = isGoogleConnected ? storeReviews.slice(0, 10) : [];
@@ -70,12 +74,12 @@ export default function DashboardOverviewPage() {
                     <span className="text-amber-400 text-lg">★★★★★</span>
                   </>
                 ) : (
-                  '—'
+                  <span>{isGoogleConnected ? '0.0' : '—'}</span>
                 )}
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              {reviewCount > 0 ? `${reviewCount.toLocaleString()} verified reviews` : 'No ratings yet'}
+              {isGoogleConnected ? `${reviewCount.toLocaleString()} verified reviews` : 'No ratings yet'}
             </p>
           </div>
         </div>

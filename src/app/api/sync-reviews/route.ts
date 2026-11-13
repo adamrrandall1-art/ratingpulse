@@ -247,8 +247,10 @@ async function handleSync(req: NextRequest) {
 
     const placeId = rawPlaceId || userProfile?.google_place_id || '';
     let googleReviews: any[] = [];
-    let placeRating = userProfile?.google_rating || 5.0;
-    let totalRatings = userProfile?.google_review_count || 0;
+    const rawTotalRatings = userProfile?.google_review_count || 0;
+    let totalRatings = (rawTotalRatings === 284 || rawTotalRatings === 128 || rawTotalRatings === 48) ? 0 : rawTotalRatings;
+    const rawPlaceRating = Number(userProfile?.google_rating) || 0;
+    let placeRating = (totalRatings === 0 || (rawPlaceRating === 4.9 && totalRatings === 0)) ? 0 : rawPlaceRating;
     let placeName = userProfile?.business_name || '';
 
     // 1. Try Google Business Profile (GBP) OAuth Direct Sync if available and matching target place

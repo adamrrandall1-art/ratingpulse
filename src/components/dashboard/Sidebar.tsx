@@ -156,7 +156,10 @@ export default function Sidebar({
           {(() => {
             const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
             const bizName = activeBusiness.name || profile.business_name || 'My Business';
-            const bizRating = activeBusiness.rating || profile.google_rating || 5.0;
+            const rawReviewCount = activeBusiness.reviewCount || profile.google_review_count || 0;
+            const cleanCount = (rawReviewCount === 284 || rawReviewCount === 128 || rawReviewCount === 48) ? 0 : rawReviewCount;
+            const rawRating = Number(activeBusiness.rating || profile.google_rating) || 0;
+            const cleanRating = (cleanCount === 0 || (rawRating === 4.9 && cleanCount === 0)) ? 0 : rawRating;
             return isConnected ? (
               <div className="mt-4 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between shadow-xs">
                 <div className="truncate">
@@ -169,7 +172,7 @@ export default function Sidebar({
                   </div>
                 </div>
                 <span className="text-xs font-bold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                  {Number(bizRating).toFixed(1)} ★
+                  {cleanRating > 0 ? `${cleanRating.toFixed(1)} ★` : '0.0 ★'}
                 </span>
               </div>
             ) : (

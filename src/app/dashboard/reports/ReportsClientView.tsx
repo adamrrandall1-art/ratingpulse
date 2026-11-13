@@ -113,11 +113,11 @@ export default function ReportsClientView({
     : null;
 
   const ratingScore = isDemoMode
-    ? (activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '4.9')
+    ? (activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0')
     : (hasRatings
         ? (avgRating || (activeBusiness.rating > 0
             ? activeBusiness.rating.toFixed(1)
-            : (reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '5.0')))
+            : (reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '0.0')))
         : '—');
 
   // Filter invites consistently by timeRange across all reports metrics

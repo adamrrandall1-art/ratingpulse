@@ -149,8 +149,10 @@ export default function GbpIntegrationCard({
   const hasOAuthApi = Boolean(isDemoMode || activeBusiness?.isGoogleConnected);
   const isConnected = isDemoMode || hasOAuthApi || hasDirectReviewUrl || hasValidPlaceId;
   const businessName = activeBusiness.name || (isDemoMode ? 'RatingPulse Demo' : 'Your Business');
-  const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
-  const reviewCount = activeBusiness.reviewCount;
+  const rawCount = activeBusiness.reviewCount;
+  const reviewCount = (rawCount === 284 || rawCount === 128 || rawCount === 48) ? 0 : (rawCount || 0);
+  const rawRating = activeBusiness.rating;
+  const rating = (reviewCount === 0 || (rawRating === 4.9 && reviewCount === 0) || !rawRating || rawRating <= 0) ? '0.0' : rawRating.toFixed(1);
   const placeId = placeIdInput || activeBusiness.placeId || 'Not configured';
   const address = activeBusiness.address;
 

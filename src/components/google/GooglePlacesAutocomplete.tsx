@@ -262,7 +262,7 @@ export default function GooglePlacesSearch({
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-xs font-bold text-amber-400">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                <span>{selectedPlace.rating || 5.0}</span>
+                <span>{Number(selectedPlace.rating || 0).toFixed(1)}</span>
                 <span className="text-[10px] text-slate-400 font-normal">
                   ({selectedPlace.reviewCount || 0})
                 </span>

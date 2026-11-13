@@ -414,6 +414,10 @@ export async function safeUpsertProfile(
   const fullNameVal = params.fullName || existing?.full_name || 'Business Owner';
   const bizNameVal = params.businessName !== undefined ? params.businessName : (existing?.business_name ?? '');
   const bizCategoryVal = params.businessCategory !== undefined ? params.businessCategory : (existing?.business_category ?? 'Local Business');
+  const rawExistingCount = existing?.google_review_count !== undefined ? Number(existing.google_review_count) : 0;
+  const cleanExistingCount = (rawExistingCount === 284 || rawExistingCount === 128 || rawExistingCount === 48) ? 0 : rawExistingCount;
+  const rawExistingRating = existing?.google_rating !== undefined ? Number(existing.google_rating) : 0;
+  const cleanExistingRating = (cleanExistingCount === 0 || (rawExistingRating === 4.9 && cleanExistingCount === 0)) ? 0 : rawExistingRating;
 
   // Build payload adhering to Prisma schema
   const payload: Record<string, any> = {
@@ -427,6 +431,8 @@ export async function safeUpsertProfile(
     notify_positive_sms: Boolean(params.notifyPositiveSms ?? existing?.notify_positive_sms),
     notify_positive_email: emailVal || '',
     notify_positive_enabled: params.notifyPositiveEnabled !== undefined ? Boolean(params.notifyPositiveEnabled) : (existing?.notify_positive_enabled ?? true),
+    google_rating: cleanExistingRating,
+    google_review_count: cleanExistingCount,
     updated_at: nowIso,
   };
 
@@ -2494,6 +2500,11 @@ function normalizeBusiness(raw: any): BusinessRecord {
   const phone = raw.notifyNegativePhone ?? raw.notify_negative_phone ?? raw.negativeAlertPhone ?? raw.negative_alert_phone ?? null;
   const email = raw.notifyNegativeEmail ?? raw.notify_negative_email ?? raw.negativeAlertEmail ?? raw.negative_alert_email ?? null;
 
+  const rawCount = Number(raw.reviewCount ?? raw.google_review_count) || 0;
+  const cleanCount = (rawCount === 284 || rawCount === 128 || rawCount === 48) ? 0 : rawCount;
+  const rawRating = Number(raw.rating ?? raw.google_rating) || 0;
+  const cleanRating = (cleanCount === 0 || (rawRating === 4.9 && cleanCount === 0)) ? 0 : rawRating;
+
   return {
     id: raw.id || 'default-biz',
     userId: raw.userId || raw.user_id || null,
@@ -2505,8 +2516,8 @@ function normalizeBusiness(raw: any): BusinessRecord {
     placeId: raw.placeId || raw.place_id || raw.google_place_id || '',
     reviewUrl: cleanReviewUrl,
     googleReviewUrl: cleanReviewUrl,
-    rating: Number(raw.rating) || 0,
-    reviewCount: Number(raw.reviewCount) || 0,
+    rating: cleanRating,
+    reviewCount: cleanCount,
     isGoogleConnected,
     negativeAlertEmail: email,
     negativeAlertPhone: phone,

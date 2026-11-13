@@ -297,6 +297,11 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       profile?.sms_template ??
       '';
 
+    const rawCount = Number(businessRecord?.reviewCount || profile?.google_review_count) || 0;
+    const cleanCount = (rawCount === 284 || rawCount === 128 || rawCount === 48) ? 0 : rawCount;
+    const rawRating = Number(businessRecord?.rating || profile?.google_rating) || 0;
+    const cleanRating = (cleanCount === 0 || (rawRating === 4.9 && cleanCount === 0)) ? 0 : rawRating;
+
     const business = {
       id: businessRecord?.id || profile?.id || userId,
       userId: businessRecord?.userId || businessRecord?.user_id || profile?.clerk_user_id || profile?.id || userId,
@@ -312,8 +317,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       reviewUrl: effectiveReviewUrl,
       googleReviewUrl: effectiveReviewUrl,
       reviewLink: effectiveReviewUrl,
-      rating: Number(profile?.google_rating) || 0,
-      reviewCount: Number(profile?.google_review_count) || 0,
+      rating: cleanRating,
+      reviewCount: cleanCount,
       isGoogleConnected,
       google_connected: isGoogleConnected,
       isConnected: isGoogleConnected,

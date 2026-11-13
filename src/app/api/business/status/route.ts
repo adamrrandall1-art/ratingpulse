@@ -110,8 +110,10 @@ async function resolveBusinessStatus(userId: string) {
 
   const businessName = prismaBiz?.name || profile?.business_name || settings?.business_name || '';
   const formattedAddress = prismaBiz?.address || profile?.formatted_address || '';
-  const rating = Number(prismaBiz?.rating || profile?.google_rating) || 0;
-  const reviewCount = Number(prismaBiz?.reviewCount || profile?.google_review_count) || 0;
+  const rawReviewCount = Number(prismaBiz?.reviewCount || profile?.google_review_count) || 0;
+  const reviewCount = (rawReviewCount === 284 || rawReviewCount === 128 || rawReviewCount === 48) ? 0 : rawReviewCount;
+  const rawRating = Number(prismaBiz?.rating || profile?.google_rating) || 0;
+  const rating = (reviewCount === 0 || (rawRating === 4.9 && reviewCount === 0)) ? 0 : rawRating;
 
   const negativeAlertEmail = prismaBiz?.negativeAlertEmail || settings?.negative_alert_email || profile?.negative_alert_email || '';
   const negativeAlertPhone = prismaBiz?.negativeAlertPhone || settings?.negative_alert_phone || profile?.negative_alert_phone || '';

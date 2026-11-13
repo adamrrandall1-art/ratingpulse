@@ -178,8 +178,8 @@ const defaultDemoBusiness: ActiveBusiness = {
   placeId: DEFAULT_BUSINESS.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg',
   reviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg',
   googleReviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg',
-  rating: DEFAULT_BUSINESS.rating || 5.0,
-  reviewCount: DEFAULT_BUSINESS.totalReviews || 48,
+  rating: DEFAULT_BUSINESS.rating || 0,
+  reviewCount: DEFAULT_BUSINESS.totalReviews || 0,
   isGoogleConnected: true,
   isConnected: true,
   isDemoMode: true,
@@ -764,6 +764,30 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           ) {
             state.setLiveBusiness(null);
           }
+          if (state.liveBusiness) {
+            const biz = state.liveBusiness;
+            const isMockCount = biz.reviewCount === 284 || biz.reviewCount === 128 || biz.reviewCount === 48;
+            const isMockRating = (isMockCount && (biz.rating === 4.9 || biz.rating === 5.0)) || (biz.reviewCount === 0 && (biz.rating === 4.9 || biz.rating === 5.0));
+            if (isMockCount || isMockRating) {
+              state.setLiveBusiness({
+                ...biz,
+                reviewCount: isMockCount ? 0 : (biz.reviewCount || 0),
+                rating: isMockRating ? 0 : (biz.rating || 0),
+              });
+            }
+          }
+          if (state.profile) {
+            const prof = state.profile;
+            const isMockCount = prof.google_review_count === 284 || prof.google_review_count === 128 || prof.google_review_count === 48;
+            const isMockRating = (isMockCount && (prof.google_rating === 4.9 || prof.google_rating === 5.0)) || (prof.google_review_count === 0 && (prof.google_rating === 4.9 || prof.google_rating === 5.0));
+            if (isMockCount || isMockRating) {
+              state.setProfile({
+                ...prof,
+                google_review_count: isMockCount ? 0 : (prof.google_review_count || 0),
+                google_rating: isMockRating ? 0 : (prof.google_rating || 0),
+              });
+            }
+          }
         }
       },
     }
@@ -889,6 +913,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               (!isPlaceholderPhone(prof.phone) ? prof.phone : null) ||
               configuredTwilio;
 
+            const rawProfRating = Number(json.rating ?? prof.google_rating) || 0;
+            const rawProfCount = Number(json.reviewCount ?? prof.google_review_count) || 0;
+            const cleanProfCount = (rawProfCount === 284 || rawProfCount === 128 || rawProfCount === 48) ? 0 : rawProfCount;
+            const cleanProfRating = (cleanProfCount === 0 || (rawProfRating === 4.9 && cleanProfCount === 0)) ? 0 : rawProfRating;
+
             const mergedProfile: Profile = {
               ...zustandStore.profile,
               ...prof,
@@ -898,8 +927,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               business_name: json.businessName || prof.business_name || '',
               formatted_address: json.formattedAddress || prof.formatted_address || '',
               review_url: json.reviewUrl || prof.review_url || '',
-              google_rating: json.rating || prof.google_rating || 0,
-              google_review_count: json.reviewCount || prof.google_review_count || 0,
+              google_rating: cleanProfRating,
+              google_review_count: cleanProfCount,
             };
             zustandStore.setProfile(mergedProfile);
 
@@ -918,6 +947,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
             const resolvedReviewUrl = directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : '';
 
+            const rawBizRating = Number(biz.rating ?? json.rating ?? prof.google_rating) || 0;
+            const rawBizCount = Number(biz.reviewCount ?? json.reviewCount ?? prof.google_review_count) || 0;
+            const cleanBizCount = (rawBizCount === 284 || rawBizCount === 128 || rawBizCount === 48) ? 0 : rawBizCount;
+            const cleanBizRating = (cleanBizCount === 0 || (rawBizRating === 4.9 && cleanBizCount === 0)) ? 0 : rawBizRating;
+
             zustandStore.setLiveBusiness({
               ...(biz || {}),
               id: biz.id || prof.id || activeUserId,
@@ -928,8 +962,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               placeId: validPlaceId || biz.placeId || '',
               reviewUrl: resolvedReviewUrl,
               googleReviewUrl: resolvedReviewUrl,
-              rating: Number(biz.rating || json.rating || prof.google_rating) || 0,
-              reviewCount: Number(biz.reviewCount || json.reviewCount || prof.google_review_count) || 0,
+              rating: cleanBizRating,
+              reviewCount: cleanBizCount,
               isGoogleConnected,
               isConnected: Boolean(isGoogleConnected || validPlaceId || (resolvedReviewUrl && resolvedReviewUrl.startsWith('http'))),
               isDemoMode: false,
