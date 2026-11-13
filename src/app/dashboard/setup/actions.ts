@@ -120,8 +120,8 @@ export async function saveAndAttachPlaceAction(formData: FormData) {
   revalidatePath('/dashboard/businesses');
   revalidatePath('/dashboard', 'layout');
   revalidatePath('/dashboard');
-  revalidatePath('/dashboard/settings');
-  redirect('/dashboard/setup?business=RatingPulse&connected=true');
+  const attachedName = fetchedDetails?.name || '';
+  redirect(`/dashboard/setup?business=${encodeURIComponent(attachedName)}&connected=true`);
 }
 
 export async function disconnectBusinessAction(formData?: FormData) {

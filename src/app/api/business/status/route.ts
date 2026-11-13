@@ -76,18 +76,20 @@ async function resolveBusinessStatus(userId: string) {
     } catch {}
   }
 
-  const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+  const defaultReviewUrl = '';
   const placeId = prismaBiz?.placeId || profile?.google_place_id || settings?.place_id || '';
   const hasValidPlaceId = Boolean(placeId && !placeId.startsWith('demo_') && placeId.trim().length > 0);
-  const directReviewUrl = prismaBiz?.googleReviewUrl || prismaBiz?.reviewUrl || profile?.review_url || settings?.google_review_url || (settings as any)?.review_url || defaultReviewUrl;
-  const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || directReviewUrl || defaultReviewUrl;
+  const directReviewUrl = prismaBiz?.googleReviewUrl || prismaBiz?.reviewUrl || profile?.review_url || settings?.google_review_url || (settings as any)?.review_url || '';
+  const effectiveReviewUrl = directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : '';
   const hasDirectReviewUrl = Boolean(effectiveReviewUrl && effectiveReviewUrl.startsWith('http'));
   const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
 
-  const isGoogleConnected = true;
+  const isGoogleConnected = Boolean(
+    profile?.google_connected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id)
+  );
   const isPendingPlaceId = false;
 
-  const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
+  const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '';
   const isPlaceholderPhone = (p?: string | null) => {
     if (!p) return true;
     const clean = p.replace(/\D/g, '');
@@ -106,9 +108,9 @@ async function resolveBusinessStatus(userId: string) {
     ? outboundPhone
     : rawPhone;
 
-  const businessName = prismaBiz?.name || profile?.business_name || settings?.business_name || 'RatingPulse';
+  const businessName = prismaBiz?.name || profile?.business_name || settings?.business_name || '';
   const formattedAddress = prismaBiz?.address || profile?.formatted_address || '';
-  const rating = Number(prismaBiz?.rating || profile?.google_rating) || 5.0;
+  const rating = Number(prismaBiz?.rating || profile?.google_rating) || 0;
   const reviewCount = Number(prismaBiz?.reviewCount || profile?.google_review_count) || 0;
 
   const negativeAlertEmail = prismaBiz?.negativeAlertEmail || settings?.negative_alert_email || profile?.negative_alert_email || '';
@@ -121,7 +123,7 @@ async function resolveBusinessStatus(userId: string) {
     id: prismaBiz?.id || profile?.id || userId,
     businessId: prismaBiz?.id || profile?.id || userId,
     name: businessName,
-    category: prismaBiz?.category || profile?.business_category || 'Local Business',
+    category: prismaBiz?.category || profile?.business_category || '',
     address: formattedAddress,
     phone: activePhone || outboundPhone || '',
     smsSenderNumber: activePhone || outboundPhone || '',
@@ -132,9 +134,9 @@ async function resolveBusinessStatus(userId: string) {
     reviewLink: effectiveReviewUrl,
     rating,
     reviewCount,
-    isGoogleConnected: true,
-    google_connected: true,
-    isConnected: true,
+    isGoogleConnected,
+    google_connected: isGoogleConnected,
+    isConnected: isGoogleConnected || hasPlaceId,
     isPendingPlaceId: false,
     negativeAlertEmail,
     negativeAlertPhone,

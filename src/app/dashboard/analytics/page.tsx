@@ -37,7 +37,7 @@ export default async function AnalyticsPage() {
     },
   });
 
-  // If no profile found by Clerk ID, fallback to direct Supabase query
+  // If no profile found by Clerk ID, fallback to direct Supabase query strictly for this user
   if (!profile && supabase) {
     const { data: profByClerk } = await supabase
       .from('profiles')
@@ -47,22 +47,6 @@ export default async function AnalyticsPage() {
 
     if (profByClerk) {
       profile = profByClerk;
-    } else {
-      const { data: firstProf } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (firstProf && firstProf[0]) {
-        profile = firstProf[0];
-        try {
-          await supabase
-            .from('profiles')
-            .update({ clerk_user_id: clerkUserId })
-            .eq('id', profile.id);
-        } catch {}
-      }
     }
   }
 
@@ -81,17 +65,16 @@ export default async function AnalyticsPage() {
     orderBy: { createdAt: 'desc' },
   });
 
-  // Direct Supabase fallback if query returned 0 rows
+  // Direct Supabase query strictly scoped to this user
   if (invites.length === 0 && supabase) {
     const { data: sInvites } = await supabase
       .from('review_invites')
       .select('*')
+      .or(`user_id.eq.${targetUserId},user_id.eq.${clerkUserId}`)
       .order('created_at', { ascending: false });
 
     if (sInvites && sInvites.length > 0) {
-      const userMatches = sInvites.filter((r) => r.user_id === targetUserId || r.user_id === clerkUserId);
-      const chosenInvites = userMatches.length > 0 ? userMatches : sInvites;
-      invites = chosenInvites.map((r) => ({
+      invites = sInvites.map((r) => ({
         id: r.id,
         token: r.id,
         userId: r.user_id,
@@ -147,17 +130,6 @@ export default async function AnalyticsPage() {
 
     publicReviews = pRevs || [];
     privateFeedback = pFeedback || [];
-
-    // Fallback: If no feedback found by user_id, check for any feedback rows in Supabase
-    if (privateFeedback.length === 0) {
-      const { data: allFb } = await supabase
-        .from('feedback')
-        .select('*')
-        .limit(100);
-      if (allFb && allFb.length > 0) {
-        privateFeedback = allFb;
-      }
-    }
   }
 
   // Extract star rating cleanly regardless of column name (`rating` or `stars`)

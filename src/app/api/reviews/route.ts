@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     const userId = searchParams.get('userId') || clerkAuth?.userId;
 
     if (!userId) {
-      return NextResponse.json({ success: true, reviews: [] });
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
     // Resolve Clerk user via Prisma db.business.findMany
@@ -89,19 +89,6 @@ export async function GET(req: NextRequest) {
           if (fbData && fbData.length > 0) {
             feedback = fbData;
             break;
-          }
-        } catch {}
-      }
-
-      if (feedback.length === 0) {
-        try {
-          const { data: allFb } = await supabase
-            .from('feedback')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(50);
-          if (allFb && allFb.length > 0) {
-            feedback = allFb;
           }
         } catch {}
       }

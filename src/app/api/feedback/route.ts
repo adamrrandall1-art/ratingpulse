@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendFeedbackAlert } from '@/lib/resend';
 import { sendTwilioSms, formatE164 } from '@/lib/twilio';
@@ -375,8 +376,13 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const clerkAuth = await auth().catch(() => null);
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get('userId');
+    const userId = searchParams.get('userId') || clerkAuth?.userId;
+
+    if (!userId) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
 
     const supabaseAdmin = getAdminClient();
     if (!supabaseAdmin) {
@@ -386,41 +392,30 @@ export async function GET(req: NextRequest) {
     let feedback: any[] = [];
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-    if (userId) {
-      const candidateIds: string[] = [];
-      if (isUuid.test(userId)) candidateIds.push(userId);
+    const candidateIds: string[] = [];
+    if (isUuid.test(userId)) candidateIds.push(userId);
 
+    try {
+      const { data: prof } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('clerk_user_id', userId)
+        .maybeSingle();
+      if (prof?.id && isUuid.test(prof.id)) candidateIds.push(prof.id);
+    } catch {}
+
+    for (const candId of candidateIds) {
       try {
-        const { data: prof } = await supabaseAdmin
-          .from('profiles')
-          .select('id')
-          .eq('clerk_user_id', userId)
-          .maybeSingle();
-        if (prof?.id && isUuid.test(prof.id)) candidateIds.push(prof.id);
+        const { data } = await supabaseAdmin
+          .from('feedback')
+          .select('*')
+          .or(`user_id.eq.${candId},business_id.eq.${candId}`)
+          .order('created_at', { ascending: false });
+        if (data && data.length > 0) {
+          feedback = data;
+          break;
+        }
       } catch {}
-
-      for (const candId of candidateIds) {
-        try {
-          const { data } = await supabaseAdmin
-            .from('feedback')
-            .select('*')
-            .or(`user_id.eq.${candId},business_id.eq.${candId}`)
-            .order('created_at', { ascending: false });
-          if (data && data.length > 0) {
-            feedback = data;
-            break;
-          }
-        } catch {}
-      }
-    }
-
-    if (feedback.length === 0) {
-      const { data } = await supabaseAdmin
-        .from('feedback')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (data) feedback = data;
     }
 
     return NextResponse.json({ success: true, feedback }, { status: 200 });

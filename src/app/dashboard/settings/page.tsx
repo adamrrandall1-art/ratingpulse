@@ -27,6 +27,7 @@ export default async function SettingsPage() {
   const { userId: clerkUserId } = await auth();
   if (!clerkUserId) redirect('/sign-in');
 
+  const supabaseAdmin = getSupabaseAdmin();
   let profile: any = null;
   let settings: any = null;
 
@@ -38,14 +39,17 @@ export default async function SettingsPage() {
     console.error('Error fetching profile:', err);
   }
 
-  if (!profile) {
+  if (!profile && supabaseAdmin) {
     try {
-      profile = await db.profile.findFirst({
-        orderBy: { id: 'desc' },
-      });
-    } catch (err) {
-      console.error('Fallback profile lookup error:', err);
-    }
+      const { data: profByClerk } = await supabaseAdmin
+        .from('profiles')
+        .select('*')
+        .eq('clerk_user_id', clerkUserId)
+        .maybeSingle();
+      if (profByClerk) {
+        profile = profByClerk;
+      }
+    } catch {}
   }
 
   if (profile?.id) {
@@ -59,7 +63,6 @@ export default async function SettingsPage() {
   }
 
   // Also query directly via Supabase Admin to ensure live google_review_url & place_id are loaded
-  const supabaseAdmin = getSupabaseAdmin();
   if (supabaseAdmin && profile?.id) {
     try {
       const { data: sbSettings } = await supabaseAdmin
@@ -79,16 +82,6 @@ export default async function SettingsPage() {
       }
     } catch (sbErr) {
       console.warn('SupabaseAdmin business_settings lookup note:', sbErr);
-    }
-  }
-
-  if (!settings) {
-    try {
-      settings = await db.businessSettings.findFirst({
-        orderBy: { updatedAt: 'desc' },
-      });
-    } catch (err) {
-      console.error('Fallback business_settings lookup error:', err);
     }
   }
 

@@ -108,19 +108,17 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       profile?.review_url ||
       settings?.google_review_url ||
       (settings as any)?.review_url ||
-      'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-    const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
-    const effectiveReviewUrl = resolveReviewUrl(directReviewUrl) || (hasValidPlaceId ? resolveReviewUrl(placeId) : '') || directReviewUrl || defaultReviewUrl;
+      '';
+    const defaultReviewUrl = '';
+    const effectiveReviewUrl = directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : (hasValidPlaceId ? resolveReviewUrl(placeId) : '');
     const hasDirectReviewUrl = Boolean(effectiveReviewUrl && effectiveReviewUrl.startsWith('http'));
 
     const isGoogleConnected = Boolean(
-      hasDirectReviewUrl ||
-      hasValidPlaceId ||
-      businessRecord?.isGoogleConnected !== false ||
-      true
+      (profile?.google_connected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id)) ||
+      (businessRecord?.isGoogleConnected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id))
     );
 
-    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+17372583478';
+    const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '';
     const isPlaceholderPhone = (p?: string | null) => {
       if (!p) return true;
       const clean = p.replace(/\D/g, '');
@@ -303,8 +301,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
       id: businessRecord?.id || profile?.id || userId,
       userId: businessRecord?.userId || businessRecord?.user_id || profile?.clerk_user_id || profile?.id || userId,
       actualBusinessId: businessRecord?.id,
-      name: businessRecord?.name || profile?.business_name || settings?.business_name || (isGoogleConnected ? 'RatingPulse' : 'RatingPulse'),
-      category: businessRecord?.category || profile?.business_category || 'Local Business',
+      name: businessRecord?.name || profile?.business_name || settings?.business_name || '',
+      category: businessRecord?.category || profile?.business_category || '',
       address: businessRecord?.address || profile?.formatted_address || '',
       phone: businessRecord?.phone || activePhone || outboundPhone || '',
       smsSenderNumber: activePhone || outboundPhone || '',

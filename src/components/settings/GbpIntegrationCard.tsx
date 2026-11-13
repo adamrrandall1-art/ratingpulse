@@ -140,14 +140,15 @@ export default function GbpIntegrationCard({
     }
   };
 
-  const hasReviewUrl = Boolean(
+  const hasValidPlaceId = Boolean(placeIdInput && !placeIdInput.startsWith('demo_') && placeIdInput.trim().length > 0);
+  const hasDirectReviewUrl = Boolean(
     (googleReviewUrl && googleReviewUrl.startsWith('http')) ||
     (activeBusiness?.googleReviewUrl && activeBusiness.googleReviewUrl.startsWith('http')) ||
-    (activeBusiness?.reviewUrl && activeBusiness.reviewUrl.startsWith('http')) ||
-    activeBusiness?.isGoogleConnected
+    (activeBusiness?.reviewUrl && activeBusiness.reviewUrl.startsWith('http'))
   );
-  const isConnected = isDemoMode || hasReviewUrl || isBusinessConnected(activeBusiness, isDemoMode);
-  const businessName = activeBusiness.name;
+  const hasOAuthApi = Boolean(isDemoMode || activeBusiness?.isGoogleConnected);
+  const isConnected = isDemoMode || hasOAuthApi || hasDirectReviewUrl || hasValidPlaceId;
+  const businessName = activeBusiness.name || (isDemoMode ? 'RatingPulse Demo' : 'Your Business');
   const rating = activeBusiness.rating > 0 ? activeBusiness.rating.toFixed(1) : '0.0';
   const reviewCount = activeBusiness.reviewCount;
   const placeId = placeIdInput || activeBusiness.placeId || 'Not configured';
@@ -207,7 +208,7 @@ export default function GbpIntegrationCard({
           {isConnected ? (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              {isDemoMode ? `Demo Connected (${businessName}) 🟢` : 'Connected to Google 🟢'}
+              {isDemoMode ? `Demo Connected (${businessName}) 🟢` : hasOAuthApi ? 'OAuth Connected 🟢' : 'Review Link Connected 🟢'}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
@@ -261,15 +262,15 @@ export default function GbpIntegrationCard({
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
             <div className="flex items-center gap-2 text-slate-600">
               <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>OAuth 2.0 Business API Active</span>
+              <span>{hasOAuthApi ? 'OAuth 2.0 Business API Active' : 'Direct Review Link Active'}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
               <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>Auto-Sync Frequency: Every 15 min</span>
+              <span>{hasOAuthApi ? 'Auto-Sync Frequency: Every 15 min' : 'Manual Link Routing Active'}</span>
             </div>
             <div className="flex items-center gap-2 text-slate-600">
               <Sparkles className="w-4 h-4 text-purple-600 shrink-0" />
-              <span>1-Tap Publish Enabled</span>
+              <span>{hasOAuthApi ? '1-Tap Publish Enabled' : 'Smart Routing Enabled'}</span>
             </div>
           </div>
         </div>

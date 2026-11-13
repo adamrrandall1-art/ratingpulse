@@ -43,7 +43,7 @@ export default async function DashboardLayout({
     if (activeBusiness) {
       business = activeBusiness;
     } else {
-      // Check active business cookie fallback before creating
+      // Check active business cookie fallback before creating, ensuring ownership
       const cookieStore = await cookies().catch(() => null);
       const activeId =
         cookieStore?.get('activeBusinessId')?.value ||
@@ -53,7 +53,7 @@ export default async function DashboardLayout({
           where: { id: activeId },
           orderBy: { updatedAt: 'desc' },
         });
-        if (cookieBiz) {
+        if (cookieBiz && (cookieBiz.userId === clerkUserId || cookieBiz.clerkUserId === clerkUserId || (profile?.id && cookieBiz.userId === profile.id))) {
           business = cookieBiz;
         }
       }
@@ -65,8 +65,8 @@ export default async function DashboardLayout({
             id: clerkUserId,
             userId: clerkUserId,
             clerkUserId: clerkUserId,
-            name: 'RatingPulse Business',
-            isGoogleConnected: true,
+            name: profile?.business_name || '',
+            isGoogleConnected: false,
           },
         });
       }

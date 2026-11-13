@@ -41,6 +41,7 @@ export interface ActiveBusiness {
   rating: number;
   reviewCount: number;
   isGoogleConnected: boolean;
+  google_connected?: boolean;
   isConnected: boolean;
   isDemoMode: boolean;
   isPendingPlaceId?: boolean;
@@ -181,7 +182,7 @@ const defaultDemoBusiness: ActiveBusiness = {
   reviewCount: DEFAULT_BUSINESS.totalReviews || 48,
   isGoogleConnected: true,
   isConnected: true,
-  isDemoMode: false,
+  isDemoMode: true,
 };
 
 export const useRatingPulseZustand = create<RatingPulseStoreState>()(
@@ -244,10 +245,12 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
           const effectiveGoogleReviewUrl = business.googleReviewUrl !== undefined && business.googleReviewUrl !== null ? business.googleReviewUrl : (prev.googleReviewUrl || effectiveReviewUrl);
 
           const isGoogleConnected = Boolean(
-            business.isGoogleConnected === true ||
-            prev.isGoogleConnected === true ||
-            business.isConnected === true ||
-            prev.isConnected === true ||
+            business.isGoogleConnected !== undefined
+              ? business.isGoogleConnected
+              : (prev.isGoogleConnected !== undefined ? prev.isGoogleConnected : false)
+          );
+          const isConnected = Boolean(
+            isGoogleConnected ||
             Boolean(effectivePlaceId && effectivePlaceId.trim().length > 0) ||
             Boolean(effectiveGoogleReviewUrl && effectiveGoogleReviewUrl.startsWith('http'))
           );
@@ -267,7 +270,7 @@ export const useRatingPulseZustand = create<RatingPulseStoreState>()(
               rating: business.rating !== undefined ? business.rating : (prev.rating || 0),
               reviewCount: business.reviewCount !== undefined ? business.reviewCount : (prev.reviewCount || 0),
               isGoogleConnected,
-              isConnected: isGoogleConnected,
+              isConnected,
               isDemoMode: false,
               isPendingPlaceId: business.isPendingPlaceId !== undefined ? business.isPendingPlaceId : (prev.isPendingPlaceId !== undefined ? prev.isPendingPlaceId : (!effectivePlaceId || effectivePlaceId.trim() === '')),
               googleLocationId: business.googleLocationId !== undefined ? business.googleLocationId : prev.googleLocationId,
@@ -901,35 +904,34 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             zustandStore.setProfile(mergedProfile);
 
             const biz = json.business || {};
-            const defaultReviewUrl = 'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
             const directReviewUrl =
               biz.googleReviewUrl ||
               biz.reviewUrl ||
               json.googleReviewUrl ||
               json.reviewUrl ||
               prof.review_url ||
-              defaultReviewUrl;
+              '';
 
             const validPlaceId =
               (biz.placeId && !biz.placeId.startsWith('demo_') ? biz.placeId : '') ||
               (json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '');
 
-            const resolvedReviewUrl = resolveReviewUrl(directReviewUrl) || directReviewUrl || defaultReviewUrl;
+            const resolvedReviewUrl = directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : '';
 
             zustandStore.setLiveBusiness({
               ...(biz || {}),
               id: biz.id || prof.id || activeUserId,
-              name: biz.name || json.businessName || prof.business_name || 'RatingPulse',
-              category: biz.category || prof.business_category || 'Local Business',
+              name: biz.name || json.businessName || prof.business_name || '',
+              category: biz.category || prof.business_category || '',
               address: biz.address || json.formattedAddress || prof.formatted_address || '',
               phone: biz.phone || effectivePhone,
               placeId: validPlaceId || biz.placeId || '',
               reviewUrl: resolvedReviewUrl,
               googleReviewUrl: resolvedReviewUrl,
-              rating: Number(biz.rating || json.rating || prof.google_rating) || 5.0,
+              rating: Number(biz.rating || json.rating || prof.google_rating) || 0,
               reviewCount: Number(biz.reviewCount || json.reviewCount || prof.google_review_count) || 0,
-              isGoogleConnected: true,
-              isConnected: true,
+              isGoogleConnected,
+              isConnected: Boolean(isGoogleConnected || validPlaceId || (resolvedReviewUrl && resolvedReviewUrl.startsWith('http'))),
               isDemoMode: false,
               isPendingPlaceId: false,
               googleLocationId: (prof as any).google_location_id || undefined,
@@ -1028,12 +1030,22 @@ export function useRatingPulseStore(): RatingPulseStoreContextType {
       const hasPlaceId = Boolean(
         store.liveBusiness.placeId && store.liveBusiness.placeId.trim().length > 0 && !store.liveBusiness.placeId.startsWith('demo_')
       );
-      const isConnected = hasReviewUrl || hasPlaceId || isBusinessConnected(store.liveBusiness, false) || Boolean(store.liveBusiness.isConnected || store.liveBusiness.isGoogleConnected);
+      const isConnected = Boolean(
+        hasReviewUrl ||
+        hasPlaceId ||
+        isBusinessConnected(store.liveBusiness, false) ||
+        store.liveBusiness.isConnected ||
+        store.liveBusiness.isGoogleConnected
+      );
+      const isGoogleConnected = Boolean(
+        store.liveBusiness.isGoogleConnected ||
+        store.liveBusiness.google_connected
+      );
       return {
         ...store.liveBusiness,
         isConnected: isConnected,
-        isGoogleConnected: isConnected,
-        google_connected: isConnected,
+        isGoogleConnected: isGoogleConnected,
+        google_connected: isGoogleConnected,
         isPendingPlaceId: false,
         isDemoMode: false,
       };

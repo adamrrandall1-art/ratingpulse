@@ -365,34 +365,83 @@ export const db = {
       const supabase = getAdminClient();
       let records: BusinessRecord[] = [];
 
+      const candidateUserIds: string[] = [];
+      const candidateBusinessIds: string[] = [];
+
+      if (args?.where) {
+        if (args.where.userId) candidateUserIds.push(String(args.where.userId));
+        if (args.where.user_id) candidateUserIds.push(String(args.where.user_id));
+        if (args.where.clerkUserId) candidateUserIds.push(String(args.where.clerkUserId));
+        if (args.where.clerk_user_id) candidateUserIds.push(String(args.where.clerk_user_id));
+        if (args.where.id) candidateBusinessIds.push(String(args.where.id));
+
+        if (Array.isArray(args.where.OR)) {
+          for (const item of args.where.OR) {
+            if (item?.userId) candidateUserIds.push(String(item.userId));
+            if (item?.user_id) candidateUserIds.push(String(item.user_id));
+            if (item?.clerkUserId) candidateUserIds.push(String(item.clerkUserId));
+            if (item?.clerk_user_id) candidateUserIds.push(String(item.clerk_user_id));
+            if (item?.id) candidateBusinessIds.push(String(item.id));
+          }
+        }
+      }
+
+      const validCandUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
+      const validCandBizIds = Array.from(new Set(candidateBusinessIds.filter(Boolean)));
+
+      // Strict multi-tenant isolation: do not query or return all businesses if no scoped IDs provided
+      if (validCandUserIds.length === 0 && validCandBizIds.length === 0) {
+        return [];
+      }
+
       if (supabase) {
         try {
-          const { data } = await supabase.from('businesses').select('*');
-          if (data && Array.isArray(data)) {
-            records = data.map(normalizeBusiness);
-            records.forEach(cacheRecord);
+          const filterParts: string[] = [];
+          for (const uId of validCandUserIds) {
+            filterParts.push(`userId.eq.${uId}`);
+            filterParts.push(`user_id.eq.${uId}`);
+            filterParts.push(`clerkUserId.eq.${uId}`);
+            filterParts.push(`clerk_user_id.eq.${uId}`);
+          }
+          for (const bId of validCandBizIds) {
+            filterParts.push(`id.eq.${bId}`);
+          }
+          if (filterParts.length > 0) {
+            const { data } = await supabase.from('businesses').select('*').or(filterParts.join(','));
+            if (data && Array.isArray(data)) {
+              records = data.map(normalizeBusiness);
+              records.forEach(cacheRecord);
+            }
           }
         } catch {}
       }
 
-      // Merge memory cache records
+      // Merge memory cache records strictly matching target IDs
       if (globalStore.__rp_businesses && globalStore.__rp_businesses.size > 0) {
         for (const biz of globalStore.__rp_businesses.values()) {
           const norm = normalizeBusiness(biz);
-          if (!records.some(r => r.id === norm.id)) {
+          const matches =
+            (norm.id && validCandBizIds.includes(norm.id)) ||
+            (norm.userId && validCandUserIds.includes(norm.userId)) ||
+            (norm.clerkUserId && validCandUserIds.includes(norm.clerkUserId));
+          if (matches && !records.some(r => r.id === norm.id)) {
             records.push(norm);
           }
         }
       }
 
-      // Merge disk cache records
+      // Merge disk cache records strictly matching target IDs
       try {
         const filePath = getCacheFilePath();
         if (filePath && fs.existsSync(filePath)) {
           const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
           for (const raw of Object.values(data)) {
             const norm = normalizeBusiness(raw);
-            if (!records.some(r => r.id === norm.id)) {
+            const matches =
+              (norm.id && validCandBizIds.includes(norm.id)) ||
+              (norm.userId && validCandUserIds.includes(norm.userId)) ||
+              (norm.clerkUserId && validCandUserIds.includes(norm.clerkUserId));
+            if (matches && !records.some(r => r.id === norm.id)) {
               records.push(norm);
             }
           }
@@ -400,36 +449,17 @@ export const db = {
       } catch {}
 
       // Apply where filtering if provided
-      if (args?.where) {
-        const candidateUserIds: string[] = [];
-        const candidateBusinessIds: string[] = [];
-
-        if (args.where.userId) candidateUserIds.push(String(args.where.userId));
-        if (args.where.clerkUserId) candidateUserIds.push(String(args.where.clerkUserId));
-        if (args.where.id) candidateBusinessIds.push(String(args.where.id));
-
-        if (Array.isArray(args.where.OR)) {
-          for (const item of args.where.OR) {
-            if (item?.userId) candidateUserIds.push(String(item.userId));
-            if (item?.clerkUserId) candidateUserIds.push(String(item.clerkUserId));
-            if (item?.id) candidateBusinessIds.push(String(item.id));
-          }
-        }
-
-        const validCandUserIds = new Set(candidateUserIds.filter(Boolean));
-        const validCandBizIds = new Set(candidateBusinessIds.filter(Boolean));
-
-        if (validCandUserIds.size > 0 || validCandBizIds.size > 0) {
-          records = records.filter(r => {
-            if (r.id && validCandBizIds.has(String(r.id))) return true;
-            if (r.userId && validCandUserIds.has(String(r.userId))) return true;
-            if (r.clerkUserId && validCandUserIds.has(String(r.clerkUserId))) return true;
-            if (r.user_id && validCandUserIds.has(String(r.user_id))) return true;
-            if (r.clerk_user_id && validCandUserIds.has(String(r.clerk_user_id))) return true;
-            if (r.id && validCandUserIds.has(String(r.id))) return true;
-            return false;
-          });
-        }
+      if (args?.where && (validCandUserIds.length > 0 || validCandBizIds.length > 0)) {
+        const userSet = new Set(validCandUserIds);
+        const bizSet = new Set(validCandBizIds);
+        records = records.filter(r => {
+          if (r.id && bizSet.has(String(r.id))) return true;
+          if (r.userId && userSet.has(String(r.userId))) return true;
+          if (r.clerkUserId && userSet.has(String(r.clerkUserId))) return true;
+          if (r.user_id && userSet.has(String(r.user_id))) return true;
+          if (r.clerk_user_id && userSet.has(String(r.clerk_user_id))) return true;
+          return false;
+        });
       }
 
       // Deduplicate records by id
@@ -492,6 +522,10 @@ export const db = {
 
       const uniqueUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
       const uniqueBusinessIds = Array.from(new Set(candidateBusinessIds.filter(Boolean)));
+
+      if (uniqueUserIds.length === 0 && uniqueBusinessIds.length === 0) {
+        return null;
+      }
 
       if (supabase) {
         // 1. Try querying businesses by business ID
@@ -884,8 +918,8 @@ export const db = {
               positive_alert_phone: normalizedData.positiveAlertPhone || null,
               google_review_url: normalizedData.googleReviewUrl || null,
               review_url: normalizedData.googleReviewUrl || null,
-              is_google_connected: normalizedData.isGoogleConnected ?? true,
-              google_connected: normalizedData.isGoogleConnected ?? true,
+              is_google_connected: normalizedData.isGoogleConnected ?? false,
+              google_connected: normalizedData.isGoogleConnected ?? false,
               ai_tone: normalizedData.aiTone || normalizedData.aiPersonality || 'Professional & Warm',
               ai_personality: normalizedData.aiPersonality || normalizedData.aiTone || 'Professional & Warm',
               brand_voice: normalizedData.brandVoice || normalizedData.aiPersonality || normalizedData.aiTone || 'Professional & Warm',
@@ -1076,11 +1110,11 @@ export const db = {
             id,
             userId: data.userId || null,
             user_id: data.userId || null,
-            name: data.name || 'RatingPulse',
+            name: (data.name as string) || '',
             google_review_url: data.googleReviewUrl || null,
             review_url: data.reviewUrl || data.googleReviewUrl || null,
-            is_google_connected: data.isGoogleConnected ?? true,
-            google_connected: data.isGoogleConnected ?? true,
+            is_google_connected: data.isGoogleConnected ?? false,
+            google_connected: data.isGoogleConnected ?? false,
             negative_alert_email: data.negativeAlertEmail || null,
             negative_alert_phone: data.negativeAlertPhone || null,
             positive_alert_email: data.positiveAlertEmail || null,
@@ -1119,10 +1153,10 @@ export const db = {
             await supabase.from('businesses').insert({
               id,
               user_id: data.userId || null,
-              name: data.name || 'RatingPulse',
+              name: (data.name as string) || '',
               google_review_url: data.googleReviewUrl || null,
               review_url: data.reviewUrl || data.googleReviewUrl || null,
-              is_google_connected: data.isGoogleConnected ?? true,
+              is_google_connected: data.isGoogleConnected ?? false,
               negative_alert_email: data.negativeAlertEmail || null,
               negative_alert_phone: data.negativeAlertPhone || null,
               positive_alert_email: data.positiveAlertEmail || null,
@@ -1151,9 +1185,34 @@ export const db = {
   businessSettings: {
     findMany: async (args?: any) => {
       const supabase = getAdminClient();
+      let candidateUserIds: string[] = [];
+      if (args?.where?.userId) candidateUserIds.push(String(args.where.userId));
+      if (args?.where?.user_id) candidateUserIds.push(String(args.where.user_id));
+      if (Array.isArray(args?.where?.OR)) {
+        for (const item of args.where.OR) {
+          if (item?.userId) candidateUserIds.push(String(item.userId));
+          if (item?.user_id) candidateUserIds.push(String(item.user_id));
+        }
+      }
+      candidateUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
+      if (candidateUserIds.length === 0) return [];
       if (!supabase) return [];
       try {
-        const { data } = await supabase.from('business_settings').select('*');
+        const resolvedUserUuids: string[] = [];
+        for (const uId of candidateUserIds) {
+          if (UUID_REGEX.test(uId)) {
+            resolvedUserUuids.push(uId);
+          } else {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('clerk_user_id', uId)
+              .maybeSingle();
+            if (prof?.id) resolvedUserUuids.push(prof.id);
+          }
+        }
+        if (resolvedUserUuids.length === 0) return [];
+        const { data } = await supabase.from('business_settings').select('*').in('user_id', resolvedUserUuids);
         return (data || []).map(normalizeBusinessSettingsRow);
       } catch {
         return [];
@@ -1178,6 +1237,10 @@ export const db = {
 
       candidateUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
       candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
+
+      if (candidateIds.length === 0 && candidateUserIds.length === 0) {
+        return null;
+      }
 
       if (supabase) {
         try {
@@ -1221,33 +1284,14 @@ export const db = {
               return row;
             }
           }
-
-          // Fallback to most recent record if orderBy was passed or no candidate IDs matched
-          if (candidateIds.length === 0 && resolvedUserUuids.length === 0) {
-            const { data, error } = await supabase
-              .from('business_settings')
-              .select('*')
-              .order('updated_at', { ascending: false })
-              .limit(1);
-            if (!error && data && data[0]) {
-              const row = normalizeBusinessSettingsRow(data[0]);
-              cacheBusinessSettings(row);
-              return row;
-            }
-          }
         } catch (err) {
           console.error('[db.businessSettings.findFirst] error:', err);
         }
       }
 
-      // Memory and disk cache fallback
+      // Memory and disk cache fallback strictly for candidate IDs
       const cached = findCachedBusinessSettings([...candidateIds, ...candidateUserIds]);
       if (cached) return normalizeBusinessSettingsRow(cached);
-
-      if (globalStore.__rp_business_settings && globalStore.__rp_business_settings.size > 0) {
-        const first = globalStore.__rp_business_settings.values().next().value;
-        if (first) return normalizeBusinessSettingsRow(first);
-      }
 
       return null;
     },
@@ -1457,28 +1501,7 @@ export const db = {
           if (byId && byId[0]) return normalizeProfile(byId[0]);
         }
 
-        // 3. Check for unassigned profiles (where clerkUserId is null)
-        const wantsNullClerk = args?.where?.clerkUserId === null || args?.where?.clerk_user_id === null;
-        if (wantsNullClerk) {
-          const { data: unassigned } = await supabase
-            .from('profiles')
-            .select('*')
-            .is('clerk_user_id', null)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (unassigned && unassigned[0]) return normalizeProfile(unassigned[0]);
-        }
-
-        // 4. Fallback: if no criteria specified or fallback requested
-        if (candidateClerkIds.length === 0 && candidateIds.length === 0) {
-          const { data: fallback } = await supabase
-            .from('profiles')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (fallback && fallback[0]) return normalizeProfile(fallback[0]);
-        }
-
+        // No matching criteria or no user found
         return null;
       } catch {
         return null;
@@ -1617,8 +1640,33 @@ export const db = {
     findMany: async (args?: any) => {
       const supabase = getAdminClient();
       if (!supabase) return [];
+      const candidateClerkIds: string[] = [];
+      const candidateIds: string[] = [];
+      if (args?.where?.clerkUserId) candidateClerkIds.push(String(args.where.clerkUserId));
+      if (args?.where?.clerk_user_id) candidateClerkIds.push(String(args.where.clerk_user_id));
+      if (args?.where?.id) candidateIds.push(String(args.where.id));
+      if (Array.isArray(args?.where?.OR)) {
+        for (const item of args.where.OR) {
+          if (item?.clerkUserId) candidateClerkIds.push(String(item.clerkUserId));
+          if (item?.clerk_user_id) candidateClerkIds.push(String(item.clerk_user_id));
+          if (item?.id) candidateIds.push(String(item.id));
+        }
+      }
+      const validClerkIds = Array.from(new Set(candidateClerkIds.filter(Boolean)));
+      const validIds = Array.from(new Set(candidateIds.filter(Boolean)));
+      if (validClerkIds.length === 0 && validIds.length === 0) {
+        return [];
+      }
       try {
-        const { data } = await supabase.from('profiles').select('*');
+        let query = supabase.from('profiles').select('*');
+        if (validClerkIds.length > 0 && validIds.length > 0) {
+          query = query.or(`clerk_user_id.in.(${validClerkIds.join(',')}),id.in.(${validIds.join(',')})`);
+        } else if (validClerkIds.length > 0) {
+          query = query.in('clerk_user_id', validClerkIds);
+        } else {
+          query = query.in('id', validIds);
+        }
+        const { data } = await query;
         return (data || []).map((row: any) => ({
           ...row,
           clerkUserId: row.clerk_user_id || row.clerkUserId || null,
@@ -1779,60 +1827,13 @@ export const db = {
       const supabase = getAdminClient();
       let records: any[] = [];
 
-      // 1. Fetch from Supabase
-      if (supabase) {
-        try {
-          const { data } = await supabase
-            .from('review_invites')
-            .select('*')
-            .order('created_at', { ascending: false });
-          if (data && Array.isArray(data)) {
-            for (const row of data) {
-              const norm = normalizeReviewInvite(row);
-              if (norm) {
-                records.push(norm);
-                cacheReviewInvite(norm);
-              }
-            }
-          }
-        } catch {}
-      }
+      const candidateIds: string[] = [];
+      const candidateUserIds: string[] = [];
+      const candidateBusinessIds: string[] = [];
 
-      // 2. Merge memory cache records
-      if (globalStore.__rp_review_invites && globalStore.__rp_review_invites.size > 0) {
-        for (const inv of globalStore.__rp_review_invites.values()) {
-          const norm = normalizeReviewInvite(inv);
-          if (norm && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
-            records.push(norm);
-          }
-        }
-      }
-
-      // 3. Merge disk cache records
-      try {
-        const filePath = getReviewInvitesCacheFilePath();
-        if (filePath && fs.existsSync(filePath)) {
-          const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
-          for (const raw of Object.values(data)) {
-            const norm = normalizeReviewInvite(raw);
-            if (norm && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
-              records.push(norm);
-            }
-          }
-        }
-      } catch {}
-
-      // 4. Apply where filtering if provided
       if (args?.where) {
-        if (args.where.id || args.where.token) {
-          const tId = String(args.where.id || args.where.token);
-          records = records.filter(r => r.id === tId || r.token === tId);
-        }
-
-        const candidateUserIds: string[] = [];
-        const candidateBusinessIds: string[] = [];
-        const candidateIds: string[] = [];
-
+        if (args.where.id) candidateIds.push(String(args.where.id));
+        if (args.where.token) candidateIds.push(String(args.where.token));
         if (args.where.userId) candidateUserIds.push(String(args.where.userId));
         if (args.where.user_id) candidateUserIds.push(String(args.where.user_id));
         if (args.where.businessId) candidateBusinessIds.push(String(args.where.businessId));
@@ -1850,33 +1851,110 @@ export const db = {
             if (item?.business?.userId) candidateUserIds.push(String(item.business.userId));
           }
         }
+      }
 
-        const validCandIds = new Set(candidateIds.filter(Boolean));
-        const validCandUserIds = new Set(candidateUserIds.filter(Boolean));
-        const validCandBizIds = new Set(candidateBusinessIds.filter(Boolean));
+      const validCandIds = Array.from(new Set(candidateIds.filter(Boolean)));
+      const validCandUserIds = Array.from(new Set(candidateUserIds.filter(Boolean)));
+      const validCandBizIds = Array.from(new Set(candidateBusinessIds.filter(Boolean)));
 
-        if (validCandIds.size > 0) {
-          records = records.filter(r => {
-            if (r.id && validCandIds.has(String(r.id))) return true;
-            if (r.token && validCandIds.has(String(r.token))) return true;
-            return false;
-          });
-        }
+      // Strict multi-tenant isolation: do not query or return all invites if no scoped IDs provided
+      if (validCandIds.length === 0 && validCandUserIds.length === 0 && validCandBizIds.length === 0) {
+        return [];
+      }
 
-        if (validCandUserIds.size > 0 || validCandBizIds.size > 0) {
-          records = records.filter(r => {
-            if (r.userId && validCandUserIds.has(String(r.userId))) return true;
-            if (r.user_id && validCandUserIds.has(String(r.user_id))) return true;
-            if (r.businessId && validCandBizIds.has(String(r.businessId))) return true;
-            if (r.business_id && validCandBizIds.has(String(r.business_id))) return true;
-            if (r.businessId && validCandUserIds.has(String(r.businessId))) return true;
-            if (r.userId && validCandBizIds.has(String(r.userId))) return true;
-            return false;
-          });
+      // 1. Fetch from Supabase strictly scoped to candidate IDs
+      if (supabase) {
+        try {
+          const resolvedUserUuids: string[] = [...validCandUserIds];
+          for (const uId of validCandUserIds) {
+            if (!UUID_REGEX.test(uId)) {
+              try {
+                const { data: prof } = await supabase.from('profiles').select('id').eq('clerk_user_id', uId).maybeSingle();
+                if (prof?.id) resolvedUserUuids.push(prof.id);
+              } catch {}
+            }
+          }
+
+          const filterParts: string[] = [];
+          for (const invId of validCandIds) {
+            filterParts.push(`id.eq.${invId}`);
+            filterParts.push(`token.eq.${invId}`);
+          }
+          for (const uId of resolvedUserUuids) {
+            filterParts.push(`user_id.eq.${uId}`);
+            filterParts.push(`business_id.eq.${uId}`);
+          }
+          for (const bId of validCandBizIds) {
+            filterParts.push(`business_id.eq.${bId}`);
+            filterParts.push(`user_id.eq.${bId}`);
+          }
+
+          if (filterParts.length > 0) {
+            const { data } = await supabase
+              .from('review_invites')
+              .select('*')
+              .or(filterParts.join(','))
+              .order('created_at', { ascending: false });
+            if (data && Array.isArray(data)) {
+              for (const row of data) {
+                const norm = normalizeReviewInvite(row);
+                if (norm) {
+                  records.push(norm);
+                  cacheReviewInvite(norm);
+                }
+              }
+            }
+          }
+        } catch {}
+      }
+
+      const candIdSet = new Set(validCandIds);
+      const candUserSet = new Set(validCandUserIds);
+      const candBizSet = new Set(validCandBizIds);
+
+      // 2. Merge memory cache records strictly matching candidate IDs
+      if (globalStore.__rp_review_invites && globalStore.__rp_review_invites.size > 0) {
+        for (const inv of globalStore.__rp_review_invites.values()) {
+          const norm = normalizeReviewInvite(inv);
+          if (norm) {
+            const matches =
+              (norm.id && candIdSet.has(String(norm.id))) ||
+              (norm.token && candIdSet.has(String(norm.token))) ||
+              (norm.user_id && candUserSet.has(String(norm.user_id))) ||
+              (norm.userId && candUserSet.has(String(norm.userId))) ||
+              (norm.business_id && candBizSet.has(String(norm.business_id))) ||
+              (norm.businessId && candBizSet.has(String(norm.businessId)));
+            if (matches && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
+              records.push(norm);
+            }
+          }
         }
       }
 
-      // 5. Deduplicate by id / token
+      // 3. Merge disk cache records strictly matching candidate IDs
+      try {
+        const filePath = getReviewInvitesCacheFilePath();
+        if (filePath && fs.existsSync(filePath)) {
+          const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+          for (const raw of Object.values(data)) {
+            const norm = normalizeReviewInvite(raw);
+            if (norm) {
+              const matches =
+                (norm.id && candIdSet.has(String(norm.id))) ||
+                (norm.token && candIdSet.has(String(norm.token))) ||
+                (norm.user_id && candUserSet.has(String(norm.user_id))) ||
+                (norm.userId && candUserSet.has(String(norm.userId))) ||
+                (norm.business_id && candBizSet.has(String(norm.business_id))) ||
+                (norm.businessId && candBizSet.has(String(norm.businessId)));
+              if (matches && !records.some(r => r.id === norm.id || (r.token && r.token === norm.token))) {
+                records.push(norm);
+              }
+            }
+          }
+        }
+      } catch {}
+
+      // 4. Deduplicate by id / token
       const seen = new Set<string>();
       records = records.filter(r => {
         if (!r.id || seen.has(r.id)) return false;
@@ -1885,7 +1963,7 @@ export const db = {
         return true;
       });
 
-      // 6. Sort
+      // 5. Sort
       const orderProp = args?.orderBy?.createdAt ? 'createdAt' : (args?.orderBy?.sentAt ? 'sentAt' : 'createdAt');
       const isDesc = args?.orderBy ? (args.orderBy[orderProp] !== 'asc') : true;
       records.sort((a, b) => {
@@ -2172,18 +2250,18 @@ function normalizeBusiness(raw: any): BusinessRecord {
     raw.google_review_url ||
     raw.reviewUrl ||
     raw.review_url ||
-    'https://g.page/r/Cc5qbA6YaZ6-EBM/review';
+    '';
 
-  const cleanReviewUrl = directReviewUrl.includes('http')
+  const cleanReviewUrl = directReviewUrl && directReviewUrl.includes('http')
     ? directReviewUrl.match(/https?:\/\/[^\s)\]]+/)?.[0] || directReviewUrl
-    : directReviewUrl;
+    : (directReviewUrl || '');
 
   const isGoogleConnected = Boolean(
     raw.isGoogleConnected ??
     raw.is_google_connected ??
     raw.google_connected ??
     raw.isConnected ??
-    true
+    false
   );
 
   const isSmsActive = Boolean(
@@ -2228,15 +2306,15 @@ function normalizeBusiness(raw: any): BusinessRecord {
   return {
     id: raw.id || 'default-biz',
     userId: raw.userId || raw.user_id || null,
-    name: raw.name || raw.business_name || 'RatingPulse',
+    name: raw.name || raw.business_name || '',
     category: raw.category || raw.business_category || 'Local Business',
     address: raw.address || raw.formatted_address || '',
     phone: raw.phone || '',
     email: raw.email || '',
-    placeId: raw.placeId || raw.place_id || raw.google_place_id || 'ChIJ30Y_J4pZwokRx0wHl0m6SgQ',
+    placeId: raw.placeId || raw.place_id || raw.google_place_id || '',
     reviewUrl: cleanReviewUrl,
     googleReviewUrl: cleanReviewUrl,
-    rating: Number(raw.rating) || 5.0,
+    rating: Number(raw.rating) || 0,
     reviewCount: Number(raw.reviewCount) || 0,
     isGoogleConnected,
     negativeAlertEmail: email,
