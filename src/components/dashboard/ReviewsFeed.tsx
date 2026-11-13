@@ -264,7 +264,7 @@ export default function ReviewsFeed({
           reviewerName: review.author_name,
           rating: review.rating,
           reviewText: review.review_text || review.text || '',
-          businessName: activeBusiness?.name || 'RatingPulse',
+          businessName: activeBusiness?.name || 'My Business',
         }),
       });
       const data = await res.json();

@@ -10,7 +10,7 @@ export default function DashboardOverviewPage() {
 
   const isGoogleConnected = isBusinessConnected(activeBusiness, isDemoMode);
   const isPending = Boolean(!isDemoMode && activeBusiness.isPendingPlaceId);
-  const businessName = isGoogleConnected ? (activeBusiness.name || 'RatingPulse') : null;
+  const businessName = isGoogleConnected ? (activeBusiness.name || 'My Business') : null;
   const businessAddress = isGoogleConnected ? activeBusiness.address : null;
 
   const hasRatings = isGoogleConnected && activeBusiness.rating > 0;

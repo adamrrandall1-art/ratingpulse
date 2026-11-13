@@ -172,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       user_metadata: {
         full_name: fullName || 'Business Owner',
-        business_name: businessName || 'My Business',
+        business_name: businessName || '',
       },
     });
     setIsLoading(false);

@@ -39,11 +39,11 @@ interface GooglePlacesSearchProps {
 }
 
 export default function GooglePlacesSearch({
-  initialPlaceId = 'ChIJawEUC_oN04kRB70LP1wHuPg',
-  initialBusinessName = "RatingPulse",
-  initialAddress = '932 S Winton Rd, Rochester, NY 14618',
-  initialRating = 4.9,
-  initialReviewCount = 128,
+  initialPlaceId = '',
+  initialBusinessName = '',
+  initialAddress = '',
+  initialRating = 0,
+  initialReviewCount = 0,
   initialReviewUrl = '',
   onPlaceSelect,
   showPreviewCard = true,

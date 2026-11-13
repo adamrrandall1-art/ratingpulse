@@ -163,7 +163,7 @@ export default async function SettingsPage() {
       id: settings?.id || profile?.id || clerkUserId,
       userId: profile?.id || clerkUserId,
       clerkUserId: clerkUserId,
-      name: settings?.businessName || profile?.businessName || profile?.business_name || 'My Business',
+      name: settings?.businessName || profile?.businessName || profile?.business_name || '',
       brandVoice: safeSettings.brandVoice,
       aiTone: safeSettings.brandVoice,
       aiPersonality: safeSettings.brandVoice,

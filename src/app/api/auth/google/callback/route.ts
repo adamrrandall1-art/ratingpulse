@@ -141,9 +141,9 @@ export async function GET(req: NextRequest) {
       console.warn('[GBP Discovery Warning]:', discoveryErr);
     }
 
-    // 3. Fallback to Google UserInfo or RatingPulse if GBP listing title is not yet created
+    // 3. Do not set hardcoded placeholder title if GBP listing title is not yet created
     if (!locationTitle) {
-      locationTitle = 'RatingPulse';
+      locationTitle = '';
     }
 
     // 4. Save the primary location and access credentials linked to the activeUserId / Clerk userId
@@ -211,7 +211,7 @@ export async function GET(req: NextRequest) {
         const settingsUserId = existingProfile?.id || activeUserId;
         const settingsUpdates: Record<string, unknown> = {
           user_id: settingsUserId,
-          business_name: locationTitle,
+          ...(locationTitle ? { business_name: locationTitle } : {}),
           google_access_token: accessToken,
           google_refresh_token: finalRefreshToken,
           connected_at: new Date().toISOString(),

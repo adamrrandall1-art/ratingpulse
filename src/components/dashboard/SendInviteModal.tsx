@@ -57,7 +57,7 @@ export default function SendInviteModal({ isOpen, onClose }: Props) {
     }
   };
 
-  const effectiveBiz = activeBusiness.name;
+  const effectiveBiz = activeBusiness.name || 'My Business';
   const effectiveReviewUrl =
     resolveReviewUrl(activeBusiness.googleReviewUrl) ||
     resolveReviewUrl(activeBusiness.reviewUrl) ||

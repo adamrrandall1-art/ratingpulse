@@ -432,7 +432,7 @@ begin
     new.id,
     coalesce(new.email, new.raw_user_meta_data->>'email', ''),
     coalesce(new.raw_user_meta_data->>'full_name', 'Business Owner'),
-    coalesce(new.raw_user_meta_data->>'business_name', 'My Business')
+    coalesce(new.raw_user_meta_data->>'business_name', '')
   )
   on conflict (id) do update set
     email = coalesce(excluded.email, public.profiles.email),

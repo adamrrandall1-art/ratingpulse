@@ -155,7 +155,7 @@ export default function Sidebar({
           {/* Business Selector Pill */}
           {(() => {
             const isConnected = isBusinessConnected(activeBusiness, isDemoMode);
-            const bizName = activeBusiness.name || profile.business_name || 'RatingPulse';
+            const bizName = activeBusiness.name || profile.business_name || 'My Business';
             const bizRating = activeBusiness.rating || profile.google_rating || 5.0;
             return isConnected ? (
               <div className="mt-4 p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between shadow-xs">

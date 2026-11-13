@@ -173,7 +173,7 @@ const defaultDemoBusiness: ActiveBusiness = {
   id: DEFAULT_BUSINESS.id || 'demo-ratingpulse',
   name: DEFAULT_BUSINESS.name || 'RatingPulse',
   category: DEFAULT_BUSINESS.category || 'Software & Reputation Management',
-  address: DEFAULT_BUSINESS.address || 'Rochester, NY',
+  address: DEFAULT_BUSINESS.address || '',
   phone: process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '+1 (737) 258-3478',
   placeId: DEFAULT_BUSINESS.placeId || 'ChIJawEUC_oN04kRB70LP1wHuPg',
   reviewUrl: DEFAULT_BUSINESS.reviewUrl || 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg',
