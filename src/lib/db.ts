@@ -243,7 +243,7 @@ function cacheRecord(record: BusinessRecord) {
   saveToDisk(record);
 }
 
-function getAdminClient() {
+export function getAdminClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
   const supabaseKey =
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
@@ -351,6 +351,24 @@ function normalizeBusinessSettingsRow(row: any) {
     replySignature: row.reply_signature ?? row.replySignature ?? row.ai_signature ?? row.aiSignature ?? '',
     createdAt: row.created_at ?? row.createdAt,
     updatedAt: row.updated_at ?? row.updatedAt,
+  };
+}
+
+function normalizeProfile(row: any) {
+  if (!row) return null;
+  const rawEmail = row.notify_positive_email ?? row.notifyPositiveEmail ?? '';
+  const safeEmail = (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail;
+  const rawEnabled = row.notify_positive_enabled ?? row.notifyPositiveEnabled;
+  const safeEnabled = rawEnabled !== undefined && rawEnabled !== null ? Boolean(rawEnabled) : true;
+  return {
+    ...row,
+    clerkUserId: row.clerk_user_id || row.clerkUserId || null,
+    email: row.email || row.notification_email || '',
+    fullName: row.full_name || row.fullName || '',
+    notifyPositivePhone: row.notify_positive_phone || row.notifyPositivePhone || '',
+    notifyPositiveSms: Boolean(row.notify_positive_sms ?? row.notifyPositiveSms),
+    notifyPositiveEmail: safeEmail,
+    notifyPositiveEnabled: safeEnabled,
   };
 }
 
@@ -1465,22 +1483,6 @@ export const db = {
         candidateClerkIds = Array.from(new Set(candidateClerkIds.filter(Boolean)));
         candidateIds = Array.from(new Set(candidateIds.filter(Boolean)));
 
-        const normalizeProfile = (row: any) => {
-          if (!row) return null;
-          const rawEmail = row.notify_positive_email ?? row.notifyPositiveEmail ?? '';
-          const safeEmail = (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail;
-          const rawEnabled = row.notify_positive_enabled ?? row.notifyPositiveEnabled;
-          const safeEnabled = rawEnabled !== undefined && rawEnabled !== null ? Boolean(rawEnabled) : true;
-          return {
-            ...row,
-            clerkUserId: row.clerk_user_id || row.clerkUserId || null,
-            notifyPositivePhone: row.notify_positive_phone || row.notifyPositivePhone || '',
-            notifyPositiveSms: Boolean(row.notify_positive_sms ?? row.notifyPositiveSms),
-            notifyPositiveEmail: safeEmail,
-            notifyPositiveEnabled: safeEnabled,
-          };
-        };
-
         // 1. Try finding by clerk_user_id
         if (candidateClerkIds.length > 0) {
           const { data: byClerk } = await supabase
@@ -1548,6 +1550,8 @@ export const db = {
             return {
               ...data,
               clerkUserId: data.clerk_user_id || data.clerkUserId,
+              email: data.email || data.notification_email || '',
+              fullName: data.full_name || data.fullName || '',
               notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? args.data.notifyPositivePhone ?? '',
               notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? args.data.notifyPositiveSms),
               notifyPositiveEmail: (rawEmail === 'true' || rawEmail === 'false' || typeof rawEmail !== 'string') ? '' : rawEmail,
@@ -1573,16 +1577,19 @@ export const db = {
     create: async (args: { data: any }) => {
       const supabase = getAdminClient();
       const generatedId = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : undefined;
-      const id = args.data.id || generatedId;
+      const id = (args.data.id && UUID_REGEX.test(args.data.id)) ? args.data.id : generatedId;
 
       const rawCreateEmail = args.data.notifyPositiveEmail || args.data.notify_positive_email || '';
       const safeCreateEmail = (rawCreateEmail === 'true' || rawCreateEmail === 'false' || typeof rawCreateEmail !== 'string') ? '' : rawCreateEmail;
       const rawCreateEnabled = args.data.notifyPositiveEnabled ?? args.data.notify_positive_enabled;
       const safeCreateEnabled = rawCreateEnabled !== undefined && rawCreateEnabled !== null ? Boolean(rawCreateEnabled) : true;
+      const email = args.data.email || args.data.notificationEmail || args.data.notification_email || (safeCreateEmail && safeCreateEmail.includes('@') ? safeCreateEmail : null);
 
       const payload: any = {
         clerk_user_id: args.data.clerkUserId || args.data.clerk_user_id || null,
         full_name: args.data.fullName || args.data.full_name || null,
+        email: email,
+        notification_email: email,
         business_name: args.data.businessName || args.data.business_name || '',
         business_category: args.data.businessCategory || args.data.business_category || '',
         notify_positive_phone: args.data.notifyPositivePhone || args.data.notify_positive_phone || '',
@@ -1595,6 +1602,24 @@ export const db = {
       if (id) {
         payload.id = id;
       }
+      if (args.data.googlePlaceId || args.data.google_place_id) {
+        payload.google_place_id = args.data.googlePlaceId || args.data.google_place_id;
+      }
+      if (args.data.reviewUrl || args.data.review_url) {
+        payload.review_url = args.data.reviewUrl || args.data.review_url;
+      }
+      if (args.data.googleRating !== undefined || args.data.google_rating !== undefined) {
+        payload.google_rating = args.data.googleRating ?? args.data.google_rating ?? 0;
+      }
+      if (args.data.googleReviewCount !== undefined || args.data.google_review_count !== undefined) {
+        payload.google_review_count = args.data.googleReviewCount ?? args.data.google_review_count ?? 0;
+      }
+      if (args.data.googleConnected !== undefined || args.data.google_connected !== undefined) {
+        payload.google_connected = Boolean(args.data.googleConnected ?? args.data.google_connected);
+      }
+      if (args.data.planStatus || args.data.plan_status) {
+        payload.plan_status = args.data.planStatus || args.data.plan_status;
+      }
 
       if (supabase) {
         try {
@@ -1606,16 +1631,19 @@ export const db = {
 
           if (error) {
             console.error('[db.profile.create] Supabase error:', error);
+            if (error.code === '23505' && payload.clerk_user_id) {
+              const { data: existing } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('clerk_user_id', payload.clerk_user_id)
+                .maybeSingle();
+              if (existing) {
+                return normalizeProfile(existing);
+              }
+            }
           }
           if (data) {
-            return {
-              ...data,
-              clerkUserId: data.clerk_user_id || data.clerkUserId,
-              notifyPositivePhone: data.notify_positive_phone ?? data.notifyPositivePhone ?? payload.notify_positive_phone,
-              notifyPositiveSms: Boolean(data.notify_positive_sms ?? data.notifyPositiveSms ?? payload.notify_positive_sms),
-              notifyPositiveEmail: safeCreateEmail,
-              notifyPositiveEnabled: safeCreateEnabled,
-            };
+            return normalizeProfile(data);
           }
         } catch (err) {
           console.error('[db.profile.create] error:', err);
@@ -1626,6 +1654,8 @@ export const db = {
         id: id || `prof_${Date.now()}`,
         ...args.data,
         clerkUserId: payload.clerk_user_id,
+        email: email,
+        fullName: payload.full_name,
         notifyPositivePhone: payload.notify_positive_phone,
         notifyPositiveSms: payload.notify_positive_sms,
         notifyPositiveEmail: safeCreateEmail,

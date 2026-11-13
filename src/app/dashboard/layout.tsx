@@ -63,7 +63,7 @@ export default async function DashboardLayout({
         business = await db.business.create({
           data: {
             id: clerkUserId,
-            userId: clerkUserId,
+            userId: profile?.id || clerkUserId,
             clerkUserId: clerkUserId,
             name: profile?.business_name || '',
             isGoogleConnected: false,
