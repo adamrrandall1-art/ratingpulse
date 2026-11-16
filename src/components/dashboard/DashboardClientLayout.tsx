@@ -38,14 +38,15 @@ export default function DashboardClientLayout({
   // Immediately hydrate persistent business record into client store upon refresh
   useEffect(() => {
     if (initialBusiness && initialBusiness.id) {
+      const isGoogleConnected = Boolean(initialBusiness.isGoogleConnected);
       const hasReviewUrl = Boolean(initialBusiness.googleReviewUrl || initialBusiness.reviewUrl);
-      const hasPlaceId = Boolean(initialBusiness.placeId);
-      const isConnected = hasReviewUrl || hasPlaceId || initialBusiness.isGoogleConnected !== false;
+      const hasPlaceId = Boolean(initialBusiness.placeId && !initialBusiness.placeId.startsWith('demo_'));
+      const isConnected = Boolean(hasReviewUrl || hasPlaceId || isGoogleConnected);
       const normalizedBiz = {
         ...initialBusiness,
-        isGoogleConnected: isConnected,
-        google_connected: isConnected,
-        isConnected: isConnected,
+        isGoogleConnected,
+        google_connected: isGoogleConnected,
+        isConnected,
       };
       setLiveBusiness(normalizedBiz);
       setActiveBusiness(normalizedBiz);

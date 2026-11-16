@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter, SMS_COMPLIANCE_FOOTER } from '@/lib/twilio';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
@@ -82,11 +83,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          error: 'Active subscription or 14-day free trial required to send invites.',
           requiresSubscription: true,
           status: subCheck.status,
         },
         { status: 403 }
+      );
+    }
+
+    const effectiveReviewUrl =
+      resolveReviewUrl(body.googleReviewUrl as string) ||
+      resolveReviewUrl(body.business?.googleReviewUrl as string) ||
+      resolveReviewUrl(body.business?.reviewUrl as string) ||
+      resolveReviewUrl(body.reviewUrl as string) ||
+      resolveReviewUrl(body.reviewLink as string) ||
+      resolveReviewUrl(placeId) ||
+      resolveReviewUrl(profile?.review_url) ||
+      resolveReviewUrl(profile?.google_place_id) ||
+      '';
+
+    const hasConfiguredReviewUrl = Boolean(
+      isDemoMode ||
+      (effectiveReviewUrl && effectiveReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(effectiveReviewUrl))
+    );
+
+    if (!hasConfiguredReviewUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please connect your business or configure a Google Review URL before sending review invites.',
+          requiresBusiness: true,
+        },
+        { status: 400 }
       );
     }
 

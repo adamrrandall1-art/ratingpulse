@@ -62,20 +62,22 @@ export async function checkSubscriptionAccess(
 
   const supabaseAdmin = options?.supabaseClient || getSupabaseAdmin();
   if (!supabaseAdmin) {
-    // If Supabase admin credentials are not configured in environment, allow through in simulation
-    return { hasActiveAccess: true, status: 'trialing' };
+    return {
+      hasActiveAccess: false,
+      status: 'no_subscription',
+      reason: 'Active subscription or 14-day free trial required to send invites.',
+    };
   }
 
   // 4. Resolve both UUID (profile.id) and Clerk ID (clerkUserId)
   const candidateIds: string[] = [userId];
   let profileEmail: string | null = email || null;
-  let profilePlanStatus: string | null = null;
 
   try {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(userId);
     const { data: prof } = await supabaseAdmin
       .from('profiles')
-      .select('*')
+      .select('id, clerk_user_id, email, notification_email')
       .or(isUuid ? `id.eq.${userId},clerk_user_id.eq.${userId}` : `clerk_user_id.eq.${userId},id.eq.${userId}`)
       .maybeSingle();
 
@@ -84,7 +86,6 @@ export async function checkSubscriptionAccess(
       if (prof.clerk_user_id && !candidateIds.includes(prof.clerk_user_id)) candidateIds.push(prof.clerk_user_id);
       if (prof.email) profileEmail = prof.email.trim().toLowerCase();
       if (prof.notification_email && !profileEmail) profileEmail = prof.notification_email.trim().toLowerCase();
-      if (prof.plan_status) profilePlanStatus = String(prof.plan_status).toLowerCase();
     }
   } catch (err) {
     console.warn('[checkSubscriptionAccess] Profile lookup warning:', err);
@@ -95,7 +96,7 @@ export async function checkSubscriptionAccess(
     return { hasActiveAccess: true, status: 'admin' };
   }
 
-  // 5. Query subscriptions table using all candidate user IDs
+  // 5. Query subscriptions table using all candidate user IDs (Strict Fail-Closed)
   try {
     const { data: subs, error: subError } = await supabaseAdmin
       .from('subscriptions')
@@ -116,31 +117,17 @@ export async function checkSubscriptionAccess(
       return {
         hasActiveAccess: hasActive,
         status: statusLower,
-        reason: hasActive ? undefined : `Subscription status is ${statusLower}`,
+        reason: hasActive ? undefined : 'Active subscription or 14-day free trial required to send invites.',
       };
     }
   } catch (err) {
     console.warn('[checkSubscriptionAccess] Subscription check error:', err);
   }
 
-  // 6. Check profiles.plan_status fallback (if webhook or setup updated profiles table)
-  if (profilePlanStatus) {
-    if (['active', 'trialing', 'pro', 'admin', 'lifetime'].includes(profilePlanStatus)) {
-      return { hasActiveAccess: true, status: profilePlanStatus };
-    }
-    if (['canceled', 'past_due', 'unpaid'].includes(profilePlanStatus)) {
-      return {
-        hasActiveAccess: false,
-        status: profilePlanStatus,
-        reason: `Profile plan status is ${profilePlanStatus}`,
-      };
-    }
-  }
-
-  // 7. No active subscription or trial found
+  // 6. Strict fail-closed: No active subscription or trialing row in subscriptions table
   return {
     hasActiveAccess: false,
     status: 'no_subscription',
-    reason: 'An active subscription or 14-day free trial is required to send review invites.',
+    reason: 'Active subscription or 14-day free trial required to send invites.',
   };
 }

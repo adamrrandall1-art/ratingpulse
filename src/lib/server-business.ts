@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl, isLegacyTestAddress, isLegacyTestPlaceId, isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -114,8 +115,8 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
     const hasDirectReviewUrl = Boolean(effectiveReviewUrl && effectiveReviewUrl.startsWith('http'));
 
     const isGoogleConnected = Boolean(
-      (profile?.google_connected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id)) ||
-      (businessRecord?.isGoogleConnected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id))
+      profile?.google_access_token ||
+      profile?.google_refresh_token
     );
 
     const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '';
@@ -302,28 +303,32 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
     const rawRating = Number(businessRecord?.rating || profile?.google_rating) || 0;
     const cleanRating = (cleanCount === 0 || (rawRating === 4.9 && cleanCount === 0)) ? 0 : rawRating;
 
+    const cleanAddress = sanitizeAddress(businessRecord?.address || profile?.formatted_address);
+    const cleanPlaceId = sanitizePlaceId(hasValidPlaceId ? placeId : '');
+    const cleanReviewUrl = sanitizeReviewUrl(effectiveReviewUrl);
+
     const business = {
       id: businessRecord?.id || profile?.id || userId,
       userId: businessRecord?.userId || businessRecord?.user_id || profile?.clerk_user_id || profile?.id || userId,
       actualBusinessId: businessRecord?.id,
       name: businessRecord?.name || profile?.business_name || settings?.business_name || '',
       category: businessRecord?.category || profile?.business_category || '',
-      address: businessRecord?.address || profile?.formatted_address || '',
+      address: cleanAddress,
       phone: businessRecord?.phone || activePhone || outboundPhone || '',
       smsSenderNumber: activePhone || outboundPhone || '',
       emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
       email: profile?.email || '',
-      placeId: hasValidPlaceId ? placeId : '',
-      reviewUrl: effectiveReviewUrl,
-      googleReviewUrl: effectiveReviewUrl,
-      reviewLink: effectiveReviewUrl,
+      placeId: cleanPlaceId,
+      reviewUrl: cleanReviewUrl,
+      googleReviewUrl: cleanReviewUrl,
+      reviewLink: cleanReviewUrl,
       rating: cleanRating,
       reviewCount: cleanCount,
       isGoogleConnected,
       google_connected: isGoogleConnected,
-      isConnected: isGoogleConnected,
-      isPendingPlaceId: Boolean(isGoogleConnected && !hasValidPlaceId && !hasDirectReviewUrl),
-      placeIdStatus: effectiveReviewUrl ? 'OVERRIDDEN' : (hasValidPlaceId ? 'CONNECTED' : 'DISCONNECTED'),
+      isConnected: Boolean(isGoogleConnected || cleanReviewUrl || cleanPlaceId),
+      isPendingPlaceId: Boolean(isGoogleConnected && !cleanPlaceId && !cleanReviewUrl),
+      placeIdStatus: cleanReviewUrl ? 'OVERRIDDEN' : (cleanPlaceId ? 'CONNECTED' : 'DISCONNECTED'),
       // Notification Routing Metadata
       negativeAlertPhone,
       negativeAlertEmail,

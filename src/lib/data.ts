@@ -25,7 +25,7 @@ export const initialProfile: Profile = {
   phone: '',
   stripe_customer_id: null,
   stripe_subscription_id: null,
-  plan_status: 'trialing',
+  plan_status: 'no_subscription',
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 };

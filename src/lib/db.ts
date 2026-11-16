@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { getInitialServerBusiness } from '@/lib/server-business';
+import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl, isLegacyTestAddress, isLegacyTestPlaceId, isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 import { randomUUID } from 'crypto';
 import fs from 'fs';
 import path from 'path';
@@ -382,6 +383,9 @@ export async function safeUpsertProfile(
     fullName?: string | null;
     businessName?: string | null;
     businessCategory?: string | null;
+    formattedAddress?: string | null;
+    googlePlaceId?: string | null;
+    reviewUrl?: string | null;
     notifyPositivePhone?: string | null;
     notifyPositiveSms?: boolean;
     notifyPositiveEmail?: string | null;
@@ -414,6 +418,11 @@ export async function safeUpsertProfile(
   const fullNameVal = params.fullName || existing?.full_name || 'Business Owner';
   const bizNameVal = params.businessName !== undefined ? params.businessName : (existing?.business_name ?? '');
   const bizCategoryVal = params.businessCategory !== undefined ? params.businessCategory : (existing?.business_category ?? 'Local Business');
+  const cleanAddress = params.formattedAddress !== undefined ? sanitizeAddress(params.formattedAddress) : sanitizeAddress(existing?.formatted_address);
+  const cleanPlaceId = params.googlePlaceId !== undefined ? sanitizePlaceId(params.googlePlaceId) : sanitizePlaceId(existing?.google_place_id);
+  const cleanReviewUrl = params.reviewUrl !== undefined ? sanitizeReviewUrl(params.reviewUrl) : sanitizeReviewUrl(existing?.review_url);
+  const isGoogleConnected = Boolean(existing?.google_access_token || existing?.google_refresh_token);
+
   const rawExistingCount = existing?.google_review_count !== undefined ? Number(existing.google_review_count) : 0;
   const cleanExistingCount = (rawExistingCount === 284 || rawExistingCount === 128 || rawExistingCount === 48) ? 0 : rawExistingCount;
   const rawExistingRating = existing?.google_rating !== undefined ? Number(existing.google_rating) : 0;
@@ -426,6 +435,10 @@ export async function safeUpsertProfile(
     full_name: fullNameVal,
     business_name: bizNameVal,
     business_category: bizCategoryVal,
+    formatted_address: cleanAddress,
+    google_place_id: cleanPlaceId,
+    review_url: cleanReviewUrl,
+    google_connected: isGoogleConnected,
     notification_email: emailVal,
     notify_positive_phone: params.notifyPositivePhone || existing?.notify_positive_phone || '',
     notify_positive_sms: Boolean(params.notifyPositiveSms ?? existing?.notify_positive_sms),
@@ -435,6 +448,10 @@ export async function safeUpsertProfile(
     google_review_count: cleanExistingCount,
     updated_at: nowIso,
   };
+
+  if (existing?.plan_status) {
+    payload.plan_status = existing.plan_status;
+  }
 
   if (!existing) {
     payload.created_at = nowIso;
@@ -2454,11 +2471,9 @@ function normalizeBusiness(raw: any): BusinessRecord {
     : (directReviewUrl || '');
 
   const isGoogleConnected = Boolean(
-    raw.isGoogleConnected ??
-    raw.is_google_connected ??
-    raw.google_connected ??
-    raw.isConnected ??
-    false
+    raw.google_access_token ||
+    raw.google_refresh_token ||
+    (raw.isGoogleConnected && (raw.google_account_id || raw.google_access_token))
   );
 
   const isSmsActive = Boolean(
@@ -2505,17 +2520,21 @@ function normalizeBusiness(raw: any): BusinessRecord {
   const rawRating = Number(raw.rating ?? raw.google_rating) || 0;
   const cleanRating = (cleanCount === 0 || (rawRating === 4.9 && cleanCount === 0)) ? 0 : rawRating;
 
+  const cleanAddr = sanitizeAddress(raw.address || raw.formatted_address);
+  const cleanPid = sanitizePlaceId(raw.placeId || raw.place_id || raw.google_place_id);
+  const sanitizedRevUrl = sanitizeReviewUrl(cleanReviewUrl);
+
   return {
     id: raw.id || 'default-biz',
     userId: raw.userId || raw.user_id || null,
     name: raw.name || raw.business_name || '',
     category: raw.category || raw.business_category || 'Local Business',
-    address: raw.address || raw.formatted_address || '',
+    address: cleanAddr,
     phone: raw.phone || '',
     email: raw.email || '',
-    placeId: raw.placeId || raw.place_id || raw.google_place_id || '',
-    reviewUrl: cleanReviewUrl,
-    googleReviewUrl: cleanReviewUrl,
+    placeId: cleanPid,
+    reviewUrl: sanitizedRevUrl,
+    googleReviewUrl: sanitizedRevUrl,
     rating: cleanRating,
     reviewCount: cleanCount,
     isGoogleConnected,

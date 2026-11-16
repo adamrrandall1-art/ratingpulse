@@ -96,10 +96,9 @@ function BusinessSetupContent() {
   const isGoogleAccountConnected = Boolean(
     !isDemoMode &&
     (isVerifyingOauth ||
-      profile.google_connected ||
-      activeBusiness.isGoogleConnected ||
       profile.google_access_token ||
-      isBusinessActuallyConnected)
+      profile.google_refresh_token ||
+      activeBusiness.isGoogleConnected)
   );
 
   const isPendingPlaceId = Boolean(
@@ -108,7 +107,7 @@ function BusinessSetupContent() {
     !isBusinessActuallyConnected
   );
 
-  const isOauthVerified = isBusinessActuallyConnected;
+  const isOauthVerified = isGoogleAccountConnected;
   const isConnected = isBusinessActuallyConnected;
 
   // Business Profile Form States
@@ -419,7 +418,6 @@ function BusinessSetupContent() {
       await updateProfile({
         google_place_id: finalPlaceId,
         review_url: finalReviewUrl,
-        google_connected: true,
       });
 
       setActiveBusiness({
@@ -427,7 +425,7 @@ function BusinessSetupContent() {
         placeId: finalPlaceId,
         reviewUrl: finalReviewUrl,
         googleReviewUrl: finalReviewUrl,
-        isGoogleConnected: true,
+        isGoogleConnected: Boolean(activeBusiness.isGoogleConnected),
         isConnected: true,
         isPendingPlaceId: false,
       });
@@ -551,7 +549,7 @@ function BusinessSetupContent() {
               ...activeBusiness,
               ...data.business,
               // Strictly preserve connection values
-              isGoogleConnected: isBusinessConnected(activeBusiness),
+              isGoogleConnected: Boolean(activeBusiness.isGoogleConnected),
               isConnected: isBusinessConnected(activeBusiness),
               placeId: activeBusiness.placeId,
               reviewUrl: activeBusiness.reviewUrl,

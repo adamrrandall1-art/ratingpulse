@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { sendTwilioSms, formatE164, appendComplianceFooter } from '@/lib/twilio';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
@@ -63,7 +65,8 @@ export async function POST(req: NextRequest) {
     const placeId = isDemoMode
       ? 'ChIJawEUC_oN04kRB70LP1wHuPg'
       : (body.placeId || body.google_place_id || '');
-    const userId = body.userId || '';
+    const clerkAuth = await auth().catch(() => null);
+    const userId = clerkAuth?.userId || body.userId || '';
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
 
     // Subscription & 14-day free trial gating for bulk campaign dispatch
@@ -75,7 +78,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          error: 'Active subscription or 14-day free trial required to send invites.',
           requiresSubscription: true,
           status: subCheck.status,
         },
@@ -91,6 +94,22 @@ export async function POST(req: NextRequest) {
       resolveReviewUrl(body.reviewLink) ||
       resolveReviewUrl(placeId) ||
       '';
+
+    const hasConfiguredReviewUrl = Boolean(
+      isDemoMode ||
+      (activeGoogleReviewUrl && activeGoogleReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(activeGoogleReviewUrl))
+    );
+
+    if (!hasConfiguredReviewUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please connect your business or configure a Google Review URL before sending review invites.',
+          requiresBusiness: true,
+        },
+        { status: 400 }
+      );
+    }
 
     const status = isWithinAllowedWindow ? 'SENT' : 'QUEUED_FOR_DAYLIGHT';
 

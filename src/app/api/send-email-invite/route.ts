@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import { auth } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
+import { resolveReviewUrl } from '@/lib/google-places';
+import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
 export async function POST(req: NextRequest) {
@@ -60,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          error: 'Active subscription or 14-day free trial required to send invites.',
           requiresSubscription: true,
           status: subCheck.status,
         },
@@ -82,6 +84,32 @@ export async function POST(req: NextRequest) {
         ],
       },
     }).catch(() => null);
+
+    const effectiveReviewUrl =
+      resolveReviewUrl(body.googleReviewUrl as string) ||
+      resolveReviewUrl(body.google_review_url as string) ||
+      resolveReviewUrl(body.reviewUrl as string) ||
+      resolveReviewUrl(body.review_url as string) ||
+      resolveReviewUrl(business?.googleReviewUrl) ||
+      resolveReviewUrl(business?.reviewUrl) ||
+      resolveReviewUrl(profile?.review_url) ||
+      resolveReviewUrl(profile?.google_place_id) ||
+      '';
+
+    const hasConfiguredReviewUrl = Boolean(
+      (effectiveReviewUrl && effectiveReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(effectiveReviewUrl))
+    );
+
+    if (!hasConfiguredReviewUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please connect your business or configure a Google Review URL before sending review invites.',
+          requiresBusiness: true,
+        },
+        { status: 400 }
+      );
+    }
 
     const businessName =
       body.business_name ||

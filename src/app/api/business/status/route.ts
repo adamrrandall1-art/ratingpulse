@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl } from '@/lib/legacy-cleanup';
 import { db } from '@/lib/db';
 
 const NO_CACHE_HEADERS = {
@@ -85,7 +86,7 @@ async function resolveBusinessStatus(userId: string) {
   const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
 
   const isGoogleConnected = Boolean(
-    profile?.google_connected && (profile?.google_access_token || profile?.google_refresh_token || profile?.google_account_id)
+    profile?.google_access_token || profile?.google_refresh_token
   );
   const isPendingPlaceId = false;
 
@@ -109,7 +110,10 @@ async function resolveBusinessStatus(userId: string) {
     : rawPhone;
 
   const businessName = prismaBiz?.name || profile?.business_name || settings?.business_name || '';
-  const formattedAddress = prismaBiz?.address || profile?.formatted_address || '';
+  const cleanAddress = sanitizeAddress(prismaBiz?.address || profile?.formatted_address);
+  const cleanPlaceId = sanitizePlaceId(hasValidPlaceId ? placeId : (prismaBiz?.placeId || ''));
+  const cleanReviewUrl = sanitizeReviewUrl(effectiveReviewUrl);
+
   const rawReviewCount = Number(prismaBiz?.reviewCount || profile?.google_review_count) || 0;
   const reviewCount = (rawReviewCount === 284 || rawReviewCount === 128 || rawReviewCount === 48) ? 0 : rawReviewCount;
   const rawRating = Number(prismaBiz?.rating || profile?.google_rating) || 0;
@@ -126,19 +130,19 @@ async function resolveBusinessStatus(userId: string) {
     businessId: prismaBiz?.id || profile?.id || userId,
     name: businessName,
     category: prismaBiz?.category || profile?.business_category || '',
-    address: formattedAddress,
+    address: cleanAddress,
     phone: activePhone || outboundPhone || '',
     smsSenderNumber: activePhone || outboundPhone || '',
     emailSender: profile?.notification_email || profile?.email || settings?.notification_email || '',
-    placeId: hasValidPlaceId ? placeId : (prismaBiz?.placeId || ''),
-    reviewUrl: effectiveReviewUrl,
-    googleReviewUrl: effectiveReviewUrl,
-    reviewLink: effectiveReviewUrl,
+    placeId: cleanPlaceId,
+    reviewUrl: cleanReviewUrl,
+    googleReviewUrl: cleanReviewUrl,
+    reviewLink: cleanReviewUrl,
     rating,
     reviewCount,
     isGoogleConnected,
     google_connected: isGoogleConnected,
-    isConnected: isGoogleConnected || hasPlaceId,
+    isConnected: Boolean(isGoogleConnected || cleanReviewUrl || cleanPlaceId),
     isPendingPlaceId: false,
     negativeAlertEmail,
     negativeAlertPhone,
@@ -155,18 +159,26 @@ async function resolveBusinessStatus(userId: string) {
     autoPublish5Star: prismaBiz?.autoPublish5Star ?? false,
   };
 
+  const sanitizedProfile = profile ? {
+    ...profile,
+    formatted_address: cleanAddress,
+    google_place_id: cleanPlaceId,
+    review_url: cleanReviewUrl,
+    google_connected: isGoogleConnected,
+  } : null;
+
   return {
     success: true,
     isGoogleConnected,
     google_connected: isGoogleConnected,
-    hasPlaceId,
+    hasPlaceId: Boolean(cleanPlaceId || cleanReviewUrl),
     isPendingPlaceId,
     businessName,
-    placeId: hasValidPlaceId ? placeId : '',
-    formattedAddress,
-    reviewUrl: effectiveReviewUrl,
-    googleReviewUrl: effectiveReviewUrl,
-    reviewLink: effectiveReviewUrl,
+    placeId: cleanPlaceId,
+    formattedAddress: cleanAddress,
+    reviewUrl: cleanReviewUrl,
+    googleReviewUrl: cleanReviewUrl,
+    reviewLink: cleanReviewUrl,
     phone: activePhone || outboundPhone || '',
     outboundPhone: outboundPhone,
     outboundPhoneNumber: outboundPhone,
@@ -178,7 +190,7 @@ async function resolveBusinessStatus(userId: string) {
     positiveAlertEmail,
     positiveAlertPhone,
     business,
-    profile,
+    profile: sanitizedProfile,
     settings,
   };
 }

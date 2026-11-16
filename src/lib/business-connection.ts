@@ -1,3 +1,5 @@
+import { isLegacyTestPlaceId, isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
+
 export interface BusinessConnectionCheckable {
   isGoogleConnected?: boolean | null;
   google_connected?: boolean | null;
@@ -11,8 +13,8 @@ export interface BusinessConnectionCheckable {
 
 /**
  * Single source of truth for business connection across all pages.
- * A business is connected IF AND ONLY IF:
- * Boolean(business.isGoogleConnected && (business.placeId || business.googleReviewUrl))
+ * A business is considered connected if it has a valid Google Review URL,
+ * verified Google Place ID, or active Google connection.
  */
 export function isBusinessConnected(
   business?: BusinessConnectionCheckable | null,
@@ -21,7 +23,7 @@ export function isBusinessConnected(
   if (isDemoMode) return true;
   if (!business) return false;
 
-  const googleReviewUrl =
+  const rawReviewUrl =
     business.googleReviewUrl && business.googleReviewUrl.trim().length > 0
       ? business.googleReviewUrl.trim()
       : business.reviewUrl && business.reviewUrl.trim().length > 0
@@ -30,15 +32,17 @@ export function isBusinessConnected(
       ? business.review_url.trim()
       : null;
 
-  const placeId =
-    business.placeId && !business.placeId.startsWith('demo_') && business.placeId.trim().length > 0
+  const rawPlaceId =
+    business.placeId && business.placeId.trim().length > 0
       ? business.placeId.trim()
-      : business.google_place_id && !business.google_place_id.startsWith('demo_') && business.google_place_id.trim().length > 0
+      : business.google_place_id && business.google_place_id.trim().length > 0
       ? business.google_place_id.trim()
       : null;
 
-  // If business has googleReviewUrl or placeId, unconditionally lock to true
-  if (googleReviewUrl || placeId) return true;
+  const hasValidReviewUrl = Boolean(rawReviewUrl && rawReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(rawReviewUrl));
+  const hasValidPlaceId = Boolean(rawPlaceId && !isLegacyTestPlaceId(rawPlaceId));
+
+  if (hasValidReviewUrl || hasValidPlaceId) return true;
 
   const isGoogleConnected = Boolean(
     business.isGoogleConnected ??

@@ -5,6 +5,7 @@ import { sendTwilioSms, twilioPhoneNumber, formatE164, appendComplianceFooter } 
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
@@ -103,17 +104,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: 'An active subscription or 14-day free trial is required to send review invites.',
+          error: 'Active subscription or 14-day free trial required to send invites.',
           requiresSubscription: true,
           status: subCheck.status,
         },
         { status: 403 }
       );
     }
-
-    // 2. Generate unique invite token / ID
-    const inviteToken = crypto.randomUUID();
-    const funnelUrl = `${appUrl}/r/${inviteToken}`;
 
     // Active Google review link for 4-5 star redirect in the funnel
     const activeGoogleReviewUrl =
@@ -123,7 +120,29 @@ export async function POST(req: NextRequest) {
       resolveReviewUrl(body.reviewUrl as string) ||
       resolveReviewUrl(body.reviewLink as string) ||
       resolveReviewUrl(placeId) ||
+      resolveReviewUrl(profile?.review_url) ||
+      resolveReviewUrl(profile?.google_place_id) ||
       '';
+
+    const hasConfiguredReviewUrl = Boolean(
+      isDemoMode ||
+      (activeGoogleReviewUrl && activeGoogleReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(activeGoogleReviewUrl))
+    );
+
+    if (!hasConfiguredReviewUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Please connect your business or configure a Google Review URL before sending review invites.',
+          requiresBusiness: true,
+        },
+        { status: 400 }
+      );
+    }
+
+    // 2. Generate unique invite token / ID
+    const inviteToken = crypto.randomUUID();
+    const funnelUrl = `${appUrl}/r/${inviteToken}`;
 
     // 3. Set destination link in SMS text body to RatingPulse review funnel
     let rawMessage: string;

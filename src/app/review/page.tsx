@@ -65,19 +65,6 @@ export default async function ReviewPage(props: {
     }
   }
 
-  // Fallback: If settings was not resolved via invite.user_id, check for any configured business_settings
-  if (supabaseAdmin && !settings) {
-    const { data: fallbackSettings } = await supabaseAdmin
-      .from('business_settings')
-      .select('place_id, google_review_url, business_name')
-      .not('place_id', 'is', null)
-      .limit(1)
-      .maybeSingle();
-    if (fallbackSettings) {
-      settings = fallbackSettings;
-    }
-  }
-
   const data = await getFunnelData(inviteId, searchParams);
 
   const rawGoogleReviewUrl =

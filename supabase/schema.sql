@@ -48,9 +48,9 @@ alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists full_name text;
 alter table public.profiles add column if not exists business_name text default '';
 alter table public.profiles add column if not exists business_category text default '';
-alter table public.profiles add column if not exists google_place_id text;
-alter table public.profiles add column if not exists formatted_address text;
-alter table public.profiles add column if not exists review_url text;
+alter table public.profiles add column if not exists google_place_id text default '';
+alter table public.profiles add column if not exists formatted_address text default '';
+alter table public.profiles add column if not exists review_url text default '';
 alter table public.profiles add column if not exists google_rating numeric(2,1) default 0.0;
 alter table public.profiles add column if not exists google_review_count integer default 0;
 alter table public.profiles add column if not exists google_connected boolean default false;
@@ -83,7 +83,7 @@ alter table public.profiles add column if not exists positive_email_alert_enable
 alter table public.profiles add column if not exists positive_sms_alert_enabled boolean default false;
 alter table public.profiles add column if not exists stripe_customer_id text;
 alter table public.profiles add column if not exists stripe_subscription_id text;
-alter table public.profiles add column if not exists plan_status text default 'trialing';
+alter table public.profiles add column if not exists plan_status text default null;
 alter table public.profiles add column if not exists trial_ends_at timestamp with time zone default timezone('utc'::text, now() + interval '14 days');
 alter table public.profiles add column if not exists welcome_email_sent boolean default false;
 alter table public.profiles add column if not exists created_at timestamp with time zone default timezone('utc'::text, now());
@@ -500,5 +500,14 @@ alter table public.business_settings add column if not exists auto_reply_enabled
 alter table public.business_settings add column if not exists auto_publish_5_star boolean default false;
 alter table public.business_settings add column if not exists selected_model text default 'gemini-1.5-flash';
 alter table public.business_settings add column if not exists seo_keywords text;
+
+-- Enforce clean isolation defaults for brand new users
+alter table public.profiles alter column formatted_address set default '';
+alter table public.profiles alter column google_place_id set default '';
+alter table public.profiles alter column review_url set default '';
+alter table public.profiles alter column google_connected set default false;
+alter table public.profiles alter column plan_status drop default;
+alter table public.profiles alter column plan_status set default null;
+
 
 

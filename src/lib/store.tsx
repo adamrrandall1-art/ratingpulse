@@ -27,6 +27,7 @@ import { resolveReviewUrl } from './google-places';
 import { useUser } from '@clerk/nextjs';
 import { clearLocalWorkspaceState, registerCacheResetListener } from './workspace-cleanup';
 import { isBusinessConnected } from './business-connection';
+import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl, isLegacyTestAddress, isLegacyTestPlaceId, isLegacyTestReviewUrl } from './legacy-cleanup';
 export { isBusinessConnected };
 
 export interface ActiveBusiness {
@@ -900,7 +901,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
           if (json.success) {
             const prof = (json.profile || {}) as Profile;
-            const isGoogleConnected = Boolean(json.isGoogleConnected || prof.google_connected || prof.google_access_token || isOauthSuccessInUrl);
+            const isGoogleConnected = Boolean(
+              isOauthSuccessInUrl ||
+              prof.google_access_token ||
+              prof.google_refresh_token ||
+              (json.isGoogleConnected && (prof.google_account_id || prof.google_access_token || prof.google_refresh_token))
+            );
             const isPlaceholderPhone = (p?: string | null) => {
               if (!p) return true;
               const clean = p.replace(/\D/g, '');
@@ -918,15 +924,19 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
             const cleanProfCount = (rawProfCount === 284 || rawProfCount === 128 || rawProfCount === 48) ? 0 : rawProfCount;
             const cleanProfRating = (cleanProfCount === 0 || (rawProfRating === 4.9 && cleanProfCount === 0)) ? 0 : rawProfRating;
 
+            const cleanProfAddr = sanitizeAddress(json.formattedAddress || prof.formatted_address);
+            const cleanProfPlaceId = sanitizePlaceId(json.placeId || prof.google_place_id);
+            const cleanProfRevUrl = sanitizeReviewUrl(json.reviewUrl || prof.review_url);
+
             const mergedProfile: Profile = {
               ...zustandStore.profile,
               ...prof,
               phone: effectivePhone,
               google_connected: isGoogleConnected,
-              google_place_id: json.placeId || prof.google_place_id || '',
+              google_place_id: cleanProfPlaceId,
               business_name: json.businessName || prof.business_name || '',
-              formatted_address: json.formattedAddress || prof.formatted_address || '',
-              review_url: json.reviewUrl || prof.review_url || '',
+              formatted_address: cleanProfAddr,
+              review_url: cleanProfRevUrl,
               google_rating: cleanProfRating,
               google_review_count: cleanProfCount,
             };
@@ -941,25 +951,28 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
               prof.review_url ||
               '';
 
-            const validPlaceId =
+            const rawPlaceIdCandidate =
               (biz.placeId && !biz.placeId.startsWith('demo_') ? biz.placeId : '') ||
               (json.placeId && !json.placeId.startsWith('demo_') ? json.placeId : '');
+            const validPlaceId = sanitizePlaceId(rawPlaceIdCandidate);
 
-            const resolvedReviewUrl = directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : '';
+            const resolvedReviewUrl = sanitizeReviewUrl(directReviewUrl ? (resolveReviewUrl(directReviewUrl) || directReviewUrl) : '');
 
             const rawBizRating = Number(biz.rating ?? json.rating ?? prof.google_rating) || 0;
             const rawBizCount = Number(biz.reviewCount ?? json.reviewCount ?? prof.google_review_count) || 0;
             const cleanBizCount = (rawBizCount === 284 || rawBizCount === 128 || rawBizCount === 48) ? 0 : rawBizCount;
             const cleanBizRating = (cleanBizCount === 0 || (rawBizRating === 4.9 && cleanBizCount === 0)) ? 0 : rawBizRating;
 
+            const cleanBizAddr = sanitizeAddress(biz.address || json.formattedAddress || prof.formatted_address);
+
             zustandStore.setLiveBusiness({
               ...(biz || {}),
               id: biz.id || prof.id || activeUserId,
               name: biz.name || json.businessName || prof.business_name || '',
               category: biz.category || prof.business_category || '',
-              address: biz.address || json.formattedAddress || prof.formatted_address || '',
+              address: cleanBizAddr,
               phone: biz.phone || effectivePhone,
-              placeId: validPlaceId || biz.placeId || '',
+              placeId: validPlaceId || sanitizePlaceId(biz.placeId) || '',
               reviewUrl: resolvedReviewUrl,
               googleReviewUrl: resolvedReviewUrl,
               rating: cleanBizRating,

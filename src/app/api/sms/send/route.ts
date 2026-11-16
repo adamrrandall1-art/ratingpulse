@@ -5,6 +5,7 @@ import { sendTwilioSms, twilioPhoneNumber, isTwilioConfigured, formatE164, appen
 import { checkQuietHours } from '@/lib/compliance/quietHours';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
+import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
@@ -103,11 +104,43 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: 'An active subscription or 14-day free trial is required to send review invites.',
+        error: 'Active subscription or 14-day free trial required to send invites.',
         requiresSubscription: true,
         status: subCheck.status,
       },
       { status: 403 }
+    );
+  }
+
+  const demoReviewUrl = 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
+  const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
+  const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
+  const activeGoogleReviewUrl = isDemoMode
+    ? demoReviewUrl
+    : (
+        resolveReviewUrl(body.googleReviewUrl as string) ||
+        resolveReviewUrl((body.business as any)?.googleReviewUrl as string) ||
+        resolveReviewUrl((body.business as any)?.reviewUrl as string) ||
+        resolveReviewUrl(body.reviewUrl as string) ||
+        resolveReviewUrl(placeId) ||
+        resolveReviewUrl(profile?.review_url) ||
+        resolveReviewUrl(profile?.google_place_id) ||
+        ''
+      );
+
+  const hasConfiguredReviewUrl = Boolean(
+    isDemoMode ||
+    (activeGoogleReviewUrl && activeGoogleReviewUrl.startsWith('http') && !isLegacyTestReviewUrl(activeGoogleReviewUrl))
+  );
+
+  if (!hasConfiguredReviewUrl) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Please connect your business or configure a Google Review URL before sending review invites.',
+        requiresBusiness: true,
+      },
+      { status: 400 }
     );
   }
 
@@ -132,12 +165,6 @@ export async function POST(req: NextRequest) {
   const businessName = isDemoMode
     ? "RatingPulse"
     : ((body.businessName as string) || ((body.business as any)?.name as string) || 'our business');
-  const demoReviewUrl = 'https://www.google.com/maps/place/?q=place_id:ChIJawEUC_oN04kRB70LP1wHuPg';
-  const appUrl       = process.env.NEXT_PUBLIC_APP_URL || 'https://ratingpulse.co';
-  const placeId      = ((body.placeId as string) || (body.google_place_id as string) || '');
-  const activeGoogleReviewUrl = isDemoMode
-    ? demoReviewUrl
-    : (resolveReviewUrl(body.googleReviewUrl as string) || resolveReviewUrl(placeId) || '');
   const serviceType  = (body.serviceType  as string) || 'General Service';
 
   const inviteToken = crypto.randomUUID();
