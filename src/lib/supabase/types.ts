@@ -63,6 +63,8 @@ export interface BusinessSettings {
   custom_keywords: string[];
   seo_keywords?: string[];
   sms_template: string;
+  google_access_token?: string | null;
+  google_refresh_token?: string | null;
   notification_email?: string | null;
   notification_phone?: string | null;
   sms_alerts_enabled?: boolean;

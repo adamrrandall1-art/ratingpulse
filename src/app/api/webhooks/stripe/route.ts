@@ -53,46 +53,85 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session;
         const customerId = (session.customer as string) || '';
         const subscriptionId = (session.subscription as string) || '';
-        const userId = session.client_reference_id || session.metadata?.userId || session.metadata?.user_id;
+        const incomingUserId = session.client_reference_id || session.metadata?.userId || session.metadata?.user_id;
+        const incomingClerkId = session.metadata?.clerkUserId || '';
         const customerEmail = session.customer_details?.email || session.customer_email || session.metadata?.email || session.metadata?.userEmail;
 
         console.log('[Stripe Webhook] checkout.session.completed received:', {
           customerId,
           subscriptionId,
-          userId,
+          incomingUserId,
+          incomingClerkId,
           customerEmail,
         });
 
-        if (supabase && (userId || customerEmail || customerId)) {
-          // 1. Record / Upsert into subscriptions table
+        if (supabase && (incomingUserId || incomingClerkId || customerEmail || customerId)) {
+          let resolvedProfileId: string | null = incomingUserId || null;
+          let candidateClerkId: string | null = incomingClerkId || null;
+
+          try {
+            const isUuid = incomingUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(incomingUserId);
+            let profQuery = supabase.from('profiles').select('id, clerk_user_id, email');
+            if (isUuid) {
+              profQuery = profQuery.eq('id', incomingUserId);
+            } else if (incomingUserId || incomingClerkId) {
+              const cid = incomingClerkId || incomingUserId;
+              profQuery = profQuery.or(`clerk_user_id.eq.${cid},id.eq.${cid}`);
+            } else if (customerEmail) {
+              profQuery = profQuery.eq('email', customerEmail);
+            } else if (customerId) {
+              profQuery = profQuery.eq('stripe_customer_id', customerId);
+            }
+            const { data: prof } = await profQuery.maybeSingle();
+            if (prof?.id) {
+              resolvedProfileId = prof.id;
+              candidateClerkId = prof.clerk_user_id || candidateClerkId;
+            }
+          } catch (profLookupErr) {
+            console.warn('[Stripe Webhook] Profile lookup warning:', profLookupErr);
+          }
+
+          let initialStatus = 'active';
+          if (subscriptionId && stripe) {
+            try {
+              const subObj = await stripe.subscriptions.retrieve(subscriptionId);
+              if (subObj?.status === 'trialing') {
+                initialStatus = 'trialing';
+              }
+            } catch {}
+          }
+
+          // 1. Record / Upsert into subscriptions table with resolved profile.id UUID
           try {
             await supabase.from('subscriptions').upsert([
               {
-                user_id: userId || null,
+                user_id: resolvedProfileId,
                 stripe_customer_id: customerId,
                 stripe_subscription_id: subscriptionId,
-                status: 'active',
+                status: initialStatus,
                 plan: 'growth',
                 current_period_end: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
                 created_at: new Date().toISOString(),
                 updated_at: new Date().toISOString(),
               },
-            ]);
+            ], { onConflict: 'stripe_customer_id' });
           } catch (subErr) {
             console.warn('[Subscriptions table upsert warning]:', subErr);
           }
 
           // 2. Update profiles table
           const updatePayload: Record<string, any> = {
-            plan_status: 'active',
+            plan_status: initialStatus,
             updated_at: new Date().toISOString(),
           };
           if (customerId) updatePayload.stripe_customer_id = customerId;
           if (subscriptionId) updatePayload.stripe_subscription_id = subscriptionId;
 
           let query = supabase.from('profiles').update(updatePayload);
-          if (userId) {
-            query = query.eq('id', userId);
+          if (resolvedProfileId) {
+            query = query.eq('id', resolvedProfileId);
+          } else if (candidateClerkId) {
+            query = query.eq('clerk_user_id', candidateClerkId);
           } else if (customerEmail) {
             query = query.eq('email', customerEmail);
           } else if (customerId) {
@@ -114,7 +153,7 @@ export async function POST(req: NextRequest) {
         const subscription = event.data.object as Stripe.Subscription;
         const customerId = subscription.customer as string;
         const subscriptionId = subscription.id;
-        const status = subscription.status; // 'active', 'trialing', 'past_due', 'canceled', etc.
+        const status = subscription.status;
         const currentPeriodEnd = (subscription as any).current_period_end
           ? new Date((subscription as any).current_period_end * 1000).toISOString()
           : new Date().toISOString();
@@ -135,15 +174,36 @@ export async function POST(req: NextRequest) {
               ? 'past_due'
               : 'canceled';
 
+          let subUserId: string | null = null;
+          try {
+            const { data: existingSub } = await supabase
+              .from('subscriptions')
+              .select('user_id')
+              .eq('stripe_customer_id', customerId)
+              .maybeSingle();
+            subUserId = existingSub?.user_id || subscription.metadata?.userId || subscription.metadata?.user_id || null;
+            if (!subUserId) {
+              const { data: prof } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('stripe_customer_id', customerId)
+                .maybeSingle();
+              if (prof?.id) subUserId = prof.id;
+            }
+          } catch {}
+
           await Promise.allSettled([
             supabase
               .from('subscriptions')
-              .update({
+              .upsert({
+                stripe_customer_id: customerId,
+                stripe_subscription_id: subscriptionId,
+                user_id: subUserId,
                 status: mappedPlanStatus,
+                plan: 'growth',
                 current_period_end: currentPeriodEnd,
                 updated_at: new Date().toISOString(),
-              })
-              .eq('stripe_customer_id', customerId),
+              }, { onConflict: 'stripe_customer_id' }),
 
             supabase
               .from('profiles')

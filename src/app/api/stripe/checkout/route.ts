@@ -6,17 +6,67 @@ import {
   getStripePriceIdPro,
   getAppUrl,
 } from '@/lib/stripe';
+import { createClient } from '@supabase/supabase-js';
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function getSupabaseAdmin() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
+  const supabaseKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_ADMIN_KEY ||
+    process.env.SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    '';
+  if (!supabaseUrl || !supabaseKey) return null;
+  return createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false, autoRefreshToken: false } });
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const {
       userEmail,
-      userId,
+      userId: rawUserId,
       businessName,
       customerId,
       stripeCustomerId,
     } = body;
+
+    let resolvedProfileId = body.profileId || '';
+    let clerkUserId = body.clerkUserId || '';
+
+    if (!resolvedProfileId || !UUID_REGEX.test(resolvedProfileId)) {
+      if (rawUserId && UUID_REGEX.test(rawUserId)) {
+        resolvedProfileId = rawUserId;
+      } else {
+        const supabaseAdmin = getSupabaseAdmin();
+        if (supabaseAdmin && (rawUserId || clerkUserId || userEmail)) {
+          try {
+            const queryId = rawUserId || clerkUserId;
+            let q = supabaseAdmin.from('profiles').select('id, clerk_user_id, stripe_customer_id');
+            if (queryId) {
+              q = q.or(`id.eq.${queryId},clerk_user_id.eq.${queryId}`);
+            } else if (userEmail) {
+              q = q.eq('email', userEmail);
+            }
+            const { data: prof } = await q.maybeSingle();
+            if (prof?.id) {
+              resolvedProfileId = prof.id;
+              if (prof.clerk_user_id) clerkUserId = prof.clerk_user_id;
+            }
+          } catch (resErr) {
+            console.warn('[checkout] Profile lookup note:', resErr);
+          }
+        }
+      }
+    }
+
+    const effectiveUserId = resolvedProfileId || rawUserId;
 
     const reqOrigin = req.headers.get('origin') || req.nextUrl.origin || undefined;
     const appUrl = getAppUrl(reqOrigin);
@@ -54,21 +104,25 @@ export async function POST(req: NextRequest) {
           : userEmail
           ? { customer_email: userEmail }
           : {}),
-        client_reference_id: userId || undefined,
+        client_reference_id: effectiveUserId || undefined,
         line_items: lineItems,
         subscription_data: {
           trial_period_days: STRIPE_PLANS.GROWTH_MONTHLY.trialDays, // 14-Day Free Trial
           metadata: {
             plan_name: STRIPE_PLANS.GROWTH_MONTHLY.name,
             business_name: businessName || 'RatingPulse Client',
-            user_id: userId || '',
+            userId: effectiveUserId,
+            user_id: effectiveUserId,
+            clerkUserId: clerkUserId || '',
             user_email: userEmail || '',
           },
         },
         success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${appUrl}/dashboard/settings?checkout=canceled`,
         metadata: {
-          user_id: userId || '',
+          userId: effectiveUserId,
+          user_id: effectiveUserId,
+          clerkUserId: clerkUserId || '',
           user_email: userEmail || '',
           business_name: businessName || 'RatingPulse Client',
         },

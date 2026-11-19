@@ -93,21 +93,25 @@ function BusinessSetupContent() {
     isDemoMode
   );
 
-  const isGoogleAccountConnected = Boolean(
+  // Scope GBP OAuth verification ONLY to stored tokens in profile or business_settings
+  const hasStoredGbpTokens = Boolean(
     !isDemoMode &&
-    (isVerifyingOauth ||
-      profile.google_access_token ||
-      profile.google_refresh_token ||
-      activeBusiness.isGoogleConnected)
+    Boolean(
+      (profile?.google_access_token && profile.google_access_token.trim().length > 0) ||
+      (profile?.google_refresh_token && profile.google_refresh_token.trim().length > 0) ||
+      (settings?.google_access_token && settings.google_access_token.trim().length > 0) ||
+      (settings?.google_refresh_token && settings.google_refresh_token.trim().length > 0)
+    )
   );
 
+  const isGoogleAccountConnected = hasStoredGbpTokens;
+  const isOauthVerified = hasStoredGbpTokens;
+
   const isPendingPlaceId = Boolean(
-    !isDemoMode &&
-    isGoogleAccountConnected &&
+    hasStoredGbpTokens &&
     !isBusinessActuallyConnected
   );
 
-  const isOauthVerified = isGoogleAccountConnected;
   const isConnected = isBusinessActuallyConnected;
 
   // Business Profile Form States
@@ -800,7 +804,7 @@ function BusinessSetupContent() {
           ) : (
             <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600 border border-slate-200">
               <span className="w-2 h-2 rounded-full bg-slate-400" />
-              Disconnected (⚪)
+              Not Connected
             </span>
           )}
         </div>
@@ -845,7 +849,7 @@ function BusinessSetupContent() {
                 className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-md shadow-blue-600/20 transition-all cursor-pointer"
               >
                 <Sparkles className="w-4 h-4 text-blue-200" />
-                <span>Connect Google Account (OAuth)</span>
+                <span>Connect Google Business Profile</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </a>
             )}

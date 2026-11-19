@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
 import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl, isLegacyTestAddress, isLegacyTestPlaceId, isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 function getSupabaseAdmin() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL || '';
@@ -116,7 +117,9 @@ export async function getInitialServerBusiness(explicitUserId?: string | null) {
 
     const isGoogleConnected = Boolean(
       profile?.google_access_token ||
-      profile?.google_refresh_token
+      profile?.google_refresh_token ||
+      settings?.google_access_token ||
+      settings?.google_refresh_token
     );
 
     const outboundPhone = process.env.TWILIO_PHONE_NUMBER || process.env.NEXT_PUBLIC_TWILIO_PHONE_NUMBER || '';
@@ -585,6 +588,16 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
       autoReplyEnabled,
       selectedModel,
     };
+
+    if (profile && supabase) {
+      try {
+        const subCheck = await checkSubscriptionAccess(userId, {
+          userEmail: profile.email || '',
+          supabaseClient: supabase,
+        });
+        profile.plan_status = subCheck.status || 'no_subscription';
+      } catch {}
+    }
 
     return {
       profile,

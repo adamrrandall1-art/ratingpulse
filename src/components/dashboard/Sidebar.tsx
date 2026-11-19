@@ -277,7 +277,7 @@ export default function Sidebar({
           <div className="flex items-center justify-between text-[11px] font-bold">
             <span className="flex items-center gap-1.5 text-slate-900">
               <Sparkles className={`w-3.5 h-3.5 ${isPro ? 'text-blue-600' : 'text-blue-600'}`} />
-              {isPro ? 'RatingPulse Pro' : 'Free Trial Active'}
+              {isPro ? (profile.plan_status === 'trialing' ? '14-Day Trial Active' : 'RatingPulse Pro') : 'No Active Plan'}
             </span>
             <span className="text-emerald-700 font-extrabold text-xs">$25/mo</span>
           </div>
@@ -306,7 +306,7 @@ export default function Sidebar({
             ) : isPro ? (
               <span>Manage Subscription →</span>
             ) : (
-              <span>⚡ Upgrade to Pro ($25/mo)</span>
+              <span>⚡ Start 14-Day Free Trial ($25/mo)</span>
             )}
           </button>
         </div>

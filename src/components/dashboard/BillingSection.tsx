@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   CreditCard,
   Sparkles,
@@ -21,18 +21,48 @@ interface BillingSectionProps {
 }
 
 export default function BillingSection({ business, initialBusiness }: BillingSectionProps = {}) {
-  const { profile } = useRatingPulseStore();
+  const { profile, updateProfile } = useRatingPulseStore();
   const { user } = useAuth();
 
   const [loadingCheckout, setLoadingCheckout] = useState(false);
   const [loadingPortal, setLoadingPortal] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [liveStatus, setLiveStatus] = useState<string | null>(null);
 
-  const planStatus = profile.plan_status || 'trialing';
-  const isActive = planStatus === 'active';
-  const isTrialing = planStatus === 'trialing';
-  const isPastDue = planStatus === 'past_due';
-  const isCanceled = planStatus === 'canceled';
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStatus = async () => {
+      try {
+        const queryUser = user?.id || profile?.id;
+        const url = queryUser
+          ? `/api/subscription/status?userId=${encodeURIComponent(queryUser)}&_t=${Date.now()}`
+          : `/api/subscription/status?_t=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted && data?.status) {
+            setLiveStatus(data.status);
+            if (profile?.id && profile.plan_status !== data.status) {
+              updateProfile({ plan_status: data.status });
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[BillingSection] Live subscription fetch error:', err);
+      }
+    };
+    fetchStatus();
+    return () => {
+      isMounted = false;
+    };
+  }, [user?.id, profile?.id]);
+
+  const effectiveStatus = (liveStatus || profile.plan_status || 'no_subscription').toLowerCase();
+  const isActive = effectiveStatus === 'active' || effectiveStatus === 'pro';
+  const isTrialing = effectiveStatus === 'trialing' || effectiveStatus === 'trial';
+  const isPastDue = effectiveStatus === 'past_due';
+  const isCanceled = effectiveStatus === 'canceled';
+  const isNoPlan = !isActive && !isTrialing && !isPastDue && !isCanceled;
 
   const handleUpgrade = async (e?: React.MouseEvent) => {
     e?.preventDefault();
@@ -46,7 +76,9 @@ export default function BillingSection({ business, initialBusiness }: BillingSec
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userId: user?.id || profile.id,
+          userId: profile.id || user?.id,
+          profileId: profile.id,
+          clerkUserId: user?.id,
           email: user?.email || profile.email,
           userEmail: user?.email || profile.email,
           businessName: profile.business_name,
@@ -152,6 +184,12 @@ export default function BillingSection({ business, initialBusiness }: BillingSec
               Canceled
             </span>
           )}
+          {isNoPlan && (
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold">
+              <AlertCircle className="w-3.5 h-3.5 text-slate-500" />
+              No Active Plan / Trial Not Started
+            </span>
+          )}
         </div>
       </div>
 
@@ -217,7 +255,7 @@ export default function BillingSection({ business, initialBusiness }: BillingSec
               ) : (
                 <>
                   <Zap className="w-3.5 h-3.5" />
-                  <span>Upgrade to Pro</span>
+                  <span>{isPastDue || isCanceled ? 'Upgrade to Pro' : 'Start 14-Day Free Trial'}</span>
                   <ArrowRight className="w-3.5 h-3.5" />
                 </>
               )}

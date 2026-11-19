@@ -8,6 +8,7 @@ import { createClient } from '@supabase/supabase-js';
 import { resolveReviewUrl } from '@/lib/google-places';
 import { sanitizeAddress, sanitizePlaceId, sanitizeReviewUrl } from '@/lib/legacy-cleanup';
 import { db } from '@/lib/db';
+import { checkSubscriptionAccess } from '@/lib/subscription';
 
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
@@ -86,7 +87,10 @@ async function resolveBusinessStatus(userId: string) {
   const hasPlaceId = hasValidPlaceId || hasDirectReviewUrl;
 
   const isGoogleConnected = Boolean(
-    profile?.google_access_token || profile?.google_refresh_token
+    profile?.google_access_token ||
+    profile?.google_refresh_token ||
+    settings?.google_access_token ||
+    settings?.google_refresh_token
   );
   const isPendingPlaceId = false;
 
@@ -159,18 +163,34 @@ async function resolveBusinessStatus(userId: string) {
     autoPublish5Star: prismaBiz?.autoPublish5Star ?? false,
   };
 
+  const subCheck = await checkSubscriptionAccess(userId, {
+    userEmail: profile?.email || prismaBiz?.email || '',
+    supabaseClient: supabase,
+  });
+  const livePlanStatus = subCheck.status || 'no_subscription';
+
+  if (supabase && profile?.id && profile.plan_status !== livePlanStatus) {
+    try {
+      await supabase.from('profiles').update({ plan_status: livePlanStatus }).eq('id', profile.id);
+    } catch {}
+  }
+
   const sanitizedProfile = profile ? {
     ...profile,
     formatted_address: cleanAddress,
     google_place_id: cleanPlaceId,
     review_url: cleanReviewUrl,
     google_connected: isGoogleConnected,
+    plan_status: livePlanStatus,
   } : null;
 
   return {
     success: true,
     isGoogleConnected,
     google_connected: isGoogleConnected,
+    planStatus: livePlanStatus,
+    subscription: subCheck,
+    hasActiveSubscription: subCheck.hasActiveAccess,
     hasPlaceId: Boolean(cleanPlaceId || cleanReviewUrl),
     isPendingPlaceId,
     businessName,

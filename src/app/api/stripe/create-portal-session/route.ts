@@ -1,4 +1,4 @@
-﻿export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe, isStripeConfigured, getAppUrl } from '@/lib/stripe';
@@ -34,12 +34,30 @@ export async function POST(req: NextRequest) {
       if (supabaseUrl && supabaseKey) {
         const supabase = createClient(supabaseUrl, supabaseKey);
 
+        const candidateIds: string[] = [userId].filter(Boolean);
+        try {
+          if (userId) {
+            const { data: prof } = await supabase
+              .from('profiles')
+              .select('id, clerk_user_id, stripe_customer_id')
+              .or(`id.eq.${userId},clerk_user_id.eq.${userId}`)
+              .maybeSingle();
+            if (prof) {
+              if (prof.id && !candidateIds.includes(prof.id)) candidateIds.push(prof.id);
+              if (prof.clerk_user_id && !candidateIds.includes(prof.clerk_user_id)) candidateIds.push(prof.clerk_user_id);
+              if (prof.stripe_customer_id && !targetCustomerId) targetCustomerId = prof.stripe_customer_id;
+            }
+          }
+        } catch {}
+
         // Check subscriptions table
-        if (userId) {
+        if (!targetCustomerId && candidateIds.length > 0) {
           const { data: sub } = await supabase
             .from('subscriptions')
             .select('stripe_customer_id')
-            .eq('user_id', userId)
+            .in('user_id', candidateIds)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
 
           if (sub?.stripe_customer_id) {
@@ -50,7 +68,7 @@ export async function POST(req: NextRequest) {
         // Check profiles table
         if (!targetCustomerId) {
           let query = supabase.from('profiles').select('stripe_customer_id');
-          if (userId) query = query.eq('id', userId);
+          if (candidateIds.length > 0) query = query.in('id', candidateIds);
           else if (userEmail) query = query.eq('email', userEmail);
           const { data: prof } = await query.maybeSingle();
           if (prof?.stripe_customer_id) {
