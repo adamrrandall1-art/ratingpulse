@@ -95,7 +95,7 @@ export default function Hero() {
 
             <div className="mt-4 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs text-slate-400 font-medium animate-fade-up [animation-delay:0.4s]">
               {[
-                'No credit card required',
+                '$0 due today • Cancel anytime',
                 '2-minute Google sync',
                 '100% Google TOS compliant',
               ].map((t) => (

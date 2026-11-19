@@ -154,7 +154,7 @@ export default function AuthModal({
             {mode === 'signin'
               ? 'Sign in to access your reviews feed & automated SMS engine'
               : mode === 'signup'
-              ? 'Automate 5-star Google reviews in 2 minutes. No card required.'
+              ? '14-Day Free Trial • $0 due today • Cancel anytime in 1 click'
               : 'Enter your email address and we will send you a password recovery link.'}
           </p>
 

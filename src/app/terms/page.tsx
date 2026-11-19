@@ -181,7 +181,7 @@ export default function TermsPage() {
             <div className="space-y-3 text-sm text-slate-600 leading-relaxed">
               <div>
                 <h3 className="font-semibold text-slate-900 text-sm mb-1">14-Day Free Trial</h3>
-                <p>New accounts receive a full-featured 14-day free trial. No credit card is required to begin. At the end of the trial period, an active subscription is required to continue sending SMS invites and syncing reviews.</p>
+                <p>New accounts receive a full-featured 14-day free trial ($0 due today, cancel anytime in 1 click). At the end of the trial period, an active subscription is required to continue sending SMS invites and syncing reviews.</p>
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-sm mb-1">Subscription Plans</h3>

@@ -194,7 +194,7 @@ export default function LandingPage() {
                 <div className="pt-4 border-t border-slate-100 grid grid-cols-2 sm:flex sm:flex-wrap gap-y-2 gap-x-6 text-xs font-medium text-slate-500">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>No credit card required</span>
+                    <span>$0 due today • Cancel anytime</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Lock className="w-4 h-4 text-blue-600 shrink-0" />
@@ -637,7 +637,7 @@ export default function LandingPage() {
                 </Link>
               </div>
               <p className="text-xs text-slate-500 pt-2">
-                No credit card required • Instant Google Places connection • Cancel anytime
+                14-Day Free Trial • $0 due today • Cancel anytime in 1 click
               </p>
             </div>
           </div>

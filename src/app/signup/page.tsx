@@ -100,7 +100,7 @@ export default function SignupPage() {
               Create Your Account
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Start collecting 5-star Google reviews in 2 minutes. No credit card required.
+              Start collecting 5-star Google reviews in 2 minutes. 14-Day Free Trial • $0 due today • Cancel anytime in 1 click.
             </p>
           </div>
 
@@ -256,7 +256,7 @@ export default function SignupPage() {
               {/* Security note */}
               <div className="flex items-center justify-center gap-2 pt-1 text-[11px] text-slate-500">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span>No credit card required • Instant access</span>
+                <span>14-Day Free Trial • $0 due today • Cancel anytime in 1 click</span>
               </div>
 
               {/* Bottom Switcher */}

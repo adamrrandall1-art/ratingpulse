@@ -17,7 +17,7 @@ export default function Footer() {
               Ready to collect 30+ new 5-star Google reviews this month?
             </h3>
             <p className="mt-2 text-sm sm:text-base text-slate-300">
-              Start your 14-day free trial today. Set up in under 2 minutes. No credit card required.
+              Set up in under 2 minutes. 14-Day Free Trial • $0 due today • Cancel anytime in 1 click.
             </p>
           </div>
           <Link

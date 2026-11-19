@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
 CORE TRUTHS & BUSINESS RULES (NEVER CONTRADICT THESE):
 - Sign Up Process: Users can sign up in seconds by clicking 'Start 14-Day Free Trial' or 'Sign In' at the top right of ratingpulse.co using their Google Account or email.
-- Credit Card Requirement: No upfront payment details are needed to begin the initial onboarding.
+- Credit Card Requirement: 14-Day Free Trial • $0 due today • Cancel anytime in 1 click.
 - What RatingPulse Does: RatingPulse automates 5-star Google review collection via SMS and email, connects directly with Google Business Profiles, and generates AI-powered responses to customer feedback.
 
 PRICING RULES (STRICT):
@@ -78,7 +78,7 @@ FALLBACK GUARDRAIL:
     if (lower.includes('price') || lower.includes('pricing') || lower.includes('cost') || lower.includes('$49') || lower.includes('pro plan') || lower.includes('plan') || lower.includes('subscription')) {
       reply = `RatingPulse is **$49/month** on the Pro Plan and comes with a **14-Day Free Trial**.\n\nDuring your 14-day trial, you get unrestricted access to all features (unlimited automated SMS invites, sentiment routing, AI SEO replies, and Google sync). You can cancel anytime with zero penalty.`;
     } else if (lower.includes('free plan') || lower.includes('permanent free') || lower.includes('is it free') || lower.includes('trial') || lower.includes('credit card')) {
-      reply = `We do not offer a permanent free tier, but we provide a full-featured **14-Day Free Trial** on our $49/month Pro Plan. You receive complete unrestricted access to all SMS automation and AI features during the trial. Click 'Start 14-Day Free Trial' at the top right to begin.`;
+      reply = `We do not offer a permanent free tier, but we provide a full-featured **14-Day Free Trial** on our $49/month Pro Plan ($0 due today, cancel anytime in 1 click). You receive complete unrestricted access to all SMS automation and AI features during the trial. Click 'Start 14-Day Free Trial' at the top right to begin.`;
     } else if (lower.includes('sign up') || lower.includes('create account') || lower.includes('register') || lower.includes('how do i start') || lower.includes('get started')) {
       reply = `You can sign up in seconds by clicking **'Start 14-Day Free Trial'** at the top right of ratingpulse.co using your Google Account or email. You will get immediate access to automated review collection and AI tools.`;
     } else if (lower.includes('how') && (lower.includes('work') || lower.includes('review') || lower.includes('sms') || lower.includes('invite') || lower.includes('what is') || lower.includes('what does'))) {

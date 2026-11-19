@@ -116,7 +116,7 @@ export default function Pricing() {
 
             {/* Subtitle / Trust Badge */}
             <div className="mt-3 text-center text-xs font-semibold text-emerald-400/90">
-              Full access for 14 days • Cancel anytime • No long-term contract
+              14-Day Free Trial • $0 due today • Cancel anytime in 1 click
             </div>
 
             {/* Guarantee */}

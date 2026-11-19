@@ -54,7 +54,7 @@ export default function SignUpPage() {
 
           <div className="flex items-center gap-2 text-[11px] text-slate-500">
             <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>No credit card required upfront • Instant setup</span>
+            <span>14-Day Free Trial • $0 due today • Cancel anytime in 1 click</span>
           </div>
         </div>
       </main>

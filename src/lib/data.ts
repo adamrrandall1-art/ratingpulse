@@ -88,7 +88,7 @@ export const landingFaqs = [
   },
   {
     question: "How long does setup take?",
-    answer: "Under 2 minutes. Simply sign in with Google OAuth to connect your Google Business Profile, confirm your business details, and customize your SMS template. No technical expertise, API coding, or credit card required to begin your 14-day free trial."
+    answer: "Under 2 minutes. Simply sign in with Google OAuth to connect your Google Business Profile, confirm your business details, and customize your SMS template (14-Day Free Trial • $0 due today • Cancel anytime in 1 click)."
   },
   {
     question: "Can I customize the outbound text messages?",
