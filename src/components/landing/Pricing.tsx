@@ -122,7 +122,7 @@ export default function Pricing() {
             {/* Guarantee */}
             <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
               <Shield className="w-4 h-4 text-emerald-500" />
-              30-Day 100% Money-Back Guarantee • Cancel Anytime
+              30-Day 100% Money-Back Guarantee
             </div>
           </div>
         </div>

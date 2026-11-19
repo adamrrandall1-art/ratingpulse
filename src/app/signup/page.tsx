@@ -100,7 +100,7 @@ export default function SignupPage() {
               Create Your Account
             </h1>
             <p className="text-xs sm:text-sm text-slate-500">
-              Start collecting 5-star Google reviews in 2 minutes. 14-Day Free Trial • $0 due today • Cancel anytime in 1 click.
+              Start collecting 5-star Google reviews in 2 minutes.
             </p>
           </div>
 

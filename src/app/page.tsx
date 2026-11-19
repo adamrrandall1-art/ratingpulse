@@ -204,10 +204,6 @@ export default function LandingPage() {
                     <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>2-Minute Google Setup</span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-slate-400 shrink-0" />
-                    <span>Cancel anytime</span>
-                  </div>
                 </div>
 
               </div>
