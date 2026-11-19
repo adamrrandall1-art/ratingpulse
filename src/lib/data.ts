@@ -96,7 +96,7 @@ export const landingFaqs = [
   },
   {
     question: "Are there long-term contracts or cancellation fees?",
-    answer: "Never. RatingPulse operates on a straightforward month-to-month subscription ($25/month) with zero setup fees, zero contracts, and zero hidden charges. You can cancel anytime with a single click from your account dashboard."
+    answer: "Never. RatingPulse operates on a straightforward month-to-month subscription ($49/month) with zero setup fees, zero contracts, and zero hidden charges. You can cancel anytime with a single click from your account dashboard."
   }
 ];
 

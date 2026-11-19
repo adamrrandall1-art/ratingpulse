@@ -16,7 +16,7 @@ export default function CheckoutCancelPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900">Checkout Cancelled</h1>
           <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-            Your checkout was not completed and your card has not been charged. If you have any questions about our $25/mo plan or 14-day trial, we&apos;re here to help.
+            Your checkout was not completed and your card has not been charged. If you have any questions about our $49/mo plan or 14-day trial, we&apos;re here to help.
           </p>
         </div>
 

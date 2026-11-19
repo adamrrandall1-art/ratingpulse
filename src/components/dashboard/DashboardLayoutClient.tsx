@@ -41,7 +41,6 @@ export default function DashboardLayoutClient({
           userId: user?.id || profile.id,
           email: user?.email || profile.email,
           businessId: profile.google_place_id || profile.id,
-          priceId: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
         }),
       });
       const data = await res.json();
@@ -115,7 +114,7 @@ export default function DashboardLayoutClient({
                 Free Trial Active
               </div>
               <p className="text-[10px] text-slate-500 truncate">
-                Unlock unlimited SMS & AI replies ($25/mo)
+                Unlock unlimited SMS & AI replies ($49/mo)
               </p>
             </div>
             <button

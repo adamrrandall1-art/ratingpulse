@@ -306,7 +306,7 @@ export default function SupportChat() {
             </form>
 
             <div className="mt-2 flex items-center justify-between text-[10px] text-slate-500 px-1">
-              <span>⚡ 14-Day Free Trial • Pro ($25/mo)</span>
+              <span>⚡ 14-Day Free Trial • Pro ($49/mo)</span>
               <Link
                 href="/signup"
                 onClick={() => setIsOpen(false)}

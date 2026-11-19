@@ -185,7 +185,7 @@ export default function TermsPage() {
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-sm mb-1">Subscription Plans</h3>
-                <p>The Growth Plan is billed at $25/month (monthly) or $20/month billed annually ($240/year). Pricing is subject to change with 30 days prior written notice to active subscribers.</p>
+                <p>The Growth Plan is billed at $49/month (monthly) or $39/month billed annually ($468/year). Pricing is subject to change with 30 days prior written notice to active subscribers.</p>
               </div>
               <div>
                 <h3 className="font-semibold text-slate-900 text-sm mb-1">Payment Processing &amp; Renewal</h3>

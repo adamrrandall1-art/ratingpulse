@@ -557,7 +557,7 @@ export default function LandingPage() {
                 <h3 className="text-2xl font-bold text-slate-900">Growth Plan</h3>
                 <p className="text-sm text-slate-500 mt-1">For single-location businesses ready to scale</p>
                 <div className="mt-6 flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-black text-slate-900">$25</span>
+                  <span className="text-5xl font-black text-slate-900">$49</span>
                   <span className="text-slate-500 font-medium text-sm">/ month</span>
                 </div>
                 <p className="text-xs text-emerald-600 font-semibold mt-2">14-day free trial • Cancel anytime</p>

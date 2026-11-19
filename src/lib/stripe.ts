@@ -21,11 +21,15 @@ export const getStripePublishableKey = () =>
   process.env.STRIPE_PUBLISHABLE_KEY ||
   '';
 
-export const getStripePriceIdPro = () =>
-  process.env.STRIPE_PRICE_ID_GROWTH ||
-  process.env.STRIPE_GROWTH_PRICE_ID ||
-  process.env.STRIPE_PRICE_ID_PRO ||
-  'price_1UAZP71k4PvXtJu0TYLD5qVZ';
+export const getStripePriceIdPro = () => {
+  const priceId = process.env.STRIPE_PRICE_ID_PRO;
+  if (!priceId) {
+    throw new Error(
+      'Missing required environment variable: STRIPE_PRICE_ID_PRO. Please configure STRIPE_PRICE_ID_PRO in your Vercel project settings.'
+    );
+  }
+  return priceId;
+};
 
 export const getAppUrl = (reqOrigin?: string) => {
   return (
@@ -37,10 +41,10 @@ export const getAppUrl = (reqOrigin?: string) => {
 
 export const STRIPE_PLANS = {
   GROWTH_MONTHLY: {
-    id: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
+    id: process.env.STRIPE_PRICE_ID_PRO || '',
     name: 'RatingPulse Pro (Growth Plan)',
     description: 'Unlimited Automated SMS Review Invites & Gemini AI SEO Replies',
-    amount: 2500, // $25.00 in cents
+    amount: 4900, // $49.00 in cents
     currency: 'usd',
     interval: 'month' as const,
     trialDays: 14,

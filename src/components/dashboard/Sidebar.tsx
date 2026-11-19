@@ -74,7 +74,6 @@ export default function Sidebar({
             userId: user?.id || profile.id,
             email: user?.email || profile.email,
             businessId: profile.google_place_id || profile.id,
-            priceId: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
           }),
         });
         const data = await res.json();
@@ -257,7 +256,7 @@ export default function Sidebar({
                     : 'bg-blue-600 text-white shadow-2xs'
                 }`}
               >
-                {isPro ? 'PRO' : '$25/mo'}
+                {isPro ? 'PRO' : '$49/mo'}
               </span>
             </button>
           </div>
@@ -279,7 +278,7 @@ export default function Sidebar({
               <Sparkles className={`w-3.5 h-3.5 ${isPro ? 'text-blue-600' : 'text-blue-600'}`} />
               {isPro ? (profile.plan_status === 'trialing' ? '14-Day Trial Active' : 'RatingPulse Pro') : 'No Active Plan'}
             </span>
-            <span className="text-emerald-700 font-extrabold text-xs">$25/mo</span>
+            <span className="text-emerald-700 font-extrabold text-xs">$49/mo</span>
           </div>
 
           <p className="text-[10px] text-slate-600 leading-relaxed">
@@ -306,7 +305,7 @@ export default function Sidebar({
             ) : isPro ? (
               <span>Manage Subscription →</span>
             ) : (
-              <span>⚡ Start 14-Day Free Trial ($25/mo)</span>
+              <span>⚡ Start 14-Day Free Trial ($49/mo)</span>
             )}
           </button>
         </div>

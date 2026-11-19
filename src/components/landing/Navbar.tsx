@@ -121,7 +121,7 @@ export default function Navbar() {
                 ['/#features', 'Features'],
                 ['/#how-it-works', 'How It Works'],
                 ['/#calculator', 'ROI Calculator'],
-                ['/#pricing', 'Pricing ($25/mo)'],
+                ['/#pricing', 'Pricing ($49/mo)'],
                 ['/#faq', 'FAQ'],
               ].map(([href, label]) => (
                 <a

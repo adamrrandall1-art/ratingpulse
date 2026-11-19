@@ -88,10 +88,10 @@ export default function Pricing() {
             {/* Price */}
             <div className="flex items-baseline gap-2 pb-6 border-b border-slate-800/60">
               <span className="text-5xl font-extrabold tracking-tight text-white">
-                {billingCycle === 'monthly' ? '$25' : '$20'}
+                {billingCycle === 'monthly' ? '$49' : '$39'}
               </span>
               <span className="text-sm text-slate-500">
-                / month {billingCycle === 'annual' && '(billed $240/yr)'}
+                / month {billingCycle === 'annual' && '(billed $468/yr)'}
               </span>
             </div>
 

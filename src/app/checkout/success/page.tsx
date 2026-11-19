@@ -84,7 +84,7 @@ export default function CheckoutSuccessPage() {
               <CreditCard className="w-3.5 h-3.5 text-blue-600" />
               Recurring Rate:
             </span>
-            <span className="font-bold text-slate-800">$25.00 / month</span>
+            <span className="font-bold text-slate-800">$49.00 / month</span>
           </div>
         </div>
 

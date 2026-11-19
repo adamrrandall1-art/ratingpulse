@@ -83,7 +83,6 @@ export default function BillingSection({ business, initialBusiness }: BillingSec
           userEmail: user?.email || profile.email,
           businessName: profile.business_name,
           businessId: profile.google_place_id || profile.id,
-          priceId: 'price_1UAZP71k4PvXtJu0TYLD5qVZ',
           customerId: profile.stripe_customer_id,
         }),
       });
@@ -206,7 +205,7 @@ export default function BillingSection({ business, initialBusiness }: BillingSec
             </p>
           </div>
           <div className="text-left sm:text-right">
-            <span className="text-3xl font-extrabold text-slate-900">$25</span>
+            <span className="text-3xl font-extrabold text-slate-900">$49</span>
             <span className="text-sm font-medium text-slate-500"> / month</span>
           </div>
         </div>

@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     const appUrl = getAppUrl(reqOrigin);
 
     if (isStripeConfigured && stripe) {
-      const priceId = customPriceId || getStripePriceIdPro();
+      const priceId = getStripePriceIdPro();
 
       const lineItems = priceId
         ? [{ price: priceId, quantity: 1 }]

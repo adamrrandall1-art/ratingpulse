@@ -90,7 +90,7 @@ export default function CheckoutButton({
       {showTrialBadge && !loading && (
         <div className="mt-2 flex items-center gap-1 text-[11px] text-slate-400 font-medium">
           <Shield className="w-3.5 h-3.5 text-emerald-400" />
-          <span>14-day free trial • $25/mo thereafter • Cancel anytime</span>
+          <span>14-day free trial • $49/mo thereafter • Cancel anytime</span>
         </div>
       )}
 
