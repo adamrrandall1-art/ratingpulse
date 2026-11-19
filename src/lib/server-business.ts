@@ -591,11 +591,15 @@ export async function getInitialServerSettings(explicitUserId?: string | null) {
 
     if (profile && supabase) {
       try {
-        const subCheck = await checkSubscriptionAccess(userId, {
+        const subCheck = await checkSubscriptionAccess(profile.id || userId, {
           userEmail: profile.email || '',
           supabaseClient: supabase,
         });
-        profile.plan_status = subCheck.status || 'no_subscription';
+        if (subCheck.hasActiveAccess) {
+          profile.plan_status = subCheck.status;
+        } else if (!['active', 'trialing', 'pro'].includes(profile.plan_status)) {
+          profile.plan_status = subCheck.status || 'no_subscription';
+        }
       } catch {}
     }
 

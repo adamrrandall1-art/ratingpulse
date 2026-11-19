@@ -36,13 +36,14 @@ function getSupabaseAdmin() {
 
 async function resolveBusinessStatus(userId: string) {
   // 1. Try finding business record in Prisma first
+  const orConditions: any[] = [{ userId }, { clerkUserId: userId }];
+  if (UUID_REGEX.test(userId)) {
+    orConditions.push({ id: userId });
+  }
+
   const prismaBusinesses = await db.business.findMany({
     where: {
-      OR: [
-        { userId },
-        { clerkUserId: userId },
-        { id: userId },
-      ],
+      OR: orConditions,
     },
     orderBy: { updatedAt: 'desc' },
   }).catch(() => []);
@@ -163,16 +164,19 @@ async function resolveBusinessStatus(userId: string) {
     autoPublish5Star: prismaBiz?.autoPublish5Star ?? false,
   };
 
-  const subCheck = await checkSubscriptionAccess(userId, {
+  const subCheck = await checkSubscriptionAccess(profile?.id || userId, {
     userEmail: profile?.email || prismaBiz?.email || '',
     supabaseClient: supabase,
   });
   const livePlanStatus = subCheck.status || 'no_subscription';
 
   if (supabase && profile?.id && profile.plan_status !== livePlanStatus) {
-    try {
-      await supabase.from('profiles').update({ plan_status: livePlanStatus }).eq('id', profile.id);
-    } catch {}
+    const isProfileCurrentlyActive = ['active', 'trialing', 'pro'].includes(profile.plan_status);
+    if (!isProfileCurrentlyActive || subCheck.hasActiveAccess) {
+      try {
+        await supabase.from('profiles').update({ plan_status: livePlanStatus }).eq('id', profile.id);
+      } catch {}
+    }
   }
 
   const sanitizedProfile = profile ? {
@@ -181,7 +185,7 @@ async function resolveBusinessStatus(userId: string) {
     google_place_id: cleanPlaceId,
     review_url: cleanReviewUrl,
     google_connected: isGoogleConnected,
-    plan_status: livePlanStatus,
+    plan_status: subCheck.hasActiveAccess ? livePlanStatus : (profile.plan_status || livePlanStatus),
   } : null;
 
   return {

@@ -9,6 +9,8 @@ import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // ─── E.164 formatter (inlined for extra safety) ──────────────────────────────
 function toE164(raw: string): string | null {
   const digits = raw.replace(/\D/g, '');
@@ -89,7 +91,7 @@ export async function POST(req: NextRequest) {
         where: {
           OR: [
             { clerkUserId },
-            { id: clerkUserId },
+            ...(UUID_REGEX.test(clerkUserId) ? [{ id: clerkUserId }] : []),
           ],
         },
       }).catch(() => null)

@@ -8,6 +8,8 @@ import { resolveReviewUrl } from '@/lib/google-places';
 import { isLegacyTestReviewUrl } from '@/lib/legacy-cleanup';
 import { checkSubscriptionAccess } from '@/lib/subscription';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function POST(req: NextRequest) {
   try {
     const resendApiKey = process.env.RESEND_API_KEY;
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
           where: {
             OR: [
               { clerkUserId },
-              { id: clerkUserId },
+              ...(UUID_REGEX.test(clerkUserId) ? [{ id: clerkUserId }] : []),
             ],
           },
         }).catch(() => null)

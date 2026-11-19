@@ -1661,15 +1661,25 @@ export const db = {
         let candidateClerkIds: string[] = [];
         let candidateIds: string[] = [];
 
+        const addCandidateId = (rawId: any) => {
+          if (!rawId) return;
+          const s = String(rawId);
+          if (UUID_REGEX.test(s)) {
+            candidateIds.push(s);
+          } else {
+            candidateClerkIds.push(s);
+          }
+        };
+
         if (args?.where?.clerkUserId) candidateClerkIds.push(String(args.where.clerkUserId));
         if (args?.where?.clerk_user_id) candidateClerkIds.push(String(args.where.clerk_user_id));
-        if (args?.where?.id) candidateIds.push(String(args.where.id));
+        if (args?.where?.id) addCandidateId(args.where.id);
 
         if (Array.isArray(args?.where?.OR)) {
           for (const item of args.where.OR) {
             if (item?.clerkUserId) candidateClerkIds.push(String(item.clerkUserId));
             if (item?.clerk_user_id) candidateClerkIds.push(String(item.clerk_user_id));
-            if (item?.id) candidateIds.push(String(item.id));
+            if (item?.id) addCandidateId(item.id);
           }
         }
 

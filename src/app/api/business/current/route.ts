@@ -7,6 +7,8 @@ import { auth } from '@clerk/nextjs/server';
 import { getInitialServerBusiness } from '@/lib/server-business';
 import { db } from '@/lib/db';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 const NO_CACHE_HEADERS = {
   'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
   'Pragma': 'no-cache',
@@ -21,16 +23,17 @@ export async function GET(req: NextRequest) {
 
     let business = null;
     if (userId) {
+      const orConditions: any[] = [{ userId }, { clerkUserId: userId }];
+      if (UUID_REGEX.test(userId)) {
+        orConditions.push({ id: userId });
+      }
+
       const businesses = await db.business.findMany({
         where: {
-          OR: [
-            { userId },
-            { clerkUserId: userId },
-            { id: userId },
-          ],
+          OR: orConditions,
         },
         orderBy: { updatedAt: 'desc' },
-      });
+      }).catch(() => []);
       business = businesses.find(b => b.negativeAlertPhone || b.aiTone || b.negativeAlertEmail) || businesses[0] || null;
     }
 

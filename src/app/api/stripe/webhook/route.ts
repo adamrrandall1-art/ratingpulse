@@ -7,6 +7,8 @@ import { stripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function getSupabaseClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -66,24 +68,29 @@ export async function POST(req: NextRequest) {
         });
 
         if (supabase && (incomingUserId || incomingClerkId || customerEmail || customerId)) {
-          let resolvedProfileId: string | null = incomingUserId || null;
-          let candidateClerkId: string | null = incomingClerkId || null;
+          let resolvedProfileId: string | null = (incomingUserId && UUID_REGEX.test(incomingUserId)) ? incomingUserId : null;
+          let candidateClerkId: string | null = incomingClerkId || (!UUID_REGEX.test(incomingUserId || '') ? incomingUserId : null) || null;
 
           try {
-            const isUuid = incomingUserId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(incomingUserId);
-            let profQuery = supabase.from('profiles').select('id, clerk_user_id, email');
-            if (isUuid) {
-              profQuery = profQuery.eq('id', incomingUserId);
-            } else if (incomingUserId || incomingClerkId) {
-              const cid = incomingClerkId || incomingUserId;
-              profQuery = profQuery.or(`clerk_user_id.eq.${cid},id.eq.${cid}`);
-            } else if (customerEmail) {
-              profQuery = profQuery.eq('email', customerEmail);
-            } else if (customerId) {
-              profQuery = profQuery.eq('stripe_customer_id', customerId);
+            let prof: any = null;
+            if (resolvedProfileId) {
+              const { data } = await supabase.from('profiles').select('id, clerk_user_id, email, stripe_customer_id').eq('id', resolvedProfileId).maybeSingle();
+              if (data) prof = data;
             }
-            const { data: prof } = await profQuery.maybeSingle();
-            if (prof?.id) {
+            if (!prof && candidateClerkId) {
+              const { data } = await supabase.from('profiles').select('id, clerk_user_id, email, stripe_customer_id').eq('clerk_user_id', candidateClerkId).maybeSingle();
+              if (data) prof = data;
+            }
+            if (!prof && customerEmail) {
+              const { data } = await supabase.from('profiles').select('id, clerk_user_id, email, stripe_customer_id').eq('email', customerEmail).maybeSingle();
+              if (data) prof = data;
+            }
+            if (!prof && customerId) {
+              const { data } = await supabase.from('profiles').select('id, clerk_user_id, email, stripe_customer_id').eq('stripe_customer_id', customerId).maybeSingle();
+              if (data) prof = data;
+            }
+
+            if (prof?.id && UUID_REGEX.test(prof.id)) {
               resolvedProfileId = prof.id;
               candidateClerkId = prof.clerk_user_id || candidateClerkId;
             }
@@ -101,11 +108,11 @@ export async function POST(req: NextRequest) {
             } catch {}
           }
 
-          // 1. Record / Upsert into subscriptions table with resolved profile.id UUID
+          // 1. Record / Upsert into subscriptions table with resolved profile.id UUID (only if valid UUID or null)
           try {
             await supabase.from('subscriptions').upsert([
               {
-                user_id: resolvedProfileId,
+                user_id: (resolvedProfileId && UUID_REGEX.test(resolvedProfileId)) ? resolvedProfileId : null,
                 stripe_customer_id: customerId,
                 stripe_subscription_id: subscriptionId,
                 status: initialStatus,
@@ -128,7 +135,7 @@ export async function POST(req: NextRequest) {
           if (subscriptionId) updatePayload.stripe_subscription_id = subscriptionId;
 
           let query = supabase.from('profiles').update(updatePayload);
-          if (resolvedProfileId) {
+          if (resolvedProfileId && UUID_REGEX.test(resolvedProfileId)) {
             query = query.eq('id', resolvedProfileId);
           } else if (candidateClerkId) {
             query = query.eq('clerk_user_id', candidateClerkId);
@@ -181,14 +188,33 @@ export async function POST(req: NextRequest) {
               .select('user_id')
               .eq('stripe_customer_id', customerId)
               .maybeSingle();
-            subUserId = existingSub?.user_id || subscription.metadata?.userId || subscription.metadata?.user_id || null;
+            if (existingSub?.user_id && UUID_REGEX.test(existingSub.user_id)) {
+              subUserId = existingSub.user_id;
+            }
+            if (!subUserId) {
+              const rawCandidate = subscription.metadata?.userId || subscription.metadata?.user_id || null;
+              if (rawCandidate && UUID_REGEX.test(rawCandidate)) {
+                subUserId = rawCandidate;
+              } else if (rawCandidate) {
+                const { data: profByClerk } = await supabase
+                  .from('profiles')
+                  .select('id')
+                  .eq('clerk_user_id', rawCandidate)
+                  .maybeSingle();
+                if (profByClerk?.id && UUID_REGEX.test(profByClerk.id)) {
+                  subUserId = profByClerk.id;
+                }
+              }
+            }
             if (!subUserId) {
               const { data: prof } = await supabase
                 .from('profiles')
                 .select('id')
                 .eq('stripe_customer_id', customerId)
                 .maybeSingle();
-              if (prof?.id) subUserId = prof.id;
+              if (prof?.id && UUID_REGEX.test(prof.id)) {
+                subUserId = prof.id;
+              }
             }
           } catch {}
 
